@@ -56,6 +56,37 @@ const CenaFlowCanvas = ({
         borderRadius: 2,
         overflow: 'hidden',
         background: 'var(--bg-secondary)',
+
+        '& .react-flow__controls': {
+          background: 'var(--bg-card)',
+          border: '1px solid var(--border-primary)',
+          borderRadius: 1,
+          overflow: 'hidden',
+          boxShadow: 'var(--shadow-md)',
+        },
+        '& .react-flow__controls-button': {
+          background: 'var(--bg-card)',
+          border: 'none',
+          borderBottom: '1px solid var(--border-primary)',
+          fill: 'var(--text-primary)',
+          color: 'var(--text-primary)',
+          '&:hover': {
+            background: 'var(--bg-secondary)',
+          },
+        },
+        '& .react-flow__minimap': {
+          background: 'var(--bg-card) !important',
+          border: '1px solid var(--border-primary)',
+          borderRadius: 1,
+          overflow: 'hidden',
+        },
+        '& .react-flow__minimap-mask': {
+          fill: 'rgba(5, 8, 22, 0.6)',
+        },
+        '& .react-flow__attribution': {
+          background: 'transparent',
+          color: 'var(--text-muted)',
+        },
       }}
     >
       <ReactFlow
