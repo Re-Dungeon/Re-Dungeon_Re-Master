@@ -1,0 +1,208 @@
+/* ============================================
+   RESET E VARIÁVEIS GLOBAIS
+   ============================================ */
+
+:root {
+  /* Cores Principais */
+  --color-primary: #6f2da8;
+  --color-primary-dark: #4a1a68;
+  --color-primary-light: #8b3fb5;
+
+  /* Cores Secundárias */
+  --color-secondary: #2d5a6f;
+  --color-accent: #00d9ff;
+  --color-accent-dark: #00a8cc;
+
+  /* Cores Neutras */
+  --color-dark: #0a0e27;
+  --color-darker: #050810;
+  --color-light: #f5f7fa;
+  --color-lighter: #ffffff;
+  --color-border: #1a2332;
+  --color-text: #e0e0e0;
+  --color-text-muted: #999999;
+
+  /* Cores Glassmorphism Premium */
+  --bg-primary: #050816;
+  --bg-secondary: #0b1020;
+  --bg-card: #10182b;
+
+  --accent-primary: #00d4ff;
+  --accent-secondary: #3b82f6;
+  --accent-glow: #60a5fa;
+
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+
+  --border-primary: rgba(96, 165, 250, 0.18);
+  --border-hover: rgba(96, 165, 250, 0.35);
+
+  /* Sombras */
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.4);
+
+  /* Espaçamentos */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+
+  /* Dimensões */
+  --sidebar-width: 280px;
+  --header-height: 70px;
+
+  /* Transições */
+  --transition-fast: 150ms ease-in-out;
+  --transition-normal: 250ms ease-in-out;
+  --transition-slow: 350ms ease-in-out;
+
+  /* Border Radius */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+}
+
+/* Reset */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color: var(--color-dark);
+  background-image: url('https://i.imgur.com/REkKA1N.png');
+  background-size: cover;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-attachment: fixed;
+  color: var(--color-text);
+  line-height: 1.6;
+  font-size: 14px;
+  overflow: hidden;
+}
+
+/* Scrollbar Customizado */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-darker);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-primary);
+  border-radius: var(--radius-md);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-primary-light);
+}
+
+/* Elementos Comuns */
+button {
+  cursor: pointer;
+  border: none;
+  background: none;
+  font-family: inherit;
+}
+
+a {
+  color: var(--color-accent);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+a:hover {
+  color: var(--color-accent-dark);
+}
+
+hr {
+  border: none;
+  border-top: 1px solid var(--color-border);
+  margin: var(--spacing-md) 0;
+}
+
+/* Layout Principal */
+.redungeon-container {
+  display: flex;
+  height: 100vh;
+  width: 100%;
+  background-color: transparent;
+}
+
+/* Tipografia */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-weight: 600;
+  color: var(--color-lighter);
+  margin-bottom: var(--spacing-md);
+}
+
+h1 {
+  font-size: 28px;
+}
+
+h2 {
+  font-size: 24px;
+}
+
+h3 {
+  font-size: 20px;
+}
+
+p {
+  color: var(--color-text);
+  margin-bottom: var(--spacing-md);
+}
+
+/* Utilidades */
+.hidden {
+  display: none !important;
+}
+
+.active {
+  display: block !important;
+}
+
+.flex {
+  display: flex;
+}
+
+.flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.flex-column {
+  display: flex;
+  flex-direction: column;
+}
+
+.gap-sm {
+  gap: var(--spacing-sm);
+}
+
+.gap-md {
+  gap: var(--spacing-md);
+}
+
+.gap-lg {
+  gap: var(--spacing-lg);
+}

@@ -1,0 +1,400 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helpers ────────────────────────────────────────────────────────────────
+
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    function perms() {
+      return get(/databases/$(database)/documents/userPermissions/$(request.auth.uid)).data;
+    }
+
+    function isAdmin() {
+      return isAuth() && perms().isAdmin == true;
+    }
+
+    function canWriteUniverso(universoId) {
+      return isAdmin() ||
+             (isAuth() && universoId in perms().universos);
+    }
+
+    // Aptidões, Regras e Condições podem pertencer a mais de um universo
+    // (`universos`, lista de ids); docs antigos ainda podem ter apenas o
+    // campo singular `universo`.
+    // Lista vazia é tratada como "sem universo" (não editável por não-admin):
+    // `[].hasOnly(x)` é vacuamente verdadeiro em CEL, então sem o check de
+    // `size() > 0` qualquer usuário autenticado — mesmo sem nenhum universo
+    // liberado — passaria nesta checagem.
+    function canWriteUniversos(universoIds) {
+      return isAdmin() ||
+             (isAuth() && universoIds.size() > 0 && universoIds.hasOnly(perms().universos));
+    }
+
+    // O fallback do campo singular `universo` só se aplica quando o doc não
+    // tem `universos` como lista — se `universos` existe (mesmo vazia), ela é
+    // a fonte da verdade. Sem essa exclusão, um doc migrado que ainda carrega
+    // os dois campos (`universos: [A,B,C]` e o antigo `universo: "A"`) seria
+    // liberado para quem só tem acesso a A, ignorando que B e C exigem
+    // permissão própria.
+    function canWriteMultiUniversoData(data) {
+      return isAdmin() ||
+        (isAuth() && (
+          (data.universos is list && data.universos.size() > 0 && data.universos.hasOnly(perms().universos)) ||
+          (!(data.universos is list) && data.universo is string && data.universo in perms().universos)
+        ));
+    }
+
+    // Permite atualizar só o campo `universos` (add/remove) de um doc
+    // multi-universo sem exigir acesso a todos os universos já presentes —
+    // basta ter acesso aos universos que estão sendo adicionados/removidos.
+    // Usado para permitir que um usuário associe/desassocie um doc (ex.:
+    // Aptidões) do(s) universo(s) que ele administra, mesmo que o doc já
+    // pertença a outros universos que ele não administra.
+    function canTogglePartialUniverso(antes, depois) {
+      return isAuth() &&
+        antes.universos is list && depois.universos is list &&
+        depois.diff(antes).affectedKeys().hasOnly(['universos', 'updatedAt']) &&
+        depois.universos.removeAll(antes.universos).hasOnly(perms().universos) &&
+        antes.universos.removeAll(depois.universos).hasOnly(perms().universos);
+    }
+
+    // ── userPermissions ────────────────────────────────────────────────────────
+    // Cada usuário só lê o próprio documento; apenas admins podem escrever.
+    match /userPermissions/{userId} {
+      allow read: if isAuth() && request.auth.uid == userId;
+      allow write: if isAdmin();
+    }
+
+    // ── Universo ───────────────────────────────────────────────────────────────
+    // Leitura para qualquer usuário autenticado; escrita apenas para admins.
+    match /Universo/{universoId} {
+      allow read: if isAuth();
+      allow write: if isAdmin();
+    }
+
+    // ── racas ──────────────────────────────────────────────────────────────────
+    // Leitura para qualquer usuário autenticado.
+    // Escrita (create/update/delete) baseada no campo `universo` do documento.
+    // - create: o universo do novo doc deve ser permitido ao usuário
+    // - update: o universo do doc antigo E do novo devem ser permitidos
+    //           (impede mover uma raça para outro universo sem permissão)
+    // - delete: o universo do doc existente deve ser permitido
+    match /racas/{racaId} {
+      allow read: if isAuth();
+      allow create: if canWriteUniverso(request.resource.data.universo);
+      allow update: if canWriteUniverso(resource.data.universo)
+                    && canWriteUniverso(request.resource.data.universo);
+      allow delete: if canWriteUniverso(resource.data.universo);
+    }
+
+    // ── classes ────────────────────────────────────────────────────────────────
+    match /classes/{classeId} {
+      allow read: if isAuth();
+      allow create: if canWriteUniverso(request.resource.data.universo);
+      allow update: if canWriteUniverso(resource.data.universo)
+                    && canWriteUniverso(request.resource.data.universo);
+      allow delete: if canWriteUniverso(resource.data.universo);
+    }
+
+    // ── materiais ──────────────────────────────────────────────────────────────
+    match /materiais/{materialId} {
+      allow read: if isAuth();
+      allow create: if canWriteUniverso(request.resource.data.universo);
+      allow update: if canWriteUniverso(resource.data.universo)
+                    && canWriteUniverso(request.resource.data.universo);
+      allow delete: if canWriteUniverso(resource.data.universo);
+    }
+
+    // ── itens ──────────────────────────────────────────────────────────────────
+    match /itens/{itemId} {
+      allow read: if isAuth();
+      allow create: if canWriteUniverso(request.resource.data.universo);
+      allow update: if canWriteUniverso(resource.data.universo)
+                    && canWriteUniverso(request.resource.data.universo);
+      allow delete: if canWriteUniverso(resource.data.universo);
+    }
+
+    // ── receitas ───────────────────────────────────────────────────────────────
+    match /receitas/{receitaId} {
+      allow read: if isAuth();
+      allow create: if canWriteUniverso(request.resource.data.universo);
+      allow update: if canWriteUniverso(resource.data.universo)
+                    && canWriteUniverso(request.resource.data.universo);
+      allow delete: if canWriteUniverso(resource.data.universo);
+    }
+
+    // ── condicoes ──────────────────────────────────────────────────────────────
+    // Escrita baseada no campo `universos` (lista de ids) do documento —
+    // condições podem pertencer a mais de um universo.
+    match /condicoes/{condicaoId} {
+      allow read: if isAuth();
+      allow create: if canWriteUniversos(request.resource.data.universos);
+      allow update: if canWriteMultiUniversoData(resource.data)
+                    && canWriteUniversos(request.resource.data.universos);
+      allow delete: if canWriteMultiUniversoData(resource.data);
+    }
+
+    // ── artes ──────────────────────────────────────────────────────────────────
+    match /artes/{arteId} {
+      allow read: if isAuth();
+      allow create: if canWriteUniverso(request.resource.data.universo);
+      allow update: if canWriteUniverso(resource.data.universo)
+                    && canWriteUniverso(request.resource.data.universo);
+      allow delete: if canWriteUniverso(resource.data.universo);
+    }
+
+    // ── origens ────────────────────────────────────────────────────────────────
+    match /origens/{origemId} {
+      allow read: if isAuth();
+      allow create: if canWriteUniverso(request.resource.data.universo);
+      allow update: if canWriteUniverso(resource.data.universo)
+                    && canWriteUniverso(request.resource.data.universo);
+      allow delete: if canWriteUniverso(resource.data.universo);
+    }
+
+    // ── regras ─────────────────────────────────────────────────────────────────
+    // Escrita baseada no campo `universos` (lista de ids) do documento —
+    // regras podem pertencer a mais de um universo.
+    match /regras/{regraId} {
+      allow read: if isAuth();
+      allow create: if canWriteUniversos(request.resource.data.universos);
+      allow update: if canWriteMultiUniversoData(resource.data)
+                    && canWriteUniversos(request.resource.data.universos);
+      allow delete: if canWriteMultiUniversoData(resource.data);
+    }
+
+    // ── cardflux ───────────────────────────────────────────────────────────────
+    match /cardflux/{cardFluxId} {
+      allow read: if isAuth();
+      allow create: if canWriteUniverso(request.resource.data.universo);
+      allow update: if canWriteUniverso(resource.data.universo)
+                    && canWriteUniverso(request.resource.data.universo);
+      allow delete: if canWriteUniverso(resource.data.universo);
+    }
+
+    // ── veiasAstrais ───────────────────────────────────────────────────────────
+    match /veiasAstrais/{veiaAstralId} {
+      allow read: if isAuth();
+      allow create: if canWriteUniverso(request.resource.data.universo);
+      allow update: if canWriteUniverso(resource.data.universo)
+                    && canWriteUniverso(request.resource.data.universo);
+      allow delete: if canWriteUniverso(resource.data.universo);
+    }
+
+    // ── divindades ─────────────────────────────────────────────────────────────
+    match /divindades/{divindadeId} {
+      allow read: if isAuth();
+      allow create: if canWriteUniverso(request.resource.data.universo);
+      allow update: if canWriteUniverso(resource.data.universo)
+                    && canWriteUniverso(request.resource.data.universo);
+      allow delete: if canWriteUniverso(resource.data.universo);
+    }
+
+    // ── aptidoes ───────────────────────────────────────────────────────────────
+    // Escrita baseada no campo `universos` (lista de ids) do documento —
+    // aptidões podem pertencer a mais de um universo.
+    match /aptidoes/{aptidaoId} {
+      allow read: if isAuth();
+      allow create: if canWriteUniversos(request.resource.data.universos);
+      allow update: if (canWriteMultiUniversoData(resource.data)
+                    && canWriteUniversos(request.resource.data.universos))
+                    || canTogglePartialUniverso(resource.data, request.resource.data);
+      allow delete: if canWriteMultiUniversoData(resource.data);
+    }
+
+    // ── corposEspeciais ──────────────────────────────────────────────────────
+    match /corposEspeciais/{corpoEspecialId} {
+      allow read: if isAuth();
+      allow create: if canWriteUniverso(request.resource.data.universo);
+      allow update: if canWriteUniverso(resource.data.universo)
+                    && canWriteUniverso(request.resource.data.universo);
+      allow delete: if canWriteUniverso(resource.data.universo);
+    }
+
+    // ── reinosCultivo ────────────────────────────────────────────────────────
+    match /reinosCultivo/{reinoCultivoId} {
+      allow read: if isAuth();
+      allow create: if canWriteUniverso(request.resource.data.universo);
+      allow update: if canWriteUniverso(resource.data.universo)
+                    && canWriteUniverso(request.resource.data.universo);
+      allow delete: if canWriteUniverso(resource.data.universo);
+    }
+
+    // ── personagens ──────────────────────────────────────────────────────
+    // Cada usuário só escreve os próprios personagens (uid == request.auth.uid).
+    // Leitura: ficha de "Personagem Jogável" continua privada ao dono; NPC e
+    // Criatura são legíveis por qualquer autenticado, pois servem de conteúdo
+    // de referência para o Re:Master importar (get(...,'tipo', default) trata
+    // documentos antigos sem o campo `tipo` como Personagem Jogável).
+    match /personagens/{personagemId} {
+      allow read: if isAuth() && (
+        resource.data.uid == request.auth.uid ||
+        resource.data.get('tipo', 'Personagem Jogável') != 'Personagem Jogável'
+      );
+      allow create: if isAuth() && request.resource.data.uid == request.auth.uid;
+      allow update: if isAuth() && resource.data.uid == request.auth.uid
+                    && request.resource.data.uid == request.auth.uid;
+      allow delete: if isAuth() && resource.data.uid == request.auth.uid;
+
+      // Subcoleções (aptidoesAdquiridas, arts, historicoSorte — Fases futuras)
+      // herdam a mesma checagem, validando o uid do documento pai.
+      match /{subcolecao}/{docId} {
+        allow read, write: if isAuth()
+          && get(/databases/$(database)/documents/personagens/$(personagemId)).data.uid
+             == request.auth.uid;
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Re:Master — coleções novas (prefixo `rm`), acrescentadas sem alterar
+    // nenhuma linha acima. Diferente das coleções do Re-Dungeon (públicas
+    // para qualquer autenticado), o conteúdo do Re:Master é privado do
+    // mestre — sem visão de jogador em nenhum dos módulos atuais — então
+    // leitura E escrita ficam restritas ao mestre dono da campanha.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    // Cada Campanha (e tudo vinculado a ela) é privada ao mestre que a criou,
+    // mesmo que outro colaborador tenha acesso de escrita ao mesmo Universo —
+    // evita que dois mestres rodando campanhas diferentes no mesmo mundo
+    // vejam segredos de NPC/consequências um do outro.
+    function isCampanhaOwner(mestreId) {
+      return isAuth() && mestreId == request.auth.uid;
+    }
+
+    // Todo documento das coleções abaixo denormaliza `universoId` e
+    // `mestreId` (evita `get()` extra por regra), então a checagem é sempre a
+    // mesma — só muda o nome da coleção.
+    match /rmCampanhas/{docId} {
+      allow read: if isAdmin() ||
+        (canWriteUniverso(resource.data.universoId) && isCampanhaOwner(resource.data.mestreId));
+      allow create: if canWriteUniverso(request.resource.data.universoId)
+                    && isCampanhaOwner(request.resource.data.mestreId);
+      allow update: if isAdmin() ||
+        (canWriteUniverso(resource.data.universoId) && isCampanhaOwner(resource.data.mestreId)
+         && canWriteUniverso(request.resource.data.universoId)
+         && isCampanhaOwner(request.resource.data.mestreId));
+      allow delete: if isAdmin() ||
+        (canWriteUniverso(resource.data.universoId) && isCampanhaOwner(resource.data.mestreId));
+    }
+
+    match /rmCenas/{docId} {
+      allow read: if isAdmin() ||
+        (canWriteUniverso(resource.data.universoId) && isCampanhaOwner(resource.data.mestreId));
+      allow create: if canWriteUniverso(request.resource.data.universoId)
+                    && isCampanhaOwner(request.resource.data.mestreId);
+      allow update: if isAdmin() ||
+        (canWriteUniverso(resource.data.universoId) && isCampanhaOwner(resource.data.mestreId)
+         && canWriteUniverso(request.resource.data.universoId)
+         && isCampanhaOwner(request.resource.data.mestreId));
+      allow delete: if isAdmin() ||
+        (canWriteUniverso(resource.data.universoId) && isCampanhaOwner(resource.data.mestreId));
+    }
+
+    match /rmCenaConexoes/{docId} {
+      allow read: if isAdmin() ||
+        (canWriteUniverso(resource.data.universoId) && isCampanhaOwner(resource.data.mestreId));
+      allow create: if canWriteUniverso(request.resource.data.universoId)
+                    && isCampanhaOwner(request.resource.data.mestreId);
+      allow update: if isAdmin() ||
+        (canWriteUniverso(resource.data.universoId) && isCampanhaOwner(resource.data.mestreId)
+         && canWriteUniverso(request.resource.data.universoId)
+         && isCampanhaOwner(request.resource.data.mestreId));
+      allow delete: if isAdmin() ||
+        (canWriteUniverso(resource.data.universoId) && isCampanhaOwner(resource.data.mestreId));
+    }
+
+    match /rmNpcs/{docId} {
+      allow read: if isAdmin() ||
+        (canWriteUniverso(resource.data.universoId) && isCampanhaOwner(resource.data.mestreId));
+      allow create: if canWriteUniverso(request.resource.data.universoId)
+                    && isCampanhaOwner(request.resource.data.mestreId);
+      allow update: if isAdmin() ||
+        (canWriteUniverso(resource.data.universoId) && isCampanhaOwner(resource.data.mestreId)
+         && canWriteUniverso(request.resource.data.universoId)
+         && isCampanhaOwner(request.resource.data.mestreId));
+      allow delete: if isAdmin() ||
+        (canWriteUniverso(resource.data.universoId) && isCampanhaOwner(resource.data.mestreId));
+    }
+
+    match /rmCriaturas/{docId} {
+      allow read: if isAdmin() ||
+        (canWriteUniverso(resource.data.universoId) && isCampanhaOwner(resource.data.mestreId));
+      allow create: if canWriteUniverso(request.resource.data.universoId)
+                    && isCampanhaOwner(request.resource.data.mestreId);
+      allow update: if isAdmin() ||
+        (canWriteUniverso(resource.data.universoId) && isCampanhaOwner(resource.data.mestreId)
+         && canWriteUniverso(request.resource.data.universoId)
+         && isCampanhaOwner(request.resource.data.mestreId));
+      allow delete: if isAdmin() ||
+        (canWriteUniverso(resource.data.universoId) && isCampanhaOwner(resource.data.mestreId));
+    }
+
+    match /rmMapas/{docId} {
+      allow read: if isAdmin() ||
+        (canWriteUniverso(resource.data.universoId) && isCampanhaOwner(resource.data.mestreId));
+      allow create: if canWriteUniverso(request.resource.data.universoId)
+                    && isCampanhaOwner(request.resource.data.mestreId);
+      allow update: if isAdmin() ||
+        (canWriteUniverso(resource.data.universoId) && isCampanhaOwner(resource.data.mestreId)
+         && canWriteUniverso(request.resource.data.universoId)
+         && isCampanhaOwner(request.resource.data.mestreId));
+      allow delete: if isAdmin() ||
+        (canWriteUniverso(resource.data.universoId) && isCampanhaOwner(resource.data.mestreId));
+    }
+
+    match /rmMissoes/{docId} {
+      allow read: if isAdmin() ||
+        (canWriteUniverso(resource.data.universoId) && isCampanhaOwner(resource.data.mestreId));
+      allow create: if canWriteUniverso(request.resource.data.universoId)
+                    && isCampanhaOwner(request.resource.data.mestreId);
+      allow update: if isAdmin() ||
+        (canWriteUniverso(resource.data.universoId) && isCampanhaOwner(resource.data.mestreId)
+         && canWriteUniverso(request.resource.data.universoId)
+         && isCampanhaOwner(request.resource.data.mestreId));
+      allow delete: if isAdmin() ||
+        (canWriteUniverso(resource.data.universoId) && isCampanhaOwner(resource.data.mestreId));
+    }
+
+    match /rmCardfluxBaralhos/{docId} {
+      allow read: if isAdmin() ||
+        (canWriteUniverso(resource.data.universoId) && isCampanhaOwner(resource.data.mestreId));
+      allow create: if canWriteUniverso(request.resource.data.universoId)
+                    && isCampanhaOwner(request.resource.data.mestreId);
+      allow update: if isAdmin() ||
+        (canWriteUniverso(resource.data.universoId) && isCampanhaOwner(resource.data.mestreId)
+         && canWriteUniverso(request.resource.data.universoId)
+         && isCampanhaOwner(request.resource.data.mestreId));
+      allow delete: if isAdmin() ||
+        (canWriteUniverso(resource.data.universoId) && isCampanhaOwner(resource.data.mestreId));
+    }
+
+    match /rmCardfluxCartas/{docId} {
+      allow read: if isAdmin() ||
+        (canWriteUniverso(resource.data.universoId) && isCampanhaOwner(resource.data.mestreId));
+      allow create: if canWriteUniverso(request.resource.data.universoId)
+                    && isCampanhaOwner(request.resource.data.mestreId);
+      allow update: if isAdmin() ||
+        (canWriteUniverso(resource.data.universoId) && isCampanhaOwner(resource.data.mestreId)
+         && canWriteUniverso(request.resource.data.universoId)
+         && isCampanhaOwner(request.resource.data.mestreId));
+      allow delete: if isAdmin() ||
+        (canWriteUniverso(resource.data.universoId) && isCampanhaOwner(resource.data.mestreId));
+    }
+
+    match /rmNotas/{docId} {
+      allow read: if isAdmin() ||
+        (canWriteUniverso(resource.data.universoId) && isCampanhaOwner(resource.data.mestreId));
+      allow create: if canWriteUniverso(request.resource.data.universoId)
+                    && isCampanhaOwner(request.resource.data.mestreId);
+      allow update: if isAdmin() ||
+        (canWriteUniverso(resource.data.universoId) && isCampanhaOwner(resource.data.mestreId)
+         && canWriteUniverso(request.resource.data.universoId)
+         && isCampanhaOwner(request.resource.data.mestreId));
+      allow delete: if isAdmin() ||
+        (canWriteUniverso(resource.data.universoId) && isCampanhaOwner(resource.data.mestreId));
+    }
+  }
+}

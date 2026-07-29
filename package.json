@@ -1,0 +1,52 @@
+{
+  "name": "re-master",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "eslint": "eslint src/",
+    "eslint-fix": "eslint src/ --fix",
+    "lint": "eslint src/",
+    "prettier": "prettier --write src/**/*.{js,jsx}",
+    "test": "vitest"
+  },
+  "dependencies": {
+    "@dagrejs/dagre": "^1.1.4",
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@mui/icons-material": "^9.1.1",
+    "@mui/material": "^9.1.2",
+    "@xyflow/react": "^12.3.6",
+    "firebase": "^12.15.0",
+    "formik": "^2.4.9",
+    "prop-types": "^15.8.1",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "react-router-dom": "^7.18.0",
+    "styled-components": "^6.4.3",
+    "yup": "^1.7.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.4",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^6.0.3",
+    "eslint": "^9.39.4",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-jsx-a11y": "^6.10.2",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.4.26",
+    "globals": "^14.0.0",
+    "jsdom": "^29.1.1",
+    "prettier": "^3.9.1",
+    "vite": "^8.1.0",
+    "vitest": "^4.1.10"
+  }
+}
