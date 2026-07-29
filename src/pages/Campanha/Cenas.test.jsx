@@ -35,6 +35,7 @@ const createConexao = vi.fn();
 const updateCena = vi.fn();
 const removeCena = vi.fn();
 const setSelectedCenaId = vi.fn();
+const recarregarGrafo = vi.fn();
 let grafoState = {};
 vi.mock('./useCampanhaGrafo', () => ({
   default: () => grafoState,
@@ -104,6 +105,8 @@ describe('Cenas (grafo da campanha ativa)', () => {
       nodes: CENAS_MOCK.map(c => ({ id: c.id, data: { cena: c } })),
       edges: [],
       loading: false,
+      error: null,
+      recarregar: recarregarGrafo,
       selectedCenaId: null,
       setSelectedCenaId,
       moveCenaLocal,
@@ -218,5 +221,16 @@ describe('Cenas (grafo da campanha ativa)', () => {
     renderCenas({ selecionarCenaId: 'cena2' });
 
     expect(setSelectedCenaId).toHaveBeenCalledWith('cena2');
+  });
+
+  it('mostra o erro de carregamento do grafo e permite tentar de novo', async () => {
+    grafoState = { ...grafoState, error: new Error('offline') };
+    const user = userEvent.setup();
+    renderCenas();
+
+    expect(screen.getByText('Erro ao carregar as cenas.')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Tentar novamente' }));
+
+    expect(recarregarGrafo).toHaveBeenCalled();
   });
 });

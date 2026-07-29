@@ -5,7 +5,7 @@ import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import { ESTADO_CENA_OPCOES } from './cenaUtils';
 
-const CenaNode = ({ data, selected }) => {
+const CenaNode = ({ data, selected = false }) => {
   const { cena, cor } = data;
   const estado = ESTADO_CENA_OPCOES.find(o => o.value === cena.estado);
   const concluido = cena.estado === 'concluido';
@@ -79,10 +79,6 @@ CenaNode.propTypes = {
     cor: PropTypes.string,
   }).isRequired,
   selected: PropTypes.bool,
-};
-
-CenaNode.defaultProps = {
-  selected: false,
 };
 
 export default memo(CenaNode);

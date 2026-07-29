@@ -50,6 +50,7 @@ const useCampanhaGrafo = campanha => {
   const [cenas, setCenas] = useState([]);
   const [conexoes, setConexoes] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [selectedCenaId, setSelectedCenaId] = useState(null);
 
   const carregar = useCallback(() => {
@@ -57,14 +58,17 @@ const useCampanhaGrafo = campanha => {
       setCenas([]);
       setConexoes([]);
       setLoading(false);
+      setError(null);
       return Promise.resolve();
     }
     setLoading(true);
+    setError(null);
     return Promise.all([getRmCenas(), getRmCenaConexoes()])
       .then(([todasCenas, todasConexoes]) => {
         setCenas(todasCenas.filter(c => c.campanhaId === campanhaId));
         setConexoes(todasConexoes.filter(c => c.campanhaId === campanhaId));
       })
+      .catch(err => setError(err))
       .finally(() => setLoading(false));
   }, [campanhaId]);
 
@@ -169,6 +173,7 @@ const useCampanhaGrafo = campanha => {
     nodes,
     edges,
     loading,
+    error,
     selectedCenaId,
     setSelectedCenaId,
     moveCenaLocal,

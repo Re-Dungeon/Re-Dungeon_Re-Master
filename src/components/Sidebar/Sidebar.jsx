@@ -21,7 +21,8 @@ import {
 
 const Sidebar = () => {
   const [loginModalOpen, setLoginModalOpen] = useState(false);
-  const { currentUser, logout } = useAuth();
+  const { currentUser, logout, isAdmin, allowedUniversos, loadingPermissions } = useAuth();
+  const temAcessoAUniverso = isAdmin || allowedUniversos.length > 0;
 
   const handleUserButtonClick = () => {
     if (currentUser) {
@@ -32,7 +33,7 @@ const Sidebar = () => {
   };
 
   return (
-    <SidebarWrapper id="redungeon-sidebar">
+    <SidebarWrapper id="remaster-sidebar">
       <LogoSection>
         <Box
           sx={{
@@ -74,7 +75,16 @@ const Sidebar = () => {
       </LogoSection>
 
       <Box sx={{ flex: 1, overflowY: 'auto', py: 1 }}>
-        {currentUser && (
+        {currentUser && !loadingPermissions && !temAcessoAUniverso && (
+          <Box sx={{ px: 2, py: 1.5 }}>
+            <Typography variant="body2" sx={{ color: 'var(--text-secondary)' }}>
+              Você ainda não tem acesso a nenhum Universo. Peça para um admin
+              liberar seu acesso para usar o Re:Master.
+            </Typography>
+          </Box>
+        )}
+
+        {currentUser && !loadingPermissions && temAcessoAUniverso && (
           <>
             <List disablePadding>
               {NAV_ITEMS.map(item => (

@@ -17,8 +17,8 @@ const CenaFlowCanvas = ({
   onNodeClick,
   onConnect,
   onNovaCena,
-  height,
-  compact,
+  height = '70vh',
+  compact = false,
 }) => {
   const handleNodesChange = useCallback(
     changes => {
@@ -107,11 +107,6 @@ CenaFlowCanvas.propTypes = {
   onNovaCena: PropTypes.func.isRequired,
   height: PropTypes.string,
   compact: PropTypes.bool,
-};
-
-CenaFlowCanvas.defaultProps = {
-  height: '70vh',
-  compact: false,
 };
 
 export default CenaFlowCanvas;

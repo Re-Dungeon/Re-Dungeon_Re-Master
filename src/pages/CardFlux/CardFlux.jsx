@@ -18,6 +18,7 @@ import {
 } from 'service/storage';
 import useEntityCRUD from 'hooks/useEntityCRUD';
 import EntityViewDialog from 'components/EntityViewDialog/EntityViewDialog';
+import ListLoadError from 'components/ListLoadError/ListLoadError';
 import { ROUTE_PATHS } from 'common/constants/routes';
 import { TIPO_CARTA_OPCOES } from './cartaUtils';
 
@@ -43,11 +44,14 @@ const CardFlux = () => {
   const {
     items: baralhos,
     loading: loadingBaralhos,
+    error: errorBaralhos,
+    reload: reloadBaralhos,
     remove: handleRemoveBaralho,
   } = useEntityCRUD({ getAll: getBaralhosDaCampanha, remove: removeRmCardfluxBaralho });
 
   const [cartas, setCartas] = useState([]);
   const [loadingCartas, setLoadingCartas] = useState(true);
+  const [errorCartas, setErrorCartas] = useState(null);
   const [cartaSorteada, setCartaSorteada] = useState(null);
 
   const carregarCartas = useCallback(async () => {
@@ -57,9 +61,12 @@ const CardFlux = () => {
       return;
     }
     setLoadingCartas(true);
+    setErrorCartas(null);
     try {
       const todas = await getRmCardfluxCartas();
       setCartas(todas.filter(c => c.campanhaId === campanhaAtiva.id));
+    } catch (err) {
+      setErrorCartas(err);
     } finally {
       setLoadingCartas(false);
     }
@@ -76,7 +83,13 @@ const CardFlux = () => {
   if (!campanhaAtiva && !loadingCampanhas) return null;
 
   const loading = loadingCampanhas || loadingBaralhos || loadingCartas;
+  const error = errorBaralhos || errorCartas;
   const podeEscrever = campanhaAtiva ? canWrite(campanhaAtiva.universoId) : false;
+
+  const handleRetry = () => {
+    reloadBaralhos();
+    carregarCartas();
+  };
 
   const handlePuxarCarta = async baralho => {
     const disponiveis = cartas.filter(
@@ -128,6 +141,8 @@ const CardFlux = () => {
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
           <CircularProgress sx={{ color: 'var(--color-accent)' }} />
         </Box>
+      ) : error ? (
+        <ListLoadError mensagem="Erro ao carregar o CardFlux." onRetry={handleRetry} />
       ) : baralhos.length === 0 ? (
         <Box className="empty-state">
           <span className="empty-state-icon">🃏</span>

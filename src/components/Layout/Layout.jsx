@@ -6,11 +6,11 @@ import { AppContainer, MainWrapper, ContentWrapper } from './styles';
 
 const Layout = () => {
   return (
-    <AppContainer className="redungeon-container">
+    <AppContainer className="remaster-container">
       <Sidebar />
-      <MainWrapper className="redungeon-main" id="redungeon-main">
+      <MainWrapper className="remaster-main" id="remaster-main">
         <Header />
-        <ContentWrapper className="redungeon-content" id="redungeon-content">
+        <ContentWrapper className="remaster-content" id="remaster-content">
           <Outlet />
         </ContentWrapper>
       </MainWrapper>

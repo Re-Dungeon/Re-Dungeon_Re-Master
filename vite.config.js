@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react';
 import { fileURLToPath, URL } from 'url';
 
 export default defineConfig({
-  base: '/Re-Dungeon-Escudo-do-Mestre/',
+  base: '/Re-Dungeon_Re-Master/',
   plugins: [react()],
   resolve: {
     alias: {

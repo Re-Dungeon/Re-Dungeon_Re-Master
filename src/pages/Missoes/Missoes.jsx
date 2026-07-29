@@ -13,6 +13,7 @@ import { useAuth } from 'context/AuthContext';
 import { useCampanha } from 'context/CampanhaContext';
 import { getRmMissoes, removeRmMissao } from 'service/storage';
 import useEntityCRUD from 'hooks/useEntityCRUD';
+import ListLoadError from 'components/ListLoadError/ListLoadError';
 import { ROUTE_PATHS } from 'common/constants/routes';
 import { STATUS_MISSAO_OPCOES } from './missaoUtils';
 
@@ -38,6 +39,8 @@ const Missoes = () => {
   const {
     items: missoes,
     loading: loadingMissoes,
+    error: errorMissoes,
+    reload: reloadMissoes,
     remove: handleRemoveMissao,
   } = useEntityCRUD({ getAll: getMissoesDaCampanha, remove: removeRmMissao });
 
@@ -83,6 +86,8 @@ const Missoes = () => {
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
           <CircularProgress sx={{ color: 'var(--color-accent)' }} />
         </Box>
+      ) : errorMissoes ? (
+        <ListLoadError mensagem="Erro ao carregar as missões." onRetry={reloadMissoes} />
       ) : missoes.length === 0 ? (
         <Box className="empty-state">
           <span className="empty-state-icon">📜</span>

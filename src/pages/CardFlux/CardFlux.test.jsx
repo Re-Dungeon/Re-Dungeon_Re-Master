@@ -124,4 +124,19 @@ describe('CardFlux (lista de baralhos da campanha ativa)', () => {
     expect(screen.getByText('Baralho esgotado')).toBeInTheDocument();
     expect(updateRmCardfluxCarta).not.toHaveBeenCalled();
   });
+
+  it('mostra o erro de carregamento quando os baralhos falham e permite tentar de novo', async () => {
+    getRmCardfluxBaralhos.mockRejectedValueOnce(new Error('offline'));
+    const user = userEvent.setup();
+    renderCardFlux();
+
+    await waitFor(() =>
+      expect(screen.getByText('Erro ao carregar o CardFlux.')).toBeInTheDocument(),
+    );
+
+    getRmCardfluxBaralhos.mockResolvedValue(BARALHOS_MOCK);
+    await user.click(screen.getByRole('button', { name: 'Tentar novamente' }));
+
+    await waitFor(() => expect(screen.getByText('Eventos de Estrada')).toBeInTheDocument());
+  });
 });

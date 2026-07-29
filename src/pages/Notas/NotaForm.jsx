@@ -44,7 +44,14 @@ const sectionSx = {
   borderRadius: 2,
 };
 
-const NotaForm = ({ initialValues, campanhaId, onSubmit, onCancelar, labelSalvar, idPrefix }) => {
+const NotaForm = ({
+  initialValues,
+  campanhaId = null,
+  onSubmit,
+  onCancelar,
+  labelSalvar,
+  idPrefix,
+}) => {
   const cenaLabelId = `${idPrefix}-cena-label`;
   const [cenas, setCenas] = useState([]);
 
@@ -145,10 +152,6 @@ NotaForm.propTypes = {
   onCancelar: PropTypes.func.isRequired,
   labelSalvar: PropTypes.string.isRequired,
   idPrefix: PropTypes.string.isRequired,
-};
-
-NotaForm.defaultProps = {
-  campanhaId: null,
 };
 
 export default NotaForm;

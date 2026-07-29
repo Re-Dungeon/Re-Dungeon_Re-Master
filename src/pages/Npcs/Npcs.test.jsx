@@ -77,4 +77,19 @@ describe('Npcs (lista da campanha ativa)', () => {
     expect(screen.queryByLabelText('Editar NPC Grumnak, o Orc')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '+ Novo NPC' })).not.toBeInTheDocument();
   });
+
+  it('mostra o erro de carregamento e permite tentar de novo', async () => {
+    getRmNpcs.mockRejectedValueOnce(new Error('offline'));
+    const user = userEvent.setup();
+    renderNpcs();
+
+    await waitFor(() =>
+      expect(screen.getByText('Erro ao carregar os NPCs.')).toBeInTheDocument(),
+    );
+
+    getRmNpcs.mockResolvedValue(NPCS_MOCK);
+    await user.click(screen.getByRole('button', { name: 'Tentar novamente' }));
+
+    await waitFor(() => expect(screen.getByText('Grumnak, o Orc')).toBeInTheDocument());
+  });
 });

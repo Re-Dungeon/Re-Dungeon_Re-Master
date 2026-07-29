@@ -7,6 +7,7 @@ import CircularProgress from '@mui/material/CircularProgress';
 import { useAuth } from 'context/AuthContext';
 import { useCampanha } from 'context/CampanhaContext';
 import { updateRmCampanha } from 'service/storage';
+import ListLoadError from 'components/ListLoadError/ListLoadError';
 import { ROUTE_PATHS } from 'common/constants/routes';
 import useCampanhaGrafo from './useCampanhaGrafo';
 import CenaFlowCanvas from './CenaFlowCanvas';
@@ -23,6 +24,8 @@ const Cenas = () => {
     nodes,
     edges,
     loading: loadingGrafo,
+    error: errorGrafo,
+    recarregar: recarregarGrafo,
     selectedCenaId,
     setSelectedCenaId,
     moveCenaLocal,
@@ -112,6 +115,8 @@ const Cenas = () => {
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
           <CircularProgress sx={{ color: 'var(--color-accent)' }} />
         </Box>
+      ) : errorGrafo ? (
+        <ListLoadError mensagem="Erro ao carregar as cenas." onRetry={recarregarGrafo} />
       ) : cenas.length === 0 ? (
         <Box className="empty-state">
           <span className="empty-state-icon">🎬</span>

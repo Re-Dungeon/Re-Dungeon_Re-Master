@@ -23,9 +23,11 @@ const Consumidor = () => {
   const {
     campanhas,
     loadingCampanhas,
+    errorCampanhas,
     campanhaAtivaId,
     campanhaAtiva,
     setCampanhaAtiva,
+    recarregarCampanhas,
   } = useCampanha();
 
   if (loadingCampanhas) return <div>Carregando...</div>;
@@ -37,12 +39,14 @@ const Consumidor = () => {
       <div data-testid="campanha-ativa-nome">
         {campanhaAtiva?.nome ?? 'nenhuma'}
       </div>
+      {errorCampanhas && <div data-testid="erro-campanhas">com erro</div>}
       {campanhas.map(c => (
         <button key={c.id} onClick={() => setCampanhaAtiva(c.id)}>
           Selecionar {c.nome}
         </button>
       ))}
       <button onClick={() => setCampanhaAtiva(null)}>Limpar seleção</button>
+      <button onClick={() => recarregarCampanhas()}>Recarregar</button>
     </div>
   );
 };
@@ -132,5 +136,44 @@ describe('CampanhaContext', () => {
       ),
     );
     expect(localStorage.getItem('remaster_campanha_ativa_id')).toBeNull();
+  });
+
+  it('expõe errorCampanhas quando o Firestore falha, sem travar em loading', async () => {
+    getRmCampanhas.mockRejectedValue(new Error('permission-denied'));
+    renderComProvider();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('erro-campanhas')).toBeInTheDocument(),
+    );
+    expect(screen.getByTestId('campanhas-count')).toHaveTextContent('0');
+  });
+
+  it('não apaga um id de campanha ativa salvo quando o carregamento falha (só quando a campanha realmente não existe)', async () => {
+    localStorage.setItem('remaster_campanha_ativa_id', 'c1');
+    getRmCampanhas.mockRejectedValue(new Error('offline'));
+    renderComProvider();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('erro-campanhas')).toBeInTheDocument(),
+    );
+    expect(localStorage.getItem('remaster_campanha_ativa_id')).toBe('c1');
+  });
+
+  it('recarregarCampanhas tenta de novo e limpa o erro quando dá certo', async () => {
+    getRmCampanhas.mockRejectedValueOnce(new Error('offline'));
+    const user = userEvent.setup();
+    renderComProvider();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('erro-campanhas')).toBeInTheDocument(),
+    );
+
+    getRmCampanhas.mockResolvedValue(CAMPANHAS_MOCK);
+    await user.click(screen.getByText('Recarregar'));
+
+    await waitFor(() =>
+      expect(screen.queryByTestId('erro-campanhas')).not.toBeInTheDocument(),
+    );
+    expect(screen.getByTestId('campanhas-count')).toHaveTextContent('1');
   });
 });

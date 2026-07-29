@@ -12,6 +12,7 @@ import { useAuth } from 'context/AuthContext';
 import { useCampanha } from 'context/CampanhaContext';
 import { removeRmCampanha } from 'service/storage';
 import useUniversos from 'hooks/useUniversos';
+import ListLoadError from 'components/ListLoadError/ListLoadError';
 import { ROUTE_PATHS } from 'common/constants/routes';
 import { CampanhaCard, CampanhaCardAtiva } from './styles';
 
@@ -21,6 +22,7 @@ const Campanha = () => {
   const {
     campanhas,
     loadingCampanhas,
+    errorCampanhas,
     campanhaAtivaId,
     setCampanhaAtiva,
     recarregarCampanhas,
@@ -73,6 +75,11 @@ const Campanha = () => {
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
           <CircularProgress sx={{ color: 'var(--color-accent)' }} />
         </Box>
+      ) : errorCampanhas ? (
+        <ListLoadError
+          mensagem="Erro ao carregar as campanhas."
+          onRetry={recarregarCampanhas}
+        />
       ) : campanhas.length === 0 ? (
         <Box className="empty-state">
           <span className="empty-state-icon">🗺️</span>

@@ -49,7 +49,14 @@ const sectionSx = {
   borderRadius: 2,
 };
 
-const MissaoForm = ({ initialValues, campanhaId, onSubmit, onCancelar, labelSalvar, idPrefix }) => {
+const MissaoForm = ({
+  initialValues,
+  campanhaId = null,
+  onSubmit,
+  onCancelar,
+  labelSalvar,
+  idPrefix,
+}) => {
   const objetivosKeys = useStableListKeys(initialValues.objetivos.length);
   const recompensasKeys = useStableListKeys(initialValues.recompensas.length);
   const statusLabelId = `${idPrefix}-status-label`;
@@ -366,10 +373,6 @@ MissaoForm.propTypes = {
   onCancelar: PropTypes.func.isRequired,
   labelSalvar: PropTypes.string.isRequired,
   idPrefix: PropTypes.string.isRequired,
-};
-
-MissaoForm.defaultProps = {
-  campanhaId: null,
 };
 
 export default MissaoForm;

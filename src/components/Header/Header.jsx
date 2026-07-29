@@ -9,7 +9,7 @@ const Header = () => {
   const title = PAGE_TITLES[location.pathname] || 'Re:Master';
 
   return (
-    <StyledAppBar id="redungeon-header">
+    <StyledAppBar id="remaster-header">
       <Toolbar
         sx={{
           justifyContent: 'space-between',

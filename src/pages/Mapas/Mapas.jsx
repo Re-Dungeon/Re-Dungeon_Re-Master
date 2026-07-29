@@ -13,6 +13,7 @@ import { useAuth } from 'context/AuthContext';
 import { useCampanha } from 'context/CampanhaContext';
 import { getRmMapas, removeRmMapa } from 'service/storage';
 import useEntityCRUD from 'hooks/useEntityCRUD';
+import ListLoadError from 'components/ListLoadError/ListLoadError';
 import { ROUTE_PATHS } from 'common/constants/routes';
 import { MAPA_CATEGORIA_OPCOES } from './mapaUtils';
 
@@ -36,6 +37,8 @@ const Mapas = () => {
   const {
     items: mapas,
     loading: loadingMapas,
+    error: errorMapas,
+    reload: reloadMapas,
     remove: handleRemoveMapa,
   } = useEntityCRUD({ getAll: getMapasDaCampanha, remove: removeRmMapa });
 
@@ -81,6 +84,8 @@ const Mapas = () => {
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
           <CircularProgress sx={{ color: 'var(--color-accent)' }} />
         </Box>
+      ) : errorMapas ? (
+        <ListLoadError mensagem="Erro ao carregar os mapas." onRetry={reloadMapas} />
       ) : mapas.length === 0 ? (
         <Box className="empty-state">
           <span className="empty-state-icon">🖼️</span>

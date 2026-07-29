@@ -148,4 +148,82 @@ describe('useCampanhaGrafo', () => {
     expect(getRmCenas).not.toHaveBeenCalled();
     expect(result.current.cenas).toEqual([]);
   });
+
+  it('expõe o erro quando o Firestore falha, sem travar em loading', async () => {
+    const falha = new Error('permission-denied');
+    getRmCenas.mockRejectedValue(falha);
+    const { result } = renderHook(() => useCampanhaGrafo(CAMPANHA));
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.error).toBe(falha);
+  });
+
+  it('recarregar tenta de novo e limpa o erro quando dá certo', async () => {
+    getRmCenas.mockRejectedValueOnce(new Error('offline'));
+    const { result } = renderHook(() => useCampanhaGrafo(CAMPANHA));
+    await waitFor(() => expect(result.current.error).toBeTruthy());
+
+    getRmCenas.mockResolvedValue(CENAS_MOCK);
+    await act(async () => {
+      await result.current.recarregar();
+    });
+
+    expect(result.current.error).toBeNull();
+    expect(result.current.cenas).toHaveLength(2);
+  });
+});
+
+describe('useCampanhaGrafo — desempenho com campanha sintética grande', () => {
+  const NUM_CENAS = 150;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    const cenasSinteticas = Array.from({ length: NUM_CENAS }, (_, i) => ({
+      id: `cena-${i}`,
+      campanhaId: 'c1',
+      titulo: `Cena ${i}`,
+      estado: 'nao_iniciado',
+      posicaoCanvas: null,
+    }));
+    // Cada cena (exceto a última) conecta com a próxima, mais um pulo extra
+    // a cada 5 cenas — grafo não-linear, mais realista que uma corrente simples.
+    const conexoesSinteticas = [];
+    for (let i = 0; i < NUM_CENAS - 1; i += 1) {
+      conexoesSinteticas.push({
+        id: `conexao-linear-${i}`,
+        campanhaId: 'c1',
+        origemCenaId: `cena-${i}`,
+        destinoCenaId: `cena-${i + 1}`,
+      });
+      if (i % 5 === 0 && i + 5 < NUM_CENAS) {
+        conexoesSinteticas.push({
+          id: `conexao-pulo-${i}`,
+          campanhaId: 'c1',
+          origemCenaId: `cena-${i}`,
+          destinoCenaId: `cena-${i + 5}`,
+        });
+      }
+    }
+    getRmCenas.mockResolvedValue(cenasSinteticas);
+    getRmCenaConexoes.mockResolvedValue(conexoesSinteticas);
+  });
+
+  it('carrega e calcula o layout de 150+ cenas sem travar, com posições numéricas válidas', async () => {
+    const inicio = performance.now();
+    const { result } = renderHook(() => useCampanhaGrafo(CAMPANHA));
+
+    await waitFor(() => expect(result.current.loading).toBe(false), { timeout: 5000 });
+    const duracaoMs = performance.now() - inicio;
+
+    expect(result.current.error).toBeNull();
+    expect(result.current.nodes).toHaveLength(NUM_CENAS);
+    expect(result.current.edges.length).toBeGreaterThan(NUM_CENAS - 1);
+    result.current.nodes.forEach(node => {
+      expect(Number.isFinite(node.position.x)).toBe(true);
+      expect(Number.isFinite(node.position.y)).toBe(true);
+    });
+    // Generoso de propósito (CI/máquinas variam) — o objetivo é pegar uma
+    // regressão grosseira no cálculo do layout, não cravar um benchmark fino.
+    expect(duracaoMs).toBeLessThan(5000);
+  });
 });

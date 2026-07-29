@@ -85,4 +85,22 @@ describe('CenaFlowCanvas', () => {
     fireEvent.click(screen.getByText(/Chegada na Cidade/));
     expect(onNodeClick).toHaveBeenCalledWith('cena1');
   });
+
+  it('renderiza uma campanha sintética de 150 cenas sem travar (smoke de desempenho)', () => {
+    const muitosNodes = Array.from({ length: 150 }, (_, i) => ({
+      id: `cena-${i}`,
+      type: 'cenaNode',
+      position: { x: (i % 15) * 260, y: Math.floor(i / 15) * 160 },
+      data: { cena: { titulo: `Cena ${i}`, estado: 'nao_iniciado' }, cor: '#6b7280' },
+    }));
+    const muitasEdges = Array.from({ length: 149 }, (_, i) => ({
+      id: `conexao-${i}`,
+      source: `cena-${i}`,
+      target: `cena-${i + 1}`,
+    }));
+
+    renderCanvas({ nodes: muitosNodes, edges: muitasEdges });
+
+    expect(screen.getByText('Cena 0')).toBeInTheDocument();
+  });
 });

@@ -80,7 +80,14 @@ PlaceholderModulo.propTypes = {
   children: PropTypes.node.isRequired,
 };
 
-const CenaForm = ({ initialValues, onSubmit, onCancelar, labelSalvar, idPrefix, campanhaId }) => {
+const CenaForm = ({
+  initialValues,
+  onSubmit,
+  onCancelar,
+  labelSalvar,
+  idPrefix = 'cena-form',
+  campanhaId = null,
+}) => {
   const pontosKeys = useStableListKeys(initialValues.pontosImportantes.length);
   const consequenciasKeys = useStableListKeys(initialValues.consequencias.length);
   const estadoLabelId = `${idPrefix}-estado-label`;
@@ -545,11 +552,6 @@ CenaForm.propTypes = {
   labelSalvar: PropTypes.string.isRequired,
   idPrefix: PropTypes.string,
   campanhaId: PropTypes.string,
-};
-
-CenaForm.defaultProps = {
-  idPrefix: 'cena-form',
-  campanhaId: null,
 };
 
 export default CenaForm;

@@ -25,6 +25,7 @@ export const CampanhaProvider = ({ children }) => {
   const { currentUser, loading: authLoading } = useAuth();
   const [campanhas, setCampanhas] = useState([]);
   const [loadingCampanhas, setLoadingCampanhas] = useState(true);
+  const [errorCampanhas, setErrorCampanhas] = useState(null);
   const [campanhaAtivaId, setCampanhaAtivaIdState] = useState(
     () => localStorage.getItem(CAMPANHA_ATIVA_STORAGE_KEY) || null,
   );
@@ -34,12 +35,16 @@ export const CampanhaProvider = ({ children }) => {
     if (!currentUser) {
       setCampanhas([]);
       setLoadingCampanhas(false);
+      setErrorCampanhas(null);
       return;
     }
     setLoadingCampanhas(true);
+    setErrorCampanhas(null);
     try {
       const todas = await getRmCampanhas();
       setCampanhas(todas.filter(c => c.mestreId === currentUser.uid));
+    } catch (err) {
+      setErrorCampanhas(err);
     } finally {
       setLoadingCampanhas(false);
     }
@@ -69,16 +74,19 @@ export const CampanhaProvider = ({ children }) => {
 
   // Se o id salvo não corresponde a nenhuma campanha carregada (removida, ou
   // de outro usuário), limpa a seleção em vez de manter um id "fantasma".
+  // Pulado quando o carregamento falhou — um erro de rede não deve apagar a
+  // seleção salva, só a ausência real da campanha na lista carregada.
   useEffect(() => {
-    if (!loadingCampanhas && campanhaAtivaId && !campanhaAtiva) {
+    if (!loadingCampanhas && !errorCampanhas && campanhaAtivaId && !campanhaAtiva) {
       Promise.resolve().then(() => setCampanhaAtiva(null));
     }
-  }, [loadingCampanhas, campanhaAtivaId, campanhaAtiva, setCampanhaAtiva]);
+  }, [loadingCampanhas, errorCampanhas, campanhaAtivaId, campanhaAtiva, setCampanhaAtiva]);
 
   const value = useMemo(
     () => ({
       campanhas,
       loadingCampanhas,
+      errorCampanhas,
       campanhaAtivaId,
       campanhaAtiva,
       setCampanhaAtiva,
@@ -87,6 +95,7 @@ export const CampanhaProvider = ({ children }) => {
     [
       campanhas,
       loadingCampanhas,
+      errorCampanhas,
       campanhaAtivaId,
       campanhaAtiva,
       setCampanhaAtiva,

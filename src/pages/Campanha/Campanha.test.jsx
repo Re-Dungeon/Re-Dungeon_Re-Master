@@ -139,4 +139,19 @@ describe('Campanha (lista + seletor de campanha ativa)', () => {
       screen.queryByRole('button', { name: '+ Nova Campanha' }),
     ).not.toBeInTheDocument();
   });
+
+  it('mostra o erro de carregamento e permite tentar de novo via recarregarCampanhas', async () => {
+    mockCampanhaState = {
+      ...mockCampanhaState,
+      campanhas: [],
+      errorCampanhas: new Error('offline'),
+    };
+    const user = userEvent.setup();
+    renderCampanha();
+
+    expect(screen.getByText('Erro ao carregar as campanhas.')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Tentar novamente' }));
+
+    expect(recarregarCampanhas).toHaveBeenCalled();
+  });
 });

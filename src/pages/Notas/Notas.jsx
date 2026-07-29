@@ -13,6 +13,7 @@ import { useAuth } from 'context/AuthContext';
 import { useCampanha } from 'context/CampanhaContext';
 import { getRmNotas, removeRmNota, getRmCenas } from 'service/storage';
 import useEntityCRUD from 'hooks/useEntityCRUD';
+import ListLoadError from 'components/ListLoadError/ListLoadError';
 import { ROUTE_PATHS } from 'common/constants/routes';
 
 const cardSx = {
@@ -35,6 +36,8 @@ const Notas = () => {
   const {
     items: notas,
     loading: loadingNotas,
+    error: errorNotas,
+    reload: reloadNotas,
     remove: handleRemoveNota,
   } = useEntityCRUD({ getAll: getNotasDaCampanha, remove: removeRmNota });
 
@@ -43,7 +46,9 @@ const Notas = () => {
   useEffect(() => {
     if (!campanhaAtiva) return;
     Promise.resolve().then(() =>
-      getRmCenas().then(todas => setCenas(todas.filter(c => c.campanhaId === campanhaAtiva.id))),
+      getRmCenas()
+        .then(todas => setCenas(todas.filter(c => c.campanhaId === campanhaAtiva.id)))
+        .catch(() => {}),
     );
   }, [campanhaAtiva]);
 
@@ -89,6 +94,8 @@ const Notas = () => {
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
           <CircularProgress sx={{ color: 'var(--color-accent)' }} />
         </Box>
+      ) : errorNotas ? (
+        <ListLoadError mensagem="Erro ao carregar as notas." onRetry={reloadNotas} />
       ) : notas.length === 0 ? (
         <Box className="empty-state">
           <span className="empty-state-icon">📝</span>

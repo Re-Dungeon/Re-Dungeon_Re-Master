@@ -12,6 +12,7 @@ import { useAuth } from 'context/AuthContext';
 import { useCampanha } from 'context/CampanhaContext';
 import { getRmCriaturas, removeRmCriatura } from 'service/storage';
 import useEntityCRUD from 'hooks/useEntityCRUD';
+import ListLoadError from 'components/ListLoadError/ListLoadError';
 import { ROUTE_PATHS } from 'common/constants/routes';
 
 const cardSx = {
@@ -36,6 +37,8 @@ const Criaturas = () => {
   const {
     items: criaturas,
     loading: loadingCriaturas,
+    error: errorCriaturas,
+    reload: reloadCriaturas,
     remove: handleRemoveCriatura,
   } = useEntityCRUD({ getAll: getCriaturasDaCampanha, remove: removeRmCriatura });
 
@@ -81,6 +84,8 @@ const Criaturas = () => {
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
           <CircularProgress sx={{ color: 'var(--color-accent)' }} />
         </Box>
+      ) : errorCriaturas ? (
+        <ListLoadError mensagem="Erro ao carregar as criaturas." onRetry={reloadCriaturas} />
       ) : criaturas.length === 0 ? (
         <Box className="empty-state">
           <span className="empty-state-icon">🐉</span>

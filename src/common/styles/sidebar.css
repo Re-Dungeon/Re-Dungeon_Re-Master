@@ -2,7 +2,7 @@
    SIDEBAR - NAVEGAÇÃO LATERAL
    ============================================ */
 
-.redungeon-sidebar {
+.remaster-sidebar {
   width: var(--sidebar-width);
   height: 100vh;
   background: linear-gradient(135deg, #0a0e27 0%, #0f1629 100%);
@@ -309,7 +309,7 @@
 
 /* Responsivo */
 @media (max-width: 1024px) {
-  .redungeon-sidebar {
+  .remaster-sidebar {
     width: 240px;
   }
 
@@ -323,14 +323,14 @@
 }
 
 @media (max-width: 768px) {
-  .redungeon-sidebar {
+  .remaster-sidebar {
     position: fixed;
     left: -100%;
     transition: left var(--transition-normal);
     z-index: 1000;
   }
 
-  .redungeon-sidebar.active {
+  .remaster-sidebar.active {
     left: 0;
   }
 }

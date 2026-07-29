@@ -14,13 +14,13 @@ import CenaForm from './CenaForm';
 import { CENA_INITIAL_VALUES } from './cenaUtils';
 
 const CenaDetailPanel = ({
-  cena,
+  cena = null,
   podeEscrever,
-  ehCenaAtual,
+  ehCenaAtual = false,
   onClose,
   onSave,
   onDelete,
-  onMarcarCenaAtual,
+  onMarcarCenaAtual = () => {},
 }) => {
   const aberto = Boolean(cena);
 
@@ -141,12 +141,6 @@ CenaDetailPanel.propTypes = {
   onSave: PropTypes.func.isRequired,
   onDelete: PropTypes.func.isRequired,
   onMarcarCenaAtual: PropTypes.func,
-};
-
-CenaDetailPanel.defaultProps = {
-  cena: null,
-  ehCenaAtual: false,
-  onMarcarCenaAtual: () => {},
 };
 
 export default CenaDetailPanel;

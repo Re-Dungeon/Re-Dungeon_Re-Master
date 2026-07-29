@@ -16,6 +16,7 @@ import { useAuth } from 'context/AuthContext';
 import { useCampanha } from 'context/CampanhaContext';
 import { getRmCardfluxCartas, removeRmCardfluxCarta, updateRmCardfluxCarta } from 'service/storage';
 import useEntityCRUD from 'hooks/useEntityCRUD';
+import ListLoadError from 'components/ListLoadError/ListLoadError';
 import { ROUTE_PATHS } from 'common/constants/routes';
 import { TIPO_CARTA_OPCOES, ESTADO_CARTA_OPCOES } from './cartaUtils';
 
@@ -49,6 +50,8 @@ const Cartas = () => {
   const {
     items: cartas,
     loading: loadingCartas,
+    error: errorCartas,
+    reload: reloadCartas,
     setItems: setCartas,
     remove: handleRemoveCarta,
   } = useEntityCRUD({ getAll: getCartasDoBaralho, remove: removeRmCardfluxCarta });
@@ -105,6 +108,8 @@ const Cartas = () => {
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
           <CircularProgress sx={{ color: 'var(--color-accent)' }} />
         </Box>
+      ) : errorCartas ? (
+        <ListLoadError mensagem="Erro ao carregar as cartas." onRetry={reloadCartas} />
       ) : cartas.length === 0 ? (
         <Box className="empty-state">
           <span className="empty-state-icon">🃏</span>
