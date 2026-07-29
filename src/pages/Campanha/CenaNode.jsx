@@ -52,7 +52,7 @@ const CenaNode = ({ data, selected = false }) => {
             }}
             title={cena.titulo}
           >
-            {`${concluido ? '✓ ' : ''}${cena.titulo || '(sem título)'}`}
+            {`${concluido ? '✓ ' : ''}${cena.titulo || '(sem título ainda)'}`}
           </Typography>
           {estado && (
             <Typography
