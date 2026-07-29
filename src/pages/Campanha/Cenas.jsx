@@ -1,11 +1,12 @@
-import React, { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useRef } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
 import { useAuth } from 'context/AuthContext';
 import { useCampanha } from 'context/CampanhaContext';
+import { updateRmCampanha } from 'service/storage';
 import { ROUTE_PATHS } from 'common/constants/routes';
 import useCampanhaGrafo from './useCampanhaGrafo';
 import CenaFlowCanvas from './CenaFlowCanvas';
@@ -13,8 +14,9 @@ import CenaDetailPanel from './CenaDetailPanel';
 
 const Cenas = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { canCreate, canWrite } = useAuth();
-  const { campanhaAtiva, loadingCampanhas } = useCampanha();
+  const { campanhaAtiva, loadingCampanhas, recarregarCampanhas } = useCampanha();
 
   const {
     cenas,
@@ -34,6 +36,17 @@ const Cenas = () => {
     if (!loadingCampanhas && !campanhaAtiva) navigate(ROUTE_PATHS.CAMPANHA);
   }, [loadingCampanhas, campanhaAtiva, navigate]);
 
+  const selecaoInicialAplicada = useRef(false);
+  useEffect(() => {
+    if (selecaoInicialAplicada.current) return;
+    const cenaIdInicial = location.state?.selecionarCenaId;
+    if (!cenaIdInicial || cenas.length === 0) return;
+    if (cenas.some(c => c.id === cenaIdInicial)) {
+      setSelectedCenaId(cenaIdInicial);
+    }
+    selecaoInicialAplicada.current = true;
+  }, [cenas, location.state, setSelectedCenaId]);
+
   if (!campanhaAtiva && !loadingCampanhas) return null;
 
   const loading = loadingCampanhas || loadingGrafo;
@@ -46,6 +59,11 @@ const Cenas = () => {
 
   const handleRemoverCena = async cenaId => {
     await removeCena(cenaId);
+  };
+
+  const handleMarcarCenaAtual = async cenaId => {
+    await updateRmCampanha(campanhaAtiva.id, { cenaAtualId: cenaId });
+    await recarregarCampanhas();
   };
 
   return (
@@ -129,9 +147,11 @@ const Cenas = () => {
       <CenaDetailPanel
         cena={cenaSelecionada}
         podeEscrever={podeEscrever}
+        ehCenaAtual={Boolean(cenaSelecionada) && cenaSelecionada.id === campanhaAtiva?.cenaAtualId}
         onClose={() => setSelectedCenaId(null)}
         onSave={handleSalvarCena}
         onDelete={handleRemoverCena}
+        onMarcarCenaAtual={handleMarcarCenaAtual}
       />
     </Box>
   );

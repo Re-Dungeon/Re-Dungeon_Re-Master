@@ -17,6 +17,8 @@ const CenaFlowCanvas = ({
   onNodeClick,
   onConnect,
   onNovaCena,
+  height,
+  compact,
 }) => {
   const handleNodesChange = useCallback(
     changes => {
@@ -49,7 +51,7 @@ const CenaFlowCanvas = ({
   return (
     <Box
       sx={{
-        height: '70vh',
+        height,
         border: '1px solid var(--border-primary)',
         borderRadius: 2,
         overflow: 'hidden',
@@ -68,11 +70,13 @@ const CenaFlowCanvas = ({
         nodesDraggable={podeEscrever}
         nodesConnectable={podeEscrever}
         elementsSelectable
+        zoomOnScroll={!compact}
+        panOnScroll={false}
         fitView
       >
         <Background />
-        <Controls />
-        <MiniMap nodeColor={nodeColor} />
+        {!compact && <Controls />}
+        {!compact && <MiniMap nodeColor={nodeColor} />}
         {podeEscrever && (
           <Panel position="top-right">
             <Button
@@ -101,6 +105,13 @@ CenaFlowCanvas.propTypes = {
   onNodeClick: PropTypes.func.isRequired,
   onConnect: PropTypes.func.isRequired,
   onNovaCena: PropTypes.func.isRequired,
+  height: PropTypes.string,
+  compact: PropTypes.bool,
+};
+
+CenaFlowCanvas.defaultProps = {
+  height: '70vh',
+  compact: false,
 };
 
 export default CenaFlowCanvas;

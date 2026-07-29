@@ -16,11 +16,17 @@ vi.mock('context/AuthContext', () => ({
   useAuth: () => ({ canCreate, canWrite }),
 }));
 
+const updateRmCampanha = vi.fn();
+vi.mock('service/storage', () => ({
+  updateRmCampanha: (...args) => updateRmCampanha(...args),
+}));
+
 const CAMPANHA_ATIVA = { id: 'c1', nome: 'Ascensão Carmesim', universoId: 'u1', mestreId: 'm1' };
 let campanhaAtiva = CAMPANHA_ATIVA;
 let loadingCampanhas = false;
+const recarregarCampanhas = vi.fn();
 vi.mock('context/CampanhaContext', () => ({
-  useCampanha: () => ({ campanhaAtiva, loadingCampanhas }),
+  useCampanha: () => ({ campanhaAtiva, loadingCampanhas, recarregarCampanhas }),
 }));
 
 const moveCenaLocal = vi.fn();
@@ -51,10 +57,11 @@ vi.mock('./CenaFlowCanvas', () => ({
 }));
 
 vi.mock('./CenaDetailPanel', () => ({
-  default: ({ cena, onClose, onSave, onDelete }) =>
+  default: ({ cena, ehCenaAtual, onClose, onSave, onDelete, onMarcarCenaAtual }) =>
     cena ? (
       <div>
         <span>painel-{cena.titulo}</span>
+        {ehCenaAtual && <span>e-cena-atual</span>}
         <button type="button" onClick={() => onSave(cena.id, { titulo: 'Editado' })}>
           salvar-painel
         </button>
@@ -63,6 +70,9 @@ vi.mock('./CenaDetailPanel', () => ({
         </button>
         <button type="button" onClick={onClose}>
           fechar-painel
+        </button>
+        <button type="button" onClick={() => onMarcarCenaAtual(cena.id)}>
+          marcar-atual-painel
         </button>
       </div>
     ) : null,
@@ -75,9 +85,9 @@ const CENAS_MOCK = [
   { id: 'cena2', titulo: 'Encontro com o Prefeito', campanhaId: 'c1', estado: 'em_andamento' },
 ];
 
-const renderCenas = () =>
+const renderCenas = (state = undefined) =>
   render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[{ pathname: '/campanha/cenas', state }]}>
       <Cenas />
     </MemoryRouter>,
   );
@@ -182,5 +192,31 @@ describe('Cenas (grafo da campanha ativa)', () => {
     renderCenas();
 
     expect(navigate).toHaveBeenCalledWith('/campanha');
+  });
+
+  it('marca a cena selecionada como Cena Atual via updateRmCampanha', async () => {
+    grafoState = { ...grafoState, selectedCenaId: 'cena1' };
+    updateRmCampanha.mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    renderCenas();
+
+    await user.click(screen.getByText('marcar-atual-painel'));
+
+    expect(updateRmCampanha).toHaveBeenCalledWith('c1', { cenaAtualId: 'cena1' });
+    expect(recarregarCampanhas).toHaveBeenCalled();
+  });
+
+  it('indica ao painel quando a cena selecionada já é a Cena Atual', () => {
+    campanhaAtiva = { ...CAMPANHA_ATIVA, cenaAtualId: 'cena1' };
+    grafoState = { ...grafoState, selectedCenaId: 'cena1' };
+    renderCenas();
+
+    expect(screen.getByText('e-cena-atual')).toBeInTheDocument();
+  });
+
+  it('pré-seleciona a cena vinda do state de navegação (ex.: link do Dashboard)', () => {
+    renderCenas({ selecionarCenaId: 'cena2' });
+
+    expect(setSelectedCenaId).toHaveBeenCalledWith('cena2');
   });
 });

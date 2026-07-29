@@ -17,4 +17,5 @@ export const CAMPANHA_INITIAL_VALUES = {
   descricao: '',
   linkImagem: '',
   universoId: '',
+  cenaAtualId: null,
 };

@@ -5,12 +5,23 @@ import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
 import Button from '@mui/material/Button';
+import Chip from '@mui/material/Chip';
 import CloseIcon from '@mui/icons-material/Close';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined';
+import StarIcon from '@mui/icons-material/Star';
+import StarOutlineIcon from '@mui/icons-material/StarBorder';
 import CenaForm from './CenaForm';
 import { CENA_INITIAL_VALUES } from './cenaUtils';
 
-const CenaDetailPanel = ({ cena, podeEscrever, onClose, onSave, onDelete }) => {
+const CenaDetailPanel = ({
+  cena,
+  podeEscrever,
+  ehCenaAtual,
+  onClose,
+  onSave,
+  onDelete,
+  onMarcarCenaAtual,
+}) => {
   const aberto = Boolean(cena);
 
   const handleSubmit = async (values, formikHelpers) => {
@@ -71,6 +82,28 @@ const CenaDetailPanel = ({ cena, podeEscrever, onClose, onSave, onDelete }) => {
             </Box>
           </Box>
 
+          <Box sx={{ mb: 2 }}>
+            {ehCenaAtual ? (
+              <Chip
+                icon={<StarIcon sx={{ color: 'var(--bg-primary) !important' }} fontSize="small" />}
+                label="Cena Atual"
+                size="small"
+                sx={{ background: 'var(--color-accent)', color: 'var(--bg-primary)', fontWeight: 700 }}
+              />
+            ) : (
+              podeEscrever && (
+                <Button
+                  size="small"
+                  startIcon={<StarOutlineIcon fontSize="small" />}
+                  onClick={() => onMarcarCenaAtual(cena.id)}
+                  sx={{ color: 'var(--color-accent)' }}
+                >
+                  Marcar como Cena Atual
+                </Button>
+              )
+            )}
+          </Box>
+
           {podeEscrever ? (
             <CenaForm
               key={cena.id}
@@ -103,13 +136,17 @@ CenaDetailPanel.propTypes = {
     campanhaId: PropTypes.string,
   }),
   podeEscrever: PropTypes.bool.isRequired,
+  ehCenaAtual: PropTypes.bool,
   onClose: PropTypes.func.isRequired,
   onSave: PropTypes.func.isRequired,
   onDelete: PropTypes.func.isRequired,
+  onMarcarCenaAtual: PropTypes.func,
 };
 
 CenaDetailPanel.defaultProps = {
   cena: null,
+  ehCenaAtual: false,
+  onMarcarCenaAtual: () => {},
 };
 
 export default CenaDetailPanel;
