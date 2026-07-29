@@ -187,6 +187,83 @@ describe('storage.js — personagens (somente leitura) e CRUD de rmNpcs/rmCriatu
   });
 });
 
+describe.each([
+  {
+    colecao: 'rmMapas',
+    get: getRmMapas,
+    add: addRmMapa,
+    remove: removeRmMapa,
+    update: updateRmMapa,
+  },
+  {
+    colecao: 'rmMissoes',
+    get: getRmMissoes,
+    add: addRmMissao,
+    remove: removeRmMissao,
+    update: updateRmMissao,
+  },
+  {
+    colecao: 'rmCardfluxBaralhos',
+    get: getRmCardfluxBaralhos,
+    add: addRmCardfluxBaralho,
+    remove: removeRmCardfluxBaralho,
+    update: updateRmCardfluxBaralho,
+  },
+  {
+    colecao: 'rmCardfluxCartas',
+    get: getRmCardfluxCartas,
+    add: addRmCardfluxCarta,
+    remove: removeRmCardfluxCarta,
+    update: updateRmCardfluxCarta,
+  },
+  {
+    colecao: 'rmNotas',
+    get: getRmNotas,
+    add: addRmNota,
+    remove: removeRmNota,
+    update: updateRmNota,
+  },
+])('storage.js — CRUD de $colecao (M6)', ({ colecao, get, add, remove, update }) => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it(`get busca a coleção "${colecao}"`, async () => {
+    getDocs.mockResolvedValue({ docs: [] });
+
+    await get();
+
+    expect(collection).toHaveBeenCalledWith({}, colecao);
+  });
+
+  it(`add grava na coleção "${colecao}" com createdAt`, async () => {
+    addDoc.mockResolvedValue({ id: 'novo-id' });
+
+    await add({ nome: 'Item' });
+
+    expect(addDoc).toHaveBeenCalledWith(
+      { __collection: colecao },
+      { nome: 'Item', createdAt: '__serverTimestamp__' },
+    );
+  });
+
+  it(`remove deleta o doc pelo id na coleção "${colecao}"`, async () => {
+    await remove('id-123');
+
+    expect(doc).toHaveBeenCalledWith({}, colecao, 'id-123');
+    expect(deleteDoc).toHaveBeenCalledWith({ __doc: colecao, id: 'id-123' });
+  });
+
+  it(`update atualiza com updatedAt na coleção "${colecao}"`, async () => {
+    await update('id-123', { nome: 'Renomeado' });
+
+    expect(updateDoc).toHaveBeenCalledWith(
+      { __doc: colecao, id: 'id-123' },
+      { nome: 'Renomeado', updatedAt: '__serverTimestamp__' },
+    );
+  });
+});
+
 describe('storage.js — getUserPermissions', () => {
   beforeEach(() => {
     vi.clearAllMocks();
