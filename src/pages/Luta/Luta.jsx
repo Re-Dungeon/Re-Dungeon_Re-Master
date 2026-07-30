@@ -12,6 +12,7 @@ import MenuItem from '@mui/material/MenuItem';
 import CircularProgress from '@mui/material/CircularProgress';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined';
 import ContentCopyOutlinedIcon from '@mui/icons-material/ContentCopyOutlined';
+import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import RemoveIcon from '@mui/icons-material/Remove';
 import AddIcon from '@mui/icons-material/Add';
 import { useAuth } from 'context/AuthContext';
@@ -27,6 +28,7 @@ import {
 } from 'service/storage';
 import useAsyncEffect from 'hooks/useAsyncEffect';
 import ListLoadError from 'components/ListLoadError/ListLoadError';
+import PersonagemFichaDialog from 'components/PersonagemFichaDialog/PersonagemFichaDialog';
 import { ROUTE_PATHS } from 'common/constants/routes';
 import { getTipoPersonagem } from 'common/utils/personagemTipo';
 import {
@@ -72,6 +74,7 @@ const Luta = () => {
   const [loadingDados, setLoadingDados] = useState(true);
   const [error, setError] = useState(null);
   const [dialogoAberto, setDialogoAberto] = useState(false);
+  const [personagemVisualizado, setPersonagemVisualizado] = useState(null);
 
   const carregarDados = useCallback(async () => {
     if (!campanhaAtiva) {
@@ -118,6 +121,14 @@ const Luta = () => {
   const podeEscrever = campanhaAtiva
     ? canWrite(campanhaAtiva.universoId)
     : false;
+
+  // A ficha completa (habilidades, atributos etc.) não é copiada para o
+  // participante — só os status de combate. Para "Ver ficha" resolve de volta
+  // para o personagem de origem em `personagens` (mesma lista usada por
+  // NPCs/Criaturas); se ele foi desvinculado da campanha depois de entrar na
+  // luta, o botão fica desabilitado.
+  const personagemDe = origemPersonagemId =>
+    personagens.find(p => p.id === origemPersonagemId) ?? null;
 
   const handleAdicionar = async (personagem, quantidade) => {
     const novos = [];
@@ -576,26 +587,41 @@ const Luta = () => {
                 )}
               </Box>
 
-              {podeEscrever && (
-                <Box sx={{ display: 'flex', gap: 1 }}>
-                  <Button
-                    size="small"
-                    startIcon={<ContentCopyOutlinedIcon fontSize="small" />}
-                    onClick={() => handleDuplicar(participante)}
-                    sx={{ color: 'var(--color-accent)' }}
-                  >
-                    Duplicar
-                  </Button>
-                  <Button
-                    size="small"
-                    startIcon={<DeleteOutlineIcon fontSize="small" />}
-                    onClick={() => handleRemover(participante)}
-                    sx={{ color: '#ef4444' }}
-                  >
-                    Remover
-                  </Button>
-                </Box>
-              )}
+              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                <Button
+                  size="small"
+                  startIcon={<VisibilityOutlinedIcon fontSize="small" />}
+                  disabled={!personagemDe(participante.origemPersonagemId)}
+                  onClick={() =>
+                    setPersonagemVisualizado(
+                      personagemDe(participante.origemPersonagemId),
+                    )
+                  }
+                  sx={{ color: 'var(--text-secondary)' }}
+                >
+                  Ver ficha
+                </Button>
+                {podeEscrever && (
+                  <>
+                    <Button
+                      size="small"
+                      startIcon={<ContentCopyOutlinedIcon fontSize="small" />}
+                      onClick={() => handleDuplicar(participante)}
+                      sx={{ color: 'var(--color-accent)' }}
+                    >
+                      Duplicar
+                    </Button>
+                    <Button
+                      size="small"
+                      startIcon={<DeleteOutlineIcon fontSize="small" />}
+                      onClick={() => handleRemover(participante)}
+                      sx={{ color: '#ef4444' }}
+                    >
+                      Remover
+                    </Button>
+                  </>
+                )}
+              </Box>
             </Paper>
           ))}
         </Box>
@@ -606,6 +632,12 @@ const Luta = () => {
         onClose={() => setDialogoAberto(false)}
         personagens={personagens}
         onAdicionar={handleAdicionar}
+      />
+
+      <PersonagemFichaDialog
+        open={Boolean(personagemVisualizado)}
+        onClose={() => setPersonagemVisualizado(null)}
+        personagem={personagemVisualizado}
       />
     </Box>
   );
