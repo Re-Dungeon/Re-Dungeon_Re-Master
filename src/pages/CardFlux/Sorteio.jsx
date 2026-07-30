@@ -35,6 +35,7 @@ import {
   formatarHoraEvento,
 } from 'common/utils/sessaoLog';
 import CartaDetalheDialog from './CartaDetalheDialog';
+import CartaDetalhe from './CartaDetalhe';
 import {
   RITMO_OPCOES,
   INTENSIDADE_MIN,
@@ -491,24 +492,10 @@ const Sorteio = () => {
                     )}
                   </Box>
 
-                  {cartaSorteada.descricaoGeral && (
-                    <Typography
-                      variant="body2"
-                      sx={{ color: 'var(--text-secondary)', mb: 1.5 }}
-                    >
-                      {cartaSorteada.descricaoGeral}
-                    </Typography>
-                  )}
+                  <CartaDetalhe carta={cartaSorteada} />
 
-                  <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                    <Button
-                      size="small"
-                      onClick={() => setCartaVisualizada(cartaSorteada)}
-                      sx={{ color: 'var(--text-secondary)' }}
-                    >
-                      Ver Detalhes Completos
-                    </Button>
-                    {cartaSorteada.cartasVinculadas?.length > 0 && (
+                  {cartaSorteada.cartasVinculadas?.length > 0 && (
+                    <Box sx={{ mt: 2 }}>
                       <Button
                         size="small"
                         onClick={() => setChainAberta(true)}
@@ -516,8 +503,8 @@ const Sorteio = () => {
                       >
                         Ver Cartas Encadeadas
                       </Button>
-                    )}
-                  </Box>
+                    </Box>
+                  )}
 
                   <Box
                     sx={{ display: 'flex', gap: 1, mt: 2, flexWrap: 'wrap' }}
