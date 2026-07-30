@@ -5,8 +5,10 @@ import '@xyflow/react/dist/style.css';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import CenaNode from './CenaNode';
+import CenaEdge from './CenaEdge';
 
 const NODE_TYPES = { cenaNode: CenaNode };
+const EDGE_TYPES = { cenaEdge: CenaEdge };
 
 const CenaFlowCanvas = ({
   nodes,
@@ -17,6 +19,7 @@ const CenaFlowCanvas = ({
   onNodeClick,
   onConnect,
   onNovaCena,
+  onRemoveConexao = () => {},
   height = '70vh',
   compact = false,
 }) => {
@@ -47,6 +50,16 @@ const CenaFlowCanvas = ({
   );
 
   const nodeColor = useMemo(() => n => n.data?.cor ?? '#6b7280', []);
+
+  const edgesComData = useMemo(
+    () =>
+      edges.map(edge => ({
+        ...edge,
+        type: 'cenaEdge',
+        data: { podeEscrever, onDelete: onRemoveConexao },
+      })),
+    [edges, podeEscrever, onRemoveConexao],
+  );
 
   return (
     <Box
@@ -91,8 +104,9 @@ const CenaFlowCanvas = ({
     >
       <ReactFlow
         nodes={nodes}
-        edges={edges}
+        edges={edgesComData}
         nodeTypes={NODE_TYPES}
+        edgeTypes={EDGE_TYPES}
         onNodesChange={handleNodesChange}
         onEdgesChange={() => {}}
         onNodeDragStop={handleNodeDragStop}
@@ -136,6 +150,7 @@ CenaFlowCanvas.propTypes = {
   onNodeClick: PropTypes.func.isRequired,
   onConnect: PropTypes.func.isRequired,
   onNovaCena: PropTypes.func.isRequired,
+  onRemoveConexao: PropTypes.func,
   height: PropTypes.string,
   compact: PropTypes.bool,
 };

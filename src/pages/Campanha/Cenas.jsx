@@ -17,7 +17,8 @@ const Cenas = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { canCreate, canWrite } = useAuth();
-  const { campanhaAtiva, loadingCampanhas, recarregarCampanhas } = useCampanha();
+  const { campanhaAtiva, loadingCampanhas, recarregarCampanhas } =
+    useCampanha();
 
   const {
     cenas,
@@ -31,6 +32,7 @@ const Cenas = () => {
     moveCenaLocal,
     persistirPosicaoCena,
     createConexao,
+    removeConexao,
     updateCena,
     removeCena,
   } = useCampanhaGrafo(campanhaAtiva);
@@ -53,7 +55,9 @@ const Cenas = () => {
   if (!campanhaAtiva && !loadingCampanhas) return null;
 
   const loading = loadingCampanhas || loadingGrafo;
-  const podeEscrever = campanhaAtiva ? canWrite(campanhaAtiva.universoId) : false;
+  const podeEscrever = campanhaAtiva
+    ? canWrite(campanhaAtiva.universoId)
+    : false;
   const cenaSelecionada = cenas.find(c => c.id === selectedCenaId) ?? null;
 
   const handleSalvarCena = async (cenaId, values) => {
@@ -93,8 +97,9 @@ const Cenas = () => {
             Cenas — {campanhaAtiva?.nome}
           </Typography>
           <Typography variant="body2" sx={{ color: 'var(--text-secondary)' }}>
-            Arraste as cenas para organizar o fluxograma e conecte-as puxando
-            de uma borda até outra cena.
+            Arraste as cenas para organizar o fluxograma, conecte-as puxando de
+            uma borda até outra cena e use o × no meio da seta para remover uma
+            conexão.
           </Typography>
         </Box>
         {canCreate() && podeEscrever && cenas.length > 0 && (
@@ -116,7 +121,10 @@ const Cenas = () => {
           <CircularProgress sx={{ color: 'var(--color-accent)' }} />
         </Box>
       ) : errorGrafo ? (
-        <ListLoadError mensagem="Erro ao carregar as cenas." onRetry={recarregarGrafo} />
+        <ListLoadError
+          mensagem="Erro ao carregar as cenas."
+          onRetry={recarregarGrafo}
+        />
       ) : cenas.length === 0 ? (
         <Box className="empty-state">
           <span className="empty-state-icon">🎬</span>
@@ -145,6 +153,7 @@ const Cenas = () => {
           onNodeDragStop={persistirPosicaoCena}
           onNodeClick={setSelectedCenaId}
           onConnect={createConexao}
+          onRemoveConexao={removeConexao}
           onNovaCena={() => navigate(ROUTE_PATHS.NOVA_CENA)}
         />
       )}
@@ -152,7 +161,10 @@ const Cenas = () => {
       <CenaDetailPanel
         cena={cenaSelecionada}
         podeEscrever={podeEscrever}
-        ehCenaAtual={Boolean(cenaSelecionada) && cenaSelecionada.id === campanhaAtiva?.cenaAtualId}
+        ehCenaAtual={
+          Boolean(cenaSelecionada) &&
+          cenaSelecionada.id === campanhaAtiva?.cenaAtualId
+        }
         onClose={() => setSelectedCenaId(null)}
         onSave={handleSalvarCena}
         onDelete={handleRemoverCena}

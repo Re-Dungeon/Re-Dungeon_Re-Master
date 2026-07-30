@@ -8,13 +8,19 @@ const NODES = [
     id: 'cena1',
     type: 'cenaNode',
     position: { x: 0, y: 0 },
-    data: { cena: { titulo: 'Chegada na Cidade', estado: 'concluido' }, cor: '#3b82f6' },
+    data: {
+      cena: { titulo: 'Chegada na Cidade', estado: 'concluido' },
+      cor: '#3b82f6',
+    },
   },
   {
     id: 'cena2',
     type: 'cenaNode',
     position: { x: 300, y: 0 },
-    data: { cena: { titulo: 'Encontro', estado: 'em_andamento' }, cor: '#eab308' },
+    data: {
+      cena: { titulo: 'Encontro', estado: 'em_andamento' },
+      cor: '#eab308',
+    },
   },
 ];
 
@@ -46,7 +52,9 @@ describe('CenaFlowCanvas', () => {
 
   it('mostra o botão "+ Nova Cena" apenas quando podeEscrever é true', () => {
     const { rerender } = renderCanvas();
-    expect(screen.getByRole('button', { name: '+ Nova Cena' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: '+ Nova Cena' }),
+    ).toBeInTheDocument();
 
     rerender(
       <CenaFlowCanvas
@@ -91,7 +99,10 @@ describe('CenaFlowCanvas', () => {
       id: `cena-${i}`,
       type: 'cenaNode',
       position: { x: (i % 15) * 260, y: Math.floor(i / 15) * 160 },
-      data: { cena: { titulo: `Cena ${i}`, estado: 'nao_iniciado' }, cor: '#6b7280' },
+      data: {
+        cena: { titulo: `Cena ${i}`, estado: 'nao_iniciado' },
+        cor: '#6b7280',
+      },
     }));
     const muitasEdges = Array.from({ length: 149 }, (_, i) => ({
       id: `conexao-${i}`,
