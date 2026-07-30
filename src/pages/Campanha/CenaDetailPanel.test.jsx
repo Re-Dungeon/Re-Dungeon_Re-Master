@@ -4,11 +4,11 @@ import userEvent from '@testing-library/user-event';
 
 const getRmCampanhaNpcs = vi.fn(() => Promise.resolve([]));
 const getRmCampanhaCriaturas = vi.fn(() => Promise.resolve([]));
-const getRmMissoes = vi.fn(() => Promise.resolve([]));
+const getRmMissoesPorCampanha = vi.fn(() => Promise.resolve([]));
 vi.mock('service/storage', () => ({
   getRmCampanhaNpcs: (...args) => getRmCampanhaNpcs(...args),
   getRmCampanhaCriaturas: (...args) => getRmCampanhaCriaturas(...args),
-  getRmMissoes: (...args) => getRmMissoes(...args),
+  getRmMissoesPorCampanha: (...args) => getRmMissoesPorCampanha(...args),
 }));
 
 import CenaDetailPanel from './CenaDetailPanel';

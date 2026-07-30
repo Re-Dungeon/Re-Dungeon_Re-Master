@@ -19,7 +19,7 @@ import SectionTitle from 'components/SectionTitle/SectionTitle';
 import {
   getRmCampanhaNpcs,
   getRmCampanhaCriaturas,
-  getRmMissoes,
+  getRmMissoesPorCampanha,
 } from 'service/storage';
 import {
   CENA_SCHEMA,
@@ -101,7 +101,6 @@ const CenaForm = ({
   const estadoLabelId = `${idPrefix}-estado-label`;
   const npcsLabelId = `${idPrefix}-npcs-label`;
   const criaturasLabelId = `${idPrefix}-criaturas-label`;
-  const missoesLabelId = `${idPrefix}-missoes-label`;
 
   const [npcs, setNpcs] = useState([]);
   const [criaturas, setCriaturas] = useState([]);
@@ -113,14 +112,24 @@ const CenaForm = ({
       Promise.all([
         getRmCampanhaNpcs(campanhaId),
         getRmCampanhaCriaturas(campanhaId),
-        getRmMissoes(),
+        getRmMissoesPorCampanha(campanhaId),
       ]).then(([todosNpcs, todasCriaturas, todasMissoes]) => {
         setNpcs(todosNpcs);
         setCriaturas(todasCriaturas);
-        setMissoes(todasMissoes.filter(m => m.campanhaId === campanhaId));
+        setMissoes(todasMissoes);
       }),
     );
   }, [campanhaId]);
+
+  // Só-leitura: o vínculo Missão→Cena é gravado no array `cenasVinculadas`
+  // da Missão (editado em MissaoForm) — a Cena não guarda seu próprio
+  // `missoesRelacionadas` para não manter dois arrays em campos separados
+  // que poderiam divergir (vincular pela Missão e a Cena não refletir, ou
+  // vice-versa). `initialValues.id` só existe editando uma Cena já salva
+  // (NovaCena sem edição não tem id ainda, então a lista fica vazia).
+  const missoesVinculadas = missoes.filter(missao =>
+    (missao.cenasVinculadas ?? []).includes(initialValues.id),
+  );
 
   return (
     <Formik
@@ -575,61 +584,39 @@ const CenaForm = ({
                   </PlaceholderModulo>
                 )}
 
-                {missoes.length > 0 ? (
-                  <Field name="missoesRelacionadas">
-                    {({ field }) => (
-                      <FormControl fullWidth size="small">
-                        <InputLabel
-                          id={missoesLabelId}
+                <Box>
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: 'var(--text-secondary)',
+                      display: 'block',
+                      mb: 0.75,
+                    }}
+                  >
+                    Missões que avançam nesta cena
+                  </Typography>
+                  {missoesVinculadas.length > 0 ? (
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                      {missoesVinculadas.map(missao => (
+                        <Chip
+                          key={missao.id}
+                          size="small"
+                          label={missao.titulo}
                           sx={{
-                            color: 'var(--text-secondary)',
-                            '&.Mui-focused': { color: 'var(--color-accent)' },
+                            background: 'var(--bg-secondary)',
+                            color: 'var(--color-accent)',
                           }}
-                        >
-                          Missões relacionadas
-                        </InputLabel>
-                        <Select
-                          {...field}
-                          multiple
-                          labelId={missoesLabelId}
-                          label="Missões relacionadas"
-                          sx={selectSx}
-                          MenuProps={menuPropsSx}
-                          renderValue={selecionados => (
-                            <Box
-                              sx={{
-                                display: 'flex',
-                                flexWrap: 'wrap',
-                                gap: 0.5,
-                              }}
-                            >
-                              {selecionados.map(id => (
-                                <Chip
-                                  key={id}
-                                  size="small"
-                                  label={
-                                    missoes.find(m => m.id === id)?.titulo ?? id
-                                  }
-                                />
-                              ))}
-                            </Box>
-                          )}
-                        >
-                          {missoes.map(missao => (
-                            <MenuItem key={missao.id} value={missao.id}>
-                              {missao.titulo}
-                            </MenuItem>
-                          ))}
-                        </Select>
-                      </FormControl>
-                    )}
-                  </Field>
-                ) : (
-                  <PlaceholderModulo>
-                    Nenhuma missão cadastrada nesta campanha ainda — crie uma no
-                    módulo de Missões para vinculá-la a cenas.
-                  </PlaceholderModulo>
-                )}
+                        />
+                      ))}
+                    </Box>
+                  ) : (
+                    <PlaceholderModulo>
+                      Nenhuma missão vinculada a esta cena ainda — vincule pelo
+                      campo &quot;Cenas vinculadas&quot; ao editar a missão no
+                      módulo de Missões.
+                    </PlaceholderModulo>
+                  )}
+                </Box>
               </Box>
             </Paper>
 

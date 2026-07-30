@@ -423,5 +423,17 @@ service cloud.firestore {
       allow delete: if isAdmin() ||
         (canWriteUniverso(resource.data.universoId) && isCampanhaOwner(resource.data.mestreId));
     }
+
+    // Registro cronológico automático de eventos da sessão (cena marcada
+    // como atual, carta sorteada, participante entrou na Luta) — só leitura
+    // e criação (append-only por design, ver storage.js): nenhuma tela edita
+    // ou apaga uma entrada de log já gravada, então update/delete ficam sem
+    // `allow` (negados por padrão pelas Firestore Rules).
+    match /rmSessaoLogs/{docId} {
+      allow read: if isAdmin() ||
+        (canWriteUniverso(resource.data.universoId) && isCampanhaOwner(resource.data.mestreId));
+      allow create: if canWriteUniverso(request.resource.data.universoId)
+                    && isCampanhaOwner(request.resource.data.mestreId);
+    }
   }
 }

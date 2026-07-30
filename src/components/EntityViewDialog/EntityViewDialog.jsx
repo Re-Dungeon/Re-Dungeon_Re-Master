@@ -60,6 +60,7 @@ const EntityViewDialog = ({
           component="img"
           src={imagem}
           alt={titulo}
+          loading="lazy"
           sx={{
             width: '100%',
             height: 200,

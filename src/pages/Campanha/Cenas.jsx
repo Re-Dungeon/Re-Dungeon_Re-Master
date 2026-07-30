@@ -9,6 +9,10 @@ import { useCampanha } from 'context/CampanhaContext';
 import { updateRmCampanha } from 'service/storage';
 import ListLoadError from 'components/ListLoadError/ListLoadError';
 import { ROUTE_PATHS } from 'common/constants/routes';
+import {
+  TIPO_EVENTO_SESSAO,
+  registrarEventoSessao,
+} from 'common/utils/sessaoLog';
 import useCampanhaGrafo from './useCampanhaGrafo';
 import CenaFlowCanvas from './CenaFlowCanvas';
 import CenaDetailPanel from './CenaDetailPanel';
@@ -71,6 +75,14 @@ const Cenas = () => {
   const handleMarcarCenaAtual = async cenaId => {
     await updateRmCampanha(campanhaAtiva.id, { cenaAtualId: cenaId });
     await recarregarCampanhas();
+    const cena = cenas.find(c => c.id === cenaId);
+    if (cena) {
+      registrarEventoSessao(
+        campanhaAtiva,
+        TIPO_EVENTO_SESSAO.CENA_ATUAL,
+        `Cena atual: "${cena.titulo}"`,
+      );
+    }
   };
 
   return (

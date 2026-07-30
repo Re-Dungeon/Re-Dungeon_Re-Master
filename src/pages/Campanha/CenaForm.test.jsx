@@ -6,17 +6,28 @@ import { CENA_INITIAL_VALUES } from './cenaUtils';
 
 const getRmCampanhaNpcs = vi.fn();
 const getRmCampanhaCriaturas = vi.fn();
-const getRmMissoes = vi.fn();
+const getRmMissoesPorCampanha = vi.fn();
 vi.mock('service/storage', () => ({
   getRmCampanhaNpcs: (...args) => getRmCampanhaNpcs(...args),
   getRmCampanhaCriaturas: (...args) => getRmCampanhaCriaturas(...args),
-  getRmMissoes: (...args) => getRmMissoes(...args),
+  getRmMissoesPorCampanha: (...args) => getRmMissoesPorCampanha(...args),
 }));
 
 const NPCS_MOCK = [{ id: 'npc1', nome: 'Grumnak, o Orc' }];
 const CRIATURAS_MOCK = [{ id: 'criatura1', nome: 'Fera das Sombras' }];
 const MISSOES_MOCK = [
-  { id: 'missao1', campanhaId: 'c1', titulo: 'Resgatar o Prefeito' },
+  {
+    id: 'missao1',
+    campanhaId: 'c1',
+    titulo: 'Resgatar o Prefeito',
+    cenasVinculadas: ['cena1'],
+  },
+  {
+    id: 'missao2',
+    campanhaId: 'c1',
+    titulo: 'Investigar a Praça',
+    cenasVinculadas: ['cena-outra'],
+  },
 ];
 
 const renderForm = propsOverride =>
@@ -36,7 +47,7 @@ describe('CenaForm — seletores de NPCs/Criaturas/Missões', () => {
     vi.clearAllMocks();
     getRmCampanhaNpcs.mockResolvedValue(NPCS_MOCK);
     getRmCampanhaCriaturas.mockResolvedValue(CRIATURAS_MOCK);
-    getRmMissoes.mockResolvedValue(MISSOES_MOCK);
+    getRmMissoesPorCampanha.mockResolvedValue(MISSOES_MOCK);
   });
 
   it('busca os NPCs/Criaturas clonados da campanha informada (subcoleção) e as Missões da campanha', async () => {
@@ -46,7 +57,9 @@ describe('CenaForm — seletores de NPCs/Criaturas/Missões', () => {
       expect(screen.getByLabelText('NPCs participantes')).toBeInTheDocument(),
     );
     expect(screen.getByLabelText('Criaturas envolvidas')).toBeInTheDocument();
-    expect(screen.getByLabelText('Missões relacionadas')).toBeInTheDocument();
+    expect(
+      screen.getByText('Missões que avançam nesta cena'),
+    ).toBeInTheDocument();
     expect(getRmCampanhaNpcs).toHaveBeenCalledWith('c1');
     expect(getRmCampanhaCriaturas).toHaveBeenCalledWith('c1');
   });
@@ -54,7 +67,7 @@ describe('CenaForm — seletores de NPCs/Criaturas/Missões', () => {
   it('mostra mensagem de placeholder quando não há NPCs/Criaturas na campanha', async () => {
     getRmCampanhaNpcs.mockResolvedValue([]);
     getRmCampanhaCriaturas.mockResolvedValue([]);
-    getRmMissoes.mockResolvedValue([]);
+    getRmMissoesPorCampanha.mockResolvedValue([]);
     renderForm();
 
     await waitFor(() =>
@@ -66,8 +79,23 @@ describe('CenaForm — seletores de NPCs/Criaturas/Missões', () => {
       screen.getByText(/Nenhuma criatura cadastrada nesta campanha/),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/Nenhuma missão cadastrada nesta campanha/),
+      screen.getByText(/Nenhuma missão vinculada a esta cena ainda/),
     ).toBeInTheDocument();
+  });
+
+  it('lista, só leitura, as Missões cujo cenasVinculadas inclui esta Cena — não as de outras Cenas', async () => {
+    renderForm({
+      initialValues: { ...CENA_INITIAL_VALUES, id: 'cena1' },
+    });
+
+    await waitFor(() =>
+      expect(screen.getByText('Resgatar o Prefeito')).toBeInTheDocument(),
+    );
+    expect(screen.queryByText('Investigar a Praça')).not.toBeInTheDocument();
+    // Só-leitura: não é um <select> nem tem role de combobox/listbox.
+    expect(
+      screen.queryByLabelText('Missões relacionadas'),
+    ).not.toBeInTheDocument();
   });
 
   it('permite selecionar um NPC e envia o id no submit', async () => {

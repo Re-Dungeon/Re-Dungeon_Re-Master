@@ -11,7 +11,7 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import { useAuth } from 'context/AuthContext';
 import { useCampanha } from 'context/CampanhaContext';
-import { getRmMissoes, removeRmMissao } from 'service/storage';
+import { getRmMissoesPorCampanha, removeRmMissao } from 'service/storage';
 import useEntityCRUD from 'hooks/useEntityCRUD';
 import ListLoadError from 'components/ListLoadError/ListLoadError';
 import { ROUTE_PATHS } from 'common/constants/routes';
@@ -31,9 +31,7 @@ const Missoes = () => {
 
   const getMissoesDaCampanha = useCallback(() => {
     if (!campanhaAtiva) return Promise.resolve([]);
-    return getRmMissoes().then(todas =>
-      todas.filter(m => m.campanhaId === campanhaAtiva.id),
-    );
+    return getRmMissoesPorCampanha(campanhaAtiva.id);
   }, [campanhaAtiva]);
 
   const {
@@ -51,7 +49,9 @@ const Missoes = () => {
   if (!campanhaAtiva && !loadingCampanhas) return null;
 
   const loading = loadingCampanhas || loadingMissoes;
-  const podeEscrever = campanhaAtiva ? canWrite(campanhaAtiva.universoId) : false;
+  const podeEscrever = campanhaAtiva
+    ? canWrite(campanhaAtiva.universoId)
+    : false;
 
   return (
     <Box className="page-container">
@@ -64,7 +64,10 @@ const Missoes = () => {
         }}
       >
         <Box>
-          <Typography variant="h5" sx={{ color: 'var(--text-primary)', fontWeight: 700, mb: 0.5 }}>
+          <Typography
+            variant="h5"
+            sx={{ color: 'var(--text-primary)', fontWeight: 700, mb: 0.5 }}
+          >
             Missões — {campanhaAtiva?.nome}
           </Typography>
           <Typography variant="body2" sx={{ color: 'var(--text-secondary)' }}>
@@ -75,7 +78,10 @@ const Missoes = () => {
           <Button
             variant="contained"
             onClick={() => navigate(ROUTE_PATHS.NOVA_MISSAO)}
-            sx={{ background: 'var(--color-primary)', '&:hover': { background: '#5a2090' } }}
+            sx={{
+              background: 'var(--color-primary)',
+              '&:hover': { background: '#5a2090' },
+            }}
           >
             + Nova Missão
           </Button>
@@ -87,32 +93,53 @@ const Missoes = () => {
           <CircularProgress sx={{ color: 'var(--color-accent)' }} />
         </Box>
       ) : errorMissoes ? (
-        <ListLoadError mensagem="Erro ao carregar as missões." onRetry={reloadMissoes} />
+        <ListLoadError
+          mensagem="Erro ao carregar as missões."
+          onRetry={reloadMissoes}
+        />
       ) : missoes.length === 0 ? (
         <Box className="empty-state">
           <span className="empty-state-icon">📜</span>
           <p>Nenhuma missão cadastrada</p>
-          <small>Cadastre uma missão para acompanhar objetivos e recompensas.</small>
+          <small>
+            Cadastre uma missão para acompanhar objetivos e recompensas.
+          </small>
         </Box>
       ) : (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {missoes.map(missao => {
-            const status = STATUS_MISSAO_OPCOES.find(o => o.value === missao.status);
+            const status = STATUS_MISSAO_OPCOES.find(
+              o => o.value === missao.status,
+            );
             const objetivos = missao.objetivos ?? [];
             const concluidos = objetivos.filter(o => o.concluido).length;
 
             return (
               <Paper key={missao.id} elevation={0} sx={cardSx}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'flex-start',
+                    mb: 1,
+                  }}
+                >
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                    <Typography variant="h6" sx={{ color: 'var(--text-primary)', fontWeight: 600 }}>
+                    <Typography
+                      variant="h6"
+                      sx={{ color: 'var(--text-primary)', fontWeight: 600 }}
+                    >
                       {missao.titulo}
                     </Typography>
                     {status && (
                       <Chip
                         label={status.label}
                         size="small"
-                        sx={{ background: status.cor, color: '#fff', fontWeight: 600 }}
+                        sx={{
+                          background: status.cor,
+                          color: '#fff',
+                          fontWeight: 600,
+                        }}
                       />
                     )}
                   </Box>
@@ -120,7 +147,11 @@ const Missoes = () => {
                     <Box sx={{ display: 'flex', gap: 0.5 }}>
                       <IconButton
                         size="small"
-                        onClick={() => navigate(ROUTE_PATHS.NOVA_MISSAO, { state: { missao } })}
+                        onClick={() =>
+                          navigate(ROUTE_PATHS.NOVA_MISSAO, {
+                            state: { missao },
+                          })
+                        }
                         sx={{ color: 'var(--color-accent)' }}
                         aria-label={`Editar missão ${missao.titulo}`}
                       >
@@ -139,13 +170,19 @@ const Missoes = () => {
                 </Box>
 
                 {missao.descricao && (
-                  <Typography variant="body2" sx={{ color: 'var(--text-secondary)', mb: 1 }}>
+                  <Typography
+                    variant="body2"
+                    sx={{ color: 'var(--text-secondary)', mb: 1 }}
+                  >
                     {missao.descricao}
                   </Typography>
                 )}
 
                 {objetivos.length > 0 && (
-                  <Typography variant="caption" sx={{ color: 'var(--text-muted)' }}>
+                  <Typography
+                    variant="caption"
+                    sx={{ color: 'var(--text-muted)' }}
+                  >
                     Objetivos: {concluidos}/{objetivos.length} concluídos
                   </Typography>
                 )}

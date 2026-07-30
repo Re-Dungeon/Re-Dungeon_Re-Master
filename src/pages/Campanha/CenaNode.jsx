@@ -28,6 +28,7 @@ const CenaNode = ({ data, selected = false }) => {
             component="img"
             src={cena.linkImagem}
             alt=""
+            loading="lazy"
             sx={{
               width: 40,
               height: 40,

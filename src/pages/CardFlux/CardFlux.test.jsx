@@ -20,6 +20,12 @@ vi.mock('service/storage', () => ({
   updateRmCardfluxEstado: (...args) => updateRmCardfluxEstado(...args),
 }));
 
+const registrarEventoSessao = vi.fn();
+vi.mock('common/utils/sessaoLog', () => ({
+  TIPO_EVENTO_SESSAO: { CARTA_SORTEADA: 'carta_sorteada' },
+  registrarEventoSessao: (...args) => registrarEventoSessao(...args),
+}));
+
 const CAMPANHA_ATIVA = {
   id: 'c1',
   nome: 'Ascensão Carmesim',
@@ -126,6 +132,11 @@ describe('CardFlux (baralhos agrupados a partir das cartas do cardflux)', () => 
       }),
     );
     expect(screen.getByText('Emboscada')).toBeInTheDocument();
+    expect(registrarEventoSessao).toHaveBeenCalledWith(
+      CAMPANHA_ATIVA,
+      'carta_sorteada',
+      'Carta sorteada: "Emboscada" (Eventos de Estrada)',
+    );
   });
 
   it('avisa quando o baralho está esgotado', async () => {

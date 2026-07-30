@@ -7,13 +7,13 @@ const addRmCena = vi.fn();
 const updateRmCena = vi.fn();
 const getRmCampanhaNpcs = vi.fn(() => Promise.resolve([]));
 const getRmCampanhaCriaturas = vi.fn(() => Promise.resolve([]));
-const getRmMissoes = vi.fn(() => Promise.resolve([]));
+const getRmMissoesPorCampanha = vi.fn(() => Promise.resolve([]));
 vi.mock('service/storage', () => ({
   addRmCena: (...args) => addRmCena(...args),
   updateRmCena: (...args) => updateRmCena(...args),
   getRmCampanhaNpcs: (...args) => getRmCampanhaNpcs(...args),
   getRmCampanhaCriaturas: (...args) => getRmCampanhaCriaturas(...args),
-  getRmMissoes: (...args) => getRmMissoes(...args),
+  getRmMissoesPorCampanha: (...args) => getRmMissoesPorCampanha(...args),
 }));
 
 const canWrite = vi.fn(() => true);

@@ -82,6 +82,7 @@ const AdicionarParticipanteDialog = ({
                     component="img"
                     src={personagem.linkImagem}
                     alt={personagem.nome}
+                    loading="lazy"
                     sx={{
                       width: 40,
                       height: 40,

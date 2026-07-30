@@ -21,7 +21,18 @@ vi.mock('service/storage', () => ({
   updateRmCampanha: (...args) => updateRmCampanha(...args),
 }));
 
-const CAMPANHA_ATIVA = { id: 'c1', nome: 'Ascensão Carmesim', universoId: 'u1', mestreId: 'm1' };
+const registrarEventoSessao = vi.fn();
+vi.mock('common/utils/sessaoLog', () => ({
+  TIPO_EVENTO_SESSAO: { CENA_ATUAL: 'cena_atual' },
+  registrarEventoSessao: (...args) => registrarEventoSessao(...args),
+}));
+
+const CAMPANHA_ATIVA = {
+  id: 'c1',
+  nome: 'Ascensão Carmesim',
+  universoId: 'u1',
+  mestreId: 'm1',
+};
 let campanhaAtiva = CAMPANHA_ATIVA;
 let loadingCampanhas = false;
 const recarregarCampanhas = vi.fn();
@@ -58,12 +69,22 @@ vi.mock('./CenaFlowCanvas', () => ({
 }));
 
 vi.mock('./CenaDetailPanel', () => ({
-  default: ({ cena, ehCenaAtual, onClose, onSave, onDelete, onMarcarCenaAtual }) =>
+  default: ({
+    cena,
+    ehCenaAtual,
+    onClose,
+    onSave,
+    onDelete,
+    onMarcarCenaAtual,
+  }) =>
     cena ? (
       <div>
         <span>painel-{cena.titulo}</span>
         {ehCenaAtual && <span>e-cena-atual</span>}
-        <button type="button" onClick={() => onSave(cena.id, { titulo: 'Editado' })}>
+        <button
+          type="button"
+          onClick={() => onSave(cena.id, { titulo: 'Editado' })}
+        >
           salvar-painel
         </button>
         <button type="button" onClick={() => onDelete(cena.id)}>
@@ -82,8 +103,18 @@ vi.mock('./CenaDetailPanel', () => ({
 import Cenas from './Cenas';
 
 const CENAS_MOCK = [
-  { id: 'cena1', titulo: 'Chegada na Cidade', campanhaId: 'c1', estado: 'concluido' },
-  { id: 'cena2', titulo: 'Encontro com o Prefeito', campanhaId: 'c1', estado: 'em_andamento' },
+  {
+    id: 'cena1',
+    titulo: 'Chegada na Cidade',
+    campanhaId: 'c1',
+    estado: 'concluido',
+  },
+  {
+    id: 'cena2',
+    titulo: 'Encontro com o Prefeito',
+    campanhaId: 'c1',
+    estado: 'em_andamento',
+  },
 ];
 
 const renderCenas = (state = undefined) =>
@@ -205,8 +236,15 @@ describe('Cenas (grafo da campanha ativa)', () => {
 
     await user.click(screen.getByText('marcar-atual-painel'));
 
-    expect(updateRmCampanha).toHaveBeenCalledWith('c1', { cenaAtualId: 'cena1' });
+    expect(updateRmCampanha).toHaveBeenCalledWith('c1', {
+      cenaAtualId: 'cena1',
+    });
     expect(recarregarCampanhas).toHaveBeenCalled();
+    expect(registrarEventoSessao).toHaveBeenCalledWith(
+      CAMPANHA_ATIVA,
+      'cena_atual',
+      'Cena atual: "Chegada na Cidade"',
+    );
   });
 
   it('indica ao painel quando a cena selecionada já é a Cena Atual', () => {

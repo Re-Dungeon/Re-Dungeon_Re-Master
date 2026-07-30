@@ -11,7 +11,7 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import { useAuth } from 'context/AuthContext';
 import { useCampanha } from 'context/CampanhaContext';
-import { getRmMapas, removeRmMapa } from 'service/storage';
+import { getRmMapasPorCampanha, removeRmMapa } from 'service/storage';
 import useEntityCRUD from 'hooks/useEntityCRUD';
 import ListLoadError from 'components/ListLoadError/ListLoadError';
 import { ROUTE_PATHS } from 'common/constants/routes';
@@ -31,7 +31,7 @@ const Mapas = () => {
 
   const getMapasDaCampanha = useCallback(() => {
     if (!campanhaAtiva) return Promise.resolve([]);
-    return getRmMapas().then(todos => todos.filter(m => m.campanhaId === campanhaAtiva.id));
+    return getRmMapasPorCampanha(campanhaAtiva.id);
   }, [campanhaAtiva]);
 
   const {
@@ -49,7 +49,9 @@ const Mapas = () => {
   if (!campanhaAtiva && !loadingCampanhas) return null;
 
   const loading = loadingCampanhas || loadingMapas;
-  const podeEscrever = campanhaAtiva ? canWrite(campanhaAtiva.universoId) : false;
+  const podeEscrever = campanhaAtiva
+    ? canWrite(campanhaAtiva.universoId)
+    : false;
 
   return (
     <Box className="page-container">
@@ -62,18 +64,25 @@ const Mapas = () => {
         }}
       >
         <Box>
-          <Typography variant="h5" sx={{ color: 'var(--text-primary)', fontWeight: 700, mb: 0.5 }}>
+          <Typography
+            variant="h5"
+            sx={{ color: 'var(--text-primary)', fontWeight: 700, mb: 0.5 }}
+          >
             Mapas — {campanhaAtiva?.nome}
           </Typography>
           <Typography variant="body2" sx={{ color: 'var(--text-secondary)' }}>
-            Biblioteca de mapas desta campanha, prontos para consulta durante a sessão.
+            Biblioteca de mapas desta campanha, prontos para consulta durante a
+            sessão.
           </Typography>
         </Box>
         {canCreate() && podeEscrever && (
           <Button
             variant="contained"
             onClick={() => navigate(ROUTE_PATHS.NOVO_MAPA)}
-            sx={{ background: 'var(--color-primary)', '&:hover': { background: '#5a2090' } }}
+            sx={{
+              background: 'var(--color-primary)',
+              '&:hover': { background: '#5a2090' },
+            }}
           >
             + Novo Mapa
           </Button>
@@ -85,7 +94,10 @@ const Mapas = () => {
           <CircularProgress sx={{ color: 'var(--color-accent)' }} />
         </Box>
       ) : errorMapas ? (
-        <ListLoadError mensagem="Erro ao carregar os mapas." onRetry={reloadMapas} />
+        <ListLoadError
+          mensagem="Erro ao carregar os mapas."
+          onRetry={reloadMapas}
+        />
       ) : mapas.length === 0 ? (
         <Box className="empty-state">
           <span className="empty-state-icon">🖼️</span>
@@ -104,19 +116,34 @@ const Mapas = () => {
           }}
         >
           {mapas.map(mapa => {
-            const categoria = MAPA_CATEGORIA_OPCOES.find(o => o.value === mapa.categoria);
+            const categoria = MAPA_CATEGORIA_OPCOES.find(
+              o => o.value === mapa.categoria,
+            );
             return (
               <Paper key={mapa.id} elevation={0} sx={cardSx}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'flex-start',
+                    mb: 1,
+                  }}
+                >
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Typography variant="h6" sx={{ color: 'var(--text-primary)', fontWeight: 600 }}>
+                    <Typography
+                      variant="h6"
+                      sx={{ color: 'var(--text-primary)', fontWeight: 600 }}
+                    >
                       {mapa.nome}
                     </Typography>
                     {categoria && (
                       <Chip
                         label={categoria.label}
                         size="small"
-                        sx={{ background: 'var(--bg-secondary)', color: 'var(--color-accent)' }}
+                        sx={{
+                          background: 'var(--bg-secondary)',
+                          color: 'var(--color-accent)',
+                        }}
                       />
                     )}
                   </Box>
@@ -124,7 +151,9 @@ const Mapas = () => {
                     <Box sx={{ display: 'flex', gap: 0.5 }}>
                       <IconButton
                         size="small"
-                        onClick={() => navigate(ROUTE_PATHS.NOVO_MAPA, { state: { mapa } })}
+                        onClick={() =>
+                          navigate(ROUTE_PATHS.NOVO_MAPA, { state: { mapa } })
+                        }
                         sx={{ color: 'var(--color-accent)' }}
                         aria-label={`Editar mapa ${mapa.nome}`}
                       >
@@ -147,6 +176,7 @@ const Mapas = () => {
                     component="img"
                     src={mapa.linkImagem}
                     alt={mapa.nome}
+                    loading="lazy"
                     sx={{
                       width: '100%',
                       height: 160,
@@ -163,7 +193,10 @@ const Mapas = () => {
                 )}
 
                 {mapa.descricao && (
-                  <Typography variant="body2" sx={{ color: 'var(--text-secondary)' }}>
+                  <Typography
+                    variant="body2"
+                    sx={{ color: 'var(--text-secondary)' }}
+                  >
                     {mapa.descricao}
                   </Typography>
                 )}

@@ -84,7 +84,9 @@ const Campanha = () => {
         <Box className="empty-state">
           <span className="empty-state-icon">🗺️</span>
           <p>Nenhuma campanha cadastrada</p>
-          <small>Crie sua primeira Campanha para montar o fluxograma de cenas.</small>
+          <small>
+            Crie sua primeira Campanha para montar o fluxograma de cenas.
+          </small>
         </Box>
       ) : (
         <Box
@@ -145,7 +147,10 @@ const Campanha = () => {
                         <IconButton
                           size="small"
                           onClick={() => handleRemove(campanha.id)}
-                          sx={{ color: '#ef4444', '&:hover': { color: '#ef4444' } }}
+                          sx={{
+                            color: '#ef4444',
+                            '&:hover': { color: '#ef4444' },
+                          }}
                           aria-label={`Remover campanha ${campanha.nome}`}
                         >
                           <DeleteOutlineIcon fontSize="small" />
@@ -160,6 +165,7 @@ const Campanha = () => {
                     component="img"
                     src={campanha.linkImagem}
                     alt={campanha.nome}
+                    loading="lazy"
                     sx={{
                       width: '100%',
                       height: 180,
@@ -177,13 +183,22 @@ const Campanha = () => {
 
                 <Typography
                   variant="h6"
-                  sx={{ color: 'var(--text-primary)', fontWeight: 600, lineHeight: 1.2 }}
+                  sx={{
+                    color: 'var(--text-primary)',
+                    fontWeight: 600,
+                    lineHeight: 1.2,
+                  }}
                 >
                   {campanha.nome}
                 </Typography>
                 <Typography
                   variant="caption"
-                  sx={{ color: 'var(--color-accent)', fontWeight: 600, display: 'block', mb: 1 }}
+                  sx={{
+                    color: 'var(--color-accent)',
+                    fontWeight: 600,
+                    display: 'block',
+                    mb: 1,
+                  }}
                 >
                   {universos.find(u => u.id === campanha.universoId)?.Nome ||
                     'Universo Desconhecido'}
@@ -213,8 +228,14 @@ const Campanha = () => {
                     onClick={() => setCampanhaAtiva(campanha.id)}
                     sx={
                       ativa
-                        ? { color: 'var(--color-accent)', borderColor: 'var(--color-accent)' }
-                        : { background: 'var(--color-primary)', '&:hover': { background: '#5a2090' } }
+                        ? {
+                            color: 'var(--color-accent)',
+                            borderColor: 'var(--color-accent)',
+                          }
+                        : {
+                            background: 'var(--color-primary)',
+                            '&:hover': { background: '#5a2090' },
+                          }
                     }
                   >
                     {ativa ? 'Campanha Ativa' : 'Selecionar Campanha'}

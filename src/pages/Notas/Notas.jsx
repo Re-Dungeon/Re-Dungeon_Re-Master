@@ -11,7 +11,11 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import { useAuth } from 'context/AuthContext';
 import { useCampanha } from 'context/CampanhaContext';
-import { getRmNotas, removeRmNota, getRmCenas } from 'service/storage';
+import {
+  getRmNotasPorCampanha,
+  removeRmNota,
+  getRmCenas,
+} from 'service/storage';
 import useEntityCRUD from 'hooks/useEntityCRUD';
 import ListLoadError from 'components/ListLoadError/ListLoadError';
 import { ROUTE_PATHS } from 'common/constants/routes';
@@ -30,7 +34,7 @@ const Notas = () => {
 
   const getNotasDaCampanha = useCallback(() => {
     if (!campanhaAtiva) return Promise.resolve([]);
-    return getRmNotas().then(todas => todas.filter(n => n.campanhaId === campanhaAtiva.id));
+    return getRmNotasPorCampanha(campanhaAtiva.id);
   }, [campanhaAtiva]);
 
   const {
@@ -47,7 +51,9 @@ const Notas = () => {
     if (!campanhaAtiva) return;
     Promise.resolve().then(() =>
       getRmCenas()
-        .then(todas => setCenas(todas.filter(c => c.campanhaId === campanhaAtiva.id)))
+        .then(todas =>
+          setCenas(todas.filter(c => c.campanhaId === campanhaAtiva.id)),
+        )
         .catch(() => {}),
     );
   }, [campanhaAtiva]);
@@ -59,7 +65,9 @@ const Notas = () => {
   if (!campanhaAtiva && !loadingCampanhas) return null;
 
   const loading = loadingCampanhas || loadingNotas;
-  const podeEscrever = campanhaAtiva ? canWrite(campanhaAtiva.universoId) : false;
+  const podeEscrever = campanhaAtiva
+    ? canWrite(campanhaAtiva.universoId)
+    : false;
 
   return (
     <Box className="page-container">
@@ -72,7 +80,10 @@ const Notas = () => {
         }}
       >
         <Box>
-          <Typography variant="h5" sx={{ color: 'var(--text-primary)', fontWeight: 700, mb: 0.5 }}>
+          <Typography
+            variant="h5"
+            sx={{ color: 'var(--text-primary)', fontWeight: 700, mb: 0.5 }}
+          >
             Notas — {campanhaAtiva?.nome}
           </Typography>
           <Typography variant="body2" sx={{ color: 'var(--text-secondary)' }}>
@@ -83,7 +94,10 @@ const Notas = () => {
           <Button
             variant="contained"
             onClick={() => navigate(ROUTE_PATHS.NOVA_NOTA)}
-            sx={{ background: 'var(--color-primary)', '&:hover': { background: '#5a2090' } }}
+            sx={{
+              background: 'var(--color-primary)',
+              '&:hover': { background: '#5a2090' },
+            }}
           >
             + Nova Nota
           </Button>
@@ -95,7 +109,10 @@ const Notas = () => {
           <CircularProgress sx={{ color: 'var(--color-accent)' }} />
         </Box>
       ) : errorNotas ? (
-        <ListLoadError mensagem="Erro ao carregar as notas." onRetry={reloadNotas} />
+        <ListLoadError
+          mensagem="Erro ao carregar as notas."
+          onRetry={reloadNotas}
+        />
       ) : notas.length === 0 ? (
         <Box className="empty-state">
           <span className="empty-state-icon">📝</span>
@@ -118,15 +135,27 @@ const Notas = () => {
 
             return (
               <Paper key={nota.id} elevation={0} sx={cardSx}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
-                  <Typography variant="h6" sx={{ color: 'var(--text-primary)', fontWeight: 600 }}>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'flex-start',
+                    mb: 1,
+                  }}
+                >
+                  <Typography
+                    variant="h6"
+                    sx={{ color: 'var(--text-primary)', fontWeight: 600 }}
+                  >
                     {nota.titulo}
                   </Typography>
                   {podeEscrever && (
                     <Box sx={{ display: 'flex', gap: 0.5 }}>
                       <IconButton
                         size="small"
-                        onClick={() => navigate(ROUTE_PATHS.NOVA_NOTA, { state: { nota } })}
+                        onClick={() =>
+                          navigate(ROUTE_PATHS.NOVA_NOTA, { state: { nota } })
+                        }
                         sx={{ color: 'var(--color-accent)' }}
                         aria-label={`Editar nota ${nota.titulo}`}
                       >
@@ -148,7 +177,11 @@ const Notas = () => {
                   <Chip
                     label={`Cena: ${cenaVinculada.titulo}`}
                     size="small"
-                    sx={{ background: 'var(--bg-secondary)', color: 'var(--color-accent)', mb: 1 }}
+                    sx={{
+                      background: 'var(--bg-secondary)',
+                      color: 'var(--color-accent)',
+                      mb: 1,
+                    }}
                   />
                 )}
 

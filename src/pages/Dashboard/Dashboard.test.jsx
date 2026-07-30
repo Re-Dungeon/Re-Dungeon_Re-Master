@@ -9,9 +9,11 @@ vi.mock('react-router-dom', async () => {
   return { ...actual, useNavigate: () => navigate };
 });
 
-const getRmNotas = vi.fn();
+const getRmNotasPorCampanha = vi.fn();
+const getRmSessaoLogsPorCampanha = vi.fn();
 vi.mock('service/storage', () => ({
-  getRmNotas: (...args) => getRmNotas(...args),
+  getRmNotasPorCampanha: (...args) => getRmNotasPorCampanha(...args),
+  getRmSessaoLogsPorCampanha: (...args) => getRmSessaoLogsPorCampanha(...args),
 }));
 
 let campanhaAtiva = null;
@@ -40,10 +42,20 @@ vi.mock('pages/Campanha/CenaFlowCanvas', () => ({
 
 import Dashboard from './Dashboard';
 
-const CAMPANHA_ATIVA = { id: 'c1', nome: 'Ascensão Carmesim', universoId: 'u1', cenaAtualId: null };
+const CAMPANHA_ATIVA = {
+  id: 'c1',
+  nome: 'Ascensão Carmesim',
+  universoId: 'u1',
+  cenaAtualId: null,
+};
 
 const CENAS_MOCK = [
-  { id: 'cena1', titulo: 'Chegada na Cidade', estado: 'em_andamento', objetivo: 'Entrar na cidade' },
+  {
+    id: 'cena1',
+    titulo: 'Chegada na Cidade',
+    estado: 'em_andamento',
+    objetivo: 'Entrar na cidade',
+  },
   { id: 'cena2', titulo: 'Encontro com o Prefeito', estado: 'nao_iniciado' },
 ];
 
@@ -65,7 +77,8 @@ describe('Dashboard', () => {
       edges: [],
       loading: false,
     };
-    getRmNotas.mockResolvedValue([]);
+    getRmNotasPorCampanha.mockResolvedValue([]);
+    getRmSessaoLogsPorCampanha.mockResolvedValue([]);
   });
 
   it('mostra o estado vazio e navega para Campanha quando não há campanha ativa', async () => {
@@ -73,7 +86,9 @@ describe('Dashboard', () => {
     const user = userEvent.setup();
     renderDashboard();
 
-    expect(screen.getByText('Nenhuma campanha selecionada')).toBeInTheDocument();
+    expect(
+      screen.getByText('Nenhuma campanha selecionada'),
+    ).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Ir para Campanha' }));
     expect(navigate).toHaveBeenCalledWith('/campanha');
   });
@@ -81,7 +96,9 @@ describe('Dashboard', () => {
   it('mostra o cabeçalho com o nome da campanha ativa', async () => {
     renderDashboard();
 
-    expect(await screen.findByText('Dashboard — Ascensão Carmesim')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Dashboard — Ascensão Carmesim'),
+    ).toBeInTheDocument();
   });
 
   it('mostra a Cena Atual com estado e permite abrir no fluxograma', async () => {
@@ -117,7 +134,9 @@ describe('Dashboard', () => {
     renderDashboard();
 
     await screen.findByText('Próximas Cenas');
-    const botaoProxima = screen.getByRole('button', { name: 'Encontro com o Prefeito' });
+    const botaoProxima = screen.getByRole('button', {
+      name: 'Encontro com o Prefeito',
+    });
     await user.click(botaoProxima);
 
     expect(navigate).toHaveBeenCalledWith('/campanha/cenas', {
@@ -126,8 +145,13 @@ describe('Dashboard', () => {
   });
 
   it('mostra as notas mais recentes e o link "Ver todas"', async () => {
-    getRmNotas.mockResolvedValue([
-      { id: 'nota1', campanhaId: 'c1', titulo: 'Ideia para a sessão', conteudo: 'Texto' },
+    getRmNotasPorCampanha.mockResolvedValue([
+      {
+        id: 'nota1',
+        campanhaId: 'c1',
+        titulo: 'Ideia para a sessão',
+        conteudo: 'Texto',
+      },
     ]);
     renderDashboard();
 
@@ -138,7 +162,9 @@ describe('Dashboard', () => {
   it('mostra o estado vazio de notas quando não há nenhuma', async () => {
     renderDashboard();
 
-    expect(await screen.findByText('Nenhuma nota registrada ainda.')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Nenhuma nota registrada ainda.'),
+    ).toBeInTheDocument();
   });
 
   it('renderiza o mini-grafo quando há cenas', async () => {
@@ -151,6 +177,43 @@ describe('Dashboard', () => {
     grafoState = { ...grafoState, cenas: [], nodes: [] };
     renderDashboard();
 
-    expect(await screen.findByText('Nenhuma cena cadastrada ainda')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Nenhuma cena cadastrada ainda'),
+    ).toBeInTheDocument();
+  });
+
+  it('mostra o Registro da Sessão ordenado do mais recente, com ícone e hora', async () => {
+    getRmSessaoLogsPorCampanha.mockResolvedValue([
+      {
+        id: 'log1',
+        tipo: 'cena_atual',
+        mensagem: 'Cena atual: "Chegada"',
+        createdAt: { toDate: () => new Date(2026, 6, 30, 9, 0) },
+      },
+      {
+        id: 'log2',
+        tipo: 'carta_sorteada',
+        mensagem: 'Carta sorteada: "Emboscada" (Estrada)',
+        createdAt: { toDate: () => new Date(2026, 6, 30, 10, 30) },
+      },
+    ]);
+    renderDashboard();
+
+    await screen.findByText('Registro da Sessão');
+    const mensagens = await screen.findAllByText(/Cena atual:|Carta sorteada:/);
+    expect(mensagens.map(el => el.textContent)).toEqual([
+      'Carta sorteada: "Emboscada" (Estrada)',
+      'Cena atual: "Chegada"',
+    ]);
+    expect(screen.getByText('10:30')).toBeInTheDocument();
+    expect(screen.getByText('09:00')).toBeInTheDocument();
+  });
+
+  it('mostra o estado vazio do Registro da Sessão quando não há eventos', async () => {
+    renderDashboard();
+
+    expect(
+      await screen.findByText(/Nenhum evento registrado ainda/),
+    ).toBeInTheDocument();
   });
 });

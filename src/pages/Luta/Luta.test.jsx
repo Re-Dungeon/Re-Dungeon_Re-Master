@@ -10,12 +10,14 @@ vi.mock('react-router-dom', async () => {
 });
 
 const getPersonagens = vi.fn();
+const getCondicoes = vi.fn();
 const getRmCampanhaLutaParticipantes = vi.fn();
 const addRmCampanhaLutaParticipante = vi.fn();
 const removeRmCampanhaLutaParticipante = vi.fn();
 const updateRmCampanhaLutaParticipante = vi.fn();
 vi.mock('service/storage', () => ({
   getPersonagens: (...args) => getPersonagens(...args),
+  getCondicoes: (...args) => getCondicoes(...args),
   getRmCampanhaLutaParticipantes: (...args) =>
     getRmCampanhaLutaParticipantes(...args),
   addRmCampanhaLutaParticipante: (...args) =>
@@ -30,6 +32,17 @@ const canCreate = vi.fn(() => true);
 const canWrite = vi.fn(() => true);
 vi.mock('context/AuthContext', () => ({
   useAuth: () => ({ canCreate, canWrite }),
+}));
+
+const notifyError = vi.fn();
+vi.mock('context/SnackbarContext', () => ({
+  useSnackbar: () => ({ notifyError }),
+}));
+
+const registrarEventoSessao = vi.fn();
+vi.mock('common/utils/sessaoLog', () => ({
+  TIPO_EVENTO_SESSAO: { PARTICIPANTE_LUTA: 'participante_luta' },
+  registrarEventoSessao: (...args) => registrarEventoSessao(...args),
 }));
 
 const CAMPANHA_ATIVA = {
@@ -95,6 +108,7 @@ describe('Luta (participantes de combate da campanha ativa)', () => {
     canCreate.mockReturnValue(true);
     canWrite.mockReturnValue(true);
     getPersonagens.mockResolvedValue(PERSONAGENS_MOCK);
+    getCondicoes.mockResolvedValue([]);
     getRmCampanhaLutaParticipantes.mockResolvedValue([PARTICIPANTE_MOCK]);
   });
 
@@ -156,6 +170,11 @@ describe('Luta (participantes de combate da campanha ativa)', () => {
       3,
       'c1',
       expect.objectContaining({ nome: 'Rato Gigante #3' }),
+    );
+    expect(registrarEventoSessao).toHaveBeenCalledWith(
+      CAMPANHA_ATIVA,
+      'participante_luta',
+      '3x "Rato Gigante" entrou na Luta',
     );
   });
 
@@ -219,6 +238,36 @@ describe('Luta (participantes de combate da campanha ativa)', () => {
     );
   });
 
+  it('ajusta a vida atual com as teclas de atalho +/- no campo focado', async () => {
+    updateRmCampanhaLutaParticipante.mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    renderLuta();
+
+    await waitFor(() =>
+      expect(screen.getByText('Rato Gigante')).toBeInTheDocument(),
+    );
+    const campo = screen.getByLabelText('Vida atual de Rato Gigante');
+    campo.focus();
+    await user.keyboard('+');
+
+    await waitFor(() =>
+      expect(updateRmCampanhaLutaParticipante).toHaveBeenCalledWith(
+        'c1',
+        'part1',
+        { vidaAtual: 13 },
+      ),
+    );
+
+    await user.keyboard('-');
+    await waitFor(() =>
+      expect(updateRmCampanhaLutaParticipante).toHaveBeenCalledWith(
+        'c1',
+        'part1',
+        { vidaAtual: 12 },
+      ),
+    );
+  });
+
   it('edita a vida atual digitando e grava ao sair do campo', async () => {
     updateRmCampanhaLutaParticipante.mockResolvedValue(undefined);
     const user = userEvent.setup();
@@ -239,6 +288,61 @@ describe('Luta (participantes de combate da campanha ativa)', () => {
         { vidaAtual: 5 },
       ),
     );
+  });
+
+  it('adiciona uma condição via o seletor "+ Condição" e grava no Firestore', async () => {
+    getCondicoes.mockResolvedValue([
+      { id: 'atordoado', nome: 'Atordoado' },
+      { id: 'envenenado', nome: 'Envenenado' },
+    ]);
+    updateRmCampanhaLutaParticipante.mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    renderLuta();
+
+    await waitFor(() =>
+      expect(screen.getByText('Rato Gigante')).toBeInTheDocument(),
+    );
+    await user.click(
+      screen.getByLabelText('Adicionar condição a Rato Gigante'),
+    );
+    await user.click(await screen.findByRole('option', { name: 'Atordoado' }));
+
+    await waitFor(() =>
+      expect(updateRmCampanhaLutaParticipante).toHaveBeenCalledWith(
+        'c1',
+        'part1',
+        { condicoes: [{ id: 'atordoado', nome: 'Atordoado' }] },
+      ),
+    );
+    expect(screen.getByText('Atordoado')).toBeInTheDocument();
+  });
+
+  it('remove uma condição aplicada pelo chip e grava no Firestore', async () => {
+    getCondicoes.mockResolvedValue([{ id: 'atordoado', nome: 'Atordoado' }]);
+    getRmCampanhaLutaParticipantes.mockResolvedValue([
+      {
+        ...PARTICIPANTE_MOCK,
+        condicoes: [{ id: 'atordoado', nome: 'Atordoado' }],
+      },
+    ]);
+    updateRmCampanhaLutaParticipante.mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    renderLuta();
+
+    await waitFor(() =>
+      expect(screen.getByText('Atordoado')).toBeInTheDocument(),
+    );
+    const chip = screen.getByText('Atordoado').closest('.MuiChip-root');
+    await user.click(chip.querySelector('.MuiChip-deleteIcon'));
+
+    await waitFor(() =>
+      expect(updateRmCampanhaLutaParticipante).toHaveBeenCalledWith(
+        'c1',
+        'part1',
+        { condicoes: [] },
+      ),
+    );
+    expect(screen.queryByText('Atordoado')).not.toBeInTheDocument();
   });
 
   it('não mostra ações de adicionar/duplicar/remover e desabilita os campos quando canWrite retorna false', async () => {

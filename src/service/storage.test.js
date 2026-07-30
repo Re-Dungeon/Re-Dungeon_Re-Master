@@ -43,6 +43,7 @@ import {
   getRaca,
   getClasse,
   getVeiaAstral,
+  getCondicoes,
   getRmCampanhaNpcs,
   addRmCampanhaNpc,
   removeRmCampanhaNpc,
@@ -56,10 +57,12 @@ import {
   removeRmCampanhaCriatura,
   updateRmCampanhaCriatura,
   getRmMapas,
+  getRmMapasPorCampanha,
   addRmMapa,
   removeRmMapa,
   updateRmMapa,
   getRmMissoes,
+  getRmMissoesPorCampanha,
   addRmMissao,
   removeRmMissao,
   updateRmMissao,
@@ -68,9 +71,12 @@ import {
   addRmCardfluxEstado,
   updateRmCardfluxEstado,
   getRmNotas,
+  getRmNotasPorCampanha,
   addRmNota,
   removeRmNota,
   updateRmNota,
+  getRmSessaoLogsPorCampanha,
+  addRmSessaoLog,
 } from './storage';
 
 describe('storage.js — CRUD de rmCampanhas (padrão Firestore repetido em toda entidade rm*)', () => {
@@ -353,6 +359,34 @@ describe.each([
   },
 );
 
+describe.each([
+  { colecao: 'rmMapas', get: getRmMapasPorCampanha },
+  { colecao: 'rmMissoes', get: getRmMissoesPorCampanha },
+  { colecao: 'rmNotas', get: getRmNotasPorCampanha },
+])(
+  'storage.js — $colecaoPorCampanha filtra por campanhaId via query/where',
+  ({ colecao, get }) => {
+    beforeEach(() => {
+      vi.clearAllMocks();
+    });
+
+    it(`busca a coleção "${colecao}" com where('campanhaId', '==', campanhaId)`, async () => {
+      getDocs.mockResolvedValue({ docs: [] });
+
+      await get('c1');
+
+      expect(collection).toHaveBeenCalledWith({}, colecao);
+      expect(where).toHaveBeenCalledWith('campanhaId', '==', 'c1');
+      expect(getDocs).toHaveBeenCalledWith(
+        expect.objectContaining({
+          __query: { __collection: colecao },
+          constraints: [{ __where: ['campanhaId', '==', 'c1'] }],
+        }),
+      );
+    });
+  },
+);
+
 describe('storage.js — cardflux (somente leitura) e CRUD de rmCardfluxEstados', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -467,5 +501,87 @@ describe.each([
     const result = await getFuncao('ref-inexistente');
 
     expect(result).toBeNull();
+  });
+});
+
+describe('storage.js — getCondicoes (busca por universos-lista + universo-singular, mescladas por id)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('busca a coleção "condicoes" pelos dois campos e mescla os docs sem duplicar', async () => {
+    getDocs
+      .mockResolvedValueOnce({
+        docs: [
+          {
+            id: 'atordoado',
+            data: () => ({ nome: 'Atordoado', universos: ['u1'] }),
+          },
+          {
+            id: 'envenenado',
+            data: () => ({ nome: 'Envenenado', universos: ['u1', 'u2'] }),
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        docs: [
+          // Doc legado (só `universo`) e um repetido (já veio pela lista) —
+          // não deve aparecer duplicado no resultado final.
+          {
+            id: 'sangrando',
+            data: () => ({ nome: 'Sangrando', universo: 'u1' }),
+          },
+          {
+            id: 'atordoado',
+            data: () => ({ nome: 'Atordoado', universos: ['u1'] }),
+          },
+        ],
+      });
+
+    const result = await getCondicoes('u1');
+
+    expect(where).toHaveBeenCalledWith('universos', 'array-contains', 'u1');
+    expect(where).toHaveBeenCalledWith('universo', '==', 'u1');
+    expect(result).toHaveLength(3);
+    expect(result.map(c => c.id).sort()).toEqual([
+      'atordoado',
+      'envenenado',
+      'sangrando',
+    ]);
+  });
+});
+
+describe('storage.js — rmSessaoLogs (registro cronológico automático, append-only)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('getRmSessaoLogsPorCampanha busca "rmSessaoLogs" filtrado por campanhaId', async () => {
+    getDocs.mockResolvedValue({ docs: [] });
+
+    await getRmSessaoLogsPorCampanha('c1');
+
+    expect(collection).toHaveBeenCalledWith({}, 'rmSessaoLogs');
+    expect(where).toHaveBeenCalledWith('campanhaId', '==', 'c1');
+  });
+
+  it('addRmSessaoLog grava na coleção "rmSessaoLogs" com createdAt', async () => {
+    addDoc.mockResolvedValue({ id: 'log-1' });
+
+    await addRmSessaoLog({
+      campanhaId: 'c1',
+      tipo: 'cena_atual',
+      mensagem: 'x',
+    });
+
+    expect(addDoc).toHaveBeenCalledWith(
+      { __collection: 'rmSessaoLogs' },
+      {
+        campanhaId: 'c1',
+        tipo: 'cena_atual',
+        mensagem: 'x',
+        createdAt: '__serverTimestamp__',
+      },
+    );
   });
 });

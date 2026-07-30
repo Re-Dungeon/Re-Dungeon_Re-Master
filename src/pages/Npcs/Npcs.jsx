@@ -190,6 +190,7 @@ const Npcs = () => {
                     component="img"
                     src={personagem.linkImagem}
                     alt={personagem.nome}
+                    loading="lazy"
                     sx={{
                       width: '100%',
                       height: 160,

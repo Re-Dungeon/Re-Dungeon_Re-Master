@@ -50,7 +50,6 @@ export const CENA_SCHEMA = Yup.object({
   posicaoCanvas: Yup.object({ x: Yup.number(), y: Yup.number() }).nullable(),
   npcsParticipantes: Yup.array().of(Yup.string()),
   criaturasEnvolvidas: Yup.array().of(Yup.string()),
-  missoesRelacionadas: Yup.array().of(Yup.string()),
 });
 
 export const CENA_INITIAL_VALUES = {
@@ -66,5 +65,4 @@ export const CENA_INITIAL_VALUES = {
   posicaoCanvas: null,
   npcsParticipantes: [],
   criaturasEnvolvidas: [],
-  missoesRelacionadas: [],
 };

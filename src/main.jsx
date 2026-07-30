@@ -6,6 +6,7 @@ import CssBaseline from '@mui/material/CssBaseline';
 import App from './App.jsx';
 import { AuthProvider } from 'context/AuthContext';
 import { CampanhaProvider } from 'context/CampanhaContext';
+import { SnackbarProvider } from 'context/SnackbarContext';
 import ErrorBoundary from 'components/ErrorBoundary/ErrorBoundary';
 import 'common/styles/global.css';
 import 'common/styles/sidebar.css';
@@ -44,7 +45,9 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         <HashRouter>
           <AuthProvider>
             <CampanhaProvider>
-              <App />
+              <SnackbarProvider>
+                <App />
+              </SnackbarProvider>
             </CampanhaProvider>
           </AuthProvider>
         </HashRouter>

@@ -16,18 +16,45 @@ vi.mock('service/storage', () => ({
   removeRmCena: (...args) => removeRmCena(...args),
 }));
 
+const notifyError = vi.fn();
+vi.mock('context/SnackbarContext', () => ({
+  useSnackbar: () => ({ notifyError }),
+}));
+
 import useCampanhaGrafo from './useCampanhaGrafo';
 
 const CAMPANHA = { id: 'c1', universoId: 'u1', mestreId: 'm1' };
 
 const CENAS_MOCK = [
-  { id: 'cena1', campanhaId: 'c1', titulo: 'Chegada', estado: 'concluido', posicaoCanvas: { x: 10, y: 20 } },
-  { id: 'cena2', campanhaId: 'c1', titulo: 'Prefeito', estado: 'em_andamento', posicaoCanvas: null },
-  { id: 'cenaOutraCampanha', campanhaId: 'outra', titulo: 'Fora', estado: 'nao_iniciado' },
+  {
+    id: 'cena1',
+    campanhaId: 'c1',
+    titulo: 'Chegada',
+    estado: 'concluido',
+    posicaoCanvas: { x: 10, y: 20 },
+  },
+  {
+    id: 'cena2',
+    campanhaId: 'c1',
+    titulo: 'Prefeito',
+    estado: 'em_andamento',
+    posicaoCanvas: null,
+  },
+  {
+    id: 'cenaOutraCampanha',
+    campanhaId: 'outra',
+    titulo: 'Fora',
+    estado: 'nao_iniciado',
+  },
 ];
 
 const CONEXOES_MOCK = [
-  { id: 'conexao1', campanhaId: 'c1', origemCenaId: 'cena1', destinoCenaId: 'cena2' },
+  {
+    id: 'conexao1',
+    campanhaId: 'c1',
+    origemCenaId: 'cena1',
+    destinoCenaId: 'cena2',
+  },
 ];
 
 describe('useCampanhaGrafo', () => {
@@ -62,7 +89,11 @@ describe('useCampanhaGrafo', () => {
 
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.edges).toEqual([
-      expect.objectContaining({ id: 'conexao1', source: 'cena1', target: 'cena2' }),
+      expect.objectContaining({
+        id: 'conexao1',
+        source: 'cena1',
+        target: 'cena2',
+      }),
     ]);
   });
 
@@ -93,6 +124,20 @@ describe('useCampanhaGrafo', () => {
     expect(updateRmCena).toHaveBeenCalledWith('cena1', {
       posicaoCanvas: { x: 5, y: 5 },
     });
+  });
+
+  it('persistirPosicaoCena avisa o mestre (notifyError) quando o Firestore falha, sem propagar a exceção', async () => {
+    updateRmCena.mockRejectedValue(new Error('permission-denied'));
+    const { result } = renderHook(() => useCampanhaGrafo(CAMPANHA));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    await act(async () => {
+      await result.current.persistirPosicaoCena('cena1', { x: 5, y: 5 });
+    });
+
+    expect(notifyError).toHaveBeenCalledWith(
+      'Não foi possível salvar a nova posição da cena.',
+    );
   });
 
   it('createConexao grava uma nova conexão com os IDs derivados da campanha', async () => {
@@ -212,7 +257,9 @@ describe('useCampanhaGrafo — desempenho com campanha sintética grande', () =>
     const inicio = performance.now();
     const { result } = renderHook(() => useCampanhaGrafo(CAMPANHA));
 
-    await waitFor(() => expect(result.current.loading).toBe(false), { timeout: 5000 });
+    await waitFor(() => expect(result.current.loading).toBe(false), {
+      timeout: 5000,
+    });
     const duracaoMs = performance.now() - inicio;
 
     expect(result.current.error).toBeNull();

@@ -66,6 +66,30 @@ const updateFirestoreItem = async (collectionName, id, updates) => {
   }
 };
 
+// Variante de `getFirestoreItems` filtrada por um campo (`where(field, '==',
+// value)`) — usada pelas coleções `rm*` top-level que denormalizam
+// `campanhaId`, para não precisar baixar a coleção inteira do mestre (todas
+// as campanhas) só para filtrar `campanhaId` no cliente a cada troca de
+// tela. Só requer índice automático de campo único do Firestore (não
+// composto), então não exige nenhuma entrada nova em
+// `firestore.indexes.json`.
+const getFirestoreItemsWhere = async (collectionName, field, value) => {
+  const path = collectionPath(collectionName);
+  try {
+    const snapshot = await getDocs(
+      query(collection(db, ...path), where(field, '==', value)),
+    );
+    return snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error(
+      `Erro ao buscar itens de "${path.join('/')}" (${field}="${value}"):`,
+      error,
+    );
+    throw error;
+  }
+};
+
 const removeFirestoreItem = async (collectionName, id) => {
   const path = collectionPath(collectionName);
   try {
@@ -147,6 +171,43 @@ export const getAptidao = id => getReferenciaPorId('aptidoes', id);
 export const getRaca = id => getReferenciaPorId('racas', id);
 export const getClasse = id => getReferenciaPorId('classes', id);
 export const getVeiaAstral = id => getReferenciaPorId('veiasAstrais', id);
+
+// ── condicoes (Firestore) — gerida pelo Re-Dungeon, somente leitura aqui.
+// Usada pela Luta para marcar status effects (atordoado, envenenado, etc.)
+// nos participantes. Assim como aptidoes/regras, uma condição pode pertencer
+// a mais de um Universo (campo `universos`, lista de ids) — docs antigos
+// ainda podem ter só o campo singular `universo`, então busca os dois e
+// mescla por id (ver `canWriteMultiUniversoData` em firestore.rules, que já
+// documenta essa mesma dualidade do lado da escrita).
+const CONDICOES_COLLECTION = 'condicoes';
+
+export const getCondicoes = async universoId => {
+  try {
+    const [porLista, porCampoSingular] = await Promise.all([
+      getDocs(
+        query(
+          collection(db, CONDICOES_COLLECTION),
+          where('universos', 'array-contains', universoId),
+        ),
+      ),
+      getDocs(
+        query(
+          collection(db, CONDICOES_COLLECTION),
+          where('universo', '==', universoId),
+        ),
+      ),
+    ]);
+    const porId = new Map();
+    [...porLista.docs, ...porCampoSingular.docs].forEach(d =>
+      porId.set(d.id, { id: d.id, ...d.data() }),
+    );
+    return [...porId.values()];
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error(`Erro ao buscar itens de "${CONDICOES_COLLECTION}":`, error);
+    throw error;
+  }
+};
 
 // ── User Permissions (Firestore) — compartilhado com o Re-Dungeon ──────────
 
@@ -312,6 +373,8 @@ export const updateRmCampanhaLutaParticipante = (campanhaId, id, updates) =>
 const RM_MAPAS_COLLECTION = 'rmMapas';
 
 export const getRmMapas = () => getFirestoreItems(RM_MAPAS_COLLECTION);
+export const getRmMapasPorCampanha = campanhaId =>
+  getFirestoreItemsWhere(RM_MAPAS_COLLECTION, 'campanhaId', campanhaId);
 export const addRmMapa = mapa => addFirestoreItem(RM_MAPAS_COLLECTION, mapa);
 export const removeRmMapa = id => removeFirestoreItem(RM_MAPAS_COLLECTION, id);
 export const updateRmMapa = (id, updates) =>
@@ -321,6 +384,8 @@ export const updateRmMapa = (id, updates) =>
 const RM_MISSOES_COLLECTION = 'rmMissoes';
 
 export const getRmMissoes = () => getFirestoreItems(RM_MISSOES_COLLECTION);
+export const getRmMissoesPorCampanha = campanhaId =>
+  getFirestoreItemsWhere(RM_MISSOES_COLLECTION, 'campanhaId', campanhaId);
 export const addRmMissao = missao =>
   addFirestoreItem(RM_MISSOES_COLLECTION, missao);
 export const removeRmMissao = id =>
@@ -347,7 +412,23 @@ export const updateRmCardfluxEstado = (id, updates) =>
 const RM_NOTAS_COLLECTION = 'rmNotas';
 
 export const getRmNotas = () => getFirestoreItems(RM_NOTAS_COLLECTION);
+export const getRmNotasPorCampanha = campanhaId =>
+  getFirestoreItemsWhere(RM_NOTAS_COLLECTION, 'campanhaId', campanhaId);
 export const addRmNota = nota => addFirestoreItem(RM_NOTAS_COLLECTION, nota);
 export const removeRmNota = id => removeFirestoreItem(RM_NOTAS_COLLECTION, id);
 export const updateRmNota = (id, updates) =>
   updateFirestoreItem(RM_NOTAS_COLLECTION, id, updates);
+
+// ── rmSessaoLogs (Firestore) ──────────────────────────────────────────────
+// Registro cronológico automático de eventos da sessão (cena marcada como
+// atual, carta sorteada no CardFlux, participante adicionado à Luta) —
+// complementar às `rmNotas` manuais, escrito pela própria tela que dispara o
+// evento em vez de o mestre precisar anotar durante o jogo. Append-only por
+// design (sem update/remove expostos aqui nem liberados em
+// firestore.rules): é um histórico do que aconteceu, não um dado editável.
+const RM_SESSAO_LOGS_COLLECTION = 'rmSessaoLogs';
+
+export const getRmSessaoLogsPorCampanha = campanhaId =>
+  getFirestoreItemsWhere(RM_SESSAO_LOGS_COLLECTION, 'campanhaId', campanhaId);
+export const addRmSessaoLog = log =>
+  addFirestoreItem(RM_SESSAO_LOGS_COLLECTION, log);

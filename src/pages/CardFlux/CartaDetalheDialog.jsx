@@ -134,6 +134,7 @@ const CartaDetalheDialog = ({ open, onClose, carta }) => {
             component="img"
             src={carta.linkImagem}
             alt={carta.nome}
+            loading="lazy"
             sx={{
               width: '100%',
               height: 200,

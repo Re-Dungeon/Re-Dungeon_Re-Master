@@ -8,6 +8,7 @@ import React, {
 } from 'react';
 import PropTypes from 'prop-types';
 import { useAuth } from 'context/AuthContext';
+import useAsyncEffect from 'hooks/useAsyncEffect';
 import { getRmCampanhas } from 'service/storage';
 
 const CAMPANHA_ATIVA_STORAGE_KEY = 'remaster_campanha_ativa_id';
@@ -50,13 +51,7 @@ export const CampanhaProvider = ({ children }) => {
     }
   }, [currentUser, authLoading]);
 
-  useEffect(() => {
-    // Envolvido em Promise.resolve().then() (mesmo padrão de
-    // hooks/usePermissions.js) para que o corpo do efeito não chame setState
-    // sincronamente — recarregarCampanhas seta estado antes do primeiro
-    // await em alguns ramos (ex.: usuário deslogado).
-    Promise.resolve().then(() => recarregarCampanhas());
-  }, [recarregarCampanhas]);
+  useAsyncEffect(recarregarCampanhas, [recarregarCampanhas]);
 
   const setCampanhaAtiva = useCallback(id => {
     setCampanhaAtivaIdState(id);
@@ -77,10 +72,21 @@ export const CampanhaProvider = ({ children }) => {
   // Pulado quando o carregamento falhou — um erro de rede não deve apagar a
   // seleção salva, só a ausência real da campanha na lista carregada.
   useEffect(() => {
-    if (!loadingCampanhas && !errorCampanhas && campanhaAtivaId && !campanhaAtiva) {
+    if (
+      !loadingCampanhas &&
+      !errorCampanhas &&
+      campanhaAtivaId &&
+      !campanhaAtiva
+    ) {
       Promise.resolve().then(() => setCampanhaAtiva(null));
     }
-  }, [loadingCampanhas, errorCampanhas, campanhaAtivaId, campanhaAtiva, setCampanhaAtiva]);
+  }, [
+    loadingCampanhas,
+    errorCampanhas,
+    campanhaAtivaId,
+    campanhaAtiva,
+    setCampanhaAtiva,
+  ]);
 
   const value = useMemo(
     () => ({

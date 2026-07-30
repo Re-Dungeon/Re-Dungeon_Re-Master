@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import dagre from '@dagrejs/dagre';
 import {
   getRmCenas,
@@ -8,6 +8,8 @@ import {
   updateRmCena,
   removeRmCena,
 } from 'service/storage';
+import useAsyncEffect from 'hooks/useAsyncEffect';
+import { useSnackbar } from 'context/SnackbarContext';
 import { ESTADO_CENA_OPCOES } from './cenaUtils';
 
 const NODE_WIDTH = 240;
@@ -46,6 +48,7 @@ const calcularLayoutAutomatico = (cenas, conexoes) => {
  * sem `posicaoCanvas` salva — nunca reposiciona uma Cena já arrastada.
  */
 const useCampanhaGrafo = campanha => {
+  const { notifyError } = useSnackbar();
   const campanhaId = campanha?.id ?? null;
   const [cenas, setCenas] = useState([]);
   const [conexoes, setConexoes] = useState([]);
@@ -72,9 +75,7 @@ const useCampanhaGrafo = campanha => {
       .finally(() => setLoading(false));
   }, [campanhaId]);
 
-  useEffect(() => {
-    Promise.resolve().then(() => carregar());
-  }, [carregar]);
+  useAsyncEffect(carregar, [carregar]);
 
   const layoutAutomatico = useMemo(
     () => calcularLayoutAutomatico(cenas, conexoes),
@@ -88,7 +89,8 @@ const useCampanhaGrafo = campanha => {
         return {
           id: cena.id,
           type: 'cenaNode',
-          position: cena.posicaoCanvas ?? layoutAutomatico[cena.id] ?? { x: 0, y: 0 },
+          position: cena.posicaoCanvas ??
+            layoutAutomatico[cena.id] ?? { x: 0, y: 0 },
           selected: cena.id === selectedCenaId,
           data: { cena, cor: estado?.cor ?? '#6b7280' },
         };
@@ -115,56 +117,86 @@ const useCampanhaGrafo = campanha => {
     );
   }, []);
 
-  const persistirPosicaoCena = useCallback(async (cenaId, posicao) => {
-    await updateRmCena(cenaId, { posicaoCanvas: posicao });
-  }, []);
+  // onNodeDragStop (CenaFlowCanvas) chama persistirPosicaoCena sem await/catch
+  // — se a escrita falhar (regra de segurança, sessão expirada, rede), a
+  // posição arrastada fica só no estado local (já movida por moveCenaLocal)
+  // sem nenhum aviso ao mestre. O catch aqui é o único ponto que detecta
+  // isso; as demais ações (conectar/editar/remover Cena) seguem o mesmo
+  // padrão pelo mesmo motivo.
+  const persistirPosicaoCena = useCallback(
+    async (cenaId, posicao) => {
+      try {
+        await updateRmCena(cenaId, { posicaoCanvas: posicao });
+      } catch {
+        notifyError('Não foi possível salvar a nova posição da cena.');
+      }
+    },
+    [notifyError],
+  );
 
   const createConexao = useCallback(
     async (origemCenaId, destinoCenaId) => {
       if (!campanha || origemCenaId === destinoCenaId) return;
       const jaExiste = conexoes.some(
-        c => c.origemCenaId === origemCenaId && c.destinoCenaId === destinoCenaId,
+        c =>
+          c.origemCenaId === origemCenaId && c.destinoCenaId === destinoCenaId,
       );
       if (jaExiste) return;
-      await addRmCenaConexao({
-        campanhaId: campanha.id,
-        universoId: campanha.universoId,
-        mestreId: campanha.mestreId,
-        origemCenaId,
-        destinoCenaId,
-      });
-      await carregar();
+      try {
+        await addRmCenaConexao({
+          campanhaId: campanha.id,
+          universoId: campanha.universoId,
+          mestreId: campanha.mestreId,
+          origemCenaId,
+          destinoCenaId,
+        });
+        await carregar();
+      } catch {
+        notifyError('Não foi possível criar a conexão entre as cenas.');
+      }
     },
-    [campanha, conexoes, carregar],
+    [campanha, conexoes, carregar, notifyError],
   );
 
   const removeConexao = useCallback(
     async conexaoId => {
-      await removeRmCenaConexao(conexaoId);
-      await carregar();
+      try {
+        await removeRmCenaConexao(conexaoId);
+        await carregar();
+      } catch {
+        notifyError('Não foi possível remover a conexão.');
+      }
     },
-    [carregar],
+    [carregar, notifyError],
   );
 
   const updateCena = useCallback(
     async (cenaId, values) => {
-      await updateRmCena(cenaId, values);
-      await carregar();
+      try {
+        await updateRmCena(cenaId, values);
+        await carregar();
+      } catch {
+        notifyError('Não foi possível salvar as alterações da cena.');
+      }
     },
-    [carregar],
+    [carregar, notifyError],
   );
 
   const removeCena = useCallback(
     async cenaId => {
-      const conexoesLigadas = conexoes.filter(
-        c => c.origemCenaId === cenaId || c.destinoCenaId === cenaId,
-      );
-      await Promise.all(conexoesLigadas.map(c => removeRmCenaConexao(c.id)));
-      await removeRmCena(cenaId);
-      setSelectedCenaId(prev => (prev === cenaId ? null : prev));
-      await carregar();
+      try {
+        const conexoesLigadas = conexoes.filter(
+          c => c.origemCenaId === cenaId || c.destinoCenaId === cenaId,
+        );
+        await Promise.all(conexoesLigadas.map(c => removeRmCenaConexao(c.id)));
+        await removeRmCena(cenaId);
+        setSelectedCenaId(prev => (prev === cenaId ? null : prev));
+        await carregar();
+      } catch {
+        notifyError('Não foi possível remover a cena.');
+      }
     },
-    [conexoes, carregar],
+    [conexoes, carregar, notifyError],
   );
 
   return {

@@ -15,6 +15,7 @@ import { useCampanha } from 'context/CampanhaContext';
 import { getCardfluxCartas, getRmCardfluxEstados } from 'service/storage';
 import ListLoadError from 'components/ListLoadError/ListLoadError';
 import { ROUTE_PATHS } from 'common/constants/routes';
+import useAsyncEffect from 'hooks/useAsyncEffect';
 import CartaDetalheDialog from './CartaDetalheDialog';
 import {
   ESTADO_CARTA_OPCOES,
@@ -79,9 +80,7 @@ const Cartas = () => {
     }
   }, [campanhaAtiva, baralho]);
 
-  useEffect(() => {
-    Promise.resolve().then(() => carregarCartas());
-  }, [carregarCartas]);
+  useAsyncEffect(carregarCartas, [carregarCartas]);
 
   useEffect(() => {
     if (!loadingCampanhas && (!campanhaAtiva || !baralho))
@@ -191,6 +190,7 @@ const Cartas = () => {
                   component="img"
                   src={carta.linkImagem}
                   alt={carta.nome}
+                  loading="lazy"
                   sx={{
                     width: 96,
                     height: 96,

@@ -10,6 +10,11 @@ import { getCardfluxCartas, getRmCardfluxEstados } from 'service/storage';
 import EntityViewDialog from 'components/EntityViewDialog/EntityViewDialog';
 import ListLoadError from 'components/ListLoadError/ListLoadError';
 import { ROUTE_PATHS } from 'common/constants/routes';
+import useAsyncEffect from 'hooks/useAsyncEffect';
+import {
+  TIPO_EVENTO_SESSAO,
+  registrarEventoSessao,
+} from 'common/utils/sessaoLog';
 import CartaDetalheDialog from './CartaDetalheDialog';
 import {
   mesclarEstadoCartas,
@@ -58,9 +63,7 @@ const CardFlux = () => {
     }
   }, [campanhaAtiva]);
 
-  useEffect(() => {
-    Promise.resolve().then(() => carregarDados());
-  }, [carregarDados]);
+  useAsyncEffect(carregarDados, [carregarDados]);
 
   useEffect(() => {
     if (!loadingCampanhas && !campanhaAtiva) navigate(ROUTE_PATHS.CAMPANHA);
@@ -97,6 +100,11 @@ const CardFlux = () => {
     const sorteada = sortearCarta(disponiveis);
     await definirEstadoCarta(sorteada, 'comprada', campanhaAtiva);
     setCartaSorteada(sorteada);
+    registrarEventoSessao(
+      campanhaAtiva,
+      TIPO_EVENTO_SESSAO.CARTA_SORTEADA,
+      `Carta sorteada: "${sorteada.nome}" (${baralho.nome})`,
+    );
     await carregarDados();
   };
 
