@@ -22,6 +22,7 @@ const Missoes = lazy(() => import('pages/Missoes/Missoes'));
 const NovaMissao = lazy(() => import('pages/Missoes/NovaMissao'));
 const CardFlux = lazy(() => import('pages/CardFlux/CardFlux'));
 const Cartas = lazy(() => import('pages/CardFlux/Cartas'));
+const Sorteio = lazy(() => import('pages/CardFlux/Sorteio'));
 const Luta = lazy(() => import('pages/Luta/Luta'));
 const Notas = lazy(() => import('pages/Notas/Notas'));
 const NovaNota = lazy(() => import('pages/Notas/NovaNota'));
@@ -50,6 +51,7 @@ export const ROUTES = [
   { path: ROUTE_PATHS.NOVA_MISSAO.slice(1), element: <NovaMissao /> },
   { path: ROUTE_PATHS.CARDFLUX.slice(1), element: <CardFlux /> },
   { path: ROUTE_PATHS.CARDFLUX_CARTAS.slice(1), element: <Cartas /> },
+  { path: ROUTE_PATHS.CARDFLUX_SORTEIO.slice(1), element: <Sorteio /> },
   { path: ROUTE_PATHS.LUTA.slice(1), element: <Luta /> },
   { path: ROUTE_PATHS.NOTAS.slice(1), element: <Notas /> },
   { path: ROUTE_PATHS.NOVA_NOTA.slice(1), element: <NovaNota /> },

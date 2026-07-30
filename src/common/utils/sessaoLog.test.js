@@ -38,6 +38,28 @@ describe('registrarEventoSessao', () => {
     });
   });
 
+  it('mescla campos extras estruturados no log quando informados', async () => {
+    addRmSessaoLog.mockResolvedValue({ id: 'log1' });
+
+    await registrarEventoSessao(
+      CAMPANHA,
+      TIPO_EVENTO_SESSAO.CARTA_SORTEADA,
+      'Carta sorteada: "Emboscada" (Eventos de Estrada)',
+      { cartaId: 'carta1', deck: 'Eventos de Estrada', numero: 1 },
+    );
+
+    expect(addRmSessaoLog).toHaveBeenCalledWith({
+      campanhaId: 'c1',
+      universoId: 'u1',
+      mestreId: 'm1',
+      tipo: TIPO_EVENTO_SESSAO.CARTA_SORTEADA,
+      mensagem: 'Carta sorteada: "Emboscada" (Eventos de Estrada)',
+      cartaId: 'carta1',
+      deck: 'Eventos de Estrada',
+      numero: 1,
+    });
+  });
+
   it('não propaga erro quando a escrita falha (best-effort)', async () => {
     addRmSessaoLog.mockRejectedValue(new Error('permission-denied'));
 

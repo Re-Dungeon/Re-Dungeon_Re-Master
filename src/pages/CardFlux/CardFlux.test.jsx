@@ -11,19 +11,9 @@ vi.mock('react-router-dom', async () => {
 
 const getCardfluxCartas = vi.fn();
 const getRmCardfluxEstados = vi.fn();
-const addRmCardfluxEstado = vi.fn();
-const updateRmCardfluxEstado = vi.fn();
 vi.mock('service/storage', () => ({
   getCardfluxCartas: (...args) => getCardfluxCartas(...args),
   getRmCardfluxEstados: (...args) => getRmCardfluxEstados(...args),
-  addRmCardfluxEstado: (...args) => addRmCardfluxEstado(...args),
-  updateRmCardfluxEstado: (...args) => updateRmCardfluxEstado(...args),
-}));
-
-const registrarEventoSessao = vi.fn();
-vi.mock('common/utils/sessaoLog', () => ({
-  TIPO_EVENTO_SESSAO: { CARTA_SORTEADA: 'carta_sorteada' },
-  registrarEventoSessao: (...args) => registrarEventoSessao(...args),
 }));
 
 const CAMPANHA_ATIVA = {
@@ -98,6 +88,20 @@ describe('CardFlux (baralhos agrupados a partir das cartas do cardflux)', () => 
     );
   });
 
+  it('navega para o motor de sorteio passando só o nome do baralho no state', async () => {
+    const user = userEvent.setup();
+    renderCardFlux();
+
+    await waitFor(() =>
+      expect(screen.getByText('Eventos de Estrada')).toBeInTheDocument(),
+    );
+    await user.click(screen.getByRole('button', { name: 'Sortear' }));
+
+    expect(navigate).toHaveBeenCalledWith('/cardflux/sorteio', {
+      state: { baralho: { nome: 'Eventos de Estrada' } },
+    });
+  });
+
   it('navega para ver as cartas passando só o nome do baralho no state', async () => {
     const user = userEvent.setup();
     renderCardFlux();
@@ -110,56 +114,6 @@ describe('CardFlux (baralhos agrupados a partir das cartas do cardflux)', () => 
     expect(navigate).toHaveBeenCalledWith('/cardflux/cartas', {
       state: { baralho: { nome: 'Eventos de Estrada' } },
     });
-  });
-
-  it('puxa uma carta sem estado ainda, cria o doc de estado como comprada e mostra o resultado', async () => {
-    addRmCardfluxEstado.mockResolvedValue({ id: 'novo-estado' });
-    const user = userEvent.setup();
-    renderCardFlux();
-
-    await waitFor(() =>
-      expect(screen.getByText('Eventos de Estrada')).toBeInTheDocument(),
-    );
-    await user.click(screen.getByRole('button', { name: 'Puxar Carta' }));
-
-    await waitFor(() =>
-      expect(addRmCardfluxEstado).toHaveBeenCalledWith({
-        campanhaId: 'c1',
-        universoId: 'u1',
-        mestreId: 'm1',
-        cartaId: 'carta1',
-        estadoNoBaralho: 'comprada',
-      }),
-    );
-    expect(screen.getByText('Emboscada')).toBeInTheDocument();
-    expect(registrarEventoSessao).toHaveBeenCalledWith(
-      CAMPANHA_ATIVA,
-      'carta_sorteada',
-      'Carta sorteada: "Emboscada" (Eventos de Estrada)',
-    );
-  });
-
-  it('avisa quando o baralho está esgotado', async () => {
-    getRmCardfluxEstados.mockResolvedValue([
-      ...ESTADOS_MOCK,
-      {
-        id: 'estado2',
-        campanhaId: 'c1',
-        cartaId: 'carta1',
-        estadoNoBaralho: 'comprada',
-      },
-    ]);
-    const user = userEvent.setup();
-    renderCardFlux();
-
-    await waitFor(() =>
-      expect(screen.getByText('Eventos de Estrada')).toBeInTheDocument(),
-    );
-    await user.click(screen.getByRole('button', { name: 'Puxar Carta' }));
-
-    expect(screen.getByText('Baralho esgotado')).toBeInTheDocument();
-    expect(addRmCardfluxEstado).not.toHaveBeenCalled();
-    expect(updateRmCardfluxEstado).not.toHaveBeenCalled();
   });
 
   it('mostra o erro de carregamento quando as cartas falham e permite tentar de novo', async () => {

@@ -19,7 +19,12 @@ export const ICONE_EVENTO_SESSAO = {
 // sobre a ação principal que disparou o log (marcar cena atual, sortear
 // carta, adicionar participante à Luta): o log é um registro complementar,
 // não a ação em si. Por isso não recebe nem repassa erro ao chamador.
-export const registrarEventoSessao = async (campanha, tipo, mensagem) => {
+export const registrarEventoSessao = async (
+  campanha,
+  tipo,
+  mensagem,
+  extra = {},
+) => {
   try {
     await addRmSessaoLog({
       campanhaId: campanha.id,
@@ -27,6 +32,7 @@ export const registrarEventoSessao = async (campanha, tipo, mensagem) => {
       mestreId: campanha.mestreId,
       tipo,
       mensagem,
+      ...extra,
     });
   } catch (error) {
     // eslint-disable-next-line no-console

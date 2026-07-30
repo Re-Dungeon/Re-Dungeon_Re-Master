@@ -7,20 +7,10 @@ import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
 import { useCampanha } from 'context/CampanhaContext';
 import { getCardfluxCartas, getRmCardfluxEstados } from 'service/storage';
-import EntityViewDialog from 'components/EntityViewDialog/EntityViewDialog';
 import ListLoadError from 'components/ListLoadError/ListLoadError';
 import { ROUTE_PATHS } from 'common/constants/routes';
 import useAsyncEffect from 'hooks/useAsyncEffect';
-import {
-  TIPO_EVENTO_SESSAO,
-  registrarEventoSessao,
-} from 'common/utils/sessaoLog';
-import CartaDetalheDialog from './CartaDetalheDialog';
-import {
-  mesclarEstadoCartas,
-  definirEstadoCarta,
-  sortearCarta,
-} from './cartaUtils';
+import { mesclarEstadoCartas } from './cartaUtils';
 
 const cardSx = {
   p: 2.5,
@@ -36,8 +26,6 @@ const CardFlux = () => {
   const [cartas, setCartas] = useState([]);
   const [loadingDados, setLoadingDados] = useState(true);
   const [error, setError] = useState(null);
-  const [cartaSorteada, setCartaSorteada] = useState(null);
-  const [avisoEsgotado, setAvisoEsgotado] = useState(null);
 
   const carregarDados = useCallback(async () => {
     if (!campanhaAtiva) {
@@ -88,25 +76,6 @@ const CardFlux = () => {
   if (!campanhaAtiva && !loadingCampanhas) return null;
 
   const loading = loadingCampanhas || loadingDados;
-
-  const handlePuxarCarta = async baralho => {
-    const disponiveis = baralho.cartas.filter(
-      c => c.estadoNoBaralho === 'no_baralho',
-    );
-    if (disponiveis.length === 0) {
-      setAvisoEsgotado(`Não há mais cartas disponíveis em "${baralho.nome}".`);
-      return;
-    }
-    const sorteada = sortearCarta(disponiveis);
-    await definirEstadoCarta(sorteada, 'comprada', campanhaAtiva);
-    setCartaSorteada(sorteada);
-    registrarEventoSessao(
-      campanhaAtiva,
-      TIPO_EVENTO_SESSAO.CARTA_SORTEADA,
-      `Carta sorteada: "${sorteada.nome}" (${baralho.nome})`,
-    );
-    await carregarDados();
-  };
 
   return (
     <Box className="page-container">
@@ -178,7 +147,11 @@ const CardFlux = () => {
                   <Button
                     fullWidth
                     variant="contained"
-                    onClick={() => handlePuxarCarta(baralho)}
+                    onClick={() =>
+                      navigate(ROUTE_PATHS.CARDFLUX_SORTEIO, {
+                        state: { baralho: { nome: baralho.nome } },
+                      })
+                    }
                     sx={{
                       background: 'var(--color-accent)',
                       color: 'var(--bg-primary)',
@@ -186,7 +159,7 @@ const CardFlux = () => {
                       '&:hover': { background: '#00b8dd' },
                     }}
                   >
-                    Puxar Carta
+                    Sortear
                   </Button>
                   <Button
                     fullWidth
@@ -209,19 +182,6 @@ const CardFlux = () => {
           })}
         </Box>
       )}
-
-      <CartaDetalheDialog
-        open={Boolean(cartaSorteada)}
-        onClose={() => setCartaSorteada(null)}
-        carta={cartaSorteada}
-      />
-
-      <EntityViewDialog
-        open={Boolean(avisoEsgotado)}
-        onClose={() => setAvisoEsgotado(null)}
-        titulo="Baralho esgotado"
-        descricao={avisoEsgotado}
-      />
     </Box>
   );
 };
