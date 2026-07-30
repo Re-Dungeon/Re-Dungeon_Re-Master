@@ -13,10 +13,14 @@ import IconButton from '@mui/material/IconButton';
 import Button from '@mui/material/Button';
 import { Formik, Form, FastField, Field, FieldArray } from 'formik';
 import useStableListKeys from 'hooks/useStableListKeys';
-import { getRmNpcs, getRmCenas } from 'service/storage';
+import { getRmCampanhaNpcs, getRmCenas } from 'service/storage';
 import FormActions from 'components/FormActions/FormActions';
 import SectionTitle from 'components/SectionTitle/SectionTitle';
-import { MISSAO_SCHEMA, STATUS_MISSAO_OPCOES, OBJETIVO_INICIAL } from './missaoUtils';
+import {
+  MISSAO_SCHEMA,
+  STATUS_MISSAO_OPCOES,
+  OBJETIVO_INICIAL,
+} from './missaoUtils';
 
 const inputSx = {
   '& .MuiOutlinedInput-root': {
@@ -32,14 +36,22 @@ const inputSx = {
 
 const selectSx = {
   color: 'var(--text-primary)',
-  '& .MuiOutlinedInput-notchedOutline': { borderColor: 'var(--border-primary)' },
-  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'var(--border-hover)' },
-  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: 'var(--color-accent)' },
+  '& .MuiOutlinedInput-notchedOutline': {
+    borderColor: 'var(--border-primary)',
+  },
+  '&:hover .MuiOutlinedInput-notchedOutline': {
+    borderColor: 'var(--border-hover)',
+  },
+  '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+    borderColor: 'var(--color-accent)',
+  },
   '& .MuiSvgIcon-root': { color: 'var(--text-secondary)' },
 };
 
 const menuPropsSx = {
-  PaperProps: { sx: { background: 'var(--bg-card)', color: 'var(--text-primary)' } },
+  PaperProps: {
+    sx: { background: 'var(--bg-card)', color: 'var(--text-primary)' },
+  },
 };
 
 const sectionSx = {
@@ -69,21 +81,34 @@ const MissaoForm = ({
   useEffect(() => {
     if (!campanhaId) return;
     Promise.resolve().then(() =>
-      Promise.all([getRmNpcs(), getRmCenas()]).then(([todosNpcs, todasCenas]) => {
-        setNpcs(todosNpcs.filter(n => n.campanhaId === campanhaId));
-        setCenas(todasCenas.filter(c => c.campanhaId === campanhaId));
-      }),
+      Promise.all([getRmCampanhaNpcs(campanhaId), getRmCenas()]).then(
+        ([todosNpcs, todasCenas]) => {
+          setNpcs(todosNpcs);
+          setCenas(todasCenas.filter(c => c.campanhaId === campanhaId));
+        },
+      ),
     );
   }, [campanhaId]);
 
   return (
-    <Formik initialValues={initialValues} validationSchema={MISSAO_SCHEMA} onSubmit={onSubmit}>
+    <Formik
+      initialValues={initialValues}
+      validationSchema={MISSAO_SCHEMA}
+      onSubmit={onSubmit}
+    >
       {({ values, errors, touched, setFieldValue, isSubmitting }) => (
         <Form>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
             <Paper elevation={0} sx={sectionSx}>
               <SectionTitle>Informações Gerais</SectionTitle>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1.5 }}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 2,
+                  mt: 1.5,
+                }}
+              >
                 <FastField name="titulo">
                   {({ field }) => (
                     <TextField
@@ -147,7 +172,14 @@ const MissaoForm = ({
               <SectionTitle>Objetivos</SectionTitle>
               <FieldArray name="objetivos">
                 {({ push, remove }) => (
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 1.5 }}>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 1,
+                      mt: 1.5,
+                    }}
+                  >
                     {values.objetivos.map((objetivo, idx) => (
                       <Box
                         key={objetivosKeys.keys[idx] ?? idx}
@@ -160,7 +192,9 @@ const MissaoForm = ({
                               checked={field.value}
                               sx={{
                                 color: 'var(--text-muted)',
-                                '&.Mui-checked': { color: 'var(--color-accent)' },
+                                '&.Mui-checked': {
+                                  color: 'var(--color-accent)',
+                                },
                               }}
                             />
                           )}
@@ -174,14 +208,17 @@ const MissaoForm = ({
                               placeholder="Descreva o objetivo"
                               error={Boolean(
                                 touched.objetivos?.[idx]?.texto &&
-                                  errors.objetivos?.[idx]?.texto,
+                                errors.objetivos?.[idx]?.texto,
                               )}
                               helperText={
-                                touched.objetivos?.[idx]?.texto && errors.objetivos?.[idx]?.texto
+                                touched.objetivos?.[idx]?.texto &&
+                                errors.objetivos?.[idx]?.texto
                               }
                               sx={{
                                 ...inputSx,
-                                textDecoration: objetivo.concluido ? 'line-through' : 'none',
+                                textDecoration: objetivo.concluido
+                                  ? 'line-through'
+                                  : 'none',
                               }}
                             />
                           )}
@@ -192,7 +229,10 @@ const MissaoForm = ({
                             objetivosKeys.removeKey(idx);
                             remove(idx);
                           }}
-                          sx={{ color: 'var(--text-muted)', '&:hover': { color: '#ef4444' } }}
+                          sx={{
+                            color: 'var(--text-muted)',
+                            '&:hover': { color: '#ef4444' },
+                          }}
                           aria-label="Remover objetivo"
                         >
                           ✕
@@ -204,7 +244,10 @@ const MissaoForm = ({
                         objetivosKeys.addKey();
                         push({ ...OBJETIVO_INICIAL });
                       }}
-                      sx={{ alignSelf: 'flex-start', color: 'var(--color-accent)' }}
+                      sx={{
+                        alignSelf: 'flex-start',
+                        color: 'var(--color-accent)',
+                      }}
                     >
                       + Adicionar objetivo
                     </Button>
@@ -217,7 +260,14 @@ const MissaoForm = ({
               <SectionTitle>Recompensas</SectionTitle>
               <FieldArray name="recompensas">
                 {({ push, remove }) => (
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 1.5 }}>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 1,
+                      mt: 1.5,
+                    }}
+                  >
                     {values.recompensas.map((_, idx) => (
                       <Box
                         key={recompensasKeys.keys[idx] ?? idx}
@@ -225,7 +275,12 @@ const MissaoForm = ({
                       >
                         <FastField name={`recompensas.${idx}`}>
                           {({ field }) => (
-                            <TextField {...field} fullWidth size="small" sx={inputSx} />
+                            <TextField
+                              {...field}
+                              fullWidth
+                              size="small"
+                              sx={inputSx}
+                            />
                           )}
                         </FastField>
                         <IconButton
@@ -234,7 +289,10 @@ const MissaoForm = ({
                             recompensasKeys.removeKey(idx);
                             remove(idx);
                           }}
-                          sx={{ color: 'var(--text-muted)', '&:hover': { color: '#ef4444' } }}
+                          sx={{
+                            color: 'var(--text-muted)',
+                            '&:hover': { color: '#ef4444' },
+                          }}
                           aria-label="Remover recompensa"
                         >
                           ✕
@@ -246,7 +304,10 @@ const MissaoForm = ({
                         recompensasKeys.addKey();
                         push('');
                       }}
-                      sx={{ alignSelf: 'flex-start', color: 'var(--color-accent)' }}
+                      sx={{
+                        alignSelf: 'flex-start',
+                        color: 'var(--color-accent)',
+                      }}
                     >
                       + Adicionar recompensa
                     </Button>
@@ -257,7 +318,14 @@ const MissaoForm = ({
 
             <Paper elevation={0} sx={sectionSx}>
               <SectionTitle>NPCs e Cenas Relacionados</SectionTitle>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1.5 }}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 2,
+                  mt: 1.5,
+                }}
+              >
                 {npcs.length > 0 ? (
                   <FormControl fullWidth size="small">
                     <InputLabel
@@ -271,13 +339,21 @@ const MissaoForm = ({
                       labelId={npcsLabelId}
                       label="NPCs relacionados"
                       value={values.npcsRelacionados}
-                      onChange={e => setFieldValue('npcsRelacionados', e.target.value)}
+                      onChange={e =>
+                        setFieldValue('npcsRelacionados', e.target.value)
+                      }
                       sx={selectSx}
                       MenuProps={menuPropsSx}
                       renderValue={selecionados => (
-                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                        <Box
+                          sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}
+                        >
                           {selecionados.map(id => (
-                            <Chip key={id} size="small" label={npcs.find(n => n.id === id)?.nome ?? id} />
+                            <Chip
+                              key={id}
+                              size="small"
+                              label={npcs.find(n => n.id === id)?.nome ?? id}
+                            />
                           ))}
                         </Box>
                       )}
@@ -316,11 +392,15 @@ const MissaoForm = ({
                       labelId={cenasLabelId}
                       label="Cenas vinculadas"
                       value={values.cenasVinculadas}
-                      onChange={e => setFieldValue('cenasVinculadas', e.target.value)}
+                      onChange={e =>
+                        setFieldValue('cenasVinculadas', e.target.value)
+                      }
                       sx={selectSx}
                       MenuProps={menuPropsSx}
                       renderValue={selecionados => (
-                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                        <Box
+                          sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}
+                        >
                           {selecionados.map(id => (
                             <Chip
                               key={id}

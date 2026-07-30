@@ -1,26 +1,21 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
-import IconButton from '@mui/material/IconButton';
 import CircularProgress from '@mui/material/CircularProgress';
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined';
-import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
-import { useAuth } from 'context/AuthContext';
 import { useCampanha } from 'context/CampanhaContext';
-import {
-  getRmCardfluxBaralhos,
-  removeRmCardfluxBaralho,
-  getRmCardfluxCartas,
-  updateRmCardfluxCarta,
-} from 'service/storage';
-import useEntityCRUD from 'hooks/useEntityCRUD';
+import { getCardfluxCartas, getRmCardfluxEstados } from 'service/storage';
 import EntityViewDialog from 'components/EntityViewDialog/EntityViewDialog';
 import ListLoadError from 'components/ListLoadError/ListLoadError';
 import { ROUTE_PATHS } from 'common/constants/routes';
-import { TIPO_CARTA_OPCOES } from './cartaUtils';
+import CartaDetalheDialog from './CartaDetalheDialog';
+import {
+  mesclarEstadoCartas,
+  definirEstadoCarta,
+  sortearCarta,
+} from './cartaUtils';
 
 const cardSx = {
   p: 2.5,
@@ -31,110 +26,93 @@ const cardSx = {
 
 const CardFlux = () => {
   const navigate = useNavigate();
-  const { canCreate, canWrite } = useAuth();
   const { campanhaAtiva, loadingCampanhas } = useCampanha();
 
-  const getBaralhosDaCampanha = useCallback(() => {
-    if (!campanhaAtiva) return Promise.resolve([]);
-    return getRmCardfluxBaralhos().then(todos =>
-      todos.filter(b => b.campanhaId === campanhaAtiva.id),
-    );
-  }, [campanhaAtiva]);
-
-  const {
-    items: baralhos,
-    loading: loadingBaralhos,
-    error: errorBaralhos,
-    reload: reloadBaralhos,
-    remove: handleRemoveBaralho,
-  } = useEntityCRUD({ getAll: getBaralhosDaCampanha, remove: removeRmCardfluxBaralho });
-
   const [cartas, setCartas] = useState([]);
-  const [loadingCartas, setLoadingCartas] = useState(true);
-  const [errorCartas, setErrorCartas] = useState(null);
+  const [loadingDados, setLoadingDados] = useState(true);
+  const [error, setError] = useState(null);
   const [cartaSorteada, setCartaSorteada] = useState(null);
+  const [avisoEsgotado, setAvisoEsgotado] = useState(null);
 
-  const carregarCartas = useCallback(async () => {
+  const carregarDados = useCallback(async () => {
     if (!campanhaAtiva) {
       setCartas([]);
-      setLoadingCartas(false);
+      setLoadingDados(false);
       return;
     }
-    setLoadingCartas(true);
-    setErrorCartas(null);
+    setLoadingDados(true);
+    setError(null);
     try {
-      const todas = await getRmCardfluxCartas();
-      setCartas(todas.filter(c => c.campanhaId === campanhaAtiva.id));
+      const [cartasDoUniverso, todosEstados] = await Promise.all([
+        getCardfluxCartas(campanhaAtiva.universoId),
+        getRmCardfluxEstados(),
+      ]);
+      const estadosDaCampanha = todosEstados.filter(
+        e => e.campanhaId === campanhaAtiva.id,
+      );
+      setCartas(mesclarEstadoCartas(cartasDoUniverso, estadosDaCampanha));
     } catch (err) {
-      setErrorCartas(err);
+      setError(err);
     } finally {
-      setLoadingCartas(false);
+      setLoadingDados(false);
     }
   }, [campanhaAtiva]);
 
   useEffect(() => {
-    Promise.resolve().then(() => carregarCartas());
-  }, [carregarCartas]);
+    Promise.resolve().then(() => carregarDados());
+  }, [carregarDados]);
 
   useEffect(() => {
     if (!loadingCampanhas && !campanhaAtiva) navigate(ROUTE_PATHS.CAMPANHA);
   }, [loadingCampanhas, campanhaAtiva, navigate]);
 
+  // Baralho não é uma entidade própria do Re:Master: é o agrupamento das
+  // cartas do `cardflux` pelo campo `deck`. Uma carta nova cadastrada no
+  // projeto irmão para este Universo aparece aqui na próxima recarga, sem
+  // nenhuma sincronização adicional.
+  const baralhos = useMemo(() => {
+    const porDeck = new Map();
+    cartas.forEach(carta => {
+      const nomeDeck = carta.deck || 'Sem Baralho';
+      if (!porDeck.has(nomeDeck)) porDeck.set(nomeDeck, []);
+      porDeck.get(nomeDeck).push(carta);
+    });
+    return [...porDeck.entries()]
+      .map(([nome, cartasDoBaralho]) => ({ nome, cartas: cartasDoBaralho }))
+      .sort((a, b) => a.nome.localeCompare(b.nome));
+  }, [cartas]);
+
   if (!campanhaAtiva && !loadingCampanhas) return null;
 
-  const loading = loadingCampanhas || loadingBaralhos || loadingCartas;
-  const error = errorBaralhos || errorCartas;
-  const podeEscrever = campanhaAtiva ? canWrite(campanhaAtiva.universoId) : false;
-
-  const handleRetry = () => {
-    reloadBaralhos();
-    carregarCartas();
-  };
+  const loading = loadingCampanhas || loadingDados;
 
   const handlePuxarCarta = async baralho => {
-    const disponiveis = cartas.filter(
-      c => c.baralhoId === baralho.id && c.estadoNoBaralho === 'no_baralho',
+    const disponiveis = baralho.cartas.filter(
+      c => c.estadoNoBaralho === 'no_baralho',
     );
     if (disponiveis.length === 0) {
-      setCartaSorteada({
-        titulo: 'Baralho esgotado',
-        descricao: `Não há mais cartas disponíveis em "${baralho.nome}".`,
-      });
+      setAvisoEsgotado(`Não há mais cartas disponíveis em "${baralho.nome}".`);
       return;
     }
-    const sorteada = disponiveis[Math.floor(Math.random() * disponiveis.length)];
-    await updateRmCardfluxCarta(sorteada.id, { estadoNoBaralho: 'comprada' });
+    const sorteada = sortearCarta(disponiveis);
+    await definirEstadoCarta(sorteada, 'comprada', campanhaAtiva);
     setCartaSorteada(sorteada);
-    await carregarCartas();
+    await carregarDados();
   };
 
   return (
     <Box className="page-container">
-      <Box
-        sx={{
-          display: 'flex',
-          alignItems: 'flex-start',
-          justifyContent: 'space-between',
-          mb: 3,
-        }}
-      >
-        <Box>
-          <Typography variant="h5" sx={{ color: 'var(--text-primary)', fontWeight: 700, mb: 0.5 }}>
-            CardFlux — {campanhaAtiva?.nome}
-          </Typography>
-          <Typography variant="body2" sx={{ color: 'var(--text-secondary)' }}>
-            Baralhos de eventos desta campanha, prontos para sortear durante a sessão.
-          </Typography>
-        </Box>
-        {canCreate() && podeEscrever && (
-          <Button
-            variant="contained"
-            onClick={() => navigate(ROUTE_PATHS.NOVO_BARALHO)}
-            sx={{ background: 'var(--color-primary)', '&:hover': { background: '#5a2090' } }}
-          >
-            + Novo Baralho
-          </Button>
-        )}
+      <Box sx={{ mb: 3 }}>
+        <Typography
+          variant="h5"
+          sx={{ color: 'var(--text-primary)', fontWeight: 700, mb: 0.5 }}
+        >
+          CardFlux — {campanhaAtiva?.nome}
+        </Typography>
+        <Typography variant="body2" sx={{ color: 'var(--text-secondary)' }}>
+          Baralhos de eventos do Universo, prontos para sortear durante a
+          sessão.
+        </Typography>
       </Box>
 
       {loading ? (
@@ -142,12 +120,18 @@ const CardFlux = () => {
           <CircularProgress sx={{ color: 'var(--color-accent)' }} />
         </Box>
       ) : error ? (
-        <ListLoadError mensagem="Erro ao carregar o CardFlux." onRetry={handleRetry} />
+        <ListLoadError
+          mensagem="Erro ao carregar o CardFlux."
+          onRetry={carregarDados}
+        />
       ) : baralhos.length === 0 ? (
         <Box className="empty-state">
           <span className="empty-state-icon">🃏</span>
-          <p>Nenhum baralho cadastrado</p>
-          <small>Crie um baralho para sortear eventos durante a sessão.</small>
+          <p>Nenhum baralho encontrado</p>
+          <small>
+            Cadastre cartas para este Universo no CardFlux para elas aparecerem
+            aqui.
+          </small>
         </Box>
       ) : (
         <Box
@@ -161,51 +145,25 @@ const CardFlux = () => {
           }}
         >
           {baralhos.map(baralho => {
-            const cartasDoBaralho = cartas.filter(c => c.baralhoId === baralho.id);
-            const disponiveis = cartasDoBaralho.filter(c => c.estadoNoBaralho === 'no_baralho');
+            const disponiveis = baralho.cartas.filter(
+              c => c.estadoNoBaralho === 'no_baralho',
+            );
 
             return (
-              <Paper key={baralho.id} elevation={0} sx={cardSx}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
-                  <Typography variant="h6" sx={{ color: 'var(--text-primary)', fontWeight: 600 }}>
-                    {baralho.nome}
-                  </Typography>
-                  {podeEscrever && (
-                    <Box sx={{ display: 'flex', gap: 0.5 }}>
-                      <IconButton
-                        size="small"
-                        onClick={() => navigate(ROUTE_PATHS.NOVO_BARALHO, { state: { baralho } })}
-                        sx={{ color: 'var(--color-accent)' }}
-                        aria-label={`Editar baralho ${baralho.nome}`}
-                      >
-                        <EditOutlinedIcon fontSize="small" />
-                      </IconButton>
-                      <IconButton
-                        size="small"
-                        onClick={() => handleRemoveBaralho(baralho.id)}
-                        sx={{ color: '#ef4444' }}
-                        aria-label={`Remover baralho ${baralho.nome}`}
-                      >
-                        <DeleteOutlineIcon fontSize="small" />
-                      </IconButton>
-                    </Box>
-                  )}
-                </Box>
+              <Paper key={baralho.nome} elevation={0} sx={cardSx}>
+                <Typography
+                  variant="h6"
+                  sx={{ color: 'var(--text-primary)', fontWeight: 600, mb: 1 }}
+                >
+                  {baralho.nome}
+                </Typography>
 
-                {baralho.categoria && (
-                  <Typography variant="caption" sx={{ color: 'var(--color-accent)', fontWeight: 600, display: 'block', mb: 1 }}>
-                    {baralho.categoria}
-                  </Typography>
-                )}
-
-                {baralho.descricao && (
-                  <Typography variant="body2" sx={{ color: 'var(--text-secondary)', mb: 1.5 }}>
-                    {baralho.descricao}
-                  </Typography>
-                )}
-
-                <Typography variant="caption" sx={{ color: 'var(--text-muted)', display: 'block', mb: 1.5 }}>
-                  {disponiveis.length}/{cartasDoBaralho.length} cartas disponíveis
+                <Typography
+                  variant="caption"
+                  sx={{ color: 'var(--text-muted)', display: 'block', mb: 1.5 }}
+                >
+                  {disponiveis.length}/{baralho.cartas.length} cartas
+                  disponíveis
                 </Typography>
 
                 <Box sx={{ display: 'flex', gap: 1 }}>
@@ -213,17 +171,29 @@ const CardFlux = () => {
                     fullWidth
                     variant="contained"
                     onClick={() => handlePuxarCarta(baralho)}
-                    sx={{ background: 'var(--color-accent)', color: 'var(--bg-primary)', fontWeight: 700, '&:hover': { background: '#00b8dd' } }}
+                    sx={{
+                      background: 'var(--color-accent)',
+                      color: 'var(--bg-primary)',
+                      fontWeight: 700,
+                      '&:hover': { background: '#00b8dd' },
+                    }}
                   >
                     Puxar Carta
                   </Button>
                   <Button
                     fullWidth
                     variant="outlined"
-                    onClick={() => navigate(ROUTE_PATHS.CARDFLUX_CARTAS, { state: { baralho } })}
-                    sx={{ color: 'var(--color-accent)', borderColor: 'var(--color-accent)' }}
+                    onClick={() =>
+                      navigate(ROUTE_PATHS.CARDFLUX_CARTAS, {
+                        state: { baralho: { nome: baralho.nome } },
+                      })
+                    }
+                    sx={{
+                      color: 'var(--color-accent)',
+                      borderColor: 'var(--color-accent)',
+                    }}
                   >
-                    Gerenciar Cartas
+                    Ver Cartas
                   </Button>
                 </Box>
               </Paper>
@@ -232,12 +202,17 @@ const CardFlux = () => {
         </Box>
       )}
 
-      <EntityViewDialog
+      <CartaDetalheDialog
         open={Boolean(cartaSorteada)}
         onClose={() => setCartaSorteada(null)}
-        titulo={cartaSorteada?.titulo}
-        subtitulo={TIPO_CARTA_OPCOES.find(o => o.value === cartaSorteada?.tipo)?.label}
-        descricao={cartaSorteada?.descricao}
+        carta={cartaSorteada}
+      />
+
+      <EntityViewDialog
+        open={Boolean(avisoEsgotado)}
+        onClose={() => setAvisoEsgotado(null)}
+        titulo="Baralho esgotado"
+        descricao={avisoEsgotado}
       />
     </Box>
   );

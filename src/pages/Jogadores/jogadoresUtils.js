@@ -8,17 +8,17 @@ import {
 } from 'common/utils/yupSchemas';
 import { getTipoPersonagem } from 'common/utils/personagemTipo';
 
-// Um personagem do Re-Dungeon aparece na tela de NPCs da campanha ativa
-// quando é do tipo "NPC", pertence ao mesmo Universo da campanha e está
-// vinculado a ela pelo campo `campanhas` (array de ids de campanha — não
-// confundir com o campo singular `campanha`, que não existe neste modelo).
-export const ehNpcDaCampanha = (personagem, campanhaAtiva) =>
-  getTipoPersonagem(personagem) === 'NPC' &&
+// Um personagem do Re-Dungeon aparece na tela de Jogadores da campanha ativa
+// quando é do tipo "Personagem Jogável", pertence ao mesmo Universo da
+// campanha e está vinculado a ela pelo campo `campanhas` (array de ids de
+// campanha) — mesmo padrão de `ehNpcDaCampanha` em pages/Npcs/npcUtils.js.
+export const ehJogadorDaCampanha = (personagem, campanhaAtiva) =>
+  getTipoPersonagem(personagem) === 'Personagem Jogável' &&
   personagem.universo === campanhaAtiva.universoId &&
   Array.isArray(personagem.campanhas) &&
   personagem.campanhas.includes(campanhaAtiva.id);
 
-export const NPC_SCHEMA = Yup.object({
+export const JOGADOR_SCHEMA = Yup.object({
   nome: nomeSchema,
   linkImagem: urlImagemSchema,
   descricaoBase: descricaoSchema,
@@ -31,7 +31,7 @@ export const NPC_SCHEMA = Yup.object({
   observacoesPessoais: textoLongoSchema,
 });
 
-export const NPC_INITIAL_VALUES = {
+export const JOGADOR_INITIAL_VALUES = {
   origemPersonagemId: null,
   nome: '',
   linkImagem: '',

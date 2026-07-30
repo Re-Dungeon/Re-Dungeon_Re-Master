@@ -3,14 +3,21 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 vi.mock('./firebase', () => ({ db: {} }));
 
 vi.mock('firebase/firestore', () => ({
-  collection: vi.fn((_db, name) => ({ __collection: name })),
+  collection: vi.fn((_db, ...segments) => ({
+    __collection: segments.join('/'),
+  })),
   getDocs: vi.fn(),
   getDoc: vi.fn(),
   addDoc: vi.fn(),
   deleteDoc: vi.fn(),
-  doc: vi.fn((_db, name, id) => ({ __doc: name, id })),
+  doc: vi.fn((_db, ...segments) => ({
+    __doc: segments.slice(0, -1).join('/'),
+    id: segments[segments.length - 1],
+  })),
   updateDoc: vi.fn(),
   serverTimestamp: vi.fn(() => '__serverTimestamp__'),
+  query: vi.fn((coll, ...constraints) => ({ __query: coll, constraints })),
+  where: vi.fn((field, op, value) => ({ __where: [field, op, value] })),
 }));
 
 import {
@@ -21,6 +28,7 @@ import {
   deleteDoc,
   doc,
   updateDoc,
+  where,
 } from 'firebase/firestore';
 import {
   getRmCampanhas,
@@ -29,14 +37,24 @@ import {
   updateRmCampanha,
   getUserPermissions,
   getPersonagens,
-  getRmNpcs,
-  addRmNpc,
-  removeRmNpc,
-  updateRmNpc,
-  getRmCriaturas,
-  addRmCriatura,
-  removeRmCriatura,
-  updateRmCriatura,
+  getPersonagensJogaveis,
+  getPersonagemSubcolecao,
+  getAptidao,
+  getRaca,
+  getClasse,
+  getVeiaAstral,
+  getRmCampanhaNpcs,
+  addRmCampanhaNpc,
+  removeRmCampanhaNpc,
+  updateRmCampanhaNpc,
+  getRmCampanhaJogadores,
+  addRmCampanhaJogador,
+  removeRmCampanhaJogador,
+  updateRmCampanhaJogador,
+  getRmCampanhaCriaturas,
+  addRmCampanhaCriatura,
+  removeRmCampanhaCriatura,
+  updateRmCampanhaCriatura,
   getRmMapas,
   addRmMapa,
   removeRmMapa,
@@ -45,14 +63,10 @@ import {
   addRmMissao,
   removeRmMissao,
   updateRmMissao,
-  getRmCardfluxBaralhos,
-  addRmCardfluxBaralho,
-  removeRmCardfluxBaralho,
-  updateRmCardfluxBaralho,
-  getRmCardfluxCartas,
-  addRmCardfluxCarta,
-  removeRmCardfluxCarta,
-  updateRmCardfluxCarta,
+  getCardfluxCartas,
+  getRmCardfluxEstados,
+  addRmCardfluxEstado,
+  updateRmCardfluxEstado,
   getRmNotas,
   addRmNota,
   removeRmNota,
@@ -129,59 +143,145 @@ describe('storage.js — CRUD de rmCampanhas (padrão Firestore repetido em toda
   });
 });
 
-describe('storage.js — personagens (somente leitura) e CRUD de rmNpcs/rmCriaturas', () => {
+describe('storage.js — personagens (somente leitura) e CRUD de rmCampanhaNpcs/rmCampanhaJogadores/rmCampanhaCriaturas', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('getPersonagens busca a coleção "personagens"', async () => {
+  it('getPersonagens busca só tipo NPC/Criatura (list falha inteira se a query puder incluir uma ficha privada de outro usuário)', async () => {
     getDocs.mockResolvedValue({ docs: [] });
 
     await getPersonagens();
 
     expect(collection).toHaveBeenCalledWith({}, 'personagens');
+    expect(where).toHaveBeenCalledWith('tipo', 'in', ['NPC', 'Criatura']);
+    expect(getDocs).toHaveBeenCalledWith(
+      expect.objectContaining({
+        __query: { __collection: 'personagens' },
+        constraints: [{ __where: ['tipo', 'in', ['NPC', 'Criatura']] }],
+      }),
+    );
   });
 
-  it('rmNpcs: get/add/remove/update usam a coleção "rmNpcs"', async () => {
+  it('getPersonagensJogaveis busca só tipo Personagem Jogável', async () => {
+    getDocs.mockResolvedValue({ docs: [] });
+
+    await getPersonagensJogaveis();
+
+    expect(collection).toHaveBeenCalledWith({}, 'personagens');
+    expect(where).toHaveBeenCalledWith('tipo', 'in', ['Personagem Jogável']);
+  });
+
+  it('getPersonagemSubcolecao busca a subcoleção certa dentro do personagem', async () => {
+    getDocs.mockResolvedValue({ docs: [] });
+
+    await getPersonagemSubcolecao('p1', 'aptidoesAdquiridas');
+
+    expect(collection).toHaveBeenCalledWith(
+      {},
+      'personagens',
+      'p1',
+      'aptidoesAdquiridas',
+    );
+  });
+
+  it('rmCampanhaNpcs: get/add/remove/update usam a subcoleção "rmCampanhas/{campanhaId}/npcs"', async () => {
     getDocs.mockResolvedValue({ docs: [] });
     addDoc.mockResolvedValue({ id: 'npc-1' });
 
-    await getRmNpcs();
-    await addRmNpc({ nome: 'Grumnak' });
-    await removeRmNpc('npc-1');
-    await updateRmNpc('npc-1', { nome: 'Grumnak, o Orc' });
+    await getRmCampanhaNpcs('c1');
+    await addRmCampanhaNpc('c1', { nome: 'Grumnak' });
+    await removeRmCampanhaNpc('c1', 'npc-1');
+    await updateRmCampanhaNpc('c1', 'npc-1', { nome: 'Grumnak, o Orc' });
 
-    expect(collection).toHaveBeenCalledWith({}, 'rmNpcs');
+    expect(collection).toHaveBeenCalledWith({}, 'rmCampanhas', 'c1', 'npcs');
     expect(addDoc).toHaveBeenCalledWith(
-      { __collection: 'rmNpcs' },
+      { __collection: 'rmCampanhas/c1/npcs' },
       { nome: 'Grumnak', createdAt: '__serverTimestamp__' },
     );
-    expect(doc).toHaveBeenCalledWith({}, 'rmNpcs', 'npc-1');
-    expect(deleteDoc).toHaveBeenCalledWith({ __doc: 'rmNpcs', id: 'npc-1' });
+    expect(doc).toHaveBeenCalledWith({}, 'rmCampanhas', 'c1', 'npcs', 'npc-1');
+    expect(deleteDoc).toHaveBeenCalledWith({
+      __doc: 'rmCampanhas/c1/npcs',
+      id: 'npc-1',
+    });
     expect(updateDoc).toHaveBeenCalledWith(
-      { __doc: 'rmNpcs', id: 'npc-1' },
+      { __doc: 'rmCampanhas/c1/npcs', id: 'npc-1' },
       { nome: 'Grumnak, o Orc', updatedAt: '__serverTimestamp__' },
     );
   });
 
-  it('rmCriaturas: get/add/remove/update usam a coleção "rmCriaturas"', async () => {
+  it('rmCampanhaJogadores: get/add/remove/update usam a subcoleção "rmCampanhas/{campanhaId}/jogadores"', async () => {
+    getDocs.mockResolvedValue({ docs: [] });
+    addDoc.mockResolvedValue({ id: 'jogador-1' });
+
+    await getRmCampanhaJogadores('c1');
+    await addRmCampanhaJogador('c1', { nome: 'Lyra' });
+    await removeRmCampanhaJogador('c1', 'jogador-1');
+    await updateRmCampanhaJogador('c1', 'jogador-1', {
+      nome: 'Lyra, a Cartomante',
+    });
+
+    expect(collection).toHaveBeenCalledWith(
+      {},
+      'rmCampanhas',
+      'c1',
+      'jogadores',
+    );
+    expect(addDoc).toHaveBeenCalledWith(
+      { __collection: 'rmCampanhas/c1/jogadores' },
+      { nome: 'Lyra', createdAt: '__serverTimestamp__' },
+    );
+    expect(doc).toHaveBeenCalledWith(
+      {},
+      'rmCampanhas',
+      'c1',
+      'jogadores',
+      'jogador-1',
+    );
+    expect(deleteDoc).toHaveBeenCalledWith({
+      __doc: 'rmCampanhas/c1/jogadores',
+      id: 'jogador-1',
+    });
+    expect(updateDoc).toHaveBeenCalledWith(
+      { __doc: 'rmCampanhas/c1/jogadores', id: 'jogador-1' },
+      { nome: 'Lyra, a Cartomante', updatedAt: '__serverTimestamp__' },
+    );
+  });
+
+  it('rmCampanhaCriaturas: get/add/remove/update usam a subcoleção "rmCampanhas/{campanhaId}/criaturas"', async () => {
     getDocs.mockResolvedValue({ docs: [] });
     addDoc.mockResolvedValue({ id: 'criatura-1' });
 
-    await getRmCriaturas();
-    await addRmCriatura({ nome: 'Fera das Sombras' });
-    await removeRmCriatura('criatura-1');
-    await updateRmCriatura('criatura-1', { nome: 'Fera Sombria' });
+    await getRmCampanhaCriaturas('c1');
+    await addRmCampanhaCriatura('c1', { nome: 'Fera das Sombras' });
+    await removeRmCampanhaCriatura('c1', 'criatura-1');
+    await updateRmCampanhaCriatura('c1', 'criatura-1', {
+      nome: 'Fera Sombria',
+    });
 
-    expect(collection).toHaveBeenCalledWith({}, 'rmCriaturas');
+    expect(collection).toHaveBeenCalledWith(
+      {},
+      'rmCampanhas',
+      'c1',
+      'criaturas',
+    );
     expect(addDoc).toHaveBeenCalledWith(
-      { __collection: 'rmCriaturas' },
+      { __collection: 'rmCampanhas/c1/criaturas' },
       { nome: 'Fera das Sombras', createdAt: '__serverTimestamp__' },
     );
-    expect(doc).toHaveBeenCalledWith({}, 'rmCriaturas', 'criatura-1');
-    expect(deleteDoc).toHaveBeenCalledWith({ __doc: 'rmCriaturas', id: 'criatura-1' });
+    expect(doc).toHaveBeenCalledWith(
+      {},
+      'rmCampanhas',
+      'c1',
+      'criaturas',
+      'criatura-1',
+    );
+    expect(deleteDoc).toHaveBeenCalledWith({
+      __doc: 'rmCampanhas/c1/criaturas',
+      id: 'criatura-1',
+    });
     expect(updateDoc).toHaveBeenCalledWith(
-      { __doc: 'rmCriaturas', id: 'criatura-1' },
+      { __doc: 'rmCampanhas/c1/criaturas', id: 'criatura-1' },
       { nome: 'Fera Sombria', updatedAt: '__serverTimestamp__' },
     );
   });
@@ -203,63 +303,101 @@ describe.each([
     update: updateRmMissao,
   },
   {
-    colecao: 'rmCardfluxBaralhos',
-    get: getRmCardfluxBaralhos,
-    add: addRmCardfluxBaralho,
-    remove: removeRmCardfluxBaralho,
-    update: updateRmCardfluxBaralho,
-  },
-  {
-    colecao: 'rmCardfluxCartas',
-    get: getRmCardfluxCartas,
-    add: addRmCardfluxCarta,
-    remove: removeRmCardfluxCarta,
-    update: updateRmCardfluxCarta,
-  },
-  {
     colecao: 'rmNotas',
     get: getRmNotas,
     add: addRmNota,
     remove: removeRmNota,
     update: updateRmNota,
   },
-])('storage.js — CRUD de $colecao (M6)', ({ colecao, get, add, remove, update }) => {
+])(
+  'storage.js — CRUD de $colecao (M6)',
+  ({ colecao, get, add, remove, update }) => {
+    beforeEach(() => {
+      vi.clearAllMocks();
+    });
+
+    it(`get busca a coleção "${colecao}"`, async () => {
+      getDocs.mockResolvedValue({ docs: [] });
+
+      await get();
+
+      expect(collection).toHaveBeenCalledWith({}, colecao);
+    });
+
+    it(`add grava na coleção "${colecao}" com createdAt`, async () => {
+      addDoc.mockResolvedValue({ id: 'novo-id' });
+
+      await add({ nome: 'Item' });
+
+      expect(addDoc).toHaveBeenCalledWith(
+        { __collection: colecao },
+        { nome: 'Item', createdAt: '__serverTimestamp__' },
+      );
+    });
+
+    it(`remove deleta o doc pelo id na coleção "${colecao}"`, async () => {
+      await remove('id-123');
+
+      expect(doc).toHaveBeenCalledWith({}, colecao, 'id-123');
+      expect(deleteDoc).toHaveBeenCalledWith({ __doc: colecao, id: 'id-123' });
+    });
+
+    it(`update atualiza com updatedAt na coleção "${colecao}"`, async () => {
+      await update('id-123', { nome: 'Renomeado' });
+
+      expect(updateDoc).toHaveBeenCalledWith(
+        { __doc: colecao, id: 'id-123' },
+        { nome: 'Renomeado', updatedAt: '__serverTimestamp__' },
+      );
+    });
+  },
+);
+
+describe('storage.js — cardflux (somente leitura) e CRUD de rmCardfluxEstados', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it(`get busca a coleção "${colecao}"`, async () => {
+  it('getCardfluxCartas busca a coleção "cardflux" filtrada por universo', async () => {
     getDocs.mockResolvedValue({ docs: [] });
 
-    await get();
+    await getCardfluxCartas('u1');
 
-    expect(collection).toHaveBeenCalledWith({}, colecao);
-  });
-
-  it(`add grava na coleção "${colecao}" com createdAt`, async () => {
-    addDoc.mockResolvedValue({ id: 'novo-id' });
-
-    await add({ nome: 'Item' });
-
-    expect(addDoc).toHaveBeenCalledWith(
-      { __collection: colecao },
-      { nome: 'Item', createdAt: '__serverTimestamp__' },
+    expect(collection).toHaveBeenCalledWith({}, 'cardflux');
+    expect(where).toHaveBeenCalledWith('universo', '==', 'u1');
+    expect(getDocs).toHaveBeenCalledWith(
+      expect.objectContaining({
+        __query: { __collection: 'cardflux' },
+        constraints: [{ __where: ['universo', '==', 'u1'] }],
+      }),
     );
   });
 
-  it(`remove deleta o doc pelo id na coleção "${colecao}"`, async () => {
-    await remove('id-123');
+  it('rmCardfluxEstados: get/add/update usam a coleção "rmCardfluxEstados"', async () => {
+    getDocs.mockResolvedValue({ docs: [] });
+    addDoc.mockResolvedValue({ id: 'estado-1' });
 
-    expect(doc).toHaveBeenCalledWith({}, colecao, 'id-123');
-    expect(deleteDoc).toHaveBeenCalledWith({ __doc: colecao, id: 'id-123' });
-  });
+    await getRmCardfluxEstados();
+    await addRmCardfluxEstado({
+      campanhaId: 'c1',
+      cartaId: 'carta-1',
+      estadoNoBaralho: 'comprada',
+    });
+    await updateRmCardfluxEstado('estado-1', { estadoNoBaralho: 'descartada' });
 
-  it(`update atualiza com updatedAt na coleção "${colecao}"`, async () => {
-    await update('id-123', { nome: 'Renomeado' });
-
+    expect(collection).toHaveBeenCalledWith({}, 'rmCardfluxEstados');
+    expect(addDoc).toHaveBeenCalledWith(
+      { __collection: 'rmCardfluxEstados' },
+      {
+        campanhaId: 'c1',
+        cartaId: 'carta-1',
+        estadoNoBaralho: 'comprada',
+        createdAt: '__serverTimestamp__',
+      },
+    );
     expect(updateDoc).toHaveBeenCalledWith(
-      { __doc: colecao, id: 'id-123' },
-      { nome: 'Renomeado', updatedAt: '__serverTimestamp__' },
+      { __doc: 'rmCardfluxEstados', id: 'estado-1' },
+      { estadoNoBaralho: 'descartada', updatedAt: '__serverTimestamp__' },
     );
   });
 });
@@ -297,5 +435,37 @@ describe('storage.js — getUserPermissions', () => {
     const result = await getUserPermissions('uid-sem-universos');
 
     expect(result).toEqual({ isAdmin: false, universos: [] });
+  });
+});
+
+describe.each([
+  ['getAptidao', getAptidao, 'aptidoes'],
+  ['getRaca', getRaca, 'racas'],
+  ['getClasse', getClasse, 'classes'],
+  ['getVeiaAstral', getVeiaAstral, 'veiasAstrais'],
+])('storage.js — %s', (nomeFuncao, getFuncao, colecao) => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it(`busca o doc na coleção "${colecao}" e retorna {id, ...data}`, async () => {
+    getDoc.mockResolvedValue({
+      exists: () => true,
+      id: 'ref-1',
+      data: () => ({ nome: 'Nome de Referência' }),
+    });
+
+    const result = await getFuncao('ref-1');
+
+    expect(doc).toHaveBeenCalledWith({}, colecao, 'ref-1');
+    expect(result).toEqual({ id: 'ref-1', nome: 'Nome de Referência' });
+  });
+
+  it('retorna null quando o doc não existe', async () => {
+    getDoc.mockResolvedValue({ exists: () => false });
+
+    const result = await getFuncao('ref-inexistente');
+
+    expect(result).toBeNull();
   });
 });

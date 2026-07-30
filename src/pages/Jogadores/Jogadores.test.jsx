@@ -9,14 +9,14 @@ vi.mock('react-router-dom', async () => {
   return { ...actual, useNavigate: () => navigate };
 });
 
-const getPersonagens = vi.fn();
-const getRmCampanhaNpcs = vi.fn();
-const removeRmCampanhaNpc = vi.fn();
+const getPersonagensJogaveis = vi.fn();
+const getRmCampanhaJogadores = vi.fn();
+const removeRmCampanhaJogador = vi.fn();
 const getPersonagemSubcolecao = vi.fn();
 vi.mock('service/storage', () => ({
-  getPersonagens: (...args) => getPersonagens(...args),
-  getRmCampanhaNpcs: (...args) => getRmCampanhaNpcs(...args),
-  removeRmCampanhaNpc: (...args) => removeRmCampanhaNpc(...args),
+  getPersonagensJogaveis: (...args) => getPersonagensJogaveis(...args),
+  getRmCampanhaJogadores: (...args) => getRmCampanhaJogadores(...args),
+  removeRmCampanhaJogador: (...args) => removeRmCampanhaJogador(...args),
   getPersonagemSubcolecao: (...args) => getPersonagemSubcolecao(...args),
 }));
 
@@ -38,21 +38,21 @@ vi.mock('context/CampanhaContext', () => ({
   }),
 }));
 
-import Npcs from './Npcs';
+import Jogadores from './Jogadores';
 
 const PERSONAGENS_MOCK = [
   {
     id: 'p1',
-    nome: 'Grumnak, o Orc',
-    tipo: 'NPC',
+    nome: 'Kaelen',
+    tipo: 'Personagem Jogável',
     universo: 'u1',
     campanhas: ['c1'],
-    descricao: 'Um orc rabugento',
+    descricao: 'Um caçador de recompensas taciturno',
   },
   {
     id: 'p2',
-    nome: 'Sacerdotisa Lyra',
-    tipo: 'NPC',
+    nome: 'Sora',
+    tipo: 'Personagem Jogável',
     universo: 'u1',
     campanhas: ['c1', 'c2'],
   },
@@ -66,65 +66,61 @@ const PERSONAGENS_MOCK = [
   {
     id: 'p4',
     nome: 'De outra campanha',
-    tipo: 'NPC',
+    tipo: 'Personagem Jogável',
     universo: 'u1',
     campanhas: ['c2'],
   },
   {
     id: 'p5',
     nome: 'De outro universo',
-    tipo: 'NPC',
+    tipo: 'Personagem Jogável',
     universo: 'outro',
     campanhas: ['c1'],
   },
 ];
 
-const renderNpcs = () =>
+const renderJogadores = () =>
   render(
     <MemoryRouter>
-      <Npcs />
+      <Jogadores />
     </MemoryRouter>,
   );
 
-describe('Npcs (personagens do Universo vinculados à campanha ativa)', () => {
+describe('Jogadores (personagens jogáveis do Universo vinculados à campanha ativa)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     canWrite.mockReturnValue(true);
-    getPersonagens.mockResolvedValue(PERSONAGENS_MOCK);
-    getRmCampanhaNpcs.mockResolvedValue([]);
+    getPersonagensJogaveis.mockResolvedValue(PERSONAGENS_MOCK);
+    getRmCampanhaJogadores.mockResolvedValue([]);
     getPersonagemSubcolecao.mockResolvedValue([]);
   });
 
-  it('lista só personagens tipo NPC, do universo da campanha, vinculados a ela pelo campo campanhas', async () => {
-    renderNpcs();
+  it('lista só personagens tipo Personagem Jogável, do universo da campanha, vinculados a ela pelo campo campanhas', async () => {
+    renderJogadores();
 
-    await waitFor(() =>
-      expect(screen.getByText('Grumnak, o Orc')).toBeInTheDocument(),
-    );
-    expect(screen.getByText('Sacerdotisa Lyra')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText('Kaelen')).toBeInTheDocument());
+    expect(screen.getByText('Sora')).toBeInTheDocument();
     expect(screen.queryByText('Fera das Sombras')).not.toBeInTheDocument();
     expect(screen.queryByText('De outra campanha')).not.toBeInTheDocument();
     expect(screen.queryByText('De outro universo')).not.toBeInTheDocument();
   });
 
-  it('mostra o estado vazio quando não há NPCs vinculados', async () => {
-    getPersonagens.mockResolvedValue([]);
-    renderNpcs();
+  it('mostra o estado vazio quando não há jogadores vinculados', async () => {
+    getPersonagensJogaveis.mockResolvedValue([]);
+    renderJogadores();
 
     await waitFor(() =>
       expect(
-        screen.getByText('Nenhum NPC vinculado a esta campanha'),
+        screen.getByText('Nenhum jogador vinculado a esta campanha'),
       ).toBeInTheDocument(),
     );
   });
 
   it('abre a ficha completa do personagem ao clicar em "Ver ficha"', async () => {
     const user = userEvent.setup();
-    renderNpcs();
+    renderJogadores();
 
-    await waitFor(() =>
-      expect(screen.getByText('Grumnak, o Orc')).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByText('Kaelen')).toBeInTheDocument());
     await user.click(screen.getAllByRole('button', { name: 'Ver ficha' })[0]);
 
     expect(
@@ -134,85 +130,79 @@ describe('Npcs (personagens do Universo vinculados à campanha ativa)', () => {
 
   it('navega para a tela de clone ao clicar em "Clonar"', async () => {
     const user = userEvent.setup();
-    renderNpcs();
+    renderJogadores();
 
-    await waitFor(() =>
-      expect(screen.getByText('Grumnak, o Orc')).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByText('Kaelen')).toBeInTheDocument());
     await user.click(screen.getAllByRole('button', { name: 'Clonar' })[0]);
 
     expect(navigate).toHaveBeenCalledWith(
-      '/npcs/clonar',
+      '/jogadores/clonar',
       expect.objectContaining({ state: { personagem: PERSONAGENS_MOCK[0] } }),
     );
   });
 
   it('mostra "Clonado nesta campanha" e ações de editar/remover quando já existe um clone', async () => {
-    getRmCampanhaNpcs.mockResolvedValue([
-      { id: 'clone1', origemPersonagemId: 'p1', nome: 'Grumnak, o Orc' },
+    getRmCampanhaJogadores.mockResolvedValue([
+      { id: 'clone1', origemPersonagemId: 'p1', nome: 'Kaelen' },
     ]);
-    renderNpcs();
+    renderJogadores();
 
     await waitFor(() =>
       expect(screen.getByText('Clonado nesta campanha')).toBeInTheDocument(),
     );
-    expect(
-      screen.getByLabelText('Editar clone de Grumnak, o Orc'),
-    ).toBeInTheDocument();
-    // Só Lyra (sem clone) ainda mostra o botão "Clonar" — Grumnak (já clonado) não.
+    expect(screen.getByLabelText('Editar clone de Kaelen')).toBeInTheDocument();
+    // Só Sora (sem clone) ainda mostra o botão "Clonar" — Kaelen (já clonado) não.
     expect(screen.getAllByRole('button', { name: 'Clonar' })).toHaveLength(1);
   });
 
   it('remove um clone', async () => {
-    getRmCampanhaNpcs.mockResolvedValue([
-      { id: 'clone1', origemPersonagemId: 'p1', nome: 'Grumnak, o Orc' },
+    getRmCampanhaJogadores.mockResolvedValue([
+      { id: 'clone1', origemPersonagemId: 'p1', nome: 'Kaelen' },
     ]);
-    removeRmCampanhaNpc.mockResolvedValue(undefined);
+    removeRmCampanhaJogador.mockResolvedValue(undefined);
     const user = userEvent.setup();
-    renderNpcs();
+    renderJogadores();
 
     await waitFor(() =>
       expect(screen.getByText('Clonado nesta campanha')).toBeInTheDocument(),
     );
-    await user.click(screen.getByLabelText('Remover clone de Grumnak, o Orc'));
+    await user.click(screen.getByLabelText('Remover clone de Kaelen'));
 
     await waitFor(() =>
-      expect(removeRmCampanhaNpc).toHaveBeenCalledWith('c1', 'clone1'),
+      expect(removeRmCampanhaJogador).toHaveBeenCalledWith('c1', 'clone1'),
     );
   });
 
   it('não mostra ações de clonar/editar/remover quando canWrite retorna false', async () => {
     canWrite.mockReturnValue(false);
-    getRmCampanhaNpcs.mockResolvedValue([
-      { id: 'clone1', origemPersonagemId: 'p1', nome: 'Grumnak, o Orc' },
+    getRmCampanhaJogadores.mockResolvedValue([
+      { id: 'clone1', origemPersonagemId: 'p1', nome: 'Kaelen' },
     ]);
-    renderNpcs();
+    renderJogadores();
 
-    await waitFor(() =>
-      expect(screen.getByText('Grumnak, o Orc')).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByText('Kaelen')).toBeInTheDocument());
     expect(
       screen.queryByRole('button', { name: 'Clonar' }),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByLabelText('Editar clone de Grumnak, o Orc'),
+      screen.queryByLabelText('Editar clone de Kaelen'),
     ).not.toBeInTheDocument();
   });
 
   it('mostra o erro de carregamento e permite tentar de novo', async () => {
-    getPersonagens.mockRejectedValueOnce(new Error('offline'));
+    getPersonagensJogaveis.mockRejectedValueOnce(new Error('offline'));
     const user = userEvent.setup();
-    renderNpcs();
+    renderJogadores();
 
     await waitFor(() =>
-      expect(screen.getByText('Erro ao carregar os NPCs.')).toBeInTheDocument(),
+      expect(
+        screen.getByText('Erro ao carregar os jogadores.'),
+      ).toBeInTheDocument(),
     );
 
-    getPersonagens.mockResolvedValue(PERSONAGENS_MOCK);
+    getPersonagensJogaveis.mockResolvedValue(PERSONAGENS_MOCK);
     await user.click(screen.getByRole('button', { name: 'Tentar novamente' }));
 
-    await waitFor(() =>
-      expect(screen.getByText('Grumnak, o Orc')).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByText('Kaelen')).toBeInTheDocument());
   });
 });

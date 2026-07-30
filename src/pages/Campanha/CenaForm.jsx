@@ -16,7 +16,11 @@ import useStableListKeys from 'hooks/useStableListKeys';
 import ImagePreviewPanel from 'components/ImagePreviewPanel/ImagePreviewPanel';
 import FormActions from 'components/FormActions/FormActions';
 import SectionTitle from 'components/SectionTitle/SectionTitle';
-import { getRmNpcs, getRmCriaturas, getRmMissoes } from 'service/storage';
+import {
+  getRmCampanhaNpcs,
+  getRmCampanhaCriaturas,
+  getRmMissoes,
+} from 'service/storage';
 import {
   CENA_SCHEMA,
   ESTADO_CENA_OPCOES,
@@ -38,7 +42,9 @@ const inputSx = {
 
 const selectSx = {
   color: 'var(--text-primary)',
-  '& .MuiOutlinedInput-notchedOutline': { borderColor: 'var(--border-primary)' },
+  '& .MuiOutlinedInput-notchedOutline': {
+    borderColor: 'var(--border-primary)',
+  },
   '&:hover .MuiOutlinedInput-notchedOutline': {
     borderColor: 'var(--border-hover)',
   },
@@ -89,7 +95,9 @@ const CenaForm = ({
   campanhaId = null,
 }) => {
   const pontosKeys = useStableListKeys(initialValues.pontosImportantes.length);
-  const consequenciasKeys = useStableListKeys(initialValues.consequencias.length);
+  const consequenciasKeys = useStableListKeys(
+    initialValues.consequencias.length,
+  );
   const estadoLabelId = `${idPrefix}-estado-label`;
   const npcsLabelId = `${idPrefix}-npcs-label`;
   const criaturasLabelId = `${idPrefix}-criaturas-label`;
@@ -102,13 +110,15 @@ const CenaForm = ({
   useEffect(() => {
     if (!campanhaId) return;
     Promise.resolve().then(() =>
-      Promise.all([getRmNpcs(), getRmCriaturas(), getRmMissoes()]).then(
-        ([todosNpcs, todasCriaturas, todasMissoes]) => {
-          setNpcs(todosNpcs.filter(n => n.campanhaId === campanhaId));
-          setCriaturas(todasCriaturas.filter(c => c.campanhaId === campanhaId));
-          setMissoes(todasMissoes.filter(m => m.campanhaId === campanhaId));
-        },
-      ),
+      Promise.all([
+        getRmCampanhaNpcs(campanhaId),
+        getRmCampanhaCriaturas(campanhaId),
+        getRmMissoes(),
+      ]).then(([todosNpcs, todasCriaturas, todasMissoes]) => {
+        setNpcs(todosNpcs);
+        setCriaturas(todasCriaturas);
+        setMissoes(todasMissoes.filter(m => m.campanhaId === campanhaId));
+      }),
     );
   }, [campanhaId]);
 
@@ -189,13 +199,23 @@ const CenaForm = ({
                   </FastField>
                 </Box>
 
-                <ImagePreviewPanel src={values.linkImagem} alt="Preview da cena" />
+                <ImagePreviewPanel
+                  src={values.linkImagem}
+                  alt="Preview da cena"
+                />
               </Box>
             </Paper>
 
             <Paper elevation={0} sx={sectionSx}>
               <SectionTitle>Narrativa</SectionTitle>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1.5 }}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 2,
+                  mt: 1.5,
+                }}
+              >
                 <FastField name="objetivo">
                   {({ field }) => (
                     <TextField
@@ -235,9 +255,12 @@ const CenaForm = ({
                       multiline
                       rows={6}
                       error={
-                        touched.descricaoNarracao && Boolean(errors.descricaoNarracao)
+                        touched.descricaoNarracao &&
+                        Boolean(errors.descricaoNarracao)
                       }
-                      helperText={touched.descricaoNarracao && errors.descricaoNarracao}
+                      helperText={
+                        touched.descricaoNarracao && errors.descricaoNarracao
+                      }
                       sx={inputSx}
                     />
                   )}
@@ -249,7 +272,14 @@ const CenaForm = ({
               <SectionTitle>Pontos Importantes para a Narração</SectionTitle>
               <FieldArray name="pontosImportantes">
                 {({ push, remove }) => (
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, mt: 1.5 }}>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 1.5,
+                      mt: 1.5,
+                    }}
+                  >
                     {values.pontosImportantes.map((_, idx) => (
                       <Box
                         key={pontosKeys.keys[idx] ?? idx}
@@ -257,7 +287,12 @@ const CenaForm = ({
                       >
                         <FastField name={`pontosImportantes.${idx}`}>
                           {({ field }) => (
-                            <TextField {...field} fullWidth size="small" sx={inputSx} />
+                            <TextField
+                              {...field}
+                              fullWidth
+                              size="small"
+                              sx={inputSx}
+                            />
                           )}
                         </FastField>
                         <IconButton
@@ -266,7 +301,10 @@ const CenaForm = ({
                             pontosKeys.removeKey(idx);
                             remove(idx);
                           }}
-                          sx={{ color: 'var(--text-muted)', '&:hover': { color: '#ef4444' } }}
+                          sx={{
+                            color: 'var(--text-muted)',
+                            '&:hover': { color: '#ef4444' },
+                          }}
                           aria-label="Remover ponto importante"
                         >
                           ✕
@@ -278,7 +316,10 @@ const CenaForm = ({
                         pontosKeys.addKey();
                         push('');
                       }}
-                      sx={{ alignSelf: 'flex-start', color: 'var(--color-accent)' }}
+                      sx={{
+                        alignSelf: 'flex-start',
+                        color: 'var(--color-accent)',
+                      }}
                     >
                       + Adicionar ponto importante
                     </Button>
@@ -291,13 +332,23 @@ const CenaForm = ({
               <SectionTitle>Consequências</SectionTitle>
               <FieldArray name="consequencias">
                 {({ push, remove }) => (
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, mt: 1.5 }}>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 1.5,
+                      mt: 1.5,
+                    }}
+                  >
                     {values.consequencias.map((_, idx) => (
                       <Box
                         key={consequenciasKeys.keys[idx] ?? idx}
                         sx={{
                           display: 'grid',
-                          gridTemplateColumns: { xs: '1fr', sm: '220px 1fr auto' },
+                          gridTemplateColumns: {
+                            xs: '1fr',
+                            sm: '220px 1fr auto',
+                          },
                           gap: 1,
                           alignItems: 'flex-start',
                         }}
@@ -305,9 +356,16 @@ const CenaForm = ({
                         <Field name={`consequencias.${idx}.tipo`}>
                           {({ field }) => (
                             <FormControl size="small" fullWidth>
-                              <Select {...field} sx={selectSx} MenuProps={menuPropsSx}>
+                              <Select
+                                {...field}
+                                sx={selectSx}
+                                MenuProps={menuPropsSx}
+                              >
                                 {TIPO_CONSEQUENCIA_OPCOES.map(opcao => (
-                                  <MenuItem key={opcao.value} value={opcao.value}>
+                                  <MenuItem
+                                    key={opcao.value}
+                                    value={opcao.value}
+                                  >
                                     {opcao.label}
                                   </MenuItem>
                                 ))}
@@ -324,7 +382,7 @@ const CenaForm = ({
                               placeholder="Descreva a consequência"
                               error={Boolean(
                                 touched.consequencias?.[idx]?.texto &&
-                                  errors.consequencias?.[idx]?.texto,
+                                errors.consequencias?.[idx]?.texto,
                               )}
                               helperText={
                                 touched.consequencias?.[idx]?.texto &&
@@ -340,7 +398,10 @@ const CenaForm = ({
                             consequenciasKeys.removeKey(idx);
                             remove(idx);
                           }}
-                          sx={{ color: 'var(--text-muted)', '&:hover': { color: '#ef4444' } }}
+                          sx={{
+                            color: 'var(--text-muted)',
+                            '&:hover': { color: '#ef4444' },
+                          }}
                           aria-label="Remover consequência"
                         >
                           ✕
@@ -352,7 +413,10 @@ const CenaForm = ({
                         consequenciasKeys.addKey();
                         push({ ...CONSEQUENCIA_INICIAL });
                       }}
-                      sx={{ alignSelf: 'flex-start', color: 'var(--color-accent)' }}
+                      sx={{
+                        alignSelf: 'flex-start',
+                        color: 'var(--color-accent)',
+                      }}
                     >
                       + Adicionar consequência
                     </Button>
@@ -362,7 +426,9 @@ const CenaForm = ({
             </Paper>
 
             <Paper elevation={0} sx={sectionSx}>
-              <SectionTitle>Se os jogadores fizerem algo inesperado...</SectionTitle>
+              <SectionTitle>
+                Se os jogadores fizerem algo inesperado...
+              </SectionTitle>
               <Box sx={{ mt: 1.5 }}>
                 <FastField name="improvisacaoNotas">
                   {({ field }) => (
@@ -374,9 +440,12 @@ const CenaForm = ({
                       rows={4}
                       placeholder="Caminhos alternativos, reações de NPCs, ganchos improvisados..."
                       error={
-                        touched.improvisacaoNotas && Boolean(errors.improvisacaoNotas)
+                        touched.improvisacaoNotas &&
+                        Boolean(errors.improvisacaoNotas)
                       }
-                      helperText={touched.improvisacaoNotas && errors.improvisacaoNotas}
+                      helperText={
+                        touched.improvisacaoNotas && errors.improvisacaoNotas
+                      }
                       sx={inputSx}
                     />
                   )}
@@ -386,7 +455,14 @@ const CenaForm = ({
 
             <Paper elevation={0} sx={sectionSx}>
               <SectionTitle>NPCs, Criaturas e Missões</SectionTitle>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1.5 }}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 2,
+                  mt: 1.5,
+                }}
+              >
                 {npcs.length > 0 ? (
                   <Field name="npcsParticipantes">
                     {({ field }) => (
@@ -408,12 +484,20 @@ const CenaForm = ({
                           sx={selectSx}
                           MenuProps={menuPropsSx}
                           renderValue={selecionados => (
-                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                            <Box
+                              sx={{
+                                display: 'flex',
+                                flexWrap: 'wrap',
+                                gap: 0.5,
+                              }}
+                            >
                               {selecionados.map(id => (
                                 <Chip
                                   key={id}
                                   size="small"
-                                  label={npcs.find(n => n.id === id)?.nome ?? id}
+                                  label={
+                                    npcs.find(n => n.id === id)?.nome ?? id
+                                  }
                                 />
                               ))}
                             </Box>
@@ -456,12 +540,20 @@ const CenaForm = ({
                           sx={selectSx}
                           MenuProps={menuPropsSx}
                           renderValue={selecionados => (
-                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                            <Box
+                              sx={{
+                                display: 'flex',
+                                flexWrap: 'wrap',
+                                gap: 0.5,
+                              }}
+                            >
                               {selecionados.map(id => (
                                 <Chip
                                   key={id}
                                   size="small"
-                                  label={criaturas.find(c => c.id === id)?.nome ?? id}
+                                  label={
+                                    criaturas.find(c => c.id === id)?.nome ?? id
+                                  }
                                 />
                               ))}
                             </Box>
@@ -504,12 +596,20 @@ const CenaForm = ({
                           sx={selectSx}
                           MenuProps={menuPropsSx}
                           renderValue={selecionados => (
-                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                            <Box
+                              sx={{
+                                display: 'flex',
+                                flexWrap: 'wrap',
+                                gap: 0.5,
+                              }}
+                            >
                               {selecionados.map(id => (
                                 <Chip
                                   key={id}
                                   size="small"
-                                  label={missoes.find(m => m.id === id)?.titulo ?? id}
+                                  label={
+                                    missoes.find(m => m.id === id)?.titulo ?? id
+                                  }
                                 />
                               ))}
                             </Box>

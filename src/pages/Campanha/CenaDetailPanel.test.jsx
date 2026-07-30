@@ -2,12 +2,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
-const getRmNpcs = vi.fn(() => Promise.resolve([]));
-const getRmCriaturas = vi.fn(() => Promise.resolve([]));
+const getRmCampanhaNpcs = vi.fn(() => Promise.resolve([]));
+const getRmCampanhaCriaturas = vi.fn(() => Promise.resolve([]));
 const getRmMissoes = vi.fn(() => Promise.resolve([]));
 vi.mock('service/storage', () => ({
-  getRmNpcs: (...args) => getRmNpcs(...args),
-  getRmCriaturas: (...args) => getRmCriaturas(...args),
+  getRmCampanhaNpcs: (...args) => getRmCampanhaNpcs(...args),
+  getRmCampanhaCriaturas: (...args) => getRmCampanhaCriaturas(...args),
   getRmMissoes: (...args) => getRmMissoes(...args),
 }));
 
@@ -67,7 +67,9 @@ describe('CenaDetailPanel', () => {
       />,
     );
 
-    await user.click(screen.getByRole('button', { name: 'Marcar como Cena Atual' }));
+    await user.click(
+      screen.getByRole('button', { name: 'Marcar como Cena Atual' }),
+    );
     expect(onMarcarCenaAtual).toHaveBeenCalledWith('cena1');
   });
 

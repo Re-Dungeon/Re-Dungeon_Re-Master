@@ -13,14 +13,14 @@ import ContentCopyOutlinedIcon from '@mui/icons-material/ContentCopyOutlined';
 import { useAuth } from 'context/AuthContext';
 import { useCampanha } from 'context/CampanhaContext';
 import {
-  getPersonagens,
-  getRmCampanhaCriaturas,
-  removeRmCampanhaCriatura,
+  getPersonagensJogaveis,
+  getRmCampanhaJogadores,
+  removeRmCampanhaJogador,
 } from 'service/storage';
 import ListLoadError from 'components/ListLoadError/ListLoadError';
 import PersonagemFichaDialog from 'components/PersonagemFichaDialog/PersonagemFichaDialog';
 import { ROUTE_PATHS } from 'common/constants/routes';
-import { ehCriaturaDaCampanha } from './criaturaUtils';
+import { ehJogadorDaCampanha } from './jogadoresUtils';
 
 const cardSx = {
   p: 2.5,
@@ -29,20 +29,19 @@ const cardSx = {
   borderRadius: 2,
 };
 
-// Mesmo padrão de pages/Npcs/Npcs.jsx e pages/Jogadores/Jogadores.jsx: a
-// lista vem sempre de `personagens` (Re-Dungeon), filtrada por
-// tipo/universo/vínculo com a campanha. `clones` (rmCampanhas/{id}/criaturas)
-// guarda só os campos extras que o mestre preencheu para esta campanha,
-// indexados por origemPersonagemId.
-const Criaturas = () => {
+// Mesmo padrão de pages/Npcs/Npcs.jsx: a lista vem sempre de `personagens`
+// (Re-Dungeon), filtrada por tipo/universo/vínculo com a campanha. `clones`
+// (rmCampanhas/{id}/jogadores) guarda só os campos extras que o mestre
+// preencheu para esta campanha, indexados por origemPersonagemId.
+const Jogadores = () => {
   const navigate = useNavigate();
   const { canWrite } = useAuth();
   const { campanhaAtiva, loadingCampanhas } = useCampanha();
 
-  const [criaturasDoUniverso, setCriaturasDoUniverso] = useState([]);
+  const [jogadoresDoUniverso, setJogadoresDoUniverso] = useState([]);
   const [clones, setClones] = useState([]);
-  const [loadingCriaturas, setLoadingCriaturas] = useState(true);
-  const [errorCriaturas, setErrorCriaturas] = useState(null);
+  const [loadingJogadores, setLoadingJogadores] = useState(true);
+  const [errorJogadores, setErrorJogadores] = useState(null);
   const [reloadToken, setReloadToken] = useState(0);
   const [personagemVisualizado, setPersonagemVisualizado] = useState(null);
 
@@ -55,21 +54,24 @@ const Criaturas = () => {
     let active = true;
     Promise.resolve().then(() => {
       if (!active) return;
-      setLoadingCriaturas(true);
-      setErrorCriaturas(null);
-      Promise.all([getPersonagens(), getRmCampanhaCriaturas(campanhaAtiva.id)])
-        .then(([personagens, criaturasClonadas]) => {
+      setLoadingJogadores(true);
+      setErrorJogadores(null);
+      Promise.all([
+        getPersonagensJogaveis(),
+        getRmCampanhaJogadores(campanhaAtiva.id),
+      ])
+        .then(([personagens, jogadoresClonados]) => {
           if (!active) return;
-          setCriaturasDoUniverso(
-            personagens.filter(p => ehCriaturaDaCampanha(p, campanhaAtiva)),
+          setJogadoresDoUniverso(
+            personagens.filter(p => ehJogadorDaCampanha(p, campanhaAtiva)),
           );
-          setClones(criaturasClonadas);
+          setClones(jogadoresClonados);
         })
         .catch(err => {
-          if (active) setErrorCriaturas(err);
+          if (active) setErrorJogadores(err);
         })
         .finally(() => {
-          if (active) setLoadingCriaturas(false);
+          if (active) setLoadingJogadores(false);
         });
     });
     return () => {
@@ -83,7 +85,7 @@ const Criaturas = () => {
 
   if (!campanhaAtiva && !loadingCampanhas) return null;
 
-  const loading = loadingCampanhas || loadingCriaturas;
+  const loading = loadingCampanhas || loadingJogadores;
   const podeEscrever = campanhaAtiva
     ? canWrite(campanhaAtiva.universoId)
     : false;
@@ -92,15 +94,15 @@ const Criaturas = () => {
     clones.find(clone => clone.origemPersonagemId === personagemId) ?? null;
 
   const handleClonar = personagem => {
-    navigate(ROUTE_PATHS.CRIATURA_CLONE, { state: { personagem } });
+    navigate(ROUTE_PATHS.JOGADOR_CLONE, { state: { personagem } });
   };
 
   const handleEditarClone = (personagem, clone) => {
-    navigate(ROUTE_PATHS.CRIATURA_CLONE, { state: { personagem, clone } });
+    navigate(ROUTE_PATHS.JOGADOR_CLONE, { state: { personagem, clone } });
   };
 
   const handleRemoverClone = async clone => {
-    await removeRmCampanhaCriatura(campanhaAtiva.id, clone.id);
+    await removeRmCampanhaJogador(campanhaAtiva.id, clone.id);
     setClones(prev => prev.filter(c => c.id !== clone.id));
   };
 
@@ -111,12 +113,12 @@ const Criaturas = () => {
           variant="h5"
           sx={{ color: 'var(--text-primary)', fontWeight: 700, mb: 0.5 }}
         >
-          Criaturas — {campanhaAtiva?.nome}
+          Jogadores — {campanhaAtiva?.nome}
         </Typography>
         <Typography variant="body2" sx={{ color: 'var(--text-secondary)' }}>
-          Personagens do tipo Criatura do Universo vinculados a esta campanha.
-          Clone uma criatura para adicionar informações específicas da sua mesa,
-          sem alterar a ficha original.
+          Personagens jogáveis do Universo vinculados a esta campanha. Clone um
+          jogador para adicionar informações específicas da sua mesa, sem
+          alterar a ficha original.
         </Typography>
       </Box>
 
@@ -124,18 +126,18 @@ const Criaturas = () => {
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
           <CircularProgress sx={{ color: 'var(--color-accent)' }} />
         </Box>
-      ) : errorCriaturas ? (
+      ) : errorJogadores ? (
         <ListLoadError
-          mensagem="Erro ao carregar as criaturas."
+          mensagem="Erro ao carregar os jogadores."
           onRetry={reload}
         />
-      ) : criaturasDoUniverso.length === 0 ? (
+      ) : jogadoresDoUniverso.length === 0 ? (
         <Box className="empty-state">
-          <span className="empty-state-icon">🐉</span>
-          <p>Nenhuma criatura vinculada a esta campanha</p>
+          <span className="empty-state-icon">🧑‍🤝‍🧑</span>
+          <p>Nenhum jogador vinculado a esta campanha</p>
           <small>
-            No Universo desta campanha, vincule um personagem do tipo Criatura a
-            esta campanha para que ele apareça aqui.
+            No Universo desta campanha, vincule um personagem jogável a esta
+            campanha para que ele apareça aqui.
           </small>
         </Box>
       ) : (
@@ -149,7 +151,7 @@ const Criaturas = () => {
             gap: 2,
           }}
         >
-          {criaturasDoUniverso.map(personagem => {
+          {jogadoresDoUniverso.map(personagem => {
             const clone = cloneDe(personagem.id);
             return (
               <Paper key={personagem.id} elevation={0} sx={cardSx}>
@@ -266,4 +268,4 @@ const Criaturas = () => {
   );
 };
 
-export default Criaturas;
+export default Jogadores;

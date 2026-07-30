@@ -9,34 +9,54 @@ vi.mock('react-router-dom', async () => {
   return { ...actual, useNavigate: () => navigate };
 });
 
-const getRmCardfluxBaralhos = vi.fn();
-const removeRmCardfluxBaralho = vi.fn();
-const getRmCardfluxCartas = vi.fn();
-const updateRmCardfluxCarta = vi.fn();
+const getCardfluxCartas = vi.fn();
+const getRmCardfluxEstados = vi.fn();
+const addRmCardfluxEstado = vi.fn();
+const updateRmCardfluxEstado = vi.fn();
 vi.mock('service/storage', () => ({
-  getRmCardfluxBaralhos: (...args) => getRmCardfluxBaralhos(...args),
-  removeRmCardfluxBaralho: (...args) => removeRmCardfluxBaralho(...args),
-  getRmCardfluxCartas: (...args) => getRmCardfluxCartas(...args),
-  updateRmCardfluxCarta: (...args) => updateRmCardfluxCarta(...args),
+  getCardfluxCartas: (...args) => getCardfluxCartas(...args),
+  getRmCardfluxEstados: (...args) => getRmCardfluxEstados(...args),
+  addRmCardfluxEstado: (...args) => addRmCardfluxEstado(...args),
+  updateRmCardfluxEstado: (...args) => updateRmCardfluxEstado(...args),
 }));
 
-const canCreate = vi.fn(() => true);
-const canWrite = vi.fn(() => true);
-vi.mock('context/AuthContext', () => ({
-  useAuth: () => ({ canCreate, canWrite }),
-}));
-
-const CAMPANHA_ATIVA = { id: 'c1', nome: 'Ascensão Carmesim', universoId: 'u1', mestreId: 'm1' };
+const CAMPANHA_ATIVA = {
+  id: 'c1',
+  nome: 'Ascensão Carmesim',
+  universoId: 'u1',
+  mestreId: 'm1',
+};
 vi.mock('context/CampanhaContext', () => ({
-  useCampanha: () => ({ campanhaAtiva: CAMPANHA_ATIVA, loadingCampanhas: false }),
+  useCampanha: () => ({
+    campanhaAtiva: CAMPANHA_ATIVA,
+    loadingCampanhas: false,
+  }),
 }));
 
 import CardFlux from './CardFlux';
 
-const BARALHOS_MOCK = [{ id: 'baralho1', campanhaId: 'c1', nome: 'Eventos de Estrada' }];
 const CARTAS_MOCK = [
-  { id: 'carta1', campanhaId: 'c1', baralhoId: 'baralho1', titulo: 'Emboscada', tipo: 'perigo', estadoNoBaralho: 'no_baralho' },
-  { id: 'carta2', campanhaId: 'c1', baralhoId: 'baralho1', titulo: 'Baú do Tesouro', tipo: 'recompensa', estadoNoBaralho: 'comprada' },
+  {
+    id: 'carta1',
+    deck: 'Eventos de Estrada',
+    nome: 'Emboscada',
+    tipo: 'Perigo',
+    descricaoGeral: 'Uma emboscada.',
+  },
+  {
+    id: 'carta2',
+    deck: 'Eventos de Estrada',
+    nome: 'Baú do Tesouro',
+    tipo: 'Recompensa',
+  },
+];
+const ESTADOS_MOCK = [
+  {
+    id: 'estado1',
+    campanhaId: 'c1',
+    cartaId: 'carta2',
+    estadoNoBaralho: 'comprada',
+  },
 ];
 
 const renderCardFlux = () =>
@@ -46,64 +66,62 @@ const renderCardFlux = () =>
     </MemoryRouter>,
   );
 
-describe('CardFlux (lista de baralhos da campanha ativa)', () => {
+describe('CardFlux (baralhos agrupados a partir das cartas do cardflux)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    canCreate.mockReturnValue(true);
-    canWrite.mockReturnValue(true);
-    getRmCardfluxBaralhos.mockResolvedValue(BARALHOS_MOCK);
-    getRmCardfluxCartas.mockResolvedValue(CARTAS_MOCK);
+    getCardfluxCartas.mockResolvedValue(CARTAS_MOCK);
+    getRmCardfluxEstados.mockResolvedValue(ESTADOS_MOCK);
   });
 
-  it('lista os baralhos com a contagem de cartas disponíveis', async () => {
+  it('busca as cartas do universo da campanha ativa e agrupa por deck', async () => {
     renderCardFlux();
 
-    await waitFor(() => expect(screen.getByText('Eventos de Estrada')).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText('Eventos de Estrada')).toBeInTheDocument(),
+    );
+    expect(getCardfluxCartas).toHaveBeenCalledWith('u1');
     expect(screen.getByText('1/2 cartas disponíveis')).toBeInTheDocument();
   });
 
-  it('mostra o estado vazio quando não há baralhos', async () => {
-    getRmCardfluxBaralhos.mockResolvedValue([]);
+  it('mostra o estado vazio quando não há cartas cadastradas para o universo', async () => {
+    getCardfluxCartas.mockResolvedValue([]);
     renderCardFlux();
 
     await waitFor(() =>
-      expect(screen.getByText('Nenhum baralho cadastrado')).toBeInTheDocument(),
+      expect(screen.getByText('Nenhum baralho encontrado')).toBeInTheDocument(),
     );
   });
 
-  it('remove um baralho', async () => {
-    removeRmCardfluxBaralho.mockResolvedValue(undefined);
+  it('navega para ver as cartas passando só o nome do baralho no state', async () => {
     const user = userEvent.setup();
     renderCardFlux();
 
-    await waitFor(() => expect(screen.getByText('Eventos de Estrada')).toBeInTheDocument());
-    await user.click(screen.getByLabelText('Remover baralho Eventos de Estrada'));
-
-    await waitFor(() => expect(removeRmCardfluxBaralho).toHaveBeenCalledWith('baralho1'));
-  });
-
-  it('navega para gerenciar cartas passando o baralho no state', async () => {
-    const user = userEvent.setup();
-    renderCardFlux();
-
-    await waitFor(() => expect(screen.getByText('Eventos de Estrada')).toBeInTheDocument());
-    await user.click(screen.getByRole('button', { name: 'Gerenciar Cartas' }));
+    await waitFor(() =>
+      expect(screen.getByText('Eventos de Estrada')).toBeInTheDocument(),
+    );
+    await user.click(screen.getByRole('button', { name: 'Ver Cartas' }));
 
     expect(navigate).toHaveBeenCalledWith('/cardflux/cartas', {
-      state: { baralho: BARALHOS_MOCK[0] },
+      state: { baralho: { nome: 'Eventos de Estrada' } },
     });
   });
 
-  it('puxa uma carta disponível, marca como comprada e mostra o resultado', async () => {
-    updateRmCardfluxCarta.mockResolvedValue(undefined);
+  it('puxa uma carta sem estado ainda, cria o doc de estado como comprada e mostra o resultado', async () => {
+    addRmCardfluxEstado.mockResolvedValue({ id: 'novo-estado' });
     const user = userEvent.setup();
     renderCardFlux();
 
-    await waitFor(() => expect(screen.getByText('Eventos de Estrada')).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText('Eventos de Estrada')).toBeInTheDocument(),
+    );
     await user.click(screen.getByRole('button', { name: 'Puxar Carta' }));
 
     await waitFor(() =>
-      expect(updateRmCardfluxCarta).toHaveBeenCalledWith('carta1', {
+      expect(addRmCardfluxEstado).toHaveBeenCalledWith({
+        campanhaId: 'c1',
+        universoId: 'u1',
+        mestreId: 'm1',
+        cartaId: 'carta1',
         estadoNoBaralho: 'comprada',
       }),
     );
@@ -111,32 +129,44 @@ describe('CardFlux (lista de baralhos da campanha ativa)', () => {
   });
 
   it('avisa quando o baralho está esgotado', async () => {
-    getRmCardfluxCartas.mockResolvedValue([
-      { ...CARTAS_MOCK[0], estadoNoBaralho: 'comprada' },
-      CARTAS_MOCK[1],
+    getRmCardfluxEstados.mockResolvedValue([
+      ...ESTADOS_MOCK,
+      {
+        id: 'estado2',
+        campanhaId: 'c1',
+        cartaId: 'carta1',
+        estadoNoBaralho: 'comprada',
+      },
     ]);
     const user = userEvent.setup();
     renderCardFlux();
 
-    await waitFor(() => expect(screen.getByText('Eventos de Estrada')).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText('Eventos de Estrada')).toBeInTheDocument(),
+    );
     await user.click(screen.getByRole('button', { name: 'Puxar Carta' }));
 
     expect(screen.getByText('Baralho esgotado')).toBeInTheDocument();
-    expect(updateRmCardfluxCarta).not.toHaveBeenCalled();
+    expect(addRmCardfluxEstado).not.toHaveBeenCalled();
+    expect(updateRmCardfluxEstado).not.toHaveBeenCalled();
   });
 
-  it('mostra o erro de carregamento quando os baralhos falham e permite tentar de novo', async () => {
-    getRmCardfluxBaralhos.mockRejectedValueOnce(new Error('offline'));
+  it('mostra o erro de carregamento quando as cartas falham e permite tentar de novo', async () => {
+    getCardfluxCartas.mockRejectedValueOnce(new Error('offline'));
     const user = userEvent.setup();
     renderCardFlux();
 
     await waitFor(() =>
-      expect(screen.getByText('Erro ao carregar o CardFlux.')).toBeInTheDocument(),
+      expect(
+        screen.getByText('Erro ao carregar o CardFlux.'),
+      ).toBeInTheDocument(),
     );
 
-    getRmCardfluxBaralhos.mockResolvedValue(BARALHOS_MOCK);
+    getCardfluxCartas.mockResolvedValue(CARTAS_MOCK);
     await user.click(screen.getByRole('button', { name: 'Tentar novamente' }));
 
-    await waitFor(() => expect(screen.getByText('Eventos de Estrada')).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText('Eventos de Estrada')).toBeInTheDocument(),
+    );
   });
 });

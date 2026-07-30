@@ -8,7 +8,7 @@ import { Formik, Form, FastField } from 'formik';
 import ImagePreviewPanel from 'components/ImagePreviewPanel/ImagePreviewPanel';
 import FormActions from 'components/FormActions/FormActions';
 import SectionTitle from 'components/SectionTitle/SectionTitle';
-import { NPC_SCHEMA } from './npcUtils';
+import { JOGADOR_SCHEMA } from './jogadoresUtils';
 
 const inputSx = {
   '& .MuiOutlinedInput-root': {
@@ -29,7 +29,7 @@ const sectionSx = {
   borderRadius: 2,
 };
 
-const NpcForm = ({
+const JogadorForm = ({
   initialValues,
   personagem,
   onSubmit,
@@ -38,7 +38,7 @@ const NpcForm = ({
 }) => (
   <Formik
     initialValues={initialValues}
-    validationSchema={NPC_SCHEMA}
+    validationSchema={JOGADOR_SCHEMA}
     onSubmit={onSubmit}
   >
     {({ values, errors, touched, isSubmitting }) => (
@@ -108,7 +108,10 @@ const NpcForm = ({
                 </FastField>
               </Box>
 
-              <ImagePreviewPanel src={values.linkImagem} alt="Preview do NPC" />
+              <ImagePreviewPanel
+                src={values.linkImagem}
+                alt="Preview do Jogador"
+              />
             </Box>
           </Paper>
 
@@ -257,7 +260,7 @@ const NpcForm = ({
   </Formik>
 );
 
-NpcForm.propTypes = {
+JogadorForm.propTypes = {
   initialValues: PropTypes.object.isRequired,
   personagem: PropTypes.object,
   onSubmit: PropTypes.func.isRequired,
@@ -265,4 +268,4 @@ NpcForm.propTypes = {
   labelSalvar: PropTypes.string.isRequired,
 };
 
-export default NpcForm;
+export default JogadorForm;

@@ -224,7 +224,9 @@ import { updateRmCena, updateRmNpc } from 'service/storage';
 ```
 
 Ao adicionar uma nova entidade ao sistema:
-1. Escolha um nome de coleção prefixado com `rm` (ex.: `rmMapas`) — nunca reutilize um nome de coleção do Re-Dungeon, mesmo que pareça equivalente (ex.: o `cardflux` do Re-Dungeon é uma coleção diferente do `rmCardfluxCartas` do Re:Master).
+1. Escolha um nome de coleção prefixado com `rm` (ex.: `rmMapas`) — nunca reutilize um nome de coleção do Re-Dungeon ou de outro projeto irmão, mesmo que pareça equivalente.
+
+> **Exceção — CardFlux**: o módulo CardFlux não cria baralhos nem cartas. Ele só lê a coleção `cardflux` (gerida por um projeto irmão, no mesmo Firestore, leitura liberada a qualquer autenticado) filtrando pelo campo `universo` (id do Universo). "Baralho" não é uma entidade própria — é só o agrupamento das cartas pelo campo `deck`. Uma carta cadastrada no projeto irmão para aquele Universo aparece no Re:Master automaticamente, sem sincronização. A única coisa que o Re:Master grava é o estado de sorteio de cada carta dentro de uma Campanha (no baralho / comprada / descartada), na coleção própria `rmCardfluxEstados` (um doc por par campanha+carta) — nunca escreva em `cardflux`.
 2. Denormalize `universoId` e `mestreId` no documento (ver Firestore Rules abaixo) — evita `get()` extra nas regras de segurança.
 3. Exporte as funções `get*`/`add*`/`remove*`/`update*` em `storage.js`, seguindo o mesmo padrão genérico já usado pelas entidades do Re-Dungeon (`getFirestoreItems`/`addFirestoreItem`/`updateFirestoreItem`/`removeFirestoreItem` com `createdAt`/`updatedAt` via `serverTimestamp()`) e pelas primeiras entidades do Re:Master.
 

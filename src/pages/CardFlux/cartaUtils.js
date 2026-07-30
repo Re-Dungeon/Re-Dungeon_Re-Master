@@ -1,12 +1,4 @@
-import * as Yup from 'yup';
-import { nomeSchema, descricaoSchema } from 'common/utils/yupSchemas';
-
-export const TIPO_CARTA_OPCOES = [
-  { value: 'evento', label: 'Evento', cor: '#3b82f6' },
-  { value: 'recompensa', label: 'Recompensa', cor: '#22c55e' },
-  { value: 'perigo', label: 'Perigo', cor: '#ef4444' },
-  { value: 'outro', label: 'Outro', cor: '#6b7280' },
-];
+import { addRmCardfluxEstado, updateRmCardfluxEstado } from 'service/storage';
 
 export const ESTADO_CARTA_OPCOES = [
   { value: 'no_baralho', label: 'No Baralho' },
@@ -14,17 +6,37 @@ export const ESTADO_CARTA_OPCOES = [
   { value: 'descartada', label: 'Descartada' },
 ];
 
-export const CARTA_SCHEMA = Yup.object({
-  titulo: nomeSchema,
-  descricao: descricaoSchema,
-  tipo: Yup.string()
-    .oneOf(TIPO_CARTA_OPCOES.map(o => o.value))
-    .required(),
-});
+// As cartas em si vêm do `cardflux` (projeto irmão) e não sabem o que é uma
+// Campanha do Re:Master — o estado de sorteio de cada carta dentro de uma
+// Campanha específica mora em `rmCardfluxEstados`, indexado por `cartaId`.
+// Junta as duas fontes; carta sem doc de estado ainda está 'no_baralho'.
+export const mesclarEstadoCartas = (cartas, estadosDaCampanha) => {
+  const estadoPorCartaId = new Map(estadosDaCampanha.map(e => [e.cartaId, e]));
+  return cartas.map(carta => {
+    const estado = estadoPorCartaId.get(carta.id);
+    return {
+      ...carta,
+      estadoNoBaralho: estado?.estadoNoBaralho ?? 'no_baralho',
+      estadoDocId: estado?.id ?? null,
+    };
+  });
+};
 
-export const CARTA_INITIAL_VALUES = {
-  titulo: '',
-  descricao: '',
-  tipo: 'evento',
-  estadoNoBaralho: 'no_baralho',
+export const sortearCarta = cartasDisponiveis =>
+  cartasDisponiveis[Math.floor(Math.random() * cartasDisponiveis.length)];
+
+export const definirEstadoCarta = async (carta, novoEstado, campanhaAtiva) => {
+  if (carta.estadoDocId) {
+    await updateRmCardfluxEstado(carta.estadoDocId, {
+      estadoNoBaralho: novoEstado,
+    });
+    return;
+  }
+  await addRmCardfluxEstado({
+    campanhaId: campanhaAtiva.id,
+    universoId: campanhaAtiva.universoId,
+    mestreId: campanhaAtiva.mestreId,
+    cartaId: carta.id,
+    estadoNoBaralho: novoEstado,
+  });
 };

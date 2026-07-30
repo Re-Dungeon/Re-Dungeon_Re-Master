@@ -3,6 +3,7 @@ import PropTypes from 'prop-types';
 import Box from '@mui/material/Box';
 import TextField from '@mui/material/TextField';
 import Paper from '@mui/material/Paper';
+import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
 import Button from '@mui/material/Button';
 import { Formik, Form, FastField, FieldArray } from 'formik';
@@ -10,7 +11,6 @@ import useStableListKeys from 'hooks/useStableListKeys';
 import ImagePreviewPanel from 'components/ImagePreviewPanel/ImagePreviewPanel';
 import FormActions from 'components/FormActions/FormActions';
 import SectionTitle from 'components/SectionTitle/SectionTitle';
-import PersonagemImportSelect from 'components/PersonagemImportSelect/PersonagemImportSelect';
 import { CRIATURA_SCHEMA } from './criaturaUtils';
 
 const inputSx = {
@@ -34,38 +34,31 @@ const sectionSx = {
 
 const CriaturaForm = ({
   initialValues,
-  personagens,
+  personagem,
   onSubmit,
   onCancelar,
   labelSalvar,
-  idPrefix,
 }) => {
-  const historicoKeys = useStableListKeys(initialValues.historicoEncontros.length);
+  const historicoKeys = useStableListKeys(
+    initialValues.historicoEncontros.length,
+  );
 
   return (
-    <Formik initialValues={initialValues} validationSchema={CRIATURA_SCHEMA} onSubmit={onSubmit}>
-      {({ values, errors, touched, setValues, isSubmitting }) => (
+    <Formik
+      initialValues={initialValues}
+      validationSchema={CRIATURA_SCHEMA}
+      onSubmit={onSubmit}
+    >
+      {({ values, errors, touched, isSubmitting }) => (
         <Form>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-            <Paper elevation={0} sx={sectionSx}>
-              <SectionTitle>Importar de um Personagem</SectionTitle>
-              <Box sx={{ mt: 1.5 }}>
-                <PersonagemImportSelect
-                  personagens={personagens}
-                  tipo="Criatura"
-                  idPrefix={idPrefix}
-                  onImport={personagem =>
-                    setValues({
-                      ...values,
-                      origemPersonagemId: personagem.id,
-                      nome: personagem.nome ?? values.nome,
-                      linkImagem: personagem.linkImagem ?? values.linkImagem,
-                      descricaoBase: personagem.descricao ?? values.descricaoBase,
-                    })
-                  }
-                />
-              </Box>
-            </Paper>
+            {personagem && (
+              <Typography variant="body2" sx={{ color: 'var(--text-muted)' }}>
+                Clone de <strong>{personagem.nome}</strong> — os campos abaixo
+                são específicos desta campanha e não alteram a ficha original do
+                personagem.
+              </Typography>
+            )}
 
             <Paper elevation={0} sx={sectionSx}>
               <SectionTitle>Informações Gerais</SectionTitle>
@@ -113,21 +106,35 @@ const CriaturaForm = ({
                         fullWidth
                         multiline
                         rows={3}
-                        error={touched.descricaoBase && Boolean(errors.descricaoBase)}
-                        helperText={touched.descricaoBase && errors.descricaoBase}
+                        error={
+                          touched.descricaoBase && Boolean(errors.descricaoBase)
+                        }
+                        helperText={
+                          touched.descricaoBase && errors.descricaoBase
+                        }
                         sx={inputSx}
                       />
                     )}
                   </FastField>
                 </Box>
 
-                <ImagePreviewPanel src={values.linkImagem} alt="Preview da criatura" />
+                <ImagePreviewPanel
+                  src={values.linkImagem}
+                  alt="Preview da criatura"
+                />
               </Box>
             </Paper>
 
             <Paper elevation={0} sx={sectionSx}>
               <SectionTitle>Comportamento e Combate</SectionTitle>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1.5 }}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 2,
+                  mt: 1.5,
+                }}
+              >
                 <FastField name="comportamento">
                   {({ field }) => (
                     <TextField
@@ -136,7 +143,9 @@ const CriaturaForm = ({
                       fullWidth
                       multiline
                       rows={2}
-                      error={touched.comportamento && Boolean(errors.comportamento)}
+                      error={
+                        touched.comportamento && Boolean(errors.comportamento)
+                      }
                       helperText={touched.comportamento && errors.comportamento}
                       sx={inputSx}
                     />
@@ -150,8 +159,13 @@ const CriaturaForm = ({
                       fullWidth
                       multiline
                       rows={2}
-                      error={touched.estrategiasCombate && Boolean(errors.estrategiasCombate)}
-                      helperText={touched.estrategiasCombate && errors.estrategiasCombate}
+                      error={
+                        touched.estrategiasCombate &&
+                        Boolean(errors.estrategiasCombate)
+                      }
+                      helperText={
+                        touched.estrategiasCombate && errors.estrategiasCombate
+                      }
                       sx={inputSx}
                     />
                   )}
@@ -175,7 +189,14 @@ const CriaturaForm = ({
 
             <Paper elevation={0} sx={sectionSx}>
               <SectionTitle>Habitat e Observações do Mestre</SectionTitle>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1.5 }}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 2,
+                  mt: 1.5,
+                }}
+              >
                 <FastField name="habitat">
                   {({ field }) => (
                     <TextField
@@ -198,8 +219,13 @@ const CriaturaForm = ({
                       fullWidth
                       multiline
                       rows={3}
-                      error={touched.observacoesMestre && Boolean(errors.observacoesMestre)}
-                      helperText={touched.observacoesMestre && errors.observacoesMestre}
+                      error={
+                        touched.observacoesMestre &&
+                        Boolean(errors.observacoesMestre)
+                      }
+                      helperText={
+                        touched.observacoesMestre && errors.observacoesMestre
+                      }
                       sx={inputSx}
                     />
                   )}
@@ -211,7 +237,14 @@ const CriaturaForm = ({
               <SectionTitle>Histórico de Encontros</SectionTitle>
               <FieldArray name="historicoEncontros">
                 {({ push, remove }) => (
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, mt: 1.5 }}>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 1.5,
+                      mt: 1.5,
+                    }}
+                  >
                     {values.historicoEncontros.map((_, idx) => (
                       <Box
                         key={historicoKeys.keys[idx] ?? idx}
@@ -234,7 +267,10 @@ const CriaturaForm = ({
                             historicoKeys.removeKey(idx);
                             remove(idx);
                           }}
-                          sx={{ color: 'var(--text-muted)', '&:hover': { color: '#ef4444' } }}
+                          sx={{
+                            color: 'var(--text-muted)',
+                            '&:hover': { color: '#ef4444' },
+                          }}
                           aria-label="Remover entrada do histórico"
                         >
                           ✕
@@ -246,7 +282,10 @@ const CriaturaForm = ({
                         historicoKeys.addKey();
                         push('');
                       }}
-                      sx={{ alignSelf: 'flex-start', color: 'var(--color-accent)' }}
+                      sx={{
+                        alignSelf: 'flex-start',
+                        color: 'var(--color-accent)',
+                      }}
                     >
                       + Adicionar encontro
                     </Button>
@@ -269,11 +308,10 @@ const CriaturaForm = ({
 
 CriaturaForm.propTypes = {
   initialValues: PropTypes.object.isRequired,
-  personagens: PropTypes.arrayOf(PropTypes.object).isRequired,
+  personagem: PropTypes.object,
   onSubmit: PropTypes.func.isRequired,
   onCancelar: PropTypes.func.isRequired,
   labelSalvar: PropTypes.string.isRequired,
-  idPrefix: PropTypes.string.isRequired,
 };
 
 export default CriaturaForm;

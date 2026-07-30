@@ -5,12 +5,12 @@ import { MemoryRouter } from 'react-router-dom';
 
 const addRmMissao = vi.fn();
 const updateRmMissao = vi.fn();
-const getRmNpcs = vi.fn(() => Promise.resolve([]));
+const getRmCampanhaNpcs = vi.fn(() => Promise.resolve([]));
 const getRmCenas = vi.fn(() => Promise.resolve([]));
 vi.mock('service/storage', () => ({
   addRmMissao: (...args) => addRmMissao(...args),
   updateRmMissao: (...args) => updateRmMissao(...args),
-  getRmNpcs: (...args) => getRmNpcs(...args),
+  getRmCampanhaNpcs: (...args) => getRmCampanhaNpcs(...args),
   getRmCenas: (...args) => getRmCenas(...args),
 }));
 
@@ -26,7 +26,10 @@ const CAMPANHA_ATIVA = {
   mestreId: 'mestre-1',
 };
 vi.mock('context/CampanhaContext', () => ({
-  useCampanha: () => ({ campanhaAtiva: CAMPANHA_ATIVA, loadingCampanhas: false }),
+  useCampanha: () => ({
+    campanhaAtiva: CAMPANHA_ATIVA,
+    loadingCampanhas: false,
+  }),
 }));
 
 import NovaMissao from './NovaMissao';
@@ -42,15 +45,19 @@ describe('NovaMissao', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     canWrite.mockReturnValue(true);
-    getRmNpcs.mockResolvedValue([]);
+    getRmCampanhaNpcs.mockResolvedValue([]);
     getRmCenas.mockResolvedValue([]);
   });
 
   it('mostra "Nova Missão" com o nome da campanha ativa', async () => {
     renderNova(undefined);
 
-    await waitFor(() => expect(screen.getByText('Nova Missão')).toBeInTheDocument());
-    expect(screen.getByText('Nova missão em Ascensão Carmesim')).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByText('Nova Missão')).toBeInTheDocument(),
+    );
+    expect(
+      screen.getByText('Nova missão em Ascensão Carmesim'),
+    ).toBeInTheDocument();
   });
 
   it('cria uma missão com campanhaId/universoId/mestreId derivados da campanha ativa', async () => {
@@ -82,8 +89,13 @@ describe('NovaMissao', () => {
 
     await waitFor(() => screen.getByLabelText('Título'));
     await user.type(screen.getByLabelText('Título'), 'Missão X');
-    await user.click(screen.getByRole('button', { name: '+ Adicionar objetivo' }));
-    await user.type(screen.getByPlaceholderText('Descreva o objetivo'), 'Encontrar o mapa');
+    await user.click(
+      screen.getByRole('button', { name: '+ Adicionar objetivo' }),
+    );
+    await user.type(
+      screen.getByPlaceholderText('Descreva o objetivo'),
+      'Encontrar o mapa',
+    );
     await user.click(screen.getByRole('checkbox'));
     await user.click(screen.getByRole('button', { name: 'Salvar Missão' }));
 
@@ -101,21 +113,32 @@ describe('NovaMissao', () => {
     renderNova(undefined);
 
     await waitFor(() => screen.getByLabelText('Título'));
-    await user.click(screen.getByRole('button', { name: '+ Adicionar recompensa' }));
+    await user.click(
+      screen.getByRole('button', { name: '+ Adicionar recompensa' }),
+    );
     expect(screen.getByLabelText('Remover recompensa')).toBeInTheDocument();
 
     await user.click(screen.getByLabelText('Remover recompensa'));
-    expect(screen.queryByLabelText('Remover recompensa')).not.toBeInTheDocument();
+    expect(
+      screen.queryByLabelText('Remover recompensa'),
+    ).not.toBeInTheDocument();
   });
 
   it('mostra "Editar Missão" preenchida e salva via updateRmMissao', async () => {
     updateRmMissao.mockResolvedValue(undefined);
     const user = userEvent.setup();
     renderNova({
-      missao: { id: 'missao1', titulo: 'Resgatar o Prefeito', objetivos: [], recompensas: [] },
+      missao: {
+        id: 'missao1',
+        titulo: 'Resgatar o Prefeito',
+        objetivos: [],
+        recompensas: [],
+      },
     });
 
-    await waitFor(() => expect(screen.getByText('Editar Missão')).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText('Editar Missão')).toBeInTheDocument(),
+    );
     expect(screen.getByDisplayValue('Resgatar o Prefeito')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Salvar Alterações' }));
@@ -133,6 +156,8 @@ describe('NovaMissao', () => {
     canWrite.mockReturnValue(false);
     renderNova(undefined);
 
-    await waitFor(() => expect(screen.queryByText('Nova Missão')).not.toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.queryByText('Nova Missão')).not.toBeInTheDocument(),
+    );
   });
 });

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 const navigate = vi.fn();
@@ -8,32 +8,61 @@ vi.mock('react-router-dom', async () => {
   return { ...actual, useNavigate: () => navigate };
 });
 
-const getRmCardfluxCartas = vi.fn();
-const removeRmCardfluxCarta = vi.fn();
-const updateRmCardfluxCarta = vi.fn();
+const getCardfluxCartas = vi.fn();
+const getRmCardfluxEstados = vi.fn();
+const addRmCardfluxEstado = vi.fn();
+const updateRmCardfluxEstado = vi.fn();
 vi.mock('service/storage', () => ({
-  getRmCardfluxCartas: (...args) => getRmCardfluxCartas(...args),
-  removeRmCardfluxCarta: (...args) => removeRmCardfluxCarta(...args),
-  updateRmCardfluxCarta: (...args) => updateRmCardfluxCarta(...args),
+  getCardfluxCartas: (...args) => getCardfluxCartas(...args),
+  getRmCardfluxEstados: (...args) => getRmCardfluxEstados(...args),
+  addRmCardfluxEstado: (...args) => addRmCardfluxEstado(...args),
+  updateRmCardfluxEstado: (...args) => updateRmCardfluxEstado(...args),
 }));
 
-const canCreate = vi.fn(() => true);
 const canWrite = vi.fn(() => true);
 vi.mock('context/AuthContext', () => ({
-  useAuth: () => ({ canCreate, canWrite }),
+  useAuth: () => ({ canWrite }),
 }));
 
-const CAMPANHA_ATIVA = { id: 'c1', nome: 'Ascensão Carmesim', universoId: 'u1', mestreId: 'm1' };
+const CAMPANHA_ATIVA = {
+  id: 'c1',
+  nome: 'Ascensão Carmesim',
+  universoId: 'u1',
+  mestreId: 'm1',
+};
 vi.mock('context/CampanhaContext', () => ({
-  useCampanha: () => ({ campanhaAtiva: CAMPANHA_ATIVA, loadingCampanhas: false }),
+  useCampanha: () => ({
+    campanhaAtiva: CAMPANHA_ATIVA,
+    loadingCampanhas: false,
+  }),
 }));
 
 import { MemoryRouter } from 'react-router-dom';
 import Cartas from './Cartas';
 
-const BARALHO = { id: 'baralho1', nome: 'Eventos de Estrada' };
+const BARALHO = { nome: 'Eventos de Estrada' };
 const CARTAS_MOCK = [
-  { id: 'carta1', baralhoId: 'baralho1', titulo: 'Emboscada', tipo: 'perigo', estadoNoBaralho: 'no_baralho' },
+  {
+    id: 'carta1',
+    deck: 'Eventos de Estrada',
+    nome: 'Emboscada',
+    tipo: 'Perigo',
+    raridade: 'Comum',
+  },
+  {
+    id: 'carta2',
+    deck: 'Floresta',
+    nome: 'Espírito da Floresta',
+    tipo: 'Encontro',
+  },
+];
+const ESTADOS_MOCK = [
+  {
+    id: 'estado1',
+    campanhaId: 'c1',
+    cartaId: 'carta1',
+    estadoNoBaralho: 'comprada',
+  },
 ];
 
 const renderCartas = (state = { baralho: BARALHO }) =>
@@ -43,55 +72,151 @@ const renderCartas = (state = { baralho: BARALHO }) =>
     </MemoryRouter>,
   );
 
-describe('Cartas (lista de cartas de um baralho)', () => {
+describe('Cartas (cartas do cardflux filtradas pelo deck do baralho)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    canCreate.mockReturnValue(true);
     canWrite.mockReturnValue(true);
-    getRmCardfluxCartas.mockResolvedValue(CARTAS_MOCK);
+    getCardfluxCartas.mockResolvedValue(CARTAS_MOCK);
+    getRmCardfluxEstados.mockResolvedValue(ESTADOS_MOCK);
   });
 
-  it('lista as cartas do baralho informado no state', async () => {
-    renderCartas();
-
-    await waitFor(() => expect(screen.getByText('Emboscada')).toBeInTheDocument());
-    expect(screen.getByText('Cartas — Eventos de Estrada')).toBeInTheDocument();
-  });
-
-  it('mostra o estado vazio quando o baralho não tem cartas', async () => {
-    getRmCardfluxCartas.mockResolvedValue([]);
+  it('lista só as cartas cujo deck bate com o baralho informado no state', async () => {
     renderCartas();
 
     await waitFor(() =>
-      expect(screen.getByText('Nenhuma carta cadastrada')).toBeInTheDocument(),
+      expect(screen.getByText('Emboscada')).toBeInTheDocument(),
+    );
+    expect(screen.getByText('Cartas — Eventos de Estrada')).toBeInTheDocument();
+    expect(screen.queryByText('Espírito da Floresta')).not.toBeInTheDocument();
+    expect(getCardfluxCartas).toHaveBeenCalledWith('u1');
+  });
+
+  it('mostra o estado vazio quando o baralho não tem cartas', async () => {
+    getCardfluxCartas.mockResolvedValue([]);
+    renderCartas();
+
+    await waitFor(() =>
+      expect(screen.getByText('Nenhuma carta encontrada')).toBeInTheDocument(),
     );
   });
 
-  it('remove uma carta', async () => {
-    removeRmCardfluxCarta.mockResolvedValue(undefined);
+  it('altera o estado de uma carta que já tem doc de estado (update)', async () => {
+    updateRmCardfluxEstado.mockResolvedValue(undefined);
     const user = userEvent.setup();
     renderCartas();
 
-    await waitFor(() => expect(screen.getByText('Emboscada')).toBeInTheDocument());
-    await user.click(screen.getByLabelText('Remover carta Emboscada'));
-
-    await waitFor(() => expect(removeRmCardfluxCarta).toHaveBeenCalledWith('carta1'));
-  });
-
-  it('altera o estado da carta via select', async () => {
-    updateRmCardfluxCarta.mockResolvedValue(undefined);
-    const user = userEvent.setup();
-    renderCartas();
-
-    await waitFor(() => expect(screen.getByText('Emboscada')).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText('Emboscada')).toBeInTheDocument(),
+    );
     await user.click(screen.getByRole('combobox'));
     await user.click(screen.getByRole('option', { name: 'Descartada' }));
 
     await waitFor(() =>
-      expect(updateRmCardfluxCarta).toHaveBeenCalledWith('carta1', {
+      expect(updateRmCardfluxEstado).toHaveBeenCalledWith('estado1', {
         estadoNoBaralho: 'descartada',
       }),
     );
+    expect(addRmCardfluxEstado).not.toHaveBeenCalled();
+  });
+
+  it('altera o estado de uma carta sem doc de estado ainda (create)', async () => {
+    getRmCardfluxEstados.mockResolvedValue([]);
+    addRmCardfluxEstado.mockResolvedValue({ id: 'estado-novo' });
+    const user = userEvent.setup();
+    renderCartas();
+
+    await waitFor(() =>
+      expect(screen.getByText('Emboscada')).toBeInTheDocument(),
+    );
+    await user.click(screen.getByRole('combobox'));
+    await user.click(screen.getByRole('option', { name: 'Descartada' }));
+
+    await waitFor(() =>
+      expect(addRmCardfluxEstado).toHaveBeenCalledWith({
+        campanhaId: 'c1',
+        universoId: 'u1',
+        mestreId: 'm1',
+        cartaId: 'carta1',
+        estadoNoBaralho: 'descartada',
+      }),
+    );
+  });
+
+  it('desabilita o select de estado quando o usuário não pode escrever no universo', async () => {
+    canWrite.mockReturnValue(false);
+    renderCartas();
+
+    await waitFor(() =>
+      expect(screen.getByText('Emboscada')).toBeInTheDocument(),
+    );
+    expect(screen.getByRole('combobox')).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+  });
+
+  it('abre o dialog de detalhes com os campos completos da carta ao clicar em "Ver Detalhes"', async () => {
+    getCardfluxCartas.mockResolvedValue([
+      { ...CARTAS_MOCK[0], descricaoGeral: 'Uma emboscada na estrada.' },
+      CARTAS_MOCK[1],
+    ]);
+    const user = userEvent.setup();
+    renderCartas();
+
+    await waitFor(() =>
+      expect(screen.getByText('Emboscada')).toBeInTheDocument(),
+    );
+    await user.click(screen.getByRole('button', { name: 'Ver Detalhes' }));
+
+    const dialog = screen.getByRole('dialog');
+    expect(within(dialog).getByText('Descrição Geral')).toBeInTheDocument();
+    expect(
+      within(dialog).getByText('Uma emboscada na estrada.'),
+    ).toBeInTheDocument();
+  });
+
+  it('marca todas as cartas do baralho com o mesmo estado ao clicar no botão em lote', async () => {
+    getCardfluxCartas.mockResolvedValue([
+      CARTAS_MOCK[0],
+      { id: 'carta3', deck: 'Eventos de Estrada', nome: 'Baú do Tesouro' },
+    ]);
+    getRmCardfluxEstados.mockResolvedValue([]);
+    addRmCardfluxEstado.mockResolvedValue({ id: 'estado-novo' });
+    const user = userEvent.setup();
+    renderCartas();
+
+    await waitFor(() =>
+      expect(screen.getByText('Emboscada')).toBeInTheDocument(),
+    );
+    expect(screen.getByText('Baú do Tesouro')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'No Baralho' }));
+
+    await waitFor(() => expect(addRmCardfluxEstado).toHaveBeenCalledTimes(2));
+    expect(addRmCardfluxEstado).toHaveBeenCalledWith(
+      expect.objectContaining({
+        cartaId: 'carta1',
+        estadoNoBaralho: 'no_baralho',
+      }),
+    );
+    expect(addRmCardfluxEstado).toHaveBeenCalledWith(
+      expect.objectContaining({
+        cartaId: 'carta3',
+        estadoNoBaralho: 'no_baralho',
+      }),
+    );
+  });
+
+  it('não mostra os botões de alterar todas quando o usuário não pode escrever no universo', async () => {
+    canWrite.mockReturnValue(false);
+    renderCartas();
+
+    await waitFor(() =>
+      expect(screen.getByText('Emboscada')).toBeInTheDocument(),
+    );
+    expect(
+      screen.queryByText('Marcar todas as cartas como:'),
+    ).not.toBeInTheDocument();
   });
 
   it('redireciona para o CardFlux quando não há baralho no state', async () => {

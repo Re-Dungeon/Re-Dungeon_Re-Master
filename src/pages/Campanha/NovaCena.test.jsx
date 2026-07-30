@@ -5,14 +5,14 @@ import { MemoryRouter } from 'react-router-dom';
 
 const addRmCena = vi.fn();
 const updateRmCena = vi.fn();
-const getRmNpcs = vi.fn(() => Promise.resolve([]));
-const getRmCriaturas = vi.fn(() => Promise.resolve([]));
+const getRmCampanhaNpcs = vi.fn(() => Promise.resolve([]));
+const getRmCampanhaCriaturas = vi.fn(() => Promise.resolve([]));
 const getRmMissoes = vi.fn(() => Promise.resolve([]));
 vi.mock('service/storage', () => ({
   addRmCena: (...args) => addRmCena(...args),
   updateRmCena: (...args) => updateRmCena(...args),
-  getRmNpcs: (...args) => getRmNpcs(...args),
-  getRmCriaturas: (...args) => getRmCriaturas(...args),
+  getRmCampanhaNpcs: (...args) => getRmCampanhaNpcs(...args),
+  getRmCampanhaCriaturas: (...args) => getRmCampanhaCriaturas(...args),
   getRmMissoes: (...args) => getRmMissoes(...args),
 }));
 
@@ -28,14 +28,19 @@ const CAMPANHA_ATIVA = {
   mestreId: 'mestre-1',
 };
 vi.mock('context/CampanhaContext', () => ({
-  useCampanha: () => ({ campanhaAtiva: CAMPANHA_ATIVA, loadingCampanhas: false }),
+  useCampanha: () => ({
+    campanhaAtiva: CAMPANHA_ATIVA,
+    loadingCampanhas: false,
+  }),
 }));
 
 import NovaCena from './NovaCena';
 
 const renderNova = state =>
   render(
-    <MemoryRouter initialEntries={[{ pathname: '/campanha/cenas/nova', state }]}>
+    <MemoryRouter
+      initialEntries={[{ pathname: '/campanha/cenas/nova', state }]}
+    >
       <NovaCena />
     </MemoryRouter>,
   );
@@ -49,7 +54,9 @@ describe('NovaCena', () => {
   it('mostra "Nova Cena" com o nome da campanha ativa', async () => {
     renderNova(undefined);
 
-    await waitFor(() => expect(screen.getByText('Nova Cena')).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText('Nova Cena')).toBeInTheDocument(),
+    );
     expect(
       screen.getByText('Nova cena em Ascensão Carmesim'),
     ).toBeInTheDocument();
@@ -60,7 +67,9 @@ describe('NovaCena', () => {
     const user = userEvent.setup();
     renderNova(undefined);
 
-    await waitFor(() => expect(screen.getByText('Nova Cena')).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText('Nova Cena')).toBeInTheDocument(),
+    );
 
     await user.type(
       screen.getByLabelText('Título da Cena'),
@@ -94,7 +103,9 @@ describe('NovaCena', () => {
       },
     });
 
-    await waitFor(() => expect(screen.getByText('Editar Cena')).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText('Editar Cena')).toBeInTheDocument(),
+    );
     expect(screen.getByDisplayValue('Chegada na Cidade')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Salvar Alterações' }));
@@ -112,12 +123,16 @@ describe('NovaCena', () => {
     const user = userEvent.setup();
     renderNova(undefined);
 
-    await waitFor(() => expect(screen.getByText('Nova Cena')).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText('Nova Cena')).toBeInTheDocument(),
+    );
 
     await user.click(
       screen.getByRole('button', { name: '+ Adicionar ponto importante' }),
     );
-    expect(screen.getByLabelText('Remover ponto importante')).toBeInTheDocument();
+    expect(
+      screen.getByLabelText('Remover ponto importante'),
+    ).toBeInTheDocument();
 
     await user.click(screen.getByLabelText('Remover ponto importante'));
     expect(
@@ -130,7 +145,9 @@ describe('NovaCena', () => {
     const user = userEvent.setup();
     renderNova(undefined);
 
-    await waitFor(() => expect(screen.getByText('Nova Cena')).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText('Nova Cena')).toBeInTheDocument(),
+    );
 
     await user.type(screen.getByLabelText('Título da Cena'), 'Cena X');
     await user.click(
@@ -157,6 +174,8 @@ describe('NovaCena', () => {
     canWrite.mockReturnValue(false);
     renderNova(undefined);
 
-    await waitFor(() => expect(screen.queryByText('Nova Cena')).not.toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.queryByText('Nova Cena')).not.toBeInTheDocument(),
+    );
   });
 });

@@ -1,27 +1,31 @@
-import React, { useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
-import IconButton from '@mui/material/IconButton';
 import CircularProgress from '@mui/material/CircularProgress';
 import Chip from '@mui/material/Chip';
 import Select from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
 import FormControl from '@mui/material/FormControl';
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined';
-import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
+import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import { useAuth } from 'context/AuthContext';
 import { useCampanha } from 'context/CampanhaContext';
-import { getRmCardfluxCartas, removeRmCardfluxCarta, updateRmCardfluxCarta } from 'service/storage';
-import useEntityCRUD from 'hooks/useEntityCRUD';
+import { getCardfluxCartas, getRmCardfluxEstados } from 'service/storage';
 import ListLoadError from 'components/ListLoadError/ListLoadError';
 import { ROUTE_PATHS } from 'common/constants/routes';
-import { TIPO_CARTA_OPCOES, ESTADO_CARTA_OPCOES } from './cartaUtils';
+import CartaDetalheDialog from './CartaDetalheDialog';
+import {
+  ESTADO_CARTA_OPCOES,
+  mesclarEstadoCartas,
+  definirEstadoCarta,
+} from './cartaUtils';
 
 const cardSx = {
   p: 2.5,
+  display: 'flex',
+  gap: 2,
   background: 'var(--bg-card)',
   border: '1px solid var(--border-primary)',
   borderRadius: 2,
@@ -29,161 +33,273 @@ const cardSx = {
 
 const selectSx = {
   color: 'var(--text-primary)',
-  '& .MuiOutlinedInput-notchedOutline': { borderColor: 'var(--border-primary)' },
+  '& .MuiOutlinedInput-notchedOutline': {
+    borderColor: 'var(--border-primary)',
+  },
   '& .MuiSvgIcon-root': { color: 'var(--text-secondary)' },
 };
 
 const Cartas = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { canCreate, canWrite } = useAuth();
+  const { canWrite } = useAuth();
   const { campanhaAtiva, loadingCampanhas } = useCampanha();
   const baralho = location.state?.baralho ?? null;
 
-  const getCartasDoBaralho = useCallback(() => {
-    if (!baralho) return Promise.resolve([]);
-    return getRmCardfluxCartas().then(todas =>
-      todas.filter(c => c.baralhoId === baralho.id),
-    );
-  }, [baralho]);
+  const [cartas, setCartas] = useState([]);
+  const [loadingCartas, setLoadingCartas] = useState(true);
+  const [error, setError] = useState(null);
+  const [cartaVisualizada, setCartaVisualizada] = useState(null);
+  const [atualizandoTodas, setAtualizandoTodas] = useState(false);
 
-  const {
-    items: cartas,
-    loading: loadingCartas,
-    error: errorCartas,
-    reload: reloadCartas,
-    setItems: setCartas,
-    remove: handleRemoveCarta,
-  } = useEntityCRUD({ getAll: getCartasDoBaralho, remove: removeRmCardfluxCarta });
+  const carregarCartas = useCallback(async () => {
+    if (!campanhaAtiva || !baralho) {
+      setCartas([]);
+      setLoadingCartas(false);
+      return;
+    }
+    setLoadingCartas(true);
+    setError(null);
+    try {
+      const [cartasDoUniverso, todosEstados] = await Promise.all([
+        getCardfluxCartas(campanhaAtiva.universoId),
+        getRmCardfluxEstados(),
+      ]);
+      const cartasDoBaralho = cartasDoUniverso.filter(
+        c => c.deck === baralho.nome,
+      );
+      const estadosDaCampanha = todosEstados.filter(
+        e => e.campanhaId === campanhaAtiva.id,
+      );
+      setCartas(mesclarEstadoCartas(cartasDoBaralho, estadosDaCampanha));
+    } catch (err) {
+      setError(err);
+    } finally {
+      setLoadingCartas(false);
+    }
+  }, [campanhaAtiva, baralho]);
 
   useEffect(() => {
-    if (!loadingCampanhas && (!campanhaAtiva || !baralho)) navigate(ROUTE_PATHS.CARDFLUX);
+    Promise.resolve().then(() => carregarCartas());
+  }, [carregarCartas]);
+
+  useEffect(() => {
+    if (!loadingCampanhas && (!campanhaAtiva || !baralho))
+      navigate(ROUTE_PATHS.CARDFLUX);
   }, [loadingCampanhas, campanhaAtiva, baralho, navigate]);
 
   if ((!campanhaAtiva || !baralho) && !loadingCampanhas) return null;
 
   const loading = loadingCampanhas || loadingCartas;
-  const podeEscrever = campanhaAtiva ? canWrite(campanhaAtiva.universoId) : false;
+  const podeEscrever = campanhaAtiva
+    ? canWrite(campanhaAtiva.universoId)
+    : false;
 
   const handleEstadoChange = async (carta, novoEstado) => {
-    await updateRmCardfluxCarta(carta.id, { estadoNoBaralho: novoEstado });
-    setCartas(prev =>
-      prev.map(c => (c.id === carta.id ? { ...c, estadoNoBaralho: novoEstado } : c)),
-    );
+    await definirEstadoCarta(carta, novoEstado, campanhaAtiva);
+    await carregarCartas();
+  };
+
+  const handleAlterarTodas = async novoEstado => {
+    setAtualizandoTodas(true);
+    try {
+      await Promise.all(
+        cartas.map(carta =>
+          definirEstadoCarta(carta, novoEstado, campanhaAtiva),
+        ),
+      );
+      await carregarCartas();
+    } finally {
+      setAtualizandoTodas(false);
+    }
   };
 
   return (
     <Box className="page-container">
-      <Box
-        sx={{
-          display: 'flex',
-          alignItems: 'flex-start',
-          justifyContent: 'space-between',
-          mb: 3,
-        }}
-      >
-        <Box>
-          <Button
-            onClick={() => navigate(ROUTE_PATHS.CARDFLUX)}
-            sx={{ color: 'var(--text-muted)', px: 0, mb: 1 }}
-          >
-            ← Voltar para CardFlux
-          </Button>
-          <Typography variant="h5" sx={{ color: 'var(--text-primary)', fontWeight: 700, mb: 0.5 }}>
-            Cartas — {baralho?.nome}
-          </Typography>
-        </Box>
-        {canCreate() && podeEscrever && (
-          <Button
-            variant="contained"
-            onClick={() => navigate(ROUTE_PATHS.NOVA_CARTA, { state: { baralho } })}
-            sx={{ background: 'var(--color-primary)', '&:hover': { background: '#5a2090' } }}
-          >
-            + Nova Carta
-          </Button>
-        )}
+      <Box sx={{ mb: 3 }}>
+        <Button
+          onClick={() => navigate(ROUTE_PATHS.CARDFLUX)}
+          sx={{ color: 'var(--text-muted)', px: 0, mb: 1 }}
+        >
+          ← Voltar para CardFlux
+        </Button>
+        <Typography
+          variant="h5"
+          sx={{ color: 'var(--text-primary)', fontWeight: 700, mb: 0.5 }}
+        >
+          Cartas — {baralho?.nome}
+        </Typography>
       </Box>
+
+      {!loading && !error && podeEscrever && cartas.length > 0 && (
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+            flexWrap: 'wrap',
+            mb: 3,
+          }}
+        >
+          <Typography
+            variant="body2"
+            sx={{ color: 'var(--text-muted)', mr: 0.5 }}
+          >
+            Marcar todas as cartas como:
+          </Typography>
+          {ESTADO_CARTA_OPCOES.map(opcao => (
+            <Button
+              key={opcao.value}
+              size="small"
+              variant="outlined"
+              disabled={atualizandoTodas}
+              onClick={() => handleAlterarTodas(opcao.value)}
+              sx={{
+                color: 'var(--color-accent)',
+                borderColor: 'var(--color-accent)',
+              }}
+            >
+              {opcao.label}
+            </Button>
+          ))}
+        </Box>
+      )}
 
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
           <CircularProgress sx={{ color: 'var(--color-accent)' }} />
         </Box>
-      ) : errorCartas ? (
-        <ListLoadError mensagem="Erro ao carregar as cartas." onRetry={reloadCartas} />
+      ) : error ? (
+        <ListLoadError
+          mensagem="Erro ao carregar as cartas."
+          onRetry={carregarCartas}
+        />
       ) : cartas.length === 0 ? (
         <Box className="empty-state">
           <span className="empty-state-icon">🃏</span>
-          <p>Nenhuma carta cadastrada</p>
-          <small>Adicione cartas para este baralho.</small>
+          <p>Nenhuma carta encontrada</p>
+          <small>
+            Cadastre cartas deste baralho no CardFlux para elas aparecerem aqui.
+          </small>
         </Box>
       ) : (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          {cartas.map(carta => {
-            const tipo = TIPO_CARTA_OPCOES.find(o => o.value === carta.tipo);
+          {cartas.map(carta => (
+            <Paper key={carta.id} elevation={0} sx={cardSx}>
+              {carta.linkImagem && (
+                <Box
+                  component="img"
+                  src={carta.linkImagem}
+                  alt={carta.nome}
+                  sx={{
+                    width: 96,
+                    height: 96,
+                    borderRadius: 1.5,
+                    objectFit: 'cover',
+                    border: '1px solid var(--border-primary)',
+                    flexShrink: 0,
+                  }}
+                  onError={e => {
+                    e.currentTarget.style.display = 'none';
+                  }}
+                />
+              )}
 
-            return (
-              <Paper key={carta.id} elevation={0} sx={cardSx}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                    <Typography variant="h6" sx={{ color: 'var(--text-primary)', fontWeight: 600 }}>
-                      {carta.titulo}
-                    </Typography>
-                    {tipo && (
-                      <Chip
-                        label={tipo.label}
-                        size="small"
-                        sx={{ background: tipo.cor, color: '#fff', fontWeight: 600 }}
-                      />
-                    )}
-                  </Box>
-                  {podeEscrever && (
-                    <Box sx={{ display: 'flex', gap: 0.5 }}>
-                      <IconButton
-                        size="small"
-                        onClick={() =>
-                          navigate(ROUTE_PATHS.NOVA_CARTA, { state: { baralho, carta } })
-                        }
-                        sx={{ color: 'var(--color-accent)' }}
-                        aria-label={`Editar carta ${carta.titulo}`}
-                      >
-                        <EditOutlinedIcon fontSize="small" />
-                      </IconButton>
-                      <IconButton
-                        size="small"
-                        onClick={() => handleRemoveCarta(carta.id)}
-                        sx={{ color: '#ef4444' }}
-                        aria-label={`Remover carta ${carta.titulo}`}
-                      >
-                        <DeleteOutlineIcon fontSize="small" />
-                      </IconButton>
-                    </Box>
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1,
+                    flexWrap: 'wrap',
+                    mb: 1,
+                  }}
+                >
+                  <Typography
+                    variant="h6"
+                    sx={{ color: 'var(--text-primary)', fontWeight: 600 }}
+                  >
+                    {carta.nome}
+                  </Typography>
+                  {carta.tipo && (
+                    <Chip
+                      label={carta.tipo}
+                      size="small"
+                      sx={{
+                        background: 'var(--color-primary)',
+                        color: '#fff',
+                        fontWeight: 600,
+                      }}
+                    />
+                  )}
+                  {carta.raridade && (
+                    <Chip
+                      label={carta.raridade}
+                      size="small"
+                      variant="outlined"
+                      sx={{
+                        color: 'var(--color-accent)',
+                        borderColor: 'var(--color-accent)',
+                      }}
+                    />
                   )}
                 </Box>
 
-                {carta.descricao && (
-                  <Typography variant="body2" sx={{ color: 'var(--text-secondary)', mb: 1.5 }}>
-                    {carta.descricao}
+                {carta.descricaoGeral && (
+                  <Typography
+                    variant="body2"
+                    sx={{ color: 'var(--text-secondary)', mb: 1.5 }}
+                  >
+                    {carta.descricaoGeral}
                   </Typography>
                 )}
 
-                <FormControl size="small" sx={{ minWidth: 160 }} disabled={!podeEscrever}>
-                  <Select
-                    value={carta.estadoNoBaralho}
-                    onChange={e => handleEstadoChange(carta, e.target.value)}
-                    sx={selectSx}
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1.5,
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  <FormControl
+                    size="small"
+                    sx={{ minWidth: 160 }}
+                    disabled={!podeEscrever}
                   >
-                    {ESTADO_CARTA_OPCOES.map(opcao => (
-                      <MenuItem key={opcao.value} value={opcao.value}>
-                        {opcao.label}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Paper>
-            );
-          })}
+                    <Select
+                      value={carta.estadoNoBaralho}
+                      onChange={e => handleEstadoChange(carta, e.target.value)}
+                      sx={selectSx}
+                    >
+                      {ESTADO_CARTA_OPCOES.map(opcao => (
+                        <MenuItem key={opcao.value} value={opcao.value}>
+                          {opcao.label}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+
+                  <Button
+                    size="small"
+                    startIcon={<VisibilityOutlinedIcon fontSize="small" />}
+                    onClick={() => setCartaVisualizada(carta)}
+                    sx={{ color: 'var(--text-secondary)' }}
+                  >
+                    Ver Detalhes
+                  </Button>
+                </Box>
+              </Box>
+            </Paper>
+          ))}
         </Box>
       )}
+
+      <CartaDetalheDialog
+        open={Boolean(cartaVisualizada)}
+        onClose={() => setCartaVisualizada(null)}
+        carta={cartaVisualizada}
+      />
     </Box>
   );
 };
