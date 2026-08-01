@@ -52,6 +52,7 @@ const useCampanhaGrafo = campanha => {
   const campanhaId = campanha?.id ?? null;
   const [cenas, setCenas] = useState([]);
   const [conexoes, setConexoes] = useState([]);
+  const [layoutAutomatico, setLayoutAutomatico] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedCenaId, setSelectedCenaId] = useState(null);
@@ -60,6 +61,7 @@ const useCampanhaGrafo = campanha => {
     if (!campanhaId) {
       setCenas([]);
       setConexoes([]);
+      setLayoutAutomatico({});
       setLoading(false);
       setError(null);
       return Promise.resolve();
@@ -68,19 +70,23 @@ const useCampanhaGrafo = campanha => {
     setError(null);
     return Promise.all([getRmCenas(), getRmCenaConexoes()])
       .then(([todasCenas, todasConexoes]) => {
-        setCenas(todasCenas.filter(c => c.campanhaId === campanhaId));
-        setConexoes(todasConexoes.filter(c => c.campanhaId === campanhaId));
+        const cenasDaCampanha = todasCenas.filter(
+          c => c.campanhaId === campanhaId,
+        );
+        const conexoesDaCampanha = todasConexoes.filter(
+          c => c.campanhaId === campanhaId,
+        );
+        setCenas(cenasDaCampanha);
+        setConexoes(conexoesDaCampanha);
+        setLayoutAutomatico(
+          calcularLayoutAutomatico(cenasDaCampanha, conexoesDaCampanha),
+        );
       })
       .catch(err => setError(err))
       .finally(() => setLoading(false));
   }, [campanhaId]);
 
   useAsyncEffect(carregar, [carregar]);
-
-  const layoutAutomatico = useMemo(
-    () => calcularLayoutAutomatico(cenas, conexoes),
-    [cenas, conexoes],
-  );
 
   const nodes = useMemo(
     () =>
