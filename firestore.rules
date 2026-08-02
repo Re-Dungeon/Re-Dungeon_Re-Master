@@ -240,10 +240,19 @@ service cloud.firestore {
                     && request.resource.data.uid == request.auth.uid;
       allow delete: if isAuth() && resource.data.uid == request.auth.uid;
 
-      // Subcoleções (aptidoesAdquiridas, arts, historicoSorte — Fases futuras)
-      // herdam a mesma checagem, validando o uid do documento pai.
+      // Subcoleções (aptidoesAdquiridas, arts, historicoSorte — Fases futuras).
+      // Escrita: só o dono do documento pai (uid), como antes.
+      // Leitura: dono OU qualquer usuário com permissão de escrita no Universo
+      // do personagem (`data.universo`) — liberado para o Re:Master mostrar a
+      // ficha completa de NPCs/Criaturas importados de outro autor dentro do
+      // mesmo Universo (antes só o dono via Re-Dungeon enxergava essas abas).
       match /{subcolecao}/{docId} {
-        allow read, write: if isAuth()
+        allow read: if isAuth() &&
+          (get(/databases/$(database)/documents/personagens/$(personagemId)).data.uid
+             == request.auth.uid ||
+           canWriteUniverso(
+             get(/databases/$(database)/documents/personagens/$(personagemId)).data.universo));
+        allow write: if isAuth()
           && get(/databases/$(database)/documents/personagens/$(personagemId)).data.uid
              == request.auth.uid;
       }
