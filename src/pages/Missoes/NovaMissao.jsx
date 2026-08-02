@@ -23,7 +23,13 @@ const NovaMissao = () => {
   useEffect(() => {
     if (loadingPermissions || loadingCampanhas) return;
     if (!campanhaAtiva || !podeEscrever) navigate(ROUTE_PATHS.MISSOES);
-  }, [loadingPermissions, loadingCampanhas, campanhaAtiva, podeEscrever, navigate]);
+  }, [
+    loadingPermissions,
+    loadingCampanhas,
+    campanhaAtiva,
+    podeEscrever,
+    navigate,
+  ]);
 
   const editInitialValues = missaoParaEditar
     ? { ...MISSAO_INITIAL_VALUES, ...missaoParaEditar }
@@ -44,7 +50,12 @@ const NovaMissao = () => {
     navigate(ROUTE_PATHS.MISSOES);
   };
 
-  if (loadingCampanhas || loadingPermissions || !campanhaAtiva || !podeEscrever) {
+  if (
+    loadingCampanhas ||
+    loadingPermissions ||
+    !campanhaAtiva ||
+    !podeEscrever
+  ) {
     return null;
   }
 
@@ -63,6 +74,8 @@ const NovaMissao = () => {
       <MissaoForm
         initialValues={editInitialValues}
         campanhaId={campanhaAtiva.id}
+        universoId={campanhaAtiva.universoId}
+        mestreId={campanhaAtiva.mestreId}
         onSubmit={handleSubmit}
         onCancelar={() => navigate(ROUTE_PATHS.MISSOES)}
         labelSalvar={isEditing ? 'Salvar Alterações' : 'Salvar Missão'}

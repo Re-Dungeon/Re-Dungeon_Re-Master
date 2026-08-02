@@ -118,7 +118,11 @@ describe('Luta (participantes de combate da campanha ativa)', () => {
     await waitFor(() =>
       expect(screen.getByText('Rato Gigante')).toBeInTheDocument(),
     );
-    expect(getRmCampanhaLutaParticipantes).toHaveBeenCalledWith('c1');
+    expect(getRmCampanhaLutaParticipantes).toHaveBeenCalledWith(
+      'c1',
+      'u1',
+      'm1',
+    );
     expect(screen.getByLabelText('Vida atual de Rato Gigante')).toHaveValue(12);
   });
 

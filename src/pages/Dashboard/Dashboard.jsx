@@ -51,7 +51,11 @@ const Dashboard = () => {
       return Promise.resolve();
     }
     setLoadingNotas(true);
-    return getRmNotasPorCampanha(campanhaAtiva.id)
+    return getRmNotasPorCampanha(
+      campanhaAtiva.id,
+      campanhaAtiva.universoId,
+      campanhaAtiva.mestreId,
+    )
       .then(setNotas)
       .finally(() => setLoadingNotas(false));
   }, [campanhaAtiva]);
@@ -68,7 +72,11 @@ const Dashboard = () => {
       return Promise.resolve();
     }
     setLoadingLogs(true);
-    return getRmSessaoLogsPorCampanha(campanhaAtiva.id)
+    return getRmSessaoLogsPorCampanha(
+      campanhaAtiva.id,
+      campanhaAtiva.universoId,
+      campanhaAtiva.mestreId,
+    )
       .then(todos => setLogs(ordenarLogsPorDataDesc(todos)))
       .finally(() => setLoadingLogs(false));
   }, [campanhaAtiva]);

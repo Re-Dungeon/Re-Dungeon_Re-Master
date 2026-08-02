@@ -12,7 +12,10 @@ import FormControl from '@mui/material/FormControl';
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import { useAuth } from 'context/AuthContext';
 import { useCampanha } from 'context/CampanhaContext';
-import { getCardfluxCartas, getRmCardfluxEstados } from 'service/storage';
+import {
+  getCardfluxCartas,
+  getRmCardfluxEstadosPorCampanha,
+} from 'service/storage';
 import ListLoadError from 'components/ListLoadError/ListLoadError';
 import { ROUTE_PATHS } from 'common/constants/routes';
 import useAsyncEffect from 'hooks/useAsyncEffect';
@@ -62,15 +65,16 @@ const Cartas = () => {
     setLoadingCartas(true);
     setError(null);
     try {
-      const [cartasDoUniverso, todosEstados] = await Promise.all([
+      const [cartasDoUniverso, estadosDaCampanha] = await Promise.all([
         getCardfluxCartas(campanhaAtiva.universoId),
-        getRmCardfluxEstados(),
+        getRmCardfluxEstadosPorCampanha(
+          campanhaAtiva.id,
+          campanhaAtiva.universoId,
+          campanhaAtiva.mestreId,
+        ),
       ]);
       const cartasDoBaralho = cartasDoUniverso.filter(
         c => c.deck === baralho.nome,
-      );
-      const estadosDaCampanha = todosEstados.filter(
-        e => e.campanhaId === campanhaAtiva.id,
       );
       setCartas(mesclarEstadoCartas(cartasDoBaralho, estadosDaCampanha));
     } catch (err) {

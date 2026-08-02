@@ -6,7 +6,10 @@ import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
 import { useCampanha } from 'context/CampanhaContext';
-import { getCardfluxCartas, getRmCardfluxEstados } from 'service/storage';
+import {
+  getCardfluxCartas,
+  getRmCardfluxEstadosPorCampanha,
+} from 'service/storage';
 import ListLoadError from 'components/ListLoadError/ListLoadError';
 import { ROUTE_PATHS } from 'common/constants/routes';
 import useAsyncEffect from 'hooks/useAsyncEffect';
@@ -36,13 +39,14 @@ const CardFlux = () => {
     setLoadingDados(true);
     setError(null);
     try {
-      const [cartasDoUniverso, todosEstados] = await Promise.all([
+      const [cartasDoUniverso, estadosDaCampanha] = await Promise.all([
         getCardfluxCartas(campanhaAtiva.universoId),
-        getRmCardfluxEstados(),
+        getRmCardfluxEstadosPorCampanha(
+          campanhaAtiva.id,
+          campanhaAtiva.universoId,
+          campanhaAtiva.mestreId,
+        ),
       ]);
-      const estadosDaCampanha = todosEstados.filter(
-        e => e.campanhaId === campanhaAtiva.id,
-      );
       setCartas(mesclarEstadoCartas(cartasDoUniverso, estadosDaCampanha));
     } catch (err) {
       setError(err);

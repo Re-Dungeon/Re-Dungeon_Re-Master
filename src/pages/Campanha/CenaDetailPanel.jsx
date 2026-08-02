@@ -85,10 +85,19 @@ const CenaDetailPanel = ({
           <Box sx={{ mb: 2 }}>
             {ehCenaAtual ? (
               <Chip
-                icon={<StarIcon sx={{ color: 'var(--bg-primary) !important' }} fontSize="small" />}
+                icon={
+                  <StarIcon
+                    sx={{ color: 'var(--bg-primary) !important' }}
+                    fontSize="small"
+                  />
+                }
                 label="Cena Atual"
                 size="small"
-                sx={{ background: 'var(--color-accent)', color: 'var(--bg-primary)', fontWeight: 700 }}
+                sx={{
+                  background: 'var(--color-accent)',
+                  color: 'var(--bg-primary)',
+                  fontWeight: 700,
+                }}
               />
             ) : (
               podeEscrever && (
@@ -113,12 +122,17 @@ const CenaDetailPanel = ({
               labelSalvar="Salvar Alterações"
               idPrefix={`cena-painel-${cena.id}`}
               campanhaId={cena.campanhaId}
+              universoId={cena.universoId}
+              mestreId={cena.mestreId}
             />
           ) : (
             <Button
               variant="outlined"
               onClick={onClose}
-              sx={{ color: 'var(--color-accent)', borderColor: 'var(--color-accent)' }}
+              sx={{
+                color: 'var(--color-accent)',
+                borderColor: 'var(--color-accent)',
+              }}
             >
               Fechar
             </Button>
@@ -134,6 +148,8 @@ CenaDetailPanel.propTypes = {
     id: PropTypes.string,
     titulo: PropTypes.string,
     campanhaId: PropTypes.string,
+    universoId: PropTypes.string,
+    mestreId: PropTypes.string,
   }),
   podeEscrever: PropTypes.bool.isRequired,
   ehCenaAtual: PropTypes.bool,

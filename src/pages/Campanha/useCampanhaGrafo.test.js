@@ -25,6 +25,9 @@ import useCampanhaGrafo from './useCampanhaGrafo';
 
 const CAMPANHA = { id: 'c1', universoId: 'u1', mestreId: 'm1' };
 
+// getRmCenas já recebe campanhaId/universoId/mestreId e filtra no servidor
+// (Firestore Rules) — o mock só devolve cenas da campanha ativa, como a
+// query real faria.
 const CENAS_MOCK = [
   {
     id: 'cena1',
@@ -39,12 +42,6 @@ const CENAS_MOCK = [
     titulo: 'Prefeito',
     estado: 'em_andamento',
     posicaoCanvas: null,
-  },
-  {
-    id: 'cenaOutraCampanha',
-    campanhaId: 'outra',
-    titulo: 'Fora',
-    estado: 'nao_iniciado',
   },
 ];
 

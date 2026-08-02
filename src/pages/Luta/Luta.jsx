@@ -90,7 +90,11 @@ const Luta = () => {
       const [todosPersonagens, participantesDaLuta, todasCondicoes] =
         await Promise.all([
           getPersonagens(),
-          getRmCampanhaLutaParticipantes(campanhaAtiva.id),
+          getRmCampanhaLutaParticipantes(
+            campanhaAtiva.id,
+            campanhaAtiva.universoId,
+            campanhaAtiva.mestreId,
+          ),
           getCondicoes(campanhaAtiva.universoId),
         ]);
       setPersonagens(

@@ -57,7 +57,14 @@ const Criaturas = () => {
       if (!active) return;
       setLoadingCriaturas(true);
       setErrorCriaturas(null);
-      Promise.all([getPersonagens(), getRmCampanhaCriaturas(campanhaAtiva.id)])
+      Promise.all([
+        getPersonagens(),
+        getRmCampanhaCriaturas(
+          campanhaAtiva.id,
+          campanhaAtiva.universoId,
+          campanhaAtiva.mestreId,
+        ),
+      ])
         .then(([personagens, criaturasClonadas]) => {
           if (!active) return;
           setCriaturasDoUniverso(

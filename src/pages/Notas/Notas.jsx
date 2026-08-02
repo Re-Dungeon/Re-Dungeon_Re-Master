@@ -34,7 +34,11 @@ const Notas = () => {
 
   const getNotasDaCampanha = useCallback(() => {
     if (!campanhaAtiva) return Promise.resolve([]);
-    return getRmNotasPorCampanha(campanhaAtiva.id);
+    return getRmNotasPorCampanha(
+      campanhaAtiva.id,
+      campanhaAtiva.universoId,
+      campanhaAtiva.mestreId,
+    );
   }, [campanhaAtiva]);
 
   const {
@@ -50,10 +54,12 @@ const Notas = () => {
   useEffect(() => {
     if (!campanhaAtiva) return;
     Promise.resolve().then(() =>
-      getRmCenas()
-        .then(todas =>
-          setCenas(todas.filter(c => c.campanhaId === campanhaAtiva.id)),
-        )
+      getRmCenas(
+        campanhaAtiva.id,
+        campanhaAtiva.universoId,
+        campanhaAtiva.mestreId,
+      )
+        .then(setCenas)
         .catch(() => {}),
     );
   }, [campanhaAtiva]);

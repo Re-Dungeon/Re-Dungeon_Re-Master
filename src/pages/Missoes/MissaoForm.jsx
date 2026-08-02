@@ -64,6 +64,8 @@ const sectionSx = {
 const MissaoForm = ({
   initialValues,
   campanhaId = null,
+  universoId = null,
+  mestreId = null,
   onSubmit,
   onCancelar,
   labelSalvar,
@@ -81,14 +83,15 @@ const MissaoForm = ({
   useEffect(() => {
     if (!campanhaId) return;
     Promise.resolve().then(() =>
-      Promise.all([getRmCampanhaNpcs(campanhaId), getRmCenas()]).then(
-        ([todosNpcs, todasCenas]) => {
-          setNpcs(todosNpcs);
-          setCenas(todasCenas.filter(c => c.campanhaId === campanhaId));
-        },
-      ),
+      Promise.all([
+        getRmCampanhaNpcs(campanhaId, universoId, mestreId),
+        getRmCenas(campanhaId, universoId, mestreId),
+      ]).then(([todosNpcs, todasCenas]) => {
+        setNpcs(todosNpcs);
+        setCenas(todasCenas);
+      }),
     );
-  }, [campanhaId]);
+  }, [campanhaId, universoId, mestreId]);
 
   return (
     <Formik
@@ -449,6 +452,8 @@ const MissaoForm = ({
 MissaoForm.propTypes = {
   initialValues: PropTypes.object.isRequired,
   campanhaId: PropTypes.string,
+  universoId: PropTypes.string,
+  mestreId: PropTypes.string,
   onSubmit: PropTypes.func.isRequired,
   onCancelar: PropTypes.func.isRequired,
   labelSalvar: PropTypes.string.isRequired,

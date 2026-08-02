@@ -58,7 +58,11 @@ const Jogadores = () => {
       setErrorJogadores(null);
       Promise.all([
         getPersonagensJogaveis(),
-        getRmCampanhaJogadores(campanhaAtiva.id),
+        getRmCampanhaJogadores(
+          campanhaAtiva.id,
+          campanhaAtiva.universoId,
+          campanhaAtiva.mestreId,
+        ),
       ])
         .then(([personagens, jogadoresClonados]) => {
           if (!active) return;

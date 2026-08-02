@@ -31,7 +31,11 @@ const Mapas = () => {
 
   const getMapasDaCampanha = useCallback(() => {
     if (!campanhaAtiva) return Promise.resolve([]);
-    return getRmMapasPorCampanha(campanhaAtiva.id);
+    return getRmMapasPorCampanha(
+      campanhaAtiva.id,
+      campanhaAtiva.universoId,
+      campanhaAtiva.mestreId,
+    );
   }, [campanhaAtiva]);
 
   const {

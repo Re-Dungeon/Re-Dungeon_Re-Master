@@ -9,12 +9,13 @@ vi.mock('react-router-dom', async () => {
 });
 
 const getCardfluxCartas = vi.fn();
-const getRmCardfluxEstados = vi.fn();
+const getRmCardfluxEstadosPorCampanha = vi.fn();
 const addRmCardfluxEstado = vi.fn();
 const updateRmCardfluxEstado = vi.fn();
 vi.mock('service/storage', () => ({
   getCardfluxCartas: (...args) => getCardfluxCartas(...args),
-  getRmCardfluxEstados: (...args) => getRmCardfluxEstados(...args),
+  getRmCardfluxEstadosPorCampanha: (...args) =>
+    getRmCardfluxEstadosPorCampanha(...args),
   addRmCardfluxEstado: (...args) => addRmCardfluxEstado(...args),
   updateRmCardfluxEstado: (...args) => updateRmCardfluxEstado(...args),
 }));
@@ -77,7 +78,7 @@ describe('Cartas (cartas do cardflux filtradas pelo deck do baralho)', () => {
     vi.clearAllMocks();
     canWrite.mockReturnValue(true);
     getCardfluxCartas.mockResolvedValue(CARTAS_MOCK);
-    getRmCardfluxEstados.mockResolvedValue(ESTADOS_MOCK);
+    getRmCardfluxEstadosPorCampanha.mockResolvedValue(ESTADOS_MOCK);
   });
 
   it('lista só as cartas cujo deck bate com o baralho informado no state', async () => {
@@ -120,7 +121,7 @@ describe('Cartas (cartas do cardflux filtradas pelo deck do baralho)', () => {
   });
 
   it('altera o estado de uma carta sem doc de estado ainda (create)', async () => {
-    getRmCardfluxEstados.mockResolvedValue([]);
+    getRmCardfluxEstadosPorCampanha.mockResolvedValue([]);
     addRmCardfluxEstado.mockResolvedValue({ id: 'estado-novo' });
     const user = userEvent.setup();
     renderCartas();
@@ -180,7 +181,7 @@ describe('Cartas (cartas do cardflux filtradas pelo deck do baralho)', () => {
       CARTAS_MOCK[0],
       { id: 'carta3', deck: 'Eventos de Estrada', nome: 'Baú do Tesouro' },
     ]);
-    getRmCardfluxEstados.mockResolvedValue([]);
+    getRmCardfluxEstadosPorCampanha.mockResolvedValue([]);
     addRmCardfluxEstado.mockResolvedValue({ id: 'estado-novo' });
     const user = userEvent.setup();
     renderCartas();

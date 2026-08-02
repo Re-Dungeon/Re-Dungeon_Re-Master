@@ -21,7 +21,7 @@ import ListItemText from '@mui/material/ListItemText';
 import { useCampanha } from 'context/CampanhaContext';
 import {
   getCardfluxCartas,
-  getRmCardfluxEstados,
+  getRmCardfluxEstadosPorCampanha,
   getRmSessaoLogsPorCampanha,
 } from 'service/storage';
 import ListLoadError from 'components/ListLoadError/ListLoadError';
@@ -100,16 +100,22 @@ const Sorteio = () => {
     setLoadingDados(true);
     setError(null);
     try {
-      const [cartasDoUniverso, todosEstados, todosLogs] = await Promise.all([
-        getCardfluxCartas(campanhaAtiva.universoId),
-        getRmCardfluxEstados(),
-        getRmSessaoLogsPorCampanha(campanhaAtiva.id),
-      ]);
+      const [cartasDoUniverso, estadosDaCampanha, todosLogs] =
+        await Promise.all([
+          getCardfluxCartas(campanhaAtiva.universoId),
+          getRmCardfluxEstadosPorCampanha(
+            campanhaAtiva.id,
+            campanhaAtiva.universoId,
+            campanhaAtiva.mestreId,
+          ),
+          getRmSessaoLogsPorCampanha(
+            campanhaAtiva.id,
+            campanhaAtiva.universoId,
+            campanhaAtiva.mestreId,
+          ),
+        ]);
       const cartasDoBaralho = cartasDoUniverso.filter(
         c => c.deck === baralho.nome,
-      );
-      const estadosDaCampanha = todosEstados.filter(
-        e => e.campanhaId === campanhaAtiva.id,
       );
       const cartasMescladas = mesclarEstadoCartas(
         cartasDoBaralho,

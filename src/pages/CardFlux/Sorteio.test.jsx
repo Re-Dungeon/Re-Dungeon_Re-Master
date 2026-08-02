@@ -10,14 +10,15 @@ vi.mock('react-router-dom', async () => {
 });
 
 const getCardfluxCartas = vi.fn();
-const getRmCardfluxEstados = vi.fn();
+const getRmCardfluxEstadosPorCampanha = vi.fn();
 const getRmSessaoLogsPorCampanha = vi.fn();
 const addRmCardfluxEstado = vi.fn();
 const updateRmCardfluxEstado = vi.fn();
 const addRmSessaoLog = vi.fn();
 vi.mock('service/storage', () => ({
   getCardfluxCartas: (...args) => getCardfluxCartas(...args),
-  getRmCardfluxEstados: (...args) => getRmCardfluxEstados(...args),
+  getRmCardfluxEstadosPorCampanha: (...args) =>
+    getRmCardfluxEstadosPorCampanha(...args),
   getRmSessaoLogsPorCampanha: (...args) => getRmSessaoLogsPorCampanha(...args),
   addRmCardfluxEstado: (...args) => addRmCardfluxEstado(...args),
   updateRmCardfluxEstado: (...args) => updateRmCardfluxEstado(...args),
@@ -64,7 +65,7 @@ const CARTAS_MOCK = [
 // `estadoDocId` da carta sorteada antes de decidir a próxima ação).
 const configurarFirestoreFake = (estadosIniciais = []) => {
   const store = estadosIniciais.map(e => ({ ...e }));
-  getRmCardfluxEstados.mockImplementation(async () =>
+  getRmCardfluxEstadosPorCampanha.mockImplementation(async () =>
     store.map(e => ({ ...e })),
   );
   addRmCardfluxEstado.mockImplementation(async doc => {

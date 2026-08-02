@@ -93,6 +93,8 @@ const CenaForm = ({
   labelSalvar,
   idPrefix = 'cena-form',
   campanhaId = null,
+  universoId = null,
+  mestreId = null,
 }) => {
   const pontosKeys = useStableListKeys(initialValues.pontosImportantes.length);
   const consequenciasKeys = useStableListKeys(
@@ -110,16 +112,16 @@ const CenaForm = ({
     if (!campanhaId) return;
     Promise.resolve().then(() =>
       Promise.all([
-        getRmCampanhaNpcs(campanhaId),
-        getRmCampanhaCriaturas(campanhaId),
-        getRmMissoesPorCampanha(campanhaId),
+        getRmCampanhaNpcs(campanhaId, universoId, mestreId),
+        getRmCampanhaCriaturas(campanhaId, universoId, mestreId),
+        getRmMissoesPorCampanha(campanhaId, universoId, mestreId),
       ]).then(([todosNpcs, todasCriaturas, todasMissoes]) => {
         setNpcs(todosNpcs);
         setCriaturas(todasCriaturas);
         setMissoes(todasMissoes);
       }),
     );
-  }, [campanhaId]);
+  }, [campanhaId, universoId, mestreId]);
 
   // Só-leitura: o vínculo Missão→Cena é gravado no array `cenasVinculadas`
   // da Missão (editado em MissaoForm) — a Cena não guarda seu próprio
@@ -639,6 +641,8 @@ CenaForm.propTypes = {
   labelSalvar: PropTypes.string.isRequired,
   idPrefix: PropTypes.string,
   campanhaId: PropTypes.string,
+  universoId: PropTypes.string,
+  mestreId: PropTypes.string,
 };
 
 export default CenaForm;

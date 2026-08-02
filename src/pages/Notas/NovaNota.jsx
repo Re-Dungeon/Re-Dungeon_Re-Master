@@ -23,7 +23,13 @@ const NovaNota = () => {
   useEffect(() => {
     if (loadingPermissions || loadingCampanhas) return;
     if (!campanhaAtiva || !podeEscrever) navigate(ROUTE_PATHS.NOTAS);
-  }, [loadingPermissions, loadingCampanhas, campanhaAtiva, podeEscrever, navigate]);
+  }, [
+    loadingPermissions,
+    loadingCampanhas,
+    campanhaAtiva,
+    podeEscrever,
+    navigate,
+  ]);
 
   const editInitialValues = notaParaEditar
     ? { ...NOTA_INITIAL_VALUES, ...notaParaEditar }
@@ -44,7 +50,12 @@ const NovaNota = () => {
     navigate(ROUTE_PATHS.NOTAS);
   };
 
-  if (loadingCampanhas || loadingPermissions || !campanhaAtiva || !podeEscrever) {
+  if (
+    loadingCampanhas ||
+    loadingPermissions ||
+    !campanhaAtiva ||
+    !podeEscrever
+  ) {
     return null;
   }
 
@@ -63,6 +74,8 @@ const NovaNota = () => {
       <NotaForm
         initialValues={editInitialValues}
         campanhaId={campanhaAtiva.id}
+        universoId={campanhaAtiva.universoId}
+        mestreId={campanhaAtiva.mestreId}
         onSubmit={handleSubmit}
         onCancelar={() => navigate(ROUTE_PATHS.NOTAS)}
         labelSalvar={isEditing ? 'Salvar Alterações' : 'Salvar Nota'}

@@ -23,7 +23,13 @@ const NovaCena = () => {
   useEffect(() => {
     if (loadingPermissions || loadingCampanhas) return;
     if (!campanhaAtiva || !podeEscrever) navigate(ROUTE_PATHS.CENAS);
-  }, [loadingPermissions, loadingCampanhas, campanhaAtiva, podeEscrever, navigate]);
+  }, [
+    loadingPermissions,
+    loadingCampanhas,
+    campanhaAtiva,
+    podeEscrever,
+    navigate,
+  ]);
 
   const editInitialValues = cenaParaEditar
     ? { ...CENA_INITIAL_VALUES, ...cenaParaEditar }
@@ -44,7 +50,12 @@ const NovaCena = () => {
     navigate(ROUTE_PATHS.CENAS);
   };
 
-  if (loadingCampanhas || loadingPermissions || !campanhaAtiva || !podeEscrever) {
+  if (
+    loadingCampanhas ||
+    loadingPermissions ||
+    !campanhaAtiva ||
+    !podeEscrever
+  ) {
     return null;
   }
 
@@ -67,6 +78,8 @@ const NovaCena = () => {
         labelSalvar={isEditing ? 'Salvar Alterações' : 'Salvar Cena'}
         idPrefix="nova-cena"
         campanhaId={campanhaAtiva.id}
+        universoId={campanhaAtiva.universoId}
+        mestreId={campanhaAtiva.mestreId}
       />
     </Box>
   );

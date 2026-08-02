@@ -66,24 +66,34 @@ const updateFirestoreItem = async (collectionName, id, updates) => {
   }
 };
 
-// Variante de `getFirestoreItems` filtrada por um campo (`where(field, '==',
-// value)`) — usada pelas coleções `rm*` top-level que denormalizam
-// `campanhaId`, para não precisar baixar a coleção inteira do mestre (todas
-// as campanhas) só para filtrar `campanhaId` no cliente a cada troca de
-// tela. Só requer índice automático de campo único do Firestore (não
-// composto), então não exige nenhuma entrada nova em
-// `firestore.indexes.json`.
-const getFirestoreItemsWhere = async (collectionName, field, value) => {
+// Variante de `getFirestoreItems` filtrada por múltiplos campos (equality-only
+// `where`), usada por toda coleção `rm*` cuja regra de segurança (ver
+// `firestore.rules`) checa `resource.data.universoId`/`resource.data.mestreId`
+// do documento: uma query de "list" só passa nas Firestore Rules se os
+// próprios `where()` da query já garantirem, para qualquer documento que
+// pudesse ser retornado, que a regra vale — o Firestore nunca filtra
+// resultado por regra, ele nega o pedido inteiro se não conseguir provar isso
+// só a partir da query. Por isso não basta filtrar por `campanhaId`: é
+// preciso filtrar também por `universoId`/`mestreId`, os campos que a regra
+// realmente lê. Equality-only em múltiplos campos só requer índice automático
+// de campo único do Firestore (não composto), então não exige nenhuma entrada
+// nova em `firestore.indexes.json`.
+const getFirestoreItemsWhereAll = async (collectionName, filters) => {
   const path = collectionPath(collectionName);
   try {
     const snapshot = await getDocs(
-      query(collection(db, ...path), where(field, '==', value)),
+      query(
+        collection(db, ...path),
+        ...filters.map(([field, value]) => where(field, '==', value)),
+      ),
     );
     return snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
   } catch (error) {
     // eslint-disable-next-line no-console
     console.error(
-      `Erro ao buscar itens de "${path.join('/')}" (${field}="${value}"):`,
+      `Erro ao buscar itens de "${path.join('/')}" (${filters
+        .map(([field, value]) => `${field}="${value}"`)
+        .join(', ')}):`,
       error,
     );
     throw error;
@@ -267,7 +277,12 @@ export const updateRmCampanha = (id, updates) =>
 // ── rmCenas (Firestore) ───────────────────────────────────────────────────────
 const RM_CENAS_COLLECTION = 'rmCenas';
 
-export const getRmCenas = () => getFirestoreItems(RM_CENAS_COLLECTION);
+export const getRmCenas = (campanhaId, universoId, mestreId) =>
+  getFirestoreItemsWhereAll(RM_CENAS_COLLECTION, [
+    ['campanhaId', campanhaId],
+    ['universoId', universoId],
+    ['mestreId', mestreId],
+  ]);
 export const addRmCena = cena => addFirestoreItem(RM_CENAS_COLLECTION, cena);
 export const removeRmCena = id => removeFirestoreItem(RM_CENAS_COLLECTION, id);
 export const updateRmCena = (id, updates) =>
@@ -276,8 +291,12 @@ export const updateRmCena = (id, updates) =>
 // ── rmCenaConexoes (Firestore) ────────────────────────────────────────────────
 const RM_CENA_CONEXOES_COLLECTION = 'rmCenaConexoes';
 
-export const getRmCenaConexoes = () =>
-  getFirestoreItems(RM_CENA_CONEXOES_COLLECTION);
+export const getRmCenaConexoes = (campanhaId, universoId, mestreId) =>
+  getFirestoreItemsWhereAll(RM_CENA_CONEXOES_COLLECTION, [
+    ['campanhaId', campanhaId],
+    ['universoId', universoId],
+    ['mestreId', mestreId],
+  ]);
 export const addRmCenaConexao = conexao =>
   addFirestoreItem(RM_CENA_CONEXOES_COLLECTION, conexao);
 export const removeRmCenaConexao = id =>
@@ -294,8 +313,11 @@ const npcsSubcollectionPath = campanhaId => [
   'npcs',
 ];
 
-export const getRmCampanhaNpcs = campanhaId =>
-  getFirestoreItems(npcsSubcollectionPath(campanhaId));
+export const getRmCampanhaNpcs = (campanhaId, universoId, mestreId) =>
+  getFirestoreItemsWhereAll(npcsSubcollectionPath(campanhaId), [
+    ['universoId', universoId],
+    ['mestreId', mestreId],
+  ]);
 export const addRmCampanhaNpc = (campanhaId, npc) =>
   addFirestoreItem(npcsSubcollectionPath(campanhaId), npc);
 export const removeRmCampanhaNpc = (campanhaId, id) =>
@@ -313,8 +335,11 @@ const jogadoresSubcollectionPath = campanhaId => [
   'jogadores',
 ];
 
-export const getRmCampanhaJogadores = campanhaId =>
-  getFirestoreItems(jogadoresSubcollectionPath(campanhaId));
+export const getRmCampanhaJogadores = (campanhaId, universoId, mestreId) =>
+  getFirestoreItemsWhereAll(jogadoresSubcollectionPath(campanhaId), [
+    ['universoId', universoId],
+    ['mestreId', mestreId],
+  ]);
 export const addRmCampanhaJogador = (campanhaId, jogador) =>
   addFirestoreItem(jogadoresSubcollectionPath(campanhaId), jogador);
 export const removeRmCampanhaJogador = (campanhaId, id) =>
@@ -332,8 +357,11 @@ const criaturasSubcollectionPath = campanhaId => [
   'criaturas',
 ];
 
-export const getRmCampanhaCriaturas = campanhaId =>
-  getFirestoreItems(criaturasSubcollectionPath(campanhaId));
+export const getRmCampanhaCriaturas = (campanhaId, universoId, mestreId) =>
+  getFirestoreItemsWhereAll(criaturasSubcollectionPath(campanhaId), [
+    ['universoId', universoId],
+    ['mestreId', mestreId],
+  ]);
 export const addRmCampanhaCriatura = (campanhaId, criatura) =>
   addFirestoreItem(criaturasSubcollectionPath(campanhaId), criatura);
 export const removeRmCampanhaCriatura = (campanhaId, id) =>
@@ -353,8 +381,15 @@ const lutaParticipantesSubcollectionPath = campanhaId => [
   'lutaParticipantes',
 ];
 
-export const getRmCampanhaLutaParticipantes = campanhaId =>
-  getFirestoreItems(lutaParticipantesSubcollectionPath(campanhaId));
+export const getRmCampanhaLutaParticipantes = (
+  campanhaId,
+  universoId,
+  mestreId,
+) =>
+  getFirestoreItemsWhereAll(lutaParticipantesSubcollectionPath(campanhaId), [
+    ['universoId', universoId],
+    ['mestreId', mestreId],
+  ]);
 export const addRmCampanhaLutaParticipante = (campanhaId, participante) =>
   addFirestoreItem(
     lutaParticipantesSubcollectionPath(campanhaId),
@@ -372,9 +407,12 @@ export const updateRmCampanhaLutaParticipante = (campanhaId, id, updates) =>
 // ── rmMapas (Firestore) ───────────────────────────────────────────────────────
 const RM_MAPAS_COLLECTION = 'rmMapas';
 
-export const getRmMapas = () => getFirestoreItems(RM_MAPAS_COLLECTION);
-export const getRmMapasPorCampanha = campanhaId =>
-  getFirestoreItemsWhere(RM_MAPAS_COLLECTION, 'campanhaId', campanhaId);
+export const getRmMapasPorCampanha = (campanhaId, universoId, mestreId) =>
+  getFirestoreItemsWhereAll(RM_MAPAS_COLLECTION, [
+    ['campanhaId', campanhaId],
+    ['universoId', universoId],
+    ['mestreId', mestreId],
+  ]);
 export const addRmMapa = mapa => addFirestoreItem(RM_MAPAS_COLLECTION, mapa);
 export const removeRmMapa = id => removeFirestoreItem(RM_MAPAS_COLLECTION, id);
 export const updateRmMapa = (id, updates) =>
@@ -383,9 +421,12 @@ export const updateRmMapa = (id, updates) =>
 // ── rmMissoes (Firestore) ─────────────────────────────────────────────────────
 const RM_MISSOES_COLLECTION = 'rmMissoes';
 
-export const getRmMissoes = () => getFirestoreItems(RM_MISSOES_COLLECTION);
-export const getRmMissoesPorCampanha = campanhaId =>
-  getFirestoreItemsWhere(RM_MISSOES_COLLECTION, 'campanhaId', campanhaId);
+export const getRmMissoesPorCampanha = (campanhaId, universoId, mestreId) =>
+  getFirestoreItemsWhereAll(RM_MISSOES_COLLECTION, [
+    ['campanhaId', campanhaId],
+    ['universoId', universoId],
+    ['mestreId', mestreId],
+  ]);
 export const addRmMissao = missao =>
   addFirestoreItem(RM_MISSOES_COLLECTION, missao);
 export const removeRmMissao = id =>
@@ -401,8 +442,16 @@ export const updateRmMissao = (id, updates) =>
 // carta equivale a 'no_baralho'.
 const RM_CARDFLUX_ESTADOS_COLLECTION = 'rmCardfluxEstados';
 
-export const getRmCardfluxEstados = () =>
-  getFirestoreItems(RM_CARDFLUX_ESTADOS_COLLECTION);
+export const getRmCardfluxEstadosPorCampanha = (
+  campanhaId,
+  universoId,
+  mestreId,
+) =>
+  getFirestoreItemsWhereAll(RM_CARDFLUX_ESTADOS_COLLECTION, [
+    ['campanhaId', campanhaId],
+    ['universoId', universoId],
+    ['mestreId', mestreId],
+  ]);
 export const addRmCardfluxEstado = estado =>
   addFirestoreItem(RM_CARDFLUX_ESTADOS_COLLECTION, estado);
 export const updateRmCardfluxEstado = (id, updates) =>
@@ -411,9 +460,12 @@ export const updateRmCardfluxEstado = (id, updates) =>
 // ── rmNotas (Firestore) ───────────────────────────────────────────────────────
 const RM_NOTAS_COLLECTION = 'rmNotas';
 
-export const getRmNotas = () => getFirestoreItems(RM_NOTAS_COLLECTION);
-export const getRmNotasPorCampanha = campanhaId =>
-  getFirestoreItemsWhere(RM_NOTAS_COLLECTION, 'campanhaId', campanhaId);
+export const getRmNotasPorCampanha = (campanhaId, universoId, mestreId) =>
+  getFirestoreItemsWhereAll(RM_NOTAS_COLLECTION, [
+    ['campanhaId', campanhaId],
+    ['universoId', universoId],
+    ['mestreId', mestreId],
+  ]);
 export const addRmNota = nota => addFirestoreItem(RM_NOTAS_COLLECTION, nota);
 export const removeRmNota = id => removeFirestoreItem(RM_NOTAS_COLLECTION, id);
 export const updateRmNota = (id, updates) =>
@@ -428,7 +480,11 @@ export const updateRmNota = (id, updates) =>
 // firestore.rules): é um histórico do que aconteceu, não um dado editável.
 const RM_SESSAO_LOGS_COLLECTION = 'rmSessaoLogs';
 
-export const getRmSessaoLogsPorCampanha = campanhaId =>
-  getFirestoreItemsWhere(RM_SESSAO_LOGS_COLLECTION, 'campanhaId', campanhaId);
+export const getRmSessaoLogsPorCampanha = (campanhaId, universoId, mestreId) =>
+  getFirestoreItemsWhereAll(RM_SESSAO_LOGS_COLLECTION, [
+    ['campanhaId', campanhaId],
+    ['universoId', universoId],
+    ['mestreId', mestreId],
+  ]);
 export const addRmSessaoLog = log =>
   addFirestoreItem(RM_SESSAO_LOGS_COLLECTION, log);

@@ -56,21 +56,18 @@ import {
   addRmCampanhaCriatura,
   removeRmCampanhaCriatura,
   updateRmCampanhaCriatura,
-  getRmMapas,
   getRmMapasPorCampanha,
   addRmMapa,
   removeRmMapa,
   updateRmMapa,
-  getRmMissoes,
   getRmMissoesPorCampanha,
   addRmMissao,
   removeRmMissao,
   updateRmMissao,
   getCardfluxCartas,
-  getRmCardfluxEstados,
+  getRmCardfluxEstadosPorCampanha,
   addRmCardfluxEstado,
   updateRmCardfluxEstado,
-  getRmNotas,
   getRmNotasPorCampanha,
   addRmNota,
   removeRmNota,
@@ -195,12 +192,14 @@ describe('storage.js — personagens (somente leitura) e CRUD de rmCampanhaNpcs/
     getDocs.mockResolvedValue({ docs: [] });
     addDoc.mockResolvedValue({ id: 'npc-1' });
 
-    await getRmCampanhaNpcs('c1');
+    await getRmCampanhaNpcs('c1', 'u1', 'mestre-1');
     await addRmCampanhaNpc('c1', { nome: 'Grumnak' });
     await removeRmCampanhaNpc('c1', 'npc-1');
     await updateRmCampanhaNpc('c1', 'npc-1', { nome: 'Grumnak, o Orc' });
 
     expect(collection).toHaveBeenCalledWith({}, 'rmCampanhas', 'c1', 'npcs');
+    expect(where).toHaveBeenCalledWith('universoId', '==', 'u1');
+    expect(where).toHaveBeenCalledWith('mestreId', '==', 'mestre-1');
     expect(addDoc).toHaveBeenCalledWith(
       { __collection: 'rmCampanhas/c1/npcs' },
       { nome: 'Grumnak', createdAt: '__serverTimestamp__' },
@@ -220,7 +219,7 @@ describe('storage.js — personagens (somente leitura) e CRUD de rmCampanhaNpcs/
     getDocs.mockResolvedValue({ docs: [] });
     addDoc.mockResolvedValue({ id: 'jogador-1' });
 
-    await getRmCampanhaJogadores('c1');
+    await getRmCampanhaJogadores('c1', 'u1', 'mestre-1');
     await addRmCampanhaJogador('c1', { nome: 'Lyra' });
     await removeRmCampanhaJogador('c1', 'jogador-1');
     await updateRmCampanhaJogador('c1', 'jogador-1', {
@@ -233,6 +232,8 @@ describe('storage.js — personagens (somente leitura) e CRUD de rmCampanhaNpcs/
       'c1',
       'jogadores',
     );
+    expect(where).toHaveBeenCalledWith('universoId', '==', 'u1');
+    expect(where).toHaveBeenCalledWith('mestreId', '==', 'mestre-1');
     expect(addDoc).toHaveBeenCalledWith(
       { __collection: 'rmCampanhas/c1/jogadores' },
       { nome: 'Lyra', createdAt: '__serverTimestamp__' },
@@ -258,7 +259,7 @@ describe('storage.js — personagens (somente leitura) e CRUD de rmCampanhaNpcs/
     getDocs.mockResolvedValue({ docs: [] });
     addDoc.mockResolvedValue({ id: 'criatura-1' });
 
-    await getRmCampanhaCriaturas('c1');
+    await getRmCampanhaCriaturas('c1', 'u1', 'mestre-1');
     await addRmCampanhaCriatura('c1', { nome: 'Fera das Sombras' });
     await removeRmCampanhaCriatura('c1', 'criatura-1');
     await updateRmCampanhaCriatura('c1', 'criatura-1', {
@@ -271,6 +272,8 @@ describe('storage.js — personagens (somente leitura) e CRUD de rmCampanhaNpcs/
       'c1',
       'criaturas',
     );
+    expect(where).toHaveBeenCalledWith('universoId', '==', 'u1');
+    expect(where).toHaveBeenCalledWith('mestreId', '==', 'mestre-1');
     expect(addDoc).toHaveBeenCalledWith(
       { __collection: 'rmCampanhas/c1/criaturas' },
       { nome: 'Fera das Sombras', createdAt: '__serverTimestamp__' },
@@ -296,91 +299,89 @@ describe('storage.js — personagens (somente leitura) e CRUD de rmCampanhaNpcs/
 describe.each([
   {
     colecao: 'rmMapas',
-    get: getRmMapas,
     add: addRmMapa,
     remove: removeRmMapa,
     update: updateRmMapa,
   },
   {
     colecao: 'rmMissoes',
-    get: getRmMissoes,
     add: addRmMissao,
     remove: removeRmMissao,
     update: updateRmMissao,
   },
   {
     colecao: 'rmNotas',
-    get: getRmNotas,
     add: addRmNota,
     remove: removeRmNota,
     update: updateRmNota,
   },
-])(
-  'storage.js — CRUD de $colecao (M6)',
-  ({ colecao, get, add, remove, update }) => {
-    beforeEach(() => {
-      vi.clearAllMocks();
-    });
+])('storage.js — CRUD de $colecao (M6)', ({ colecao, add, remove, update }) => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
-    it(`get busca a coleção "${colecao}"`, async () => {
-      getDocs.mockResolvedValue({ docs: [] });
+  it(`add grava na coleção "${colecao}" com createdAt`, async () => {
+    addDoc.mockResolvedValue({ id: 'novo-id' });
 
-      await get();
+    await add({ nome: 'Item' });
 
-      expect(collection).toHaveBeenCalledWith({}, colecao);
-    });
+    expect(addDoc).toHaveBeenCalledWith(
+      { __collection: colecao },
+      { nome: 'Item', createdAt: '__serverTimestamp__' },
+    );
+  });
 
-    it(`add grava na coleção "${colecao}" com createdAt`, async () => {
-      addDoc.mockResolvedValue({ id: 'novo-id' });
+  it(`remove deleta o doc pelo id na coleção "${colecao}"`, async () => {
+    await remove('id-123');
 
-      await add({ nome: 'Item' });
+    expect(doc).toHaveBeenCalledWith({}, colecao, 'id-123');
+    expect(deleteDoc).toHaveBeenCalledWith({ __doc: colecao, id: 'id-123' });
+  });
 
-      expect(addDoc).toHaveBeenCalledWith(
-        { __collection: colecao },
-        { nome: 'Item', createdAt: '__serverTimestamp__' },
-      );
-    });
+  it(`update atualiza com updatedAt na coleção "${colecao}"`, async () => {
+    await update('id-123', { nome: 'Renomeado' });
 
-    it(`remove deleta o doc pelo id na coleção "${colecao}"`, async () => {
-      await remove('id-123');
-
-      expect(doc).toHaveBeenCalledWith({}, colecao, 'id-123');
-      expect(deleteDoc).toHaveBeenCalledWith({ __doc: colecao, id: 'id-123' });
-    });
-
-    it(`update atualiza com updatedAt na coleção "${colecao}"`, async () => {
-      await update('id-123', { nome: 'Renomeado' });
-
-      expect(updateDoc).toHaveBeenCalledWith(
-        { __doc: colecao, id: 'id-123' },
-        { nome: 'Renomeado', updatedAt: '__serverTimestamp__' },
-      );
-    });
-  },
-);
+    expect(updateDoc).toHaveBeenCalledWith(
+      { __doc: colecao, id: 'id-123' },
+      { nome: 'Renomeado', updatedAt: '__serverTimestamp__' },
+    );
+  });
+});
 
 describe.each([
   { colecao: 'rmMapas', get: getRmMapasPorCampanha },
   { colecao: 'rmMissoes', get: getRmMissoesPorCampanha },
   { colecao: 'rmNotas', get: getRmNotasPorCampanha },
 ])(
-  'storage.js — $colecaoPorCampanha filtra por campanhaId via query/where',
+  'storage.js — $colecaoPorCampanha filtra por campanhaId/universoId/mestreId via query/where',
   ({ colecao, get }) => {
     beforeEach(() => {
       vi.clearAllMocks();
     });
 
-    it(`busca a coleção "${colecao}" com where('campanhaId', '==', campanhaId)`, async () => {
+    // As três dimensões precisam estar na query (não só campanhaId): a
+    // regra de segurança lê `universoId`/`mestreId` do documento, e uma
+    // query de "list" só passa nas Firestore Rules se o próprio `where()`
+    // já garantir isso para qualquer documento que a query pudesse
+    // retornar — sem os três filtros, o Firestore nega o pedido inteiro
+    // pra qualquer usuário não-admin.
+    it(`busca a coleção "${colecao}" com where em campanhaId, universoId e mestreId`, async () => {
       getDocs.mockResolvedValue({ docs: [] });
 
-      await get('c1');
+      await get('c1', 'u1', 'mestre-1');
 
       expect(collection).toHaveBeenCalledWith({}, colecao);
       expect(where).toHaveBeenCalledWith('campanhaId', '==', 'c1');
+      expect(where).toHaveBeenCalledWith('universoId', '==', 'u1');
+      expect(where).toHaveBeenCalledWith('mestreId', '==', 'mestre-1');
       expect(getDocs).toHaveBeenCalledWith(
         expect.objectContaining({
           __query: { __collection: colecao },
-          constraints: [{ __where: ['campanhaId', '==', 'c1'] }],
+          constraints: [
+            { __where: ['campanhaId', '==', 'c1'] },
+            { __where: ['universoId', '==', 'u1'] },
+            { __where: ['mestreId', '==', 'mestre-1'] },
+          ],
         }),
       );
     });
@@ -411,7 +412,7 @@ describe('storage.js — cardflux (somente leitura) e CRUD de rmCardfluxEstados'
     getDocs.mockResolvedValue({ docs: [] });
     addDoc.mockResolvedValue({ id: 'estado-1' });
 
-    await getRmCardfluxEstados();
+    await getRmCardfluxEstadosPorCampanha('c1', 'u1', 'mestre-1');
     await addRmCardfluxEstado({
       campanhaId: 'c1',
       cartaId: 'carta-1',
@@ -420,6 +421,9 @@ describe('storage.js — cardflux (somente leitura) e CRUD de rmCardfluxEstados'
     await updateRmCardfluxEstado('estado-1', { estadoNoBaralho: 'descartada' });
 
     expect(collection).toHaveBeenCalledWith({}, 'rmCardfluxEstados');
+    expect(where).toHaveBeenCalledWith('campanhaId', '==', 'c1');
+    expect(where).toHaveBeenCalledWith('universoId', '==', 'u1');
+    expect(where).toHaveBeenCalledWith('mestreId', '==', 'mestre-1');
     expect(addDoc).toHaveBeenCalledWith(
       { __collection: 'rmCardfluxEstados' },
       {
@@ -556,13 +560,15 @@ describe('storage.js — rmSessaoLogs (registro cronológico automático, append
     vi.clearAllMocks();
   });
 
-  it('getRmSessaoLogsPorCampanha busca "rmSessaoLogs" filtrado por campanhaId', async () => {
+  it('getRmSessaoLogsPorCampanha busca "rmSessaoLogs" filtrado por campanhaId/universoId/mestreId', async () => {
     getDocs.mockResolvedValue({ docs: [] });
 
-    await getRmSessaoLogsPorCampanha('c1');
+    await getRmSessaoLogsPorCampanha('c1', 'u1', 'mestre-1');
 
     expect(collection).toHaveBeenCalledWith({}, 'rmSessaoLogs');
     expect(where).toHaveBeenCalledWith('campanhaId', '==', 'c1');
+    expect(where).toHaveBeenCalledWith('universoId', '==', 'u1');
+    expect(where).toHaveBeenCalledWith('mestreId', '==', 'mestre-1');
   });
 
   it('addRmSessaoLog grava na coleção "rmSessaoLogs" com createdAt', async () => {

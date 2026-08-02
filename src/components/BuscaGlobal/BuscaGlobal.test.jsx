@@ -59,9 +59,11 @@ describe('BuscaGlobal (busca cross-entidade da campanha ativa)', () => {
     getRmCampanhaCriaturas.mockResolvedValue([
       { id: 'crt1', nome: 'Rato Gigante' },
     ]);
+    // getRmCenas já recebe campanhaId/universoId/mestreId e filtra no
+    // servidor (Firestore Rules) — o mock só devolve cenas da campanha ativa,
+    // como a query real faria.
     getRmCenas.mockResolvedValue([
       { id: 'cena1', campanhaId: 'c1', titulo: 'Chegada na Cidade' },
-      { id: 'cenaOutra', campanhaId: 'outra', titulo: 'Fora da campanha' },
     ]);
     getRmMapasPorCampanha.mockResolvedValue([
       { id: 'mapa1', nome: 'Mapa da Cidade' },
@@ -86,7 +88,9 @@ describe('BuscaGlobal (busca cross-entidade da campanha ativa)', () => {
     renderBusca();
 
     await user.click(screen.getByLabelText('Buscar na campanha'));
-    await waitFor(() => expect(getRmCampanhaNpcs).toHaveBeenCalledWith('c1'));
+    await waitFor(() =>
+      expect(getRmCampanhaNpcs).toHaveBeenCalledWith('c1', 'u1', 'm1'),
+    );
 
     await user.type(screen.getByLabelText('Termo de busca'), 'gigante');
 
@@ -96,13 +100,16 @@ describe('BuscaGlobal (busca cross-entidade da campanha ativa)', () => {
     expect(screen.queryByText('Grumnak, o Orc')).not.toBeInTheDocument();
   });
 
-  it('inclui só as cenas da campanha ativa (filtra outras campanhas)', async () => {
+  it('busca as cenas com campanhaId/universoId/mestreId da campanha ativa', async () => {
     const user = userEvent.setup();
     renderBusca();
 
     await user.click(screen.getByLabelText('Buscar na campanha'));
     await user.type(screen.getByLabelText('Termo de busca'), 'cidade');
 
+    await waitFor(() =>
+      expect(getRmCenas).toHaveBeenCalledWith('c1', 'u1', 'm1'),
+    );
     await waitFor(() =>
       expect(screen.getByText('Chegada na Cidade')).toBeInTheDocument(),
     );

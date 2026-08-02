@@ -56,7 +56,14 @@ const Npcs = () => {
       if (!active) return;
       setLoadingNpcs(true);
       setErrorNpcs(null);
-      Promise.all([getPersonagens(), getRmCampanhaNpcs(campanhaAtiva.id)])
+      Promise.all([
+        getPersonagens(),
+        getRmCampanhaNpcs(
+          campanhaAtiva.id,
+          campanhaAtiva.universoId,
+          campanhaAtiva.mestreId,
+        ),
+      ])
         .then(([personagens, npcsClonados]) => {
           if (!active) return;
           setNpcsDoUniverso(

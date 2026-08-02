@@ -31,7 +31,11 @@ const Missoes = () => {
 
   const getMissoesDaCampanha = useCallback(() => {
     if (!campanhaAtiva) return Promise.resolve([]);
-    return getRmMissoesPorCampanha(campanhaAtiva.id);
+    return getRmMissoesPorCampanha(
+      campanhaAtiva.id,
+      campanhaAtiva.universoId,
+      campanhaAtiva.mestreId,
+    );
   }, [campanhaAtiva]);
 
   const {

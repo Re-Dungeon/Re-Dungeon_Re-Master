@@ -10,10 +10,11 @@ vi.mock('react-router-dom', async () => {
 });
 
 const getCardfluxCartas = vi.fn();
-const getRmCardfluxEstados = vi.fn();
+const getRmCardfluxEstadosPorCampanha = vi.fn();
 vi.mock('service/storage', () => ({
   getCardfluxCartas: (...args) => getCardfluxCartas(...args),
-  getRmCardfluxEstados: (...args) => getRmCardfluxEstados(...args),
+  getRmCardfluxEstadosPorCampanha: (...args) =>
+    getRmCardfluxEstadosPorCampanha(...args),
 }));
 
 const CAMPANHA_ATIVA = {
@@ -66,7 +67,7 @@ describe('CardFlux (baralhos agrupados a partir das cartas do cardflux)', () => 
   beforeEach(() => {
     vi.clearAllMocks();
     getCardfluxCartas.mockResolvedValue(CARTAS_MOCK);
-    getRmCardfluxEstados.mockResolvedValue(ESTADOS_MOCK);
+    getRmCardfluxEstadosPorCampanha.mockResolvedValue(ESTADOS_MOCK);
   });
 
   it('busca as cartas do universo da campanha ativa e agrupa por deck', async () => {

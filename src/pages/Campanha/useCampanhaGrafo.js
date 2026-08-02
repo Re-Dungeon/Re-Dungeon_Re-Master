@@ -68,14 +68,11 @@ const useCampanhaGrafo = campanha => {
     }
     setLoading(true);
     setError(null);
-    return Promise.all([getRmCenas(), getRmCenaConexoes()])
-      .then(([todasCenas, todasConexoes]) => {
-        const cenasDaCampanha = todasCenas.filter(
-          c => c.campanhaId === campanhaId,
-        );
-        const conexoesDaCampanha = todasConexoes.filter(
-          c => c.campanhaId === campanhaId,
-        );
+    return Promise.all([
+      getRmCenas(campanhaId, campanha.universoId, campanha.mestreId),
+      getRmCenaConexoes(campanhaId, campanha.universoId, campanha.mestreId),
+    ])
+      .then(([cenasDaCampanha, conexoesDaCampanha]) => {
         setCenas(cenasDaCampanha);
         setConexoes(conexoesDaCampanha);
         setLayoutAutomatico(
@@ -84,7 +81,7 @@ const useCampanhaGrafo = campanha => {
       })
       .catch(err => setError(err))
       .finally(() => setLoading(false));
-  }, [campanhaId]);
+  }, [campanhaId, campanha]);
 
   useAsyncEffect(carregar, [carregar]);
 

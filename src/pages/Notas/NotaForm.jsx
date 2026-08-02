@@ -27,14 +27,22 @@ const inputSx = {
 
 const selectSx = {
   color: 'var(--text-primary)',
-  '& .MuiOutlinedInput-notchedOutline': { borderColor: 'var(--border-primary)' },
-  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'var(--border-hover)' },
-  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: 'var(--color-accent)' },
+  '& .MuiOutlinedInput-notchedOutline': {
+    borderColor: 'var(--border-primary)',
+  },
+  '&:hover .MuiOutlinedInput-notchedOutline': {
+    borderColor: 'var(--border-hover)',
+  },
+  '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+    borderColor: 'var(--color-accent)',
+  },
   '& .MuiSvgIcon-root': { color: 'var(--text-secondary)' },
 };
 
 const menuPropsSx = {
-  PaperProps: { sx: { background: 'var(--bg-card)', color: 'var(--text-primary)' } },
+  PaperProps: {
+    sx: { background: 'var(--bg-card)', color: 'var(--text-primary)' },
+  },
 };
 
 const sectionSx = {
@@ -47,6 +55,8 @@ const sectionSx = {
 const NotaForm = ({
   initialValues,
   campanhaId = null,
+  universoId = null,
+  mestreId = null,
   onSubmit,
   onCancelar,
   labelSalvar,
@@ -58,18 +68,29 @@ const NotaForm = ({
   useEffect(() => {
     if (!campanhaId) return;
     Promise.resolve().then(() =>
-      getRmCenas().then(todas => setCenas(todas.filter(c => c.campanhaId === campanhaId))),
+      getRmCenas(campanhaId, universoId, mestreId).then(setCenas),
     );
-  }, [campanhaId]);
+  }, [campanhaId, universoId, mestreId]);
 
   return (
-    <Formik initialValues={initialValues} validationSchema={NOTA_SCHEMA} onSubmit={onSubmit}>
+    <Formik
+      initialValues={initialValues}
+      validationSchema={NOTA_SCHEMA}
+      onSubmit={onSubmit}
+    >
       {({ errors, touched, isSubmitting }) => (
         <Form>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
             <Paper elevation={0} sx={sectionSx}>
               <SectionTitle>Nota</SectionTitle>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1.5 }}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 2,
+                  mt: 1.5,
+                }}
+              >
                 <FastField name="titulo">
                   {({ field }) => (
                     <TextField
@@ -148,6 +169,8 @@ const NotaForm = ({
 NotaForm.propTypes = {
   initialValues: PropTypes.object.isRequired,
   campanhaId: PropTypes.string,
+  universoId: PropTypes.string,
+  mestreId: PropTypes.string,
   onSubmit: PropTypes.func.isRequired,
   onCancelar: PropTypes.func.isRequired,
   labelSalvar: PropTypes.string.isRequired,

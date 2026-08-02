@@ -38,6 +38,8 @@ const renderForm = propsOverride =>
       onCancelar={vi.fn()}
       labelSalvar="Salvar Cena"
       campanhaId="c1"
+      universoId="u1"
+      mestreId="m1"
       {...propsOverride}
     />,
   );
@@ -60,8 +62,8 @@ describe('CenaForm — seletores de NPCs/Criaturas/Missões', () => {
     expect(
       screen.getByText('Missões que avançam nesta cena'),
     ).toBeInTheDocument();
-    expect(getRmCampanhaNpcs).toHaveBeenCalledWith('c1');
-    expect(getRmCampanhaCriaturas).toHaveBeenCalledWith('c1');
+    expect(getRmCampanhaNpcs).toHaveBeenCalledWith('c1', 'u1', 'm1');
+    expect(getRmCampanhaCriaturas).toHaveBeenCalledWith('c1', 'u1', 'm1');
   });
 
   it('mostra mensagem de placeholder quando não há NPCs/Criaturas na campanha', async () => {

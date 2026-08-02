@@ -51,24 +51,19 @@ const BuscaGlobal = () => {
     if (itens !== null || !campanhaAtiva) return;
     setCarregando(true);
     try {
-      const [npcs, criaturas, todasCenas, mapas, missoes, notas] =
-        await Promise.all([
-          getRmCampanhaNpcs(campanhaAtiva.id),
-          getRmCampanhaCriaturas(campanhaAtiva.id),
-          getRmCenas(),
-          getRmMapasPorCampanha(campanhaAtiva.id),
-          getRmMissoesPorCampanha(campanhaAtiva.id),
-          getRmNotasPorCampanha(campanhaAtiva.id),
-        ]);
+      const { id: campanhaId, universoId, mestreId } = campanhaAtiva;
+      const [npcs, criaturas, cenas, mapas, missoes, notas] = await Promise.all(
+        [
+          getRmCampanhaNpcs(campanhaId, universoId, mestreId),
+          getRmCampanhaCriaturas(campanhaId, universoId, mestreId),
+          getRmCenas(campanhaId, universoId, mestreId),
+          getRmMapasPorCampanha(campanhaId, universoId, mestreId),
+          getRmMissoesPorCampanha(campanhaId, universoId, mestreId),
+          getRmNotasPorCampanha(campanhaId, universoId, mestreId),
+        ],
+      );
       setItens(
-        montarItensBuscaveis({
-          npcs,
-          criaturas,
-          cenas: todasCenas.filter(c => c.campanhaId === campanhaAtiva.id),
-          mapas,
-          missoes,
-          notas,
-        }),
+        montarItensBuscaveis({ npcs, criaturas, cenas, mapas, missoes, notas }),
       );
     } finally {
       setCarregando(false);
