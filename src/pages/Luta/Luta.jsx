@@ -335,7 +335,7 @@ const Luta = () => {
             onClick={() => setDialogoAberto(true)}
             sx={{
               background: 'var(--color-primary)',
-              '&:hover': { background: '#5a2090' },
+              '&:hover': { background: 'var(--color-primary-dark)' },
             }}
           >
             + Adicionar Participante

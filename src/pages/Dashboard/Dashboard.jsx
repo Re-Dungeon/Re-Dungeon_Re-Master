@@ -4,7 +4,6 @@ import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
 import Paper from '@mui/material/Paper';
-import Chip from '@mui/material/Chip';
 import CircularProgress from '@mui/material/CircularProgress';
 import { useCampanha } from 'context/CampanhaContext';
 import {
@@ -26,9 +25,61 @@ const noop = () => {};
 
 const cardSx = {
   p: 2.5,
-  background: 'var(--bg-card)',
-  border: '1px solid var(--border-primary)',
+  background: 'linear-gradient(180deg, #181C23, #12161D)',
+  border: '1px solid rgba(255,255,255,0.08)',
   borderRadius: 2,
+  boxShadow: '0 12px 28px rgba(0,0,0,0.35)',
+};
+
+const dashboardHeroSx = {
+  position: 'relative',
+  overflow: 'hidden',
+  borderRadius: '14px',
+  border: '1px solid rgba(255,255,255,0.08)',
+  background: 'linear-gradient(180deg, rgba(24,28,35,0.95), rgba(18,22,29,0.88))',
+  boxShadow: '0 18px 50px rgba(0,0,0,0.45)',
+};
+
+const sectionCardSx = {
+  ...cardSx,
+  borderRadius: '14px',
+};
+
+const timelineItemSx = {
+  p: 1.75,
+  background: 'rgba(255,255,255,0.03)',
+  border: '1px solid rgba(255,255,255,0.06)',
+  borderRadius: '14px',
+  transition: 'transform 180ms ease-out, background 180ms ease-out',
+  '&:hover': {
+    transform: 'translateY(-2px)',
+    background: 'rgba(255,255,255,0.06)',
+  },
+};
+
+const noteCardSx = {
+  p: 2,
+  background: 'rgba(255,255,255,0.03)',
+  border: '1px solid rgba(255,255,255,0.08)',
+  borderRadius: '14px',
+  transition: 'transform 180ms ease-out, box-shadow 180ms ease-out',
+  '&:hover': {
+    transform: 'translateY(-2px)',
+    boxShadow: '0 12px 30px rgba(0,0,0,0.25)',
+  },
+};
+
+const logItemSx = {
+  px: 2,
+  py: 1.5,
+  background: 'rgba(255,255,255,0.03)',
+  border: '1px solid rgba(255,255,255,0.06)',
+  borderRadius: '14px',
+  transition: 'transform 180ms ease-out, background 180ms ease-out',
+  '&:hover': {
+    transform: 'translateY(-1px)',
+    background: 'rgba(255,255,255,0.06)',
+  },
 };
 
 const Dashboard = () => {
@@ -109,7 +160,7 @@ const Dashboard = () => {
               sx={{
                 mt: 2,
                 background: 'var(--color-primary)',
-                '&:hover': { background: '#5a2090' },
+                '&:hover': { background: 'var(--color-primary-dark)' },
               }}
             >
               Ir para Campanha
@@ -121,6 +172,29 @@ const Dashboard = () => {
   }
 
   const loading = loadingGrafo || loadingNotas || loadingLogs;
+
+  if (loading) {
+    return (
+      <Box className="page-container" sx={{ position: 'relative', minHeight: 'calc(100vh - 64px)' }}>
+        <Box
+          sx={{
+            display: 'grid',
+            placeItems: 'center',
+            minHeight: '60vh',
+            color: '#F5F5F5',
+          }}
+        >
+          <Box sx={{ textAlign: 'center' }}>
+            <CircularProgress sx={{ color: '#C43A2F' }} />
+            <Typography variant="body2" sx={{ color: '#9FA7B2', mt: 2 }}>
+              Carregando o Centro de Comando...
+            </Typography>
+          </Box>
+        </Box>
+      </Box>
+    );
+  }
+
   const logsRecentes = logs.slice(0, 6);
   const cenaAtual = cenas.find(c => c.id === campanhaAtiva.cenaAtualId) ?? null;
   const estadoCenaAtual =
@@ -137,334 +211,487 @@ const Dashboard = () => {
     navigate(ROUTE_PATHS.CENAS, { state: { selecionarCenaId: cenaId } });
 
   return (
-    <Box className="page-container">
-      <Box sx={{ mb: 3 }}>
-        <Typography
-          variant="h5"
-          sx={{ color: 'var(--text-primary)', fontWeight: 700, mb: 0.5 }}
-        >
-          Dashboard — {campanhaAtiva.nome}
-        </Typography>
-        <Typography variant="body2" sx={{ color: 'var(--text-secondary)' }}>
-          Centro de comando da sessão em andamento.
-        </Typography>
-      </Box>
+    <Box className="page-container" sx={{ position: 'relative' }}>
+      <Box
+        sx={{
+          position: 'absolute',
+          inset: 0,
+          backgroundImage: 'url("https://i.imgur.com/h1J2YyV.jpg")',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          opacity: 0.22,
+          filter: 'grayscale(0.6) brightness(0.45)',
+          zIndex: 0,
+        }}
+      />
+      <Box
+        sx={{
+          position: 'absolute',
+          inset: 0,
+          background:
+            'linear-gradient(180deg, rgba(9,11,16,0.8) 0%, rgba(9,11,16,0.96) 100%)',
+          zIndex: 1,
+        }}
+      />
+      <Box
+        sx={{
+          position: 'absolute',
+          inset: 0,
+          background: 'radial-gradient(circle at center, transparent 30%, rgba(0,0,0,0.72) 100%)',
+          zIndex: 1,
+          pointerEvents: 'none',
+        }}
+      />
 
-      {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-          <CircularProgress sx={{ color: 'var(--color-accent)' }} />
+      <Box sx={{ position: 'relative', zIndex: 2, mb: 4 }}>
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 1,
+            mb: 3,
+            px: { xs: 0, md: 1 },
+          }}
+        >
+          <Typography
+            variant="h3"
+            sx={{
+              color: '#F5F5F5',
+              fontWeight: 800,
+              letterSpacing: '0.03em',
+              lineHeight: 1.05,
+            }}
+          >
+            Dashboard
+          </Typography>
+          <Typography
+            variant="h6"
+            sx={{
+              color: '#9FA7B2',
+              fontWeight: 500,
+              letterSpacing: '0.06em',
+              textTransform: 'uppercase',
+            }}
+          >
+            Sentinelas da Coroa
+          </Typography>
+          <Typography
+            variant="body1"
+            sx={{
+              color: '#9FA7B2',
+              maxWidth: 720,
+              fontSize: 15,
+              mt: 1,
+            }}
+          >
+            Centro de comando da sessão em andamento. Toda informação crucial está organizada para a tomada de decisões rápidas e imersivas.
+          </Typography>
         </Box>
-      ) : (
+
         <Box
           sx={{
             display: 'grid',
-            gridTemplateColumns: { xs: '1fr', lg: '2fr 1fr' },
+            gridTemplateColumns: { xs: '1fr', xl: '1.4fr 0.9fr' },
             gap: 3,
           }}
         >
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-            <Paper elevation={0} sx={cardSx}>
+            <Paper elevation={0} sx={dashboardHeroSx}>
+              <Box
+                sx={{
+                  position: 'relative',
+                  minHeight: 260,
+                  backgroundImage: `linear-gradient(180deg, rgba(9,11,16,0.05), rgba(9,11,16,0.85)), url("${cenaAtual?.linkImagem || 'https://i.imgur.com/Ke4NQ8L.jpg'}")`,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                  backgroundRepeat: 'no-repeat',
+                }}
+              >
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    inset: 0,
+                    background: 'linear-gradient(180deg, rgba(9,11,16,0.2), rgba(9,11,16,0.95))',
+                  }}
+                />
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    inset: 0,
+                    background: 'radial-gradient(circle at top right, rgba(196,58,47,0.16), transparent 28%)',
+                  }}
+                />
+                <Box
+                  sx={{
+                    position: 'relative',
+                    zIndex: 2,
+                    height: '100%',
+                    p: { xs: 3, md: 4 },
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                  }}
+                >
+                  <Box>
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        color: '#9FA7B2',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.18em',
+                        mb: 1,
+                        display: 'block',
+                      }}
+                    >
+                      Cena Atual
+                    </Typography>
+                    <Typography
+                      variant="h4"
+                      sx={{
+                        color: '#F5F5F5',
+                        fontWeight: 800,
+                        mb: 1,
+                        letterSpacing: '-0.03em',
+                      }}
+                    >
+                      {cenaAtual?.titulo ?? 'Sem cena ativa'}
+                    </Typography>
+                    <Box
+                      sx={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 1,
+                        background: 'rgba(255,255,255,0.06)',
+                        border: '1px solid rgba(255,255,255,0.08)',
+                        borderRadius: '999px',
+                        px: 2,
+                        py: 0.75,
+                        mb: 2,
+                      }}
+                    >
+                      <Box
+                        sx={{
+                          width: 10,
+                          height: 10,
+                          borderRadius: '50%',
+                          background: '#8F231C',
+                        }}
+                      />
+                      <Typography
+                        variant="body2"
+                        sx={{ color: '#F5F5F5', fontWeight: 700 }}
+                      >
+                        {estadoCenaAtual?.label ?? 'Pendente'}
+                      </Typography>
+                    </Box>
+                    <Typography
+                      variant="body2"
+                      sx={{ color: '#9FA7B2', maxWidth: 620, lineHeight: 1.75 }}
+                    >
+                      {cenaAtual?.objetivo ?? 'Ainda não existe uma cena ativa. Selecione uma para iniciar o comando da sua sessão.'}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mt: 3 }}>
+                    <Button
+                      onClick={() => cenaAtual && irParaCena(cenaAtual.id)}
+                      sx={{
+                        background: 'linear-gradient(135deg, #8F231C 0%, #C43A2F 100%)',
+                        color: '#F5F5F5',
+                        px: 4,
+                        py: 1.5,
+                        borderRadius: '12px',
+                        fontWeight: 700,
+                        textTransform: 'none',
+                        boxShadow: '0 14px 26px rgba(143,35,28,0.25)',
+                        transition: 'transform 180ms ease-out, box-shadow 180ms ease-out',
+                        '&:hover': {
+                          transform: 'scale(1.02)',
+                          boxShadow: '0 18px 34px rgba(143,35,28,0.32)',
+                          background: 'linear-gradient(135deg, #C43A2F 0%, #8F231C 100%)',
+                        },
+                      }}
+                    >
+                      Abrir Fluxograma
+                    </Button>
+                    <Button
+                      onClick={() => navigate(ROUTE_PATHS.CENAS)}
+                      sx={{
+                        color: '#F5F5F5',
+                        border: '1px solid rgba(255,255,255,0.14)',
+                        px: 3.5,
+                        py: 1.5,
+                        borderRadius: '12px',
+                        textTransform: 'none',
+                        background: 'rgba(255,255,255,0.04)',
+                        '&:hover': {
+                          background: 'rgba(255,255,255,0.08)',
+                        },
+                      }}
+                    >
+                      Abrir Caminhos
+                    </Button>
+                  </Box>
+                </Box>
+              </Box>
+            </Paper>
+
+            <Paper elevation={0} sx={{ ...sectionCardSx, py: 2.5 }}>
               <Typography
                 variant="caption"
                 sx={{
-                  color: 'var(--text-muted)',
+                  color: '#9FA7B2',
                   textTransform: 'uppercase',
                   fontWeight: 700,
+                  letterSpacing: '0.16em',
                 }}
               >
-                Cena Atual
+                Fluxograma
               </Typography>
-              {cenaAtual ? (
-                <Box sx={{ mt: 1 }}>
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 1.5,
-                      mb: 1,
-                    }}
-                  >
-                    <Typography
-                      variant="h6"
-                      sx={{ color: 'var(--text-primary)', fontWeight: 600 }}
-                    >
-                      {cenaAtual.titulo}
+              <Box sx={{ mt: 2, borderRadius: '18px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.06)' }}>
+                {nodes.length === 0 ? (
+                  <Box sx={{ p: 4, textAlign: 'center' }}>
+                    <Typography variant="body2" sx={{ color: '#9FA7B2' }}>
+                      Nenhuma cena cadastrada ainda
                     </Typography>
-                    {estadoCenaAtual && (
-                      <Chip
-                        label={estadoCenaAtual.label}
-                        size="small"
-                        sx={{
-                          background: estadoCenaAtual.cor,
-                          color: '#fff',
-                          fontWeight: 600,
-                        }}
-                      />
-                    )}
                   </Box>
-                  {cenaAtual.objetivo && (
-                    <Typography
-                      variant="body2"
-                      sx={{ color: 'var(--text-secondary)', mb: 1.5 }}
-                    >
-                      {cenaAtual.objetivo}
-                    </Typography>
-                  )}
-                  <Button
-                    size="small"
-                    onClick={() => irParaCena(cenaAtual.id)}
-                    sx={{ color: 'var(--color-accent)' }}
-                  >
-                    Abrir no Fluxograma →
-                  </Button>
-                </Box>
-              ) : (
-                <Box sx={{ mt: 1.5 }}>
-                  <Typography
-                    variant="body2"
-                    sx={{ color: 'var(--text-muted)', mb: 1.5 }}
-                  >
-                    Nenhuma cena marcada como atual ainda. Abra uma cena no
-                    fluxograma e marque-a.
-                  </Typography>
-                  <Button
-                    size="small"
-                    variant="outlined"
-                    onClick={() => navigate(ROUTE_PATHS.CENAS)}
-                    sx={{
-                      color: 'var(--color-accent)',
-                      borderColor: 'var(--color-accent)',
-                    }}
-                  >
-                    Ir para Cenas
-                  </Button>
-                </Box>
-              )}
-            </Paper>
-
-            <Paper elevation={0} sx={{ ...cardSx, p: 0, overflow: 'hidden' }}>
-              <Box sx={{ p: 2.5, pb: 1.5 }}>
-                <Typography
-                  variant="caption"
-                  sx={{
-                    color: 'var(--text-muted)',
-                    textTransform: 'uppercase',
-                    fontWeight: 700,
-                  }}
-                >
-                  Fluxograma (visão geral)
-                </Typography>
+                ) : (
+                  <Box sx={{ height: 683, background: 'rgba(255,255,255,0.02)' }}>
+                    <CenaFlowCanvas
+                      nodes={nodes}
+                      edges={edges}
+                      podeEscrever={false}
+                      height="683px"
+                      compact
+                      onNodePositionChange={noop}
+                      onNodeDragStop={noop}
+                      onNodeClick={irParaCena}
+                      onConnect={noop}
+                      onNovaCena={noop}
+                    />
+                  </Box>
+                )}
               </Box>
-              {nodes.length === 0 ? (
-                <Box className="empty-state" sx={{ py: 4 }}>
-                  <span className="empty-state-icon">🎬</span>
-                  <p>Nenhuma cena cadastrada ainda</p>
-                </Box>
-              ) : (
-                <Box sx={{ px: 2.5, pb: 2.5 }}>
-                  <CenaFlowCanvas
-                    nodes={nodes}
-                    edges={edges}
-                    podeEscrever={false}
-                    height="280px"
-                    compact
-                    onNodePositionChange={noop}
-                    onNodeDragStop={noop}
-                    onNodeClick={irParaCena}
-                    onConnect={noop}
-                    onNovaCena={noop}
-                  />
-                </Box>
-              )}
             </Paper>
           </Box>
 
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-            <Paper elevation={0} sx={cardSx}>
-              <Typography
-                variant="caption"
-                sx={{
-                  color: 'var(--text-muted)',
-                  textTransform: 'uppercase',
-                  fontWeight: 700,
-                }}
-              >
-                Próximas Cenas
-              </Typography>
+            <Paper elevation={0} sx={sectionCardSx}>
               <Box
                 sx={{
-                  mt: 1.5,
                   display: 'flex',
-                  flexDirection: 'column',
-                  gap: 1,
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  mb: 2,
                 }}
               >
-                {proximasCenas.length === 0 ? (
+                <Box>
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: '#9FA7B2',
+                      textTransform: 'uppercase',
+                      fontWeight: 700,
+                      letterSpacing: '0.16em',
+                    }}
+                  >
+                    Próximas Cenas
+                  </Typography>
                   <Typography
                     variant="body2"
-                    sx={{ color: 'var(--text-muted)' }}
+                    sx={{ color: '#F5F5F5', mt: 0.5 }}
                   >
-                    {cenaAtual
-                      ? 'Nenhuma cena conectada a partir daqui ainda.'
-                      : 'Marque uma Cena Atual para ver os próximos caminhos.'}
+                    Como a trama se desdobra nos próximos passos.
                   </Typography>
+                </Box>
+              </Box>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {proximasCenas.length === 0 ? (
+                  <Box sx={{ p: 3, background: 'rgba(255,255,255,0.02)', borderRadius: '14px' }}>
+                    <Typography variant="body2" sx={{ color: '#9FA7B2' }}>
+                      Nenhuma cena conectada a partir daqui ainda.
+                    </Typography>
+                  </Box>
                 ) : (
-                  proximasCenas.map(cena => (
-                    <Button
-                      key={cena.id}
-                      onClick={() => irParaCena(cena.id)}
-                      sx={{
-                        justifyContent: 'flex-start',
-                        color: 'var(--text-primary)',
-                        background: 'var(--bg-secondary)',
-                        '&:hover': {
-                          background: 'var(--bg-secondary)',
-                          opacity: 0.8,
-                        },
-                      }}
-                    >
-                      {cena.titulo}
-                    </Button>
+                  proximasCenas.map((cena, index) => (
+                    <Box key={cena.id} sx={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', alignItems: 'center', gap: 2, ...timelineItemSx }}>
+                      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+                        <Box
+                          sx={{
+                            width: 32,
+                            height: 32,
+                            borderRadius: '50%',
+                            background: 'rgba(196,58,47,0.18)',
+                            display: 'grid',
+                            placeItems: 'center',
+                            color: '#C43A2F',
+                            fontWeight: 700,
+                          }}
+                        >
+                          {index + 1}
+                        </Box>
+                        {index < proximasCenas.length - 1 && (
+                          <Box sx={{ width: 2, flex: 1, background: 'rgba(255,255,255,0.08)', mx: 'auto' }} />
+                        )}
+                      </Box>
+                      <Box sx={{ minWidth: 0 }}>
+                        <Typography variant="body2" sx={{ color: '#F5F5F5', fontWeight: 700 }}>
+                          {cena.titulo}
+                        </Typography>
+                        <Typography variant="caption" sx={{ color: '#9FA7B2' }}>
+                          {cena.descricao ?? 'Nenhuma descrição disponível'}
+                        </Typography>
+                      </Box>
+                      <Button
+                        onClick={() => irParaCena(cena.id)}
+                        sx={{
+                          color: '#F5F5F5',
+                          background: 'rgba(255,255,255,0.06)',
+                          px: 2.5,
+                          py: 1,
+                          borderRadius: '999px',
+                          '&:hover': {
+                            background: 'rgba(255,255,255,0.12)',
+                          },
+                        }}
+                      >
+                        Ver
+                      </Button>
+                    </Box>
                   ))
                 )}
               </Box>
             </Paper>
 
-            <Paper elevation={0} sx={cardSx}>
+            <Paper elevation={0} sx={sectionCardSx}>
               <Box
                 sx={{
                   display: 'flex',
                   justifyContent: 'space-between',
-                  alignItems: 'center',
+                  alignItems: 'flex-start',
+                  gap: 2,
+                  mb: 2,
                 }}
               >
-                <Typography
-                  variant="caption"
-                  sx={{
-                    color: 'var(--text-muted)',
-                    textTransform: 'uppercase',
-                    fontWeight: 700,
-                  }}
-                >
-                  Notas Rápidas
-                </Typography>
+                <Box>
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: '#9FA7B2',
+                      textTransform: 'uppercase',
+                      fontWeight: 700,
+                      letterSpacing: '0.16em',
+                    }}
+                  >
+                    Notas Rápidas
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: '#F5F5F5', mt: 0.5 }}>
+                    Capture ideias e segredos da sessão.
+                  </Typography>
+                </Box>
                 <Button
                   size="small"
                   onClick={() => navigate(ROUTE_PATHS.NOVA_NOTA)}
-                  sx={{ color: 'var(--color-accent)', minWidth: 0 }}
+                  sx={{
+                    color: '#F5F5F5',
+                    background: 'rgba(196,58,47,0.18)',
+                    px: 3,
+                    py: 1,
+                    borderRadius: '999px',
+                    '&:hover': {
+                      background: 'rgba(196,58,47,0.28)',
+                    },
+                  }}
                 >
-                  + Nova
+                  + Nova Nota
                 </Button>
               </Box>
-              <Box
-                sx={{
-                  mt: 1.5,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 1.5,
-                }}
-              >
+              <Box sx={{ display: 'grid', gap: 2 }}>
                 {notasRecentes.length === 0 ? (
-                  <Typography
-                    variant="body2"
-                    sx={{ color: 'var(--text-muted)' }}
-                  >
-                    Nenhuma nota registrada ainda.
-                  </Typography>
+                  <Box sx={{ p: 4, textAlign: 'center', background: 'rgba(255,255,255,0.02)', borderRadius: '14px' }}>
+                    <Typography variant="h4" sx={{ color: '#4B5563', mb: 1.5 }}>
+                      ✍️
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: '#9FA7B2', mb: 2 }}>
+                      Nenhuma nota registrada ainda. Comece criando lembretes para sua campanha.
+                    </Typography>
+                    <Button
+                      onClick={() => navigate(ROUTE_PATHS.NOVA_NOTA)}
+                      sx={{
+                        background: 'linear-gradient(135deg, #8F231C 0%, #C43A2F 100%)',
+                        color: '#F5F5F5',
+                        px: 4,
+                        py: 1.2,
+                        borderRadius: '12px',
+                        '&:hover': {
+                          transform: 'scale(1.02)',
+                        },
+                      }}
+                    >
+                      Criar primeira nota
+                    </Button>
+                  </Box>
                 ) : (
                   notasRecentes.map(nota => (
-                    <Box key={nota.id}>
-                      <Typography
-                        variant="body2"
-                        sx={{ color: 'var(--text-primary)', fontWeight: 600 }}
-                      >
+                    <Box key={nota.id} sx={noteCardSx}>
+                      <Typography variant="body2" sx={{ color: '#F5F5F5', fontWeight: 700, mb: 0.5 }}>
                         {nota.titulo}
                       </Typography>
                       {nota.conteudo && (
-                        <Typography
-                          variant="caption"
-                          sx={{
-                            color: 'var(--text-secondary)',
-                            display: '-webkit-box',
-                            WebkitLineClamp: 2,
-                            WebkitBoxOrient: 'vertical',
-                            overflow: 'hidden',
-                          }}
-                        >
+                        <Typography variant="caption" sx={{ color: '#9FA7B2', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                           {nota.conteudo}
                         </Typography>
                       )}
                     </Box>
                   ))
                 )}
-                {notas.length > 0 && (
-                  <Button
-                    size="small"
-                    onClick={() => navigate(ROUTE_PATHS.NOTAS)}
-                    sx={{
-                      alignSelf: 'flex-start',
-                      color: 'var(--color-accent)',
-                      mt: 0.5,
-                    }}
-                  >
-                    Ver todas →
-                  </Button>
-                )}
               </Box>
             </Paper>
 
-            <Paper elevation={0} sx={cardSx}>
+            <Paper elevation={0} sx={sectionCardSx}>
               <Typography
                 variant="caption"
                 sx={{
-                  color: 'var(--text-muted)',
+                  color: '#9FA7B2',
                   textTransform: 'uppercase',
                   fontWeight: 700,
+                  letterSpacing: '0.16em',
                 }}
               >
                 Registro da Sessão
               </Typography>
-              <Box
-                sx={{
-                  mt: 1.5,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 1,
-                }}
-              >
+              <Box sx={{ mt: 2, display: 'grid', gap: 2, maxHeight: 360, overflowY: 'auto', pr: 0.5 }}>
                 {logsRecentes.length === 0 ? (
-                  <Typography
-                    variant="body2"
-                    sx={{ color: 'var(--text-muted)' }}
-                  >
-                    Nenhum evento registrado ainda — marcar uma Cena Atual,
-                    sortear uma carta ou adicionar um participante à Luta
-                    aparece aqui automaticamente.
-                  </Typography>
+                  <Box sx={{ p: 3, background: 'rgba(255,255,255,0.02)', borderRadius: '14px' }}>
+                    <Typography variant="body2" sx={{ color: '#9FA7B2' }}>
+                      Nenhum evento registrado ainda.
+                    </Typography>
+                  </Box>
                 ) : (
                   logsRecentes.map(log => (
-                    <Box
-                      key={log.id}
-                      sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}
-                    >
-                      <Typography sx={{ lineHeight: 1.4 }}>
-                        {ICONE_EVENTO_SESSAO[log.tipo] ?? '•'}
-                      </Typography>
-                      <Box sx={{ minWidth: 0 }}>
-                        <Typography
-                          variant="body2"
-                          sx={{ color: 'var(--text-primary)' }}
+                    <Box key={log.id} sx={logItemSx}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                        <Box
+                          sx={{
+                            width: 36,
+                            height: 36,
+                            borderRadius: '50%',
+                            background: 'rgba(196,58,47,0.18)',
+                            display: 'grid',
+                            placeItems: 'center',
+                            color: '#C43A2F',
+                            fontWeight: 700,
+                          }}
                         >
-                          {log.mensagem}
-                        </Typography>
-                        {formatarHoraEvento(log.createdAt) && (
-                          <Typography
-                            variant="caption"
-                            sx={{ color: 'var(--text-muted)' }}
-                          >
+                          {ICONE_EVENTO_SESSAO[log.tipo] ?? '•'}
+                        </Box>
+                        <Box sx={{ minWidth: 0 }}>
+                          <Typography variant="body2" sx={{ color: '#F5F5F5', fontWeight: 700 }}>
+                            {log.mensagem}
+                          </Typography>
+                          <Typography variant="caption" sx={{ color: '#9FA7B2' }}>
                             {formatarHoraEvento(log.createdAt)}
                           </Typography>
-                        )}
+                        </Box>
                       </Box>
                     </Box>
                   ))
@@ -473,7 +700,7 @@ const Dashboard = () => {
             </Paper>
           </Box>
         </Box>
-      )}
+      </Box>
     </Box>
   );
 };

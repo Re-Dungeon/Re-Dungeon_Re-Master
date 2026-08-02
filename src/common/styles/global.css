@@ -4,66 +4,66 @@
 
 :root {
   /* Cores Principais */
-  --color-primary: #6f2da8;
-  --color-primary-dark: #4a1a68;
-  --color-primary-light: #8b3fb5;
+  --color-primary: #8F231C;
+  --color-primary-dark: #5F1815;
+  --color-primary-light: #C43A2F;
 
   /* Cores Secundárias */
-  --color-secondary: #2d5a6f;
-  --color-accent: #00d9ff;
-  --color-accent-dark: #00a8cc;
+  --color-secondary: #A9B0BA;
+  --color-accent: #C43A2F;
+  --color-accent-dark: #8F231C;
 
   /* Cores Neutras */
-  --color-dark: #0a0e27;
-  --color-darker: #050810;
-  --color-light: #f5f7fa;
-  --color-lighter: #ffffff;
-  --color-border: #1a2332;
-  --color-text: #e0e0e0;
-  --color-text-muted: #999999;
+  --color-dark: #0A0C10;
+  --color-darker: #07090E;
+  --color-light: #F3F4F6;
+  --color-lighter: #FFFFFF;
+  --color-border: rgba(255, 255, 255, 0.08);
+  --color-text: #F3F4F6;
+  --color-text-muted: #A9B0BA;
 
-  /* Cores Glassmorphism Premium */
-  --bg-primary: #050816;
-  --bg-secondary: #0b1020;
-  --bg-card: #10182b;
+  /* Superfícies */
+  --bg-primary: #0A0C10;
+  --bg-secondary: #11141A;
+  --bg-card: #171B22;
 
-  --accent-primary: #00d4ff;
-  --accent-secondary: #3b82f6;
-  --accent-glow: #60a5fa;
+  --accent-primary: #C43A2F;
+  --accent-secondary: #8F231C;
+  --accent-glow: rgba(196, 58, 47, 0.24);
 
-  --text-primary: #f8fafc;
-  --text-secondary: #94a3b8;
-  --text-muted: #64748b;
+  --text-primary: #F3F4F6;
+  --text-secondary: #A9B0BA;
+  --text-muted: #7A7F89;
 
-  --border-primary: rgba(96, 165, 250, 0.18);
-  --border-hover: rgba(96, 165, 250, 0.35);
+  --border-primary: rgba(255, 255, 255, 0.08);
+  --border-hover: rgba(255, 255, 255, 0.12);
 
   /* Sombras */
-  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.2);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
-  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.4);
+  --shadow-sm: 0 2px 12px rgba(0, 0, 0, 0.22);
+  --shadow-md: 0 10px 36px rgba(0, 0, 0, 0.32);
+  --shadow-lg: 0 14px 52px rgba(0, 0, 0, 0.45);
 
   /* Espaçamentos */
   --spacing-xs: 4px;
-  --spacing-sm: 8px;
-  --spacing-md: 16px;
-  --spacing-lg: 24px;
-  --spacing-xl: 32px;
+  --spacing-sm: 10px;
+  --spacing-md: 18px;
+  --spacing-lg: 28px;
+  --spacing-xl: 36px;
 
   /* Dimensões */
   --sidebar-width: 280px;
-  --header-height: 70px;
+  --header-height: 72px;
 
   /* Transições */
-  --transition-fast: 150ms ease-in-out;
-  --transition-normal: 250ms ease-in-out;
-  --transition-slow: 350ms ease-in-out;
+  --transition-fast: 150ms ease-out;
+  --transition-normal: 250ms ease-out;
+  --transition-slow: 350ms ease-out;
 
   /* Border Radius */
-  --radius-sm: 4px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-xl: 16px;
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
 }
 
 /* Reset */
@@ -79,16 +79,28 @@ html {
 
 body {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  background-color: var(--color-dark);
-  background-image: url('https://i.imgur.com/REkKA1N.png');
+  background-color: var(--bg-primary);
+  background-image: radial-gradient(circle at top left, rgba(196, 58, 47, 0.08), transparent 22%),
+    radial-gradient(circle at bottom right, rgba(255, 255, 255, 0.05), transparent 16%),
+    url('https://i.imgur.com/REkKA1N.png');
   background-size: cover;
   background-repeat: no-repeat;
   background-position: center;
   background-attachment: fixed;
+  background-blend-mode: overlay, overlay, normal;
   color: var(--color-text);
   line-height: 1.6;
   font-size: 14px;
+  min-height: 100vh;
   overflow: hidden;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(circle at center, transparent 38%, rgba(0, 0, 0, 0.6) 100%);
 }
 
 /* Scrollbar Customizado */

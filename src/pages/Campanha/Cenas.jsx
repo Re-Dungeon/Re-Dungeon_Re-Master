@@ -120,7 +120,7 @@ const Cenas = () => {
             onClick={() => navigate(ROUTE_PATHS.NOVA_CENA)}
             sx={{
               background: 'var(--color-primary)',
-              '&:hover': { background: '#5a2090' },
+              '&:hover': { background: 'var(--color-primary-dark)' },
             }}
           >
             + Nova Cena
@@ -149,7 +149,7 @@ const Cenas = () => {
               sx={{
                 mt: 2,
                 background: 'var(--color-primary)',
-                '&:hover': { background: '#5a2090' },
+                '&:hover': { background: 'var(--color-primary-dark)' },
               }}
             >
               + Nova Cena

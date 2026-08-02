@@ -36,19 +36,16 @@ const Sidebar = () => {
     <SidebarWrapper id="remaster-sidebar">
       <LogoSection>
         <Box
+          component="img"
+          src="https://i.imgur.com/3xTDlF9.png"
+          alt="Brasão Re:Master"
           sx={{
             width: 40,
             height: 40,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: 24,
+            objectFit: 'contain',
             flexShrink: 0,
           }}
-          aria-hidden="true"
-        >
-          🛡️
-        </Box>
+        />
         <Box>
           <Typography
             variant="h6"
@@ -95,11 +92,11 @@ const Sidebar = () => {
                         {item.icon}
                       </ListItemIcon>
                       <ListItemText
-                        primary={item.label}
-                        primaryTypographyProps={{
-                          fontSize: 14,
-                          fontWeight: 500,
-                        }}
+                        primary={
+                          <Typography sx={{ fontSize: 14, fontWeight: 500 }}>
+                            {item.label}
+                          </Typography>
+                        }
                       />
                     </NavItemButton>
                   </StyledNavLink>
@@ -121,11 +118,11 @@ const Sidebar = () => {
                             {item.icon}
                           </ListItemIcon>
                           <ListItemText
-                            primary={item.label}
-                            primaryTypographyProps={{
-                              fontSize: 14,
-                              fontWeight: 500,
-                            }}
+                            primary={
+                              <Typography sx={{ fontSize: 14, fontWeight: 500 }}>
+                                {item.label}
+                              </Typography>
+                            }
                           />
                         </NavItemButton>
                       </StyledNavLink>

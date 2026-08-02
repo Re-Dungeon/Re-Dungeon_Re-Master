@@ -11,7 +11,7 @@ import {
 export const ESTADO_CENA_OPCOES = [
   { value: 'nao_iniciado', label: 'Não Iniciado', cor: '#22c55e' },
   { value: 'em_andamento', label: 'Em Andamento', cor: '#eab308' },
-  { value: 'concluido', label: 'Concluído', cor: '#3b82f6' },
+  { value: 'concluido', label: 'Concluído', cor: '#facc15' },
   { value: 'ignorado', label: 'Ignorado pelos Jogadores', cor: '#111827' },
   { value: 'cancelado', label: 'Cancelado', cor: '#6b7280' },
 ];

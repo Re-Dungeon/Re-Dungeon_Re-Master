@@ -85,7 +85,7 @@ const Mapas = () => {
             onClick={() => navigate(ROUTE_PATHS.NOVO_MAPA)}
             sx={{
               background: 'var(--color-primary)',
-              '&:hover': { background: '#5a2090' },
+              '&:hover': { background: 'var(--color-primary-dark)' },
             }}
           >
             + Novo Mapa
