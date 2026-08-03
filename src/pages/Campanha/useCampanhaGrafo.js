@@ -107,6 +107,8 @@ const useCampanhaGrafo = campanha => {
         id: conexao.id,
         source: conexao.origemCenaId,
         target: conexao.destinoCenaId,
+        sourceHandle: conexao.origemHandle || undefined,
+        targetHandle: conexao.destinoHandle || undefined,
         label: conexao.rotulo || undefined,
         style: { stroke: 'var(--color-accent)' },
         markerEnd: { type: 'arrowclosed', color: 'var(--color-accent)' },
@@ -138,7 +140,7 @@ const useCampanhaGrafo = campanha => {
   );
 
   const createConexao = useCallback(
-    async (origemCenaId, destinoCenaId) => {
+    async (origemCenaId, destinoCenaId, origemHandle, destinoHandle) => {
       if (!campanha || origemCenaId === destinoCenaId) return;
       const jaExiste = conexoes.some(
         c =>
@@ -152,6 +154,8 @@ const useCampanhaGrafo = campanha => {
           mestreId: campanha.mestreId,
           origemCenaId,
           destinoCenaId,
+          origemHandle: origemHandle || null,
+          destinoHandle: destinoHandle || null,
         });
         await carregar();
       } catch {

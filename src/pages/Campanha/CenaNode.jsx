@@ -21,7 +21,8 @@ const CenaNode = ({ data, selected = false }) => {
         boxShadow: selected ? '0 0 0 2px var(--color-accent)' : 'none',
       }}
     >
-      <Handle type="target" position={Position.Left} />
+      <Handle type="target" position={Position.Left} id="left" />
+      <Handle type="target" position={Position.Top} id="top" />
       <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
         {cena.linkImagem && (
           <Box
@@ -65,7 +66,8 @@ const CenaNode = ({ data, selected = false }) => {
           )}
         </Box>
       </Box>
-      <Handle type="source" position={Position.Right} />
+      <Handle type="source" position={Position.Right} id="right" />
+      <Handle type="source" position={Position.Bottom} id="bottom" />
     </Box>
   );
 };

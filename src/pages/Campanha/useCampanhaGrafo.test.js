@@ -152,6 +152,28 @@ describe('useCampanhaGrafo', () => {
       mestreId: 'm1',
       origemCenaId: 'cena2',
       destinoCenaId: 'cena1',
+      origemHandle: null,
+      destinoHandle: null,
+    });
+  });
+
+  it('createConexao grava o handle de origem/destino quando a conexão é feita por um handle vertical', async () => {
+    addRmCenaConexao.mockResolvedValue(undefined);
+    const { result } = renderHook(() => useCampanhaGrafo(CAMPANHA));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    await act(async () => {
+      await result.current.createConexao('cena2', 'cena1', 'bottom', 'top');
+    });
+
+    expect(addRmCenaConexao).toHaveBeenCalledWith({
+      campanhaId: 'c1',
+      universoId: 'u1',
+      mestreId: 'm1',
+      origemCenaId: 'cena2',
+      destinoCenaId: 'cena1',
+      origemHandle: 'bottom',
+      destinoHandle: 'top',
     });
   });
 

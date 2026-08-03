@@ -45,7 +45,13 @@ const CenaFlowCanvas = ({
   );
 
   const handleConnect = useCallback(
-    params => onConnect(params.source, params.target),
+    params =>
+      onConnect(
+        params.source,
+        params.target,
+        params.sourceHandle,
+        params.targetHandle,
+      ),
     [onConnect],
   );
 
