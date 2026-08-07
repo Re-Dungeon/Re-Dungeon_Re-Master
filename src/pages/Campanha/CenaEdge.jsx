@@ -33,9 +33,8 @@ const CenaEdge = ({
         path={edgePath}
         style={{
           ...style,
-          stroke: 'rgba(196, 58, 47, 0.92)',
           strokeWidth: 2.8,
-          filter: 'drop-shadow(0 0 18px rgba(196, 58, 47, 0.12))',
+          filter: 'drop-shadow(0 0 10px rgba(0, 0, 0, 0.35))',
         }}
         markerEnd={markerEnd}
         label={label}

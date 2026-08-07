@@ -3,7 +3,7 @@ import PropTypes from 'prop-types';
 import { Handle, Position } from '@xyflow/react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
-import { ESTADO_CENA_OPCOES } from './cenaUtils';
+import { ESTADO_CENA_OPCOES, HANDLE_SIDE_COLORS } from './cenaUtils';
 
 const STATUS_SYMBOLS = {
   nao_iniciado: '○',
@@ -11,11 +11,6 @@ const STATUS_SYMBOLS = {
   concluido: '✓',
   ignorado: '•',
   cancelado: '✕',
-};
-
-const HANDLE_TYPE_COLORS = {
-  entrada: '#3B82F6',
-  saida: '#F97316',
 };
 
 const defaultHandleStyle = {
@@ -30,16 +25,14 @@ const defaultHandleStyle = {
   zIndex: 10,
 };
 
-const handleTypeStyle = type => ({
-  background: type ? `${HANDLE_TYPE_COLORS[type]}22` : 'rgba(255,255,255,0.08)',
-  borderColor: type ? HANDLE_TYPE_COLORS[type] : 'rgba(255,255,255,0.18)',
-  boxShadow: type
-    ? `0 0 0 4px ${HANDLE_TYPE_COLORS[type]}22`
-    : '0 0 0 1px rgba(255,255,255,0.08)',
+const handleSideStyle = side => ({
+  background: `${HANDLE_SIDE_COLORS[side]}22`,
+  borderColor: HANDLE_SIDE_COLORS[side],
+  boxShadow: `0 0 0 4px ${HANDLE_SIDE_COLORS[side]}22`,
 });
 
 const CenaNode = ({ data, selected = false }) => {
-  const { cena, handleTypes = {} } = data;
+  const { cena } = data;
 
   const estado = useMemo(
     () => ESTADO_CENA_OPCOES.find(o => o.value === cena.estado),
@@ -53,34 +46,21 @@ const CenaNode = ({ data, selected = false }) => {
   const hasImage = Boolean(imageUrl);
 
 
-  const renderHandle = (id, position) => {
-    const handleType = handleTypes[id];
-    const isEntrada = handleType === 'entrada';
-    const isSaida = handleType === 'saida';
-    const handleRole = isEntrada
-      ? 'target'
-      : isSaida
-      ? 'source'
-      : position === Position.Left || position === Position.Top
-      ? 'target'
-      : 'source';
-
-    return (
-      <Handle
-        type={handleRole}
-        position={position}
-        id={id}
-        title={handleType ? `${handleType === 'entrada' ? 'Entrada' : 'Saída'}` : 'Defina como Entrada ou Saída no painel'}
-        isConnectable={true}
-        isConnectableStart={isSaida || !handleType}
-        isConnectableEnd={isEntrada || !handleType}
-        style={{
-          ...defaultHandleStyle,
-          ...handleTypeStyle(handleType),
-        }}
-      />
-    );
-  };
+  // Todo handle é "source": com connectionMode="loose" (CenaFlowCanvas) isso
+  // faz a conexão sempre respeitar de onde o mestre arrastou (origem) para
+  // onde soltou (destino), em vez de forçar a direção pelo lado do node.
+  const renderHandle = (id, position) => (
+    <Handle
+      type="source"
+      position={position}
+      id={id}
+      isConnectable
+      style={{
+        ...defaultHandleStyle,
+        ...handleSideStyle(id),
+      }}
+    />
+  );
 
   return (
     <Box
@@ -226,7 +206,6 @@ CenaNode.propTypes = {
       estado: PropTypes.string,
       linkImagem: PropTypes.string,
     }).isRequired,
-    handleTypes: PropTypes.object,
   }).isRequired,
   selected: PropTypes.bool,
 };

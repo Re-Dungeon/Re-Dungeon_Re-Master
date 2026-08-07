@@ -13,17 +13,13 @@ import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import CenaNode from './CenaNode';
 import CenaEdge from './CenaEdge';
+import { HANDLE_SIDE_COLORS, HANDLE_SIDE_COLOR_FALLBACK } from './cenaUtils';
 
 const NODE_TYPES = { cenaNode: CenaNode };
 const EDGE_TYPES = { cenaEdge: CenaEdge };
 
-const getHandleColor = (nodeHandleTypes, edge) => {
-  const sourceTypes = nodeHandleTypes[edge.source] ?? {};
-  const sourceType = sourceTypes[edge.sourceHandle];
-  if (sourceType === 'entrada') return '#60A5FA';
-  if (sourceType === 'saida') return '#FB923C';
-  return 'var(--color-accent)';
-};
+const getEdgeColor = edge =>
+  HANDLE_SIDE_COLORS[edge.sourceHandle] ?? HANDLE_SIDE_COLOR_FALLBACK;
 
 const CenaFlowCanvas = ({
   nodes,
@@ -39,37 +35,12 @@ const CenaFlowCanvas = ({
   compact = false,
 }) => {
   const [localNodes, setLocalNodes] = useState(nodes);
-  const [nodeHandleTypes, setNodeHandleTypes] = useState({});
 
   useEffect(() => {
     // Sync local drag state when nodes are updated from props.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setLocalNodes(nodes);
   }, [nodes]);
-
-  const handleSetNodeHandleType = useCallback((nodeId, handleId, type) => {
-    setNodeHandleTypes(prev => ({
-      ...prev,
-      [nodeId]: {
-        ...prev[nodeId],
-        [handleId]: type,
-      },
-    }));
-  }, []);
-
-  const renderedNodes = useMemo(
-    () =>
-      localNodes.map(node => ({
-        ...node,
-        data: {
-          ...node.data,
-          handleTypes: nodeHandleTypes[node.id] ?? {},
-          onChangeHandleType: (handleId, type) =>
-            handleSetNodeHandleType(node.id, handleId, type),
-        },
-      })),
-    [localNodes, nodeHandleTypes, handleSetNodeHandleType],
-  );
 
   const handleNodesChange = useCallback(
     changes => {
@@ -107,7 +78,7 @@ const CenaFlowCanvas = ({
   const edgesComData = useMemo(
     () =>
       edges.map(edge => {
-        const stroke = getHandleColor(nodeHandleTypes, edge);
+        const stroke = getEdgeColor(edge);
         return {
           ...edge,
           type: 'cenaEdge',
@@ -119,7 +90,7 @@ const CenaFlowCanvas = ({
           data: { podeEscrever, onDelete: onRemoveConexao },
         };
       }),
-    [edges, nodeHandleTypes, podeEscrever, onRemoveConexao],
+    [edges, podeEscrever, onRemoveConexao],
   );
 
   return (
@@ -183,7 +154,7 @@ const CenaFlowCanvas = ({
       }}
     >
       <ReactFlow
-        nodes={renderedNodes}
+        nodes={localNodes}
         edges={edgesComData}
         nodeTypes={NODE_TYPES}
         edgeTypes={EDGE_TYPES}
@@ -197,6 +168,7 @@ const CenaFlowCanvas = ({
         elementsSelectable
         zoomOnScroll={!compact}
         panOnScroll={false}
+        connectionMode="loose"
         fitView
       >
         <Background
