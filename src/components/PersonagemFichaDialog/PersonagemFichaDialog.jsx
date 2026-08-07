@@ -7,7 +7,22 @@ import Chip from '@mui/material/Chip';
 import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
 import CircularProgress from '@mui/material/CircularProgress';
-import EntityViewDialog from 'components/EntityViewDialog/EntityViewDialog';
+import Dialog from '@mui/material/Dialog';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
+import Button from '@mui/material/Button';
+import IconButton from '@mui/material/IconButton';
+import CloseIcon from '@mui/icons-material/Close';
+import FitnessCenterOutlinedIcon from '@mui/icons-material/FitnessCenterOutlined';
+import FavoriteBorderOutlinedIcon from '@mui/icons-material/FavoriteBorderOutlined';
+import PsychologyOutlinedIcon from '@mui/icons-material/PsychologyOutlined';
+import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
+import DirectionsRunOutlinedIcon from '@mui/icons-material/DirectionsRunOutlined';
+import AutoAwesomeOutlinedIcon from '@mui/icons-material/AutoAwesomeOutlined';
+import SportsMmaOutlinedIcon from '@mui/icons-material/SportsMmaOutlined';
+import BoltOutlinedIcon from '@mui/icons-material/BoltOutlined';
+import ShieldOutlinedIcon from '@mui/icons-material/ShieldOutlined';
+import SpeedOutlinedIcon from '@mui/icons-material/SpeedOutlined';
 import {
   getPersonagemSubcolecao,
   getAptidao,
@@ -29,6 +44,14 @@ const CAMPOS_OCULTOS = new Set([
   'nome',
   'linkImagem',
   'descricao',
+  'raca',
+  'classes',
+  'idade',
+  'powerCombat',
+  'jogador',
+  'jogadorInfo',
+  'status',
+  'statusMaximos',
 ]);
 
 // Subcoleções conhecidas da ficha de personagem — o match `{subcolecao}` do
@@ -249,9 +272,9 @@ const CardSubcolecaoDoc = ({ doc, titulo = null }) => {
       elevation={0}
       sx={{
         p: 2,
-        background: 'var(--bg-secondary)',
-        border: '1px solid var(--border-primary)',
-        borderRadius: 1.5,
+        background: 'rgba(25, 28, 37, 0.95)',
+        border: '1px solid rgba(255,255,255,0.08)',
+        borderRadius: 2,
       }}
     >
       {titulo && (
@@ -276,12 +299,127 @@ CardSubcolecaoDoc.propTypes = {
   titulo: PropTypes.string,
 };
 
-/**
- * Ficha completa (somente leitura) de um personagem do Re-Dungeon, aberta a
- * partir da tela de NPCs da campanha. Aba "Ficha" mostra os campos do
- * documento principal; uma aba por subcoleção conhecida (aptidões, artes,
- * histórico de sorte) busca os dados sob demanda quando o diálogo abre.
- */
+const AtributoCard = ({ icon: Icon, label, value }) => (
+  <Paper
+    elevation={0}
+    sx={{
+      p: 2,
+      background: 'rgba(25, 28, 37, 0.96)',
+      border: '1px solid rgba(255,255,255,0.08)',
+      borderRadius: 2,
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 0.5,
+      minHeight: 112,
+      justifyContent: 'space-between',
+    }}
+  >
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+      {Icon && <Icon sx={{ color: 'var(--color-accent)', fontSize: 18 }} />}
+      <Typography
+        variant="caption"
+        sx={{
+          color: 'var(--text-muted)',
+          textTransform: 'uppercase',
+          letterSpacing: 1,
+          fontWeight: 700,
+        }}
+      >
+        {label}
+      </Typography>
+    </Box>
+    <Typography
+      variant="h5"
+      sx={{ color: 'var(--text-primary)', fontWeight: 700, fontSize: '1.65rem' }}
+    >
+      {value}
+    </Typography>
+  </Paper>
+);
+
+AtributoCard.propTypes = {
+  icon: PropTypes.elementType,
+  label: PropTypes.string.isRequired,
+  value: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+};
+
+const StatusCard = ({ label, value, sublabel }) => (
+  <Paper
+    elevation={0}
+    sx={{
+      p: 2,
+      background: 'rgba(25, 28, 37, 0.96)',
+      border: '1px solid rgba(255,255,255,0.08)',
+      borderRadius: 2,
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 0.5,
+      minHeight: 100,
+      justifyContent: 'space-between',
+    }}
+  >
+    <Typography
+      variant="caption"
+      sx={{
+        color: 'var(--text-muted)',
+        textTransform: 'uppercase',
+        letterSpacing: 1,
+        fontWeight: 700,
+      }}
+    >
+      {label}
+    </Typography>
+    <Typography
+      variant="h4"
+      sx={{ color: 'var(--text-primary)', fontWeight: 700, fontSize: '2rem' }}
+    >
+      {value}
+    </Typography>
+    {sublabel && (
+      <Typography variant="body2" sx={{ color: 'var(--text-secondary)' }}>
+        {sublabel}
+      </Typography>
+    )}
+  </Paper>
+);
+
+StatusCard.propTypes = {
+  label: PropTypes.string.isRequired,
+  value: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  sublabel: PropTypes.node,
+};
+
+const PanelCard = ({ title, children }) => (
+  <Paper
+    elevation={0}
+    sx={{
+      background: 'rgba(22, 25, 34, 0.96)',
+      border: '1px solid rgba(255,255,255,0.08)',
+      borderRadius: 2,
+      p: 2,
+    }}
+  >
+    <Typography
+      variant="subtitle2"
+      sx={{
+        color: 'var(--color-accent)',
+        textTransform: 'uppercase',
+        letterSpacing: 1,
+        fontWeight: 700,
+        mb: 1.5,
+      }}
+    >
+      {title}
+    </Typography>
+    {children}
+  </Paper>
+);
+
+PanelCard.propTypes = {
+  title: PropTypes.string.isRequired,
+  children: PropTypes.node,
+};
+
 const PersonagemFichaDialog = ({
   open,
   onClose,
@@ -323,7 +461,9 @@ const PersonagemFichaDialog = ({
       if (personagem.raca) {
         getRaca(personagem.raca)
           .then(raca => {
-            if (active) setRacaNome(raca?.nome ?? null);
+            if (active) {
+              setRacaNome(raca?.nome ?? null);
+            }
           })
           .catch(() => {
             if (active) setRacaNome(null);
@@ -458,113 +598,748 @@ const PersonagemFichaDialog = ({
       )
     : [];
 
+  const statusValue = valor =>
+    valor?.atual ?? valor ?? '—';
+
+  const construirMeta = () => {
+    const meta = [];
+    if (personagem?.idade) meta.push(personagem.idade);
+    return meta.filter(Boolean).join(' · ');
+  };
+
+  const renderFichaPrincipal = () => {
+    if (campos.length === 0) {
+      return (
+        <Typography
+          variant="body2"
+          sx={{ color: 'var(--text-muted)', fontStyle: 'italic' }}
+        >
+          Sem campos adicionais nesta ficha.
+        </Typography>
+      );
+    }
+
+    return (
+      <Box sx={{ display: 'grid', gap: 2 }}>
+        {campos.map(([campo, valor]) => (
+          <SecaoCampo key={campo} campo={campo} valor={valor} />
+        ))}
+      </Box>
+    );
+  };
+
+  const statusCards = [
+    {
+      label: 'Fadiga',
+      value: statusValue(personagem?.status?.fadiga),
+      sublabel: `Máx ${personagem?.statusMaximos?.fadiga ?? '—'}`,
+    },
+    {
+      label: 'HP',
+      value: statusValue(personagem?.status?.hp),
+      sublabel: `Máx ${personagem?.statusMaximos?.hp ?? '—'}`,
+    },
+    {
+      label: 'Energia',
+      value: statusValue(personagem?.status?.energia),
+      sublabel: `Máx ${personagem?.statusMaximos?.energia ?? '—'}`,
+    },
+  ];
+
+  const atributosPrincipais = [
+    {
+      label: 'Força',
+      icon: FitnessCenterOutlinedIcon,
+      value:
+        personagem?.forca ??
+        personagem?.forcaBase ??
+        personagem?.atributosBase?.forca ??
+        '—',
+    },
+    {
+      label: 'Inteligência',
+      icon: PsychologyOutlinedIcon,
+      value:
+        personagem?.inteligencia ??
+        personagem?.inteligenciaBase ??
+        personagem?.atributosBase?.inteligencia ??
+        '—',
+    },
+    {
+      label: 'Percepção',
+      icon: VisibilityOutlinedIcon,
+      value:
+        personagem?.percepcao ??
+        personagem?.percepcaoBase ??
+        personagem?.atributosBase?.percepcao ??
+        '—',
+    },
+    {
+      label: 'Agilidade',
+      icon: DirectionsRunOutlinedIcon,
+      value:
+        personagem?.agilidade ??
+        personagem?.agilidadeBase ??
+        personagem?.atributosBase?.agilidade ??
+        '—',
+    },
+    {
+      label: 'Sorte',
+      icon: AutoAwesomeOutlinedIcon,
+      value:
+        personagem?.sorte ??
+        personagem?.sorteBase ??
+        personagem?.atributosBase?.sorte ??
+        '—',
+    },
+    {
+      label: 'Vitalidade',
+      icon: FavoriteBorderOutlinedIcon,
+      value:
+        personagem?.vitalidade ??
+        personagem?.vitalidadeBase ??
+        personagem?.atributosBase?.vitalidade ??
+        '—',
+    },
+  ];
+
+  const atributosTotais = atributosPrincipais.map(({ label, icon, value }) => ({
+    label,
+    icon,
+    value,
+  }));
+
+  const atributosSecundarios = [
+    {
+      label: 'Ataque',
+      icon: SportsMmaOutlinedIcon,
+      value:
+        personagem?.ataque ??
+        personagem?.ataqueBase ??
+        personagem?.atributosBonus?.ataque ??
+        '—',
+    },
+    {
+      label: 'Reação',
+      icon: SpeedOutlinedIcon,
+      value:
+        personagem?.reacao ??
+        personagem?.reacaoBase ??
+        personagem?.atributosBonus?.reacao ??
+        '—',
+    },
+    {
+      label: 'Precisão',
+      icon: VisibilityOutlinedIcon,
+      value:
+        personagem?.precisao ??
+        personagem?.precisaoBase ??
+        personagem?.atributosBonus?.precisao ??
+        '—',
+    },
+    {
+      label: 'Evasão',
+      icon: ShieldOutlinedIcon,
+      value:
+        personagem?.evasao ??
+        personagem?.evasaoBase ??
+        personagem?.atributosBonus?.evasao ??
+        '—',
+    },
+    {
+      label: 'Prontidão Secundária',
+      icon: BoltOutlinedIcon,
+      value:
+        personagem?.prontidao ??
+        personagem?.prontidaoBase ??
+        personagem?.atributosBonus?.prontidao ??
+        '—',
+    },
+    {
+      label: 'Defesa Secundária',
+      icon: ShieldOutlinedIcon,
+      value:
+        personagem?.defesa ??
+        personagem?.defesaBase ??
+        personagem?.atributosBonus?.defesa ??
+        '—',
+    },
+  ];
+
   return (
-    <EntityViewDialog
+    <Dialog
       open={open}
       onClose={onClose}
-      titulo={personagem?.nome}
-      subtitulo="Ficha completa do personagem"
-      imagem={personagem?.linkImagem}
-      descricao={personagem?.descricao}
-      actions={actions}
-    >
-      <Tabs
-        value={aba}
-        onChange={(_, valor) => setAba(valor)}
-        variant="scrollable"
-        scrollButtons="auto"
-        sx={{
-          mb: 2,
-          minHeight: 36,
-          borderBottom: '1px solid var(--border-primary)',
-          '& .MuiTab-root': {
-            color: 'var(--text-secondary)',
-            minHeight: 36,
-            textTransform: 'none',
+      fullWidth
+      maxWidth={false}
+      slotProps={{
+        paper: {
+          sx: {
+            width: 'min(1180px, calc(100vw - 48px))',
+            maxHeight: '92vh',
+            background: 'rgba(10, 12, 16, 0.98)',
+            border: '1px solid rgba(255,255,255,0.08)',
+            borderRadius: 3,
+            overflow: 'hidden',
           },
-          '& .Mui-selected': { color: 'var(--color-accent) !important' },
-          '& .MuiTabs-indicator': { background: 'var(--color-accent)' },
+        },
+      }}
+    >
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          px: 3,
+          py: 2.5,
+          borderBottom: '1px solid rgba(255,255,255,0.08)',
+          background: 'rgba(12, 14, 20, 0.96)',
+          position: 'sticky',
+          top: 0,
+          zIndex: 10,
         }}
       >
-        <Tab label="Ficha" />
-        {SUBCOLECOES.map(({ chave, label }) => (
-          <Tab
-            key={chave}
-            label={
-              subcolecoes[chave]?.status === 'ok' &&
-              subcolecoes[chave].docs.length > 0
-                ? `${label} (${subcolecoes[chave].docs.length})`
-                : label
-            }
-          />
-        ))}
-      </Tabs>
-
-      {aba === 0 &&
-        (campos.length === 0 ? (
+        <Box>
+          <Typography
+            variant="h5"
+            sx={{ color: 'var(--text-primary)', fontWeight: 800, letterSpacing: 0.4 }}
+          >
+            {personagem?.nome}
+          </Typography>
           <Typography
             variant="body2"
-            sx={{ color: 'var(--text-muted)', fontStyle: 'italic' }}
+            sx={{ color: 'var(--text-secondary)', mt: 0.5 }}
           >
-            Sem campos adicionais nesta ficha.
+            Ficha completa do personagem
           </Typography>
-        ) : (
-          campos.map(([campo, valor]) => (
-            <SecaoCampo key={campo} campo={campo} valor={valor} />
-          ))
-        ))}
+        </Box>
+        <IconButton
+          onClick={onClose}
+          sx={{ color: 'var(--text-secondary)', p: 1.25 }}
+          aria-label="Fechar ficha"
+        >
+          <CloseIcon />
+        </IconButton>
+      </Box>
 
-      {SUBCOLECOES.map(({ chave, label }, indice) => {
-        if (aba !== indice + 1) return null;
-        const estado = subcolecoes[chave] ?? { status: 'loading', docs: [] };
-        return (
-          <Box key={chave}>
-            {estado.status === 'loading' && (
-              <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
-                <CircularProgress
-                  size={22}
-                  sx={{ color: 'var(--color-accent)' }}
+      <Box sx={{ borderBottom: '1px solid rgba(255,255,255,0.08)', background: 'rgba(12, 14, 20, 0.96)', position: 'sticky', top: '72px', zIndex: 9 }}>
+        <Tabs
+          value={aba}
+          onChange={(_, valor) => setAba(valor)}
+          variant="scrollable"
+          scrollButtons="auto"
+          sx={{
+            px: 3,
+            minHeight: 48,
+            '& .MuiTab-root': {
+              color: 'var(--text-secondary)',
+              minHeight: 48,
+              textTransform: 'none',
+              fontWeight: 700,
+            },
+            '& .Mui-selected': { color: 'var(--color-accent) !important' },
+            '& .MuiTabs-indicator': { background: 'var(--color-accent)' },
+          }}
+        >
+          <Tab label="Ficha" />
+          {SUBCOLECOES.map(({ chave, label }) => (
+            <Tab
+              key={chave}
+              label={
+                subcolecoes[chave]?.status === 'ok' &&
+                subcolecoes[chave].docs.length > 0
+                  ? `${label} (${subcolecoes[chave].docs.length})`
+                  : label
+              }
+            />
+          ))}
+        </Tabs>
+      </Box>
+
+      <DialogContent
+        dividers
+        sx={{
+          px: 3,
+          py: 3,
+          overflowY: 'auto',
+          background: 'rgba(10, 12, 16, 1)',
+        }}
+      >
+        {aba === 0 && (
+          <Box sx={{ display: 'grid', gap: 3 }}>
+            <Box
+              sx={{
+                display: 'grid',
+                gap: 3,
+                gridTemplateColumns: 'minmax(220px, 300px) minmax(0, 1fr)',
+                alignItems: 'start',
+              }}
+            >
+              <Paper
+                elevation={0}
+                sx={{
+                  position: 'relative',
+                  overflow: 'hidden',
+                  borderRadius: 3,
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  minHeight: 320,
+                  background: 'rgba(20, 24, 34, 0.98)',
+                }}
+              >
+                {personagem?.linkImagem ? (
+                  <Box
+                    component="img"
+                    src={personagem.linkImagem}
+                    alt={personagem.nome}
+                    loading="lazy"
+                    sx={{
+                      width: '100%',
+                      height: 320,
+                      objectFit: 'cover',
+                      display: 'block',
+                    }}
+                  />
+                ) : (
+                  <Box
+                    sx={{
+                      width: '100%',
+                      height: 320,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      background: 'rgba(255,255,255,0.04)',
+                    }}
+                  >
+                    <Typography sx={{ color: 'var(--text-muted)' }}>
+                      Sem imagem
+                    </Typography>
+                  </Box>
+                )}
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    inset: 0,
+                    background:
+                      'linear-gradient(180deg, rgba(10,12,16,0.00) 0%, rgba(10,12,16,0.88) 100%)',
+                  }}
                 />
+              </Paper>
+              <Box sx={{ display: 'grid', gap: 2 }}>
+                <Paper
+                  elevation={0}
+                  sx={{
+                    p: 2,
+                    background: 'rgba(25, 28, 37, 0.96)',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    borderRadius: 2,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 1,
+                  }}
+                >
+                  <Typography
+                    variant="overline"
+                    sx={{
+                      color: 'var(--color-muted)',
+                      textTransform: 'uppercase',
+                      letterSpacing: 1,
+                    }}
+                  >
+                    Identidade
+                  </Typography>
+                  <Typography
+                    variant="h6"
+                    sx={{ color: 'var(--text-primary)', fontWeight: 700 }}
+                  >
+                    {personagem?.nome}
+                  </Typography>
+                  <Typography sx={{ color: 'var(--text-secondary)' }}>
+                    {construirMeta() || 'Nenhuma informação disponível'}
+                  </Typography>
+                  {personagemResolvido?.raca && (
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'baseline' }}>
+                      <Typography sx={{ color: 'var(--text-muted)', mr: 0.5 }}>
+                        Raça:
+                      </Typography>
+                      <Typography sx={{ color: 'var(--text-primary)' }}>
+                        {personagemResolvido.raca}
+                      </Typography>
+                    </Box>
+                  )}
+                  {personagemResolvido?.classes && (
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'baseline' }}>
+                      <Typography sx={{ color: 'var(--text-muted)', mr: 0.5 }}>
+                        Classes:
+                      </Typography>
+                      {personagemResolvido.classes.map((classe, index) => (
+                        <Typography key={`${classe}-${index}`} sx={{ color: 'var(--text-primary)' }}>
+                          {classe}
+                        </Typography>
+                      ))}
+                    </Box>
+                  )}
+                </Paper>
+
+                <Paper
+                  elevation={0}
+                  sx={{
+                    p: 2,
+                    background: 'rgba(25, 28, 37, 0.96)',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    borderRadius: 2,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 1,
+                  }}
+                >
+                  <Typography
+                    variant="overline"
+                    sx={{
+                      color: 'var(--color-muted)',
+                      textTransform: 'uppercase',
+                      letterSpacing: 1,
+                    }}
+                  >
+                    Power Combat
+                  </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <SportsMmaOutlinedIcon sx={{ color: 'var(--color-accent)', fontSize: 22 }} />
+                    <Typography
+                      variant="h4"
+                      sx={{ color: 'var(--text-primary)', fontWeight: 800 }}
+                    >
+                      {personagem?.powerCombat ?? '—'}
+                    </Typography>
+                  </Box>
+                </Paper>
               </Box>
-            )}
-            {estado.status === 'erro' && (
-              <Typography
-                variant="body2"
-                sx={{ color: 'var(--text-muted)', fontStyle: 'italic' }}
+            </Box>
+
+            <Box
+              sx={{
+                display: 'grid',
+                gap: 3,
+                gridTemplateColumns: '1fr 1fr',
+              }}
+            >
+              <PanelCard title="Atributos Principais">
+                <Box
+                  sx={{
+                    display: 'grid',
+                    gap: 2,
+                    gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+                  }}
+                >
+                  {atributosPrincipais.map(item => (
+                    <AtributoCard
+                      key={item.label}
+                      icon={item.icon}
+                      label={item.label}
+                      value={item.value}
+                    />
+                  ))}
+                </Box>
+              </PanelCard>
+
+              <PanelCard title="Status">
+                <Box
+                  sx={{
+                    display: 'grid',
+                    gap: 2,
+                    gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+                  }}
+                >
+                  {statusCards.map(item => (
+                    <StatusCard
+                      key={item.label}
+                      label={item.label}
+                      value={item.value}
+                      sublabel={item.sublabel}
+                    />
+                  ))}
+                </Box>
+              </PanelCard>
+            </Box>
+
+            <PanelCard title="Atributos Totais">
+              <Box
+                sx={{
+                  display: 'grid',
+                  gap: 2,
+                  gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+                }}
               >
-                Sem acesso a &quot;{label}&quot; — ficha pertence a outro
-                usuário do Re-Dungeon.
-              </Typography>
-            )}
-            {estado.status === 'ok' && estado.docs.length === 0 && (
-              <Typography
-                variant="body2"
-                sx={{ color: 'var(--text-muted)', fontStyle: 'italic' }}
-              >
-                Nenhum registro em &quot;{label}&quot;.
-              </Typography>
-            )}
-            {estado.status === 'ok' && estado.docs.length > 0 && (
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                {estado.docs.map(doc => (
-                  <CardSubcolecaoDoc
-                    key={doc.id}
-                    doc={doc}
-                    titulo={
-                      chave === 'aptidoesAdquiridas'
-                        ? aptidaoNomes[doc.id] === undefined
-                          ? doc.id
-                          : (aptidaoNomes[doc.id] ?? 'Aptidão não encontrada')
-                        : null
-                    }
+                {atributosTotais.map(item => (
+                  <AtributoCard
+                    key={item.label}
+                    icon={item.icon}
+                    label={item.label}
+                    value={item.value}
                   />
                 ))}
               </Box>
-            )}
+            </PanelCard>
+
+            <PanelCard title="Atributos Secundários">
+              <Box
+                sx={{
+                  display: 'grid',
+                  gap: 2,
+                  gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+                }}
+              >
+                {atributosSecundarios.map(item => (
+                  <AtributoCard
+                    key={item.label}
+                    icon={item.icon}
+                    label={item.label}
+                    value={item.value}
+                  />
+                ))}
+              </Box>
+            </PanelCard>
+
+            <PanelCard title="Atributos Detalhados">
+              <Box
+                sx={{
+                  overflowX: 'auto',
+                }}
+              >
+                <Box
+                  component="table"
+                  sx={{
+                    width: '100%',
+                    borderCollapse: 'separate',
+                    borderSpacing: 0,
+                    minWidth: 640,
+                  }}
+                >
+                  <Box component="thead">
+                    <Box component="tr">
+                      <Box
+                        component="th"
+                        sx={{
+                          textAlign: 'left',
+                          color: 'var(--text-secondary)',
+                          fontSize: '0.75rem',
+                          letterSpacing: 1,
+                          textTransform: 'uppercase',
+                          py: 1.5,
+                          px: 1.5,
+                        }}
+                      >
+                        Atributo
+                      </Box>
+                      <Box
+                        component="th"
+                        sx={{
+                          textAlign: 'right',
+                          color: 'var(--text-secondary)',
+                          fontSize: '0.75rem',
+                          letterSpacing: 1,
+                          textTransform: 'uppercase',
+                          py: 1.5,
+                          px: 1.5,
+                        }}
+                      >
+                        Base
+                      </Box>
+                      <Box
+                        component="th"
+                        sx={{
+                          textAlign: 'right',
+                          color: 'var(--text-secondary)',
+                          fontSize: '0.75rem',
+                          letterSpacing: 1,
+                          textTransform: 'uppercase',
+                          py: 1.5,
+                          px: 1.5,
+                        }}
+                      >
+                        Bônus
+                      </Box>
+                      <Box
+                        component="th"
+                        sx={{
+                          textAlign: 'right',
+                          color: 'var(--text-secondary)',
+                          fontSize: '0.75rem',
+                          letterSpacing: 1,
+                          textTransform: 'uppercase',
+                          py: 1.5,
+                          px: 1.5,
+                        }}
+                      >
+                        Extra
+                      </Box>
+                      <Box
+                        component="th"
+                        sx={{
+                          textAlign: 'right',
+                          color: 'var(--text-secondary)',
+                          fontSize: '0.75rem',
+                          letterSpacing: 1,
+                          textTransform: 'uppercase',
+                          py: 1.5,
+                          px: 1.5,
+                        }}
+                      >
+                        Total
+                      </Box>
+                    </Box>
+                  </Box>
+                  <Box component="tbody">
+                    {atributosPrincipais.map(({ label }) => {
+                      const campo = label.toLowerCase();
+                      const base = personagem?.atributosBase?.[campo] ?? '—';
+                      const bonus = personagem?.atributosBonus?.[campo] ?? '—';
+                      const extra = personagem?.atributosExtra?.[campo] ?? '—';
+                      const total =
+                        personagem?.[campo] ??
+                        personagem?.atributos?.[campo] ??
+                        personagem?.atributosBase?.[campo] ??
+                        '—';
+                      return (
+                        <Box component="tr" key={label}>
+                          <Box
+                            component="td"
+                            sx={{
+                              py: 1.25,
+                              px: 1.5,
+                              color: 'var(--text-primary)',
+                            }}
+                          >
+                            {label}
+                          </Box>
+                          {[base, bonus, extra, total].map((valor, index) => (
+                            <Box
+                              key={index}
+                              component="td"
+                              sx={{
+                                py: 1.25,
+                                px: 1.5,
+                                textAlign: 'right',
+                                color: 'var(--text-secondary)',
+                              }}
+                            >
+                              {String(valor)}
+                            </Box>
+                          ))}
+                        </Box>
+                      );
+                    })}
+                  </Box>
+                </Box>
+              </Box>
+            </PanelCard>
+
+            <PanelCard title="Informações do Jogador">
+              {personagem?.jogador ? (
+                <Box sx={{ display: 'grid', gap: 1.25 }}>
+                  <Typography sx={{ color: 'var(--text-primary)' }}>
+                    {personagem.jogador}
+                  </Typography>
+                  {personagem?.jogadorInfo && (
+                    <Typography sx={{ color: 'var(--text-secondary)' }}>
+                      {personagem.jogadorInfo}
+                    </Typography>
+                  )}
+                </Box>
+              ) : (
+                <Typography sx={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                  Nenhuma informação disponível
+                </Typography>
+              )}
+            </PanelCard>
+
+            <PanelCard title="Detalhes Adicionais">
+              {renderFichaPrincipal()}
+            </PanelCard>
           </Box>
-        );
-      })}
-    </EntityViewDialog>
+        )}
+
+        {aba >= 1 && (
+          <Box sx={{ display: 'grid', gap: 2 }}>
+            {SUBCOLECOES.map(({ chave, label }, indice) => {
+              if (aba !== indice + 1) return null;
+              const estado = subcolecoes[chave] ?? {
+                status: 'loading',
+                docs: [],
+              };
+              return (
+                <Box key={chave}>
+                  {estado.status === 'loading' && (
+                    <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
+                      <CircularProgress
+                        size={22}
+                        sx={{ color: 'var(--color-accent)' }}
+                      />
+                    </Box>
+                  )}
+                  {estado.status === 'erro' && (
+                    <Typography
+                      variant="body2"
+                      sx={{ color: 'var(--text-muted)', fontStyle: 'italic' }}
+                    >
+                      Sem acesso a &quot;{label}&quot; — ficha pertence a outro
+                      usuário do Re-Dungeon.
+                    </Typography>
+                  )}
+                  {estado.status === 'ok' && estado.docs.length === 0 && (
+                    <Typography
+                      variant="body2"
+                      sx={{ color: 'var(--text-muted)', fontStyle: 'italic' }}
+                    >
+                      Nenhum registro em &quot;{label}&quot;.
+                    </Typography>
+                  )}
+                  {estado.status === 'ok' && estado.docs.length > 0 && (
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                      {estado.docs.map(doc => (
+                        <CardSubcolecaoDoc
+                          key={doc.id}
+                          doc={doc}
+                          titulo={
+                            chave === 'aptidoesAdquiridas'
+                              ? aptidaoNomes[doc.id] === undefined
+                                ? doc.id
+                                : (aptidaoNomes[doc.id] ?? 'Aptidão não encontrada')
+                              : null
+                          }
+                        />
+                      ))}
+                    </Box>
+                  )}
+                </Box>
+              );
+            })}
+          </Box>
+        )}
+      </DialogContent>
+
+      <DialogActions
+        sx={{
+          px: 3,
+          py: 2,
+          borderTop: '1px solid rgba(255,255,255,0.08)',
+          background: 'rgba(12, 14, 20, 0.96)',
+          position: 'sticky',
+          bottom: 0,
+          zIndex: 10,
+        }}
+      >
+        <Button
+          onClick={onClose}
+          sx={{
+            color: 'var(--text-secondary)',
+            '&:hover': { color: 'var(--text-primary)' },
+          }}
+        >
+          Fechar
+        </Button>
+        {actions}
+      </DialogActions>
+    </Dialog>
   );
 };
 

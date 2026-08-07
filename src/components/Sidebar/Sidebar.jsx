@@ -14,6 +14,7 @@ import LoginModal from 'components/LoginModal/LoginModal';
 import {
   SidebarWrapper,
   LogoSection,
+  LogoImage,
   StyledNavLink,
   NavItemButton,
   UserButton,
@@ -35,35 +36,27 @@ const Sidebar = () => {
   return (
     <SidebarWrapper id="remaster-sidebar">
       <LogoSection>
-        <Box
-          component="img"
-          src="https://i.imgur.com/3xTDlF9.png"
-          alt="Brasão Re:Master"
-          sx={{
-            width: 40,
-            height: 40,
-            objectFit: 'contain',
-            flexShrink: 0,
-          }}
-        />
-        <Box>
-          <Typography
-            variant="h6"
-            sx={{
-              color: 'var(--text-primary)',
-              fontWeight: 700,
-              lineHeight: 1.2,
-            }}
-          >
-            Re:Master
-          </Typography>
+        <Box sx={{ position: 'relative', width: '100%', height: 96, flexShrink: 0 }}>
+          <LogoImage
+            src="https://i.imgur.com/3xTDlF9.png"
+            alt="Brasão Re:Master"
+          />
           <Typography
             variant="caption"
             sx={{
-              color: 'var(--accent-primary)',
-              fontWeight: 600,
-              letterSpacing: 1,
+              position: 'absolute',
+              right: 10,
+              bottom: 10,
+              color: '#FFF',
+              fontWeight: 700,
+              letterSpacing: '0.08em',
               textTransform: 'uppercase',
+              fontSize: 10,
+              lineHeight: 1,
+              px: 0.75,
+              py: 0.35,
+              bgcolor: 'rgba(0, 0, 0, 0.55)',
+              borderRadius: '8px',
             }}
           >
             V0.1

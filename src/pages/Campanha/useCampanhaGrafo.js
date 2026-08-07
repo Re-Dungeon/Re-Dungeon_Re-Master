@@ -12,8 +12,8 @@ import useAsyncEffect from 'hooks/useAsyncEffect';
 import { useSnackbar } from 'context/SnackbarContext';
 import { ESTADO_CENA_OPCOES } from './cenaUtils';
 
-const NODE_WIDTH = 240;
-const NODE_HEIGHT = 120;
+const NODE_WIDTH = 180;
+const NODE_HEIGHT = 160;
 
 const calcularLayoutAutomatico = (cenas, conexoes) => {
   const grafo = new dagre.graphlib.Graph();

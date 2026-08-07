@@ -93,15 +93,14 @@ describe('Dashboard', () => {
     expect(navigate).toHaveBeenCalledWith('/campanha');
   });
 
-  it('mostra o cabeçalho com o nome da campanha ativa', async () => {
+  it('mostra o cabeçalho da dashboard quando há campanha ativa', async () => {
     renderDashboard();
 
-    expect(
-      await screen.findByText('Dashboard — Ascensão Carmesim'),
-    ).toBeInTheDocument();
+    expect(await screen.findByText('Dashboard')).toBeInTheDocument();
+    expect(await screen.findByText('Sentinelas da Coroa')).toBeInTheDocument();
   });
 
-  it('mostra a Cena Atual com estado e permite abrir no fluxograma', async () => {
+  it('mostra a Cena Atual com estado e permite abrir o fluxograma', async () => {
     campanhaAtiva = { ...CAMPANHA_ATIVA, cenaAtualId: 'cena1' };
     const user = userEvent.setup();
     renderDashboard();
@@ -110,17 +109,17 @@ describe('Dashboard', () => {
     expect(screen.getByText('Em Andamento')).toBeInTheDocument();
     expect(screen.getByText('Entrar na cidade')).toBeInTheDocument();
 
-    await user.click(screen.getByText('Abrir no Fluxograma →'));
-    expect(navigate).toHaveBeenCalledWith('/campanha/cenas', {
-      state: { selecionarCenaId: 'cena1' },
-    });
+    await user.click(screen.getByRole('button', { name: 'Abrir Fluxograma' }));
+    expect(navigate).toHaveBeenCalledWith('/campanha/cenas');
   });
 
   it('mostra o prompt para marcar uma Cena Atual quando nenhuma está definida', async () => {
     renderDashboard();
 
     expect(
-      await screen.findByText(/Nenhuma cena marcada como atual ainda/),
+      await screen.findByText(
+        'Ainda não existe uma cena ativa. Selecione uma para iniciar o comando da sua sessão.',
+      ),
     ).toBeInTheDocument();
   });
 
@@ -134,9 +133,8 @@ describe('Dashboard', () => {
     renderDashboard();
 
     await screen.findByText('Próximas Cenas');
-    const botaoProxima = screen.getByRole('button', {
-      name: 'Encontro com o Prefeito',
-    });
+    await screen.findByText('Encontro com o Prefeito');
+    const botaoProxima = screen.getByRole('button', { name: 'Ver' });
     await user.click(botaoProxima);
 
     expect(navigate).toHaveBeenCalledWith('/campanha/cenas', {
@@ -144,7 +142,7 @@ describe('Dashboard', () => {
     });
   });
 
-  it('mostra as notas mais recentes e o link "Ver todas"', async () => {
+  it('mostra as notas mais recentes quando há notas', async () => {
     getRmNotasPorCampanha.mockResolvedValue([
       {
         id: 'nota1',
@@ -156,14 +154,13 @@ describe('Dashboard', () => {
     renderDashboard();
 
     expect(await screen.findByText('Ideia para a sessão')).toBeInTheDocument();
-    expect(screen.getByText('Ver todas →')).toBeInTheDocument();
   });
 
   it('mostra o estado vazio de notas quando não há nenhuma', async () => {
     renderDashboard();
 
     expect(
-      await screen.findByText('Nenhuma nota registrada ainda.'),
+      await screen.findByText(/Nenhuma nota registrada ainda\./),
     ).toBeInTheDocument();
   });
 

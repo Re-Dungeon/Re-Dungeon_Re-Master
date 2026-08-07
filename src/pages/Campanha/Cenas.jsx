@@ -90,28 +90,40 @@ const Cenas = () => {
       <Box
         sx={{
           display: 'flex',
-          alignItems: 'flex-start',
+          flexDirection: { xs: 'column', md: 'row' },
+          alignItems: { xs: 'stretch', md: 'flex-start' },
           justifyContent: 'space-between',
+          gap: 2,
           mb: 3,
         }}
       >
-        <Box>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
           <Button
             onClick={() => navigate(ROUTE_PATHS.CAMPANHA)}
-            sx={{ color: 'var(--text-muted)', px: 0, mb: 1 }}
+            sx={{ color: 'var(--text-muted)', px: 0, mb: 1, alignSelf: 'flex-start' }}
           >
             ← Voltar para Campanhas
           </Button>
           <Typography
             variant="h5"
-            sx={{ color: 'var(--text-primary)', fontWeight: 700, mb: 0.5 }}
+            sx={{
+              color: 'var(--text-primary)',
+              fontWeight: 800,
+              letterSpacing: '0.01em',
+            }}
           >
             Cenas — {campanhaAtiva?.nome}
           </Typography>
-          <Typography variant="body2" sx={{ color: 'var(--text-secondary)' }}>
-            Arraste as cenas para organizar o fluxograma, conecte-as puxando de
-            uma borda até outra cena e use o × no meio da seta para remover uma
-            conexão.
+          <Typography
+            variant="body2"
+            sx={{
+              color: 'var(--text-secondary)',
+              maxWidth: { xs: '100%', md: 640 },
+              lineHeight: 1.7,
+            }}
+          >
+            Organize o fluxo das cenas, conecte-as de forma intuitiva e visualize
+            sua campanha com um estilo mais limpo e profissional.
           </Typography>
         </Box>
         {canCreate() && podeEscrever && cenas.length > 0 && (
@@ -119,8 +131,17 @@ const Cenas = () => {
             variant="contained"
             onClick={() => navigate(ROUTE_PATHS.NOVA_CENA)}
             sx={{
-              background: 'var(--color-primary)',
-              '&:hover': { background: 'var(--color-primary-dark)' },
+              background: 'linear-gradient(135deg, rgba(143,35,28,1), rgba(196,58,47,1))',
+              color: '#FFFFFF',
+              boxShadow: '0 16px 34px rgba(196,58,47,0.24)',
+              textTransform: 'none',
+              fontWeight: 700,
+              px: 3,
+              py: 1.25,
+              alignSelf: { xs: 'flex-start', md: 'auto' },
+              '&:hover': {
+                background: 'linear-gradient(135deg, rgba(196,58,47,1), rgba(143,35,28,1))',
+              },
             }}
           >
             + Nova Cena

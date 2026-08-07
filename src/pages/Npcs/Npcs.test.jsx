@@ -118,33 +118,48 @@ describe('Npcs (personagens do Universo vinculados à campanha ativa)', () => {
     );
   });
 
-  it('abre a ficha completa do personagem ao clicar em "Ver ficha"', async () => {
+  it('exibe a grade de atributos e mantém apenas o ícone de ver ficha no cabeçalho', async () => {
+    renderNpcs();
+
+    await waitFor(() =>
+      expect(screen.getByText('Grumnak, o Orc')).toBeInTheDocument(),
+    );
+
+    expect(screen.getAllByText('FOR').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('VIT').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('AGI').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('INT').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('PER').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('SOR').length).toBeGreaterThan(0);
+
+    expect(
+      screen.getByLabelText('Ver ficha de Grumnak, o Orc'),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Clonar' })).not.toBeInTheDocument();
+  });
+
+  it('abre a ficha completa do personagem ao clicar no ícone de ver ficha', async () => {
     const user = userEvent.setup();
     renderNpcs();
 
     await waitFor(() =>
       expect(screen.getByText('Grumnak, o Orc')).toBeInTheDocument(),
     );
-    await user.click(screen.getAllByRole('button', { name: 'Ver ficha' })[0]);
+    await user.click(screen.getByLabelText('Ver ficha de Grumnak, o Orc'));
 
     expect(
       screen.getByText('Ficha completa do personagem'),
     ).toBeInTheDocument();
   });
 
-  it('navega para a tela de clone ao clicar em "Clonar"', async () => {
-    const user = userEvent.setup();
+  it('não mostra o botão de clonar no card simplificado', async () => {
     renderNpcs();
 
     await waitFor(() =>
       expect(screen.getByText('Grumnak, o Orc')).toBeInTheDocument(),
     );
-    await user.click(screen.getAllByRole('button', { name: 'Clonar' })[0]);
 
-    expect(navigate).toHaveBeenCalledWith(
-      '/npcs/clonar',
-      expect.objectContaining({ state: { personagem: PERSONAGENS_MOCK[0] } }),
-    );
+    expect(screen.queryByRole('button', { name: 'Clonar' })).not.toBeInTheDocument();
   });
 
   it('mostra "Clonado nesta campanha" e ações de editar/remover quando já existe um clone', async () => {
@@ -159,8 +174,9 @@ describe('Npcs (personagens do Universo vinculados à campanha ativa)', () => {
     expect(
       screen.getByLabelText('Editar clone de Grumnak, o Orc'),
     ).toBeInTheDocument();
-    // Só Lyra (sem clone) ainda mostra o botão "Clonar" — Grumnak (já clonado) não.
-    expect(screen.getAllByRole('button', { name: 'Clonar' })).toHaveLength(1);
+    expect(
+      screen.queryByRole('button', { name: 'Clonar' }),
+    ).not.toBeInTheDocument();
   });
 
   it('remove um clone', async () => {
@@ -181,7 +197,7 @@ describe('Npcs (personagens do Universo vinculados à campanha ativa)', () => {
     );
   });
 
-  it('não mostra ações de clonar/editar/remover quando canWrite retorna false', async () => {
+  it('não mostra ações de editar/remover quando canWrite retorna false', async () => {
     canWrite.mockReturnValue(false);
     getRmCampanhaNpcs.mockResolvedValue([
       { id: 'clone1', origemPersonagemId: 'p1', nome: 'Grumnak, o Orc' },

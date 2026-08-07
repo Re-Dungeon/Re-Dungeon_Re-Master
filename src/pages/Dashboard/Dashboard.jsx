@@ -34,10 +34,11 @@ const cardSx = {
 const dashboardHeroSx = {
   position: 'relative',
   overflow: 'hidden',
-  borderRadius: '14px',
+  borderRadius: '18px',
   border: '1px solid rgba(255,255,255,0.08)',
-  background: 'linear-gradient(180deg, rgba(24,28,35,0.95), rgba(18,22,29,0.88))',
-  boxShadow: '0 18px 50px rgba(0,0,0,0.45)',
+  background: 'rgba(20, 25, 34, 0.72)',
+  backdropFilter: 'blur(12px)',
+  boxShadow: '0 20px 64px rgba(0,0,0,0.38)',
 };
 
 const sectionCardSx = {
@@ -195,7 +196,7 @@ const Dashboard = () => {
     );
   }
 
-  const logsRecentes = logs.slice(0, 6);
+  const logsRecentes = logs.slice(0, 5);
   const cenaAtual = cenas.find(c => c.id === campanhaAtiva.cenaAtualId) ?? null;
   const estadoCenaAtual =
     cenaAtual && ESTADO_CENA_OPCOES.find(o => o.value === cenaAtual.estado);
@@ -216,7 +217,7 @@ const Dashboard = () => {
         sx={{
           position: 'absolute',
           inset: 0,
-          backgroundImage: 'url("https://i.imgur.com/h1J2YyV.jpg")',
+          backgroundImage: 'url("https://i.imgur.com/lfbLUGy.png")',
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           opacity: 0.22,
@@ -256,10 +257,11 @@ const Dashboard = () => {
           <Typography
             variant="h3"
             sx={{
-              color: '#F5F5F5',
-              fontWeight: 800,
-              letterSpacing: '0.03em',
-              lineHeight: 1.05,
+              color: '#FFFFFF',
+              fontWeight: 900,
+              letterSpacing: '0.04em',
+              lineHeight: 1.02,
+              textShadow: '0 10px 30px rgba(0,0,0,0.35)',
             }}
           >
             Dashboard
@@ -267,10 +269,11 @@ const Dashboard = () => {
           <Typography
             variant="h6"
             sx={{
-              color: '#9FA7B2',
-              fontWeight: 500,
-              letterSpacing: '0.06em',
+              color: '#D7D7E4',
+              fontWeight: 700,
+              letterSpacing: '0.08em',
               textTransform: 'uppercase',
+              textShadow: '0 4px 18px rgba(0,0,0,0.18)',
             }}
           >
             Sentinelas da Coroa
@@ -278,10 +281,12 @@ const Dashboard = () => {
           <Typography
             variant="body1"
             sx={{
-              color: '#9FA7B2',
+              color: '#E2E6EF',
               maxWidth: 720,
-              fontSize: 15,
-              mt: 1,
+              fontSize: 16,
+              lineHeight: 1.85,
+              mt: 1.25,
+              textShadow: '0 2px 12px rgba(0,0,0,0.12)',
             }}
           >
             Centro de comando da sessão em andamento. Toda informação crucial está organizada para a tomada de decisões rápidas e imersivas.
@@ -334,13 +339,18 @@ const Dashboard = () => {
                 >
                   <Box>
                     <Typography
-                      variant="caption"
+                      variant="body2"
                       sx={{
-                        color: '#9FA7B2',
+                        color: '#F8F4E9',
                         textTransform: 'uppercase',
                         letterSpacing: '0.18em',
                         mb: 1,
-                        display: 'block',
+                        display: 'inline-block',
+                        px: 2,
+                        py: 0.5,
+                        borderRadius: '999px',
+                        bgcolor: 'rgba(255,255,255,0.08)',
+                        textShadow: '0 4px 18px rgba(0,0,0,0.18)',
                       }}
                     >
                       Cena Atual
@@ -348,8 +358,8 @@ const Dashboard = () => {
                     <Typography
                       variant="h4"
                       sx={{
-                        color: '#F5F5F5',
-                        fontWeight: 800,
+                        color: '#FFFFFF',
+                        fontWeight: 1000,
                         mb: 1,
                         letterSpacing: '-0.03em',
                       }}
@@ -361,10 +371,10 @@ const Dashboard = () => {
                         display: 'inline-flex',
                         alignItems: 'center',
                         gap: 1,
-                        background: 'rgba(255,255,255,0.06)',
-                        border: '1px solid rgba(255,255,255,0.08)',
+                        background: 'rgba(207, 191, 191, 0.06)',
+                        border: '2px solid rgba(247, 247, 247, 0.08)',
                         borderRadius: '999px',
-                        px: 2,
+                        px: 4,
                         py: 0.75,
                         mb: 2,
                       }}
@@ -379,21 +389,32 @@ const Dashboard = () => {
                       />
                       <Typography
                         variant="body2"
-                        sx={{ color: '#F5F5F5', fontWeight: 700 }}
+                        sx={{
+                          color: '#FFFFFF',
+                          fontWeight: 900,
+                          letterSpacing: '0.05em',
+                          textTransform: 'uppercase',
+                        }}
                       >
                         {estadoCenaAtual?.label ?? 'Pendente'}
                       </Typography>
                     </Box>
                     <Typography
                       variant="body2"
-                      sx={{ color: '#9FA7B2', maxWidth: 620, lineHeight: 1.75 }}
+                      sx={{
+                        color: '#EDF0F7',
+                        maxWidth: 620,
+                        lineHeight: 1.9,
+                        fontWeight: 600,
+                        fontSize: 15,
+                      }}
                     >
                       {cenaAtual?.objetivo ?? 'Ainda não existe uma cena ativa. Selecione uma para iniciar o comando da sua sessão.'}
                     </Typography>
                   </Box>
                   <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mt: 3 }}>
                     <Button
-                      onClick={() => cenaAtual && irParaCena(cenaAtual.id)}
+                      onClick={() => navigate(ROUTE_PATHS.CENAS)}
                       sx={{
                         background: 'linear-gradient(135deg, #8F231C 0%, #C43A2F 100%)',
                         color: '#F5F5F5',
@@ -412,23 +433,6 @@ const Dashboard = () => {
                       }}
                     >
                       Abrir Fluxograma
-                    </Button>
-                    <Button
-                      onClick={() => navigate(ROUTE_PATHS.CENAS)}
-                      sx={{
-                        color: '#F5F5F5',
-                        border: '1px solid rgba(255,255,255,0.14)',
-                        px: 3.5,
-                        py: 1.5,
-                        borderRadius: '12px',
-                        textTransform: 'none',
-                        background: 'rgba(255,255,255,0.04)',
-                        '&:hover': {
-                          background: 'rgba(255,255,255,0.08)',
-                        },
-                      }}
-                    >
-                      Abrir Caminhos
                     </Button>
                   </Box>
                 </Box>
@@ -474,7 +478,7 @@ const Dashboard = () => {
             </Paper>
           </Box>
 
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          <Box sx={{ display: 'grid', gridTemplateRows: 'auto auto 1fr', gap: 3, minHeight: 683 }}>
             <Paper elevation={0} sx={sectionCardSx}>
               <Box
                 sx={{
@@ -659,7 +663,7 @@ const Dashboard = () => {
               >
                 Registro da Sessão
               </Typography>
-              <Box sx={{ mt: 2, display: 'grid', gap: 2, maxHeight: 360, overflowY: 'auto', pr: 0.5 }}>
+              <Box sx={{ mt: 2, display: 'grid', gap: 2, maxHeight: 400, overflowY: 'auto', pr: 0.5 }}>
                 {logsRecentes.length === 0 ? (
                   <Box sx={{ p: 3, background: 'rgba(255,255,255,0.02)', borderRadius: '14px' }}>
                     <Typography variant="body2" sx={{ color: '#9FA7B2' }}>

@@ -31,11 +31,20 @@ import {
 const inputSx = {
   '& .MuiOutlinedInput-root': {
     color: 'var(--text-primary)',
-    '& fieldset': { borderColor: 'var(--border-primary)' },
-    '&:hover fieldset': { borderColor: 'var(--border-hover)' },
-    '&.Mui-focused fieldset': { borderColor: 'var(--color-accent)' },
+    borderRadius: '12px',
+    padding: 0,
+    '& fieldset': { borderColor: 'rgba(255,255,255,0.06)' },
+    '&:hover fieldset': { borderColor: 'rgba(255,255,255,0.12)' },
+    '&.Mui-focused fieldset': {
+      borderColor: 'rgba(196,58,47,0.9)',
+      boxShadow: '0 6px 20px rgba(196,58,47,0.10)',
+    },
+    '& input, & textarea': { padding: '12px 14px' },
   },
-  '& .MuiInputLabel-root': { color: 'var(--text-secondary)' },
+  '& .MuiInputLabel-root': {
+    color: 'var(--text-secondary)',
+    fontWeight: 600,
+  },
   '& .MuiInputLabel-root.Mui-focused': { color: 'var(--color-accent)' },
   '& .MuiFormHelperText-root': { color: '#ef4444' },
 };
@@ -43,28 +52,26 @@ const inputSx = {
 const selectSx = {
   color: 'var(--text-primary)',
   '& .MuiOutlinedInput-notchedOutline': {
-    borderColor: 'var(--border-primary)',
+    borderColor: 'rgba(255,255,255,0.06)',
+    borderRadius: '12px',
   },
   '&:hover .MuiOutlinedInput-notchedOutline': {
-    borderColor: 'var(--border-hover)',
+    borderColor: 'rgba(255,255,255,0.12)',
   },
   '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-    borderColor: 'var(--color-accent)',
+    borderColor: 'rgba(196,58,47,0.9)',
+    boxShadow: '0 6px 20px rgba(196,58,47,0.08)',
   },
   '& .MuiSvgIcon-root': { color: 'var(--text-secondary)' },
 };
 
-const menuPropsSx = {
-  PaperProps: {
-    sx: { background: 'var(--bg-card)', color: 'var(--text-primary)' },
-  },
-};
-
 const sectionSx = {
-  p: 3,
-  background: 'var(--bg-card)',
-  border: '1px solid var(--border-primary)',
-  borderRadius: 2,
+  p: { xs: 2.5, md: 4 },
+  background: 'rgba(8,12,18,0.64)',
+  backdropFilter: 'blur(6px)',
+  border: '1px solid rgba(255,255,255,0.04)',
+  borderRadius: '16px',
+  boxShadow: '0 10px 30px rgba(0,0,0,0.45)',
 };
 
 const PlaceholderModulo = ({ children }) => (
@@ -142,7 +149,7 @@ const CenaForm = ({
       {({ values, errors, touched, isSubmitting }) => (
         <Form>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-            <Paper elevation={0} sx={sectionSx}>
+            <Paper elevation={0} sx={{ ...sectionSx, mb: 1.5 }}>
               <SectionTitle>Informações Gerais</SectionTitle>
               <Box
                 sx={{
@@ -183,7 +190,6 @@ const CenaForm = ({
                           labelId={estadoLabelId}
                           label="Estado da Campanha"
                           sx={selectSx}
-                          MenuProps={menuPropsSx}
                         >
                           {ESTADO_CENA_OPCOES.map(opcao => (
                             <MenuItem key={opcao.value} value={opcao.value}>
@@ -217,7 +223,7 @@ const CenaForm = ({
               </Box>
             </Paper>
 
-            <Paper elevation={0} sx={sectionSx}>
+            <Paper elevation={0} sx={{ ...sectionSx, mb: 1.5 }}>
               <SectionTitle>Narrativa</SectionTitle>
               <Box
                 sx={{
@@ -370,7 +376,6 @@ const CenaForm = ({
                               <Select
                                 {...field}
                                 sx={selectSx}
-                                MenuProps={menuPropsSx}
                               >
                                 {TIPO_CONSEQUENCIA_OPCOES.map(opcao => (
                                   <MenuItem
@@ -464,7 +469,7 @@ const CenaForm = ({
               </Box>
             </Paper>
 
-            <Paper elevation={0} sx={sectionSx}>
+            <Paper elevation={0} sx={{ ...sectionSx, mb: 1.5 }}>
               <SectionTitle>NPCs, Criaturas e Missões</SectionTitle>
               <Box
                 sx={{
@@ -493,7 +498,6 @@ const CenaForm = ({
                           labelId={npcsLabelId}
                           label="NPCs participantes"
                           sx={selectSx}
-                          MenuProps={menuPropsSx}
                           renderValue={selecionados => (
                             <Box
                               sx={{
@@ -549,7 +553,6 @@ const CenaForm = ({
                           labelId={criaturasLabelId}
                           label="Criaturas envolvidas"
                           sx={selectSx}
-                          MenuProps={menuPropsSx}
                           renderValue={selecionados => (
                             <Box
                               sx={{
@@ -622,11 +625,13 @@ const CenaForm = ({
               </Box>
             </Paper>
 
-            <FormActions
-              onCancelar={onCancelar}
-              isSubmitting={isSubmitting}
-              labelSalvar={labelSalvar}
-            />
+            <Box sx={{ position: 'sticky', bottom: 0, pt: 2, mt: 2, background: 'linear-gradient(180deg, rgba(6,10,18,0), rgba(6,10,18,0.95))', borderTop: '1px solid rgba(255,255,255,0.04)', zIndex: 6 }}>
+              <FormActions
+                onCancelar={onCancelar}
+                isSubmitting={isSubmitting}
+                labelSalvar={labelSalvar}
+              />
+            </Box>
           </Box>
         </Form>
       )}

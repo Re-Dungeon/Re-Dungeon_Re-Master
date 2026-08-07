@@ -121,7 +121,7 @@ describe('Jogadores (personagens jogáveis do Universo vinculados à campanha at
     renderJogadores();
 
     await waitFor(() => expect(screen.getByText('Kaelen')).toBeInTheDocument());
-    await user.click(screen.getAllByRole('button', { name: 'Ver ficha' })[0]);
+    await user.click(screen.getAllByRole('button', { name: /Ver ficha/i })[0]);
 
     expect(
       screen.getByText('Ficha completa do personagem'),
@@ -133,7 +133,7 @@ describe('Jogadores (personagens jogáveis do Universo vinculados à campanha at
     renderJogadores();
 
     await waitFor(() => expect(screen.getByText('Kaelen')).toBeInTheDocument());
-    await user.click(screen.getAllByRole('button', { name: 'Clonar' })[0]);
+    await user.click(screen.getAllByRole('button', { name: /Clonar/i })[0]);
 
     expect(navigate).toHaveBeenCalledWith(
       '/jogadores/clonar',
@@ -152,7 +152,7 @@ describe('Jogadores (personagens jogáveis do Universo vinculados à campanha at
     );
     expect(screen.getByLabelText('Editar clone de Kaelen')).toBeInTheDocument();
     // Só Sora (sem clone) ainda mostra o botão "Clonar" — Kaelen (já clonado) não.
-    expect(screen.getAllByRole('button', { name: 'Clonar' })).toHaveLength(1);
+    expect(screen.getAllByRole('button', { name: /Clonar/i })).toHaveLength(1);
   });
 
   it('remove um clone', async () => {
@@ -182,7 +182,7 @@ describe('Jogadores (personagens jogáveis do Universo vinculados à campanha at
 
     await waitFor(() => expect(screen.getByText('Kaelen')).toBeInTheDocument());
     expect(
-      screen.queryByRole('button', { name: 'Clonar' }),
+      screen.queryByRole('button', { name: /Clonar/i }),
     ).not.toBeInTheDocument();
     expect(
       screen.queryByLabelText('Editar clone de Kaelen'),

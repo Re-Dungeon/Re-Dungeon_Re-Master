@@ -17,20 +17,18 @@ export const SidebarWrapper = styled.aside`
 `;
 
 export const LogoSection = styled(Box)`
-  padding: 24px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.02);
+  padding: 16px 18px 14px;
   display: flex;
-  align-items: center;
-  gap: 16px;
+  align-items: stretch;
 `;
 
 export const LogoImage = styled.img`
-  width: 56px;
-  height: 56px;
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.05);
+  width: 100%;
+  height: 100%;
+  border-radius: 18px;
+  background: transparent;
   display: block;
+  object-fit: cover;
 `;
 
 export const StyledNavLink = styled(NavLink)`

@@ -57,7 +57,9 @@ describe('PersonagemFichaDialog', () => {
     await waitFor(() =>
       expect(screen.getByText('Secundarios Base')).toBeInTheDocument(),
     );
-    expect(screen.getByText('Defesa')).toBeInTheDocument();
+    const defesaElements = screen.getAllByText(content => content === 'Defesa');
+    expect(defesaElements.length).toBeGreaterThan(0);
+    expect(screen.getByText(content => content === 'Defesa')).toBeInTheDocument();
     expect(screen.getByText('Prontidao')).toBeInTheDocument();
     expect(screen.queryByText(/"defesa":\s*0/)).not.toBeInTheDocument();
   });
@@ -186,7 +188,9 @@ describe('PersonagemFichaDialog', () => {
     expect(getVeiaAstral).toHaveBeenCalledWith('no-1');
     expect(getVeiaAstral).toHaveBeenCalledWith('no-2');
 
-    await waitFor(() => expect(screen.getByText('Elfo')).toBeInTheDocument());
+    await waitFor(() => {
+      expect(screen.getByText('Elfo')).toBeInTheDocument();
+    });
     expect(screen.getByText('Guerreiro')).toBeInTheDocument();
     expect(screen.getByText('Chama Ancestral')).toBeInTheDocument();
     expect(screen.getAllByText('Não encontrado(a)')).toHaveLength(2);

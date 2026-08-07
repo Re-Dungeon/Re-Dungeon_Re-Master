@@ -54,7 +54,7 @@ describe('NovaCampanha', () => {
       expect(screen.getByText('Nova Campanha')).toBeInTheDocument(),
     );
     expect(
-      screen.getByText('Insira um link para ver o preview'),
+      screen.getByText(/cole uma url válida/i),
     ).toBeInTheDocument();
   });
 

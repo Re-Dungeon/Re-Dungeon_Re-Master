@@ -125,7 +125,7 @@ describe('Criaturas (personagens do Universo vinculados à campanha ativa)', () 
     await waitFor(() =>
       expect(screen.getByText('Fera das Sombras')).toBeInTheDocument(),
     );
-    await user.click(screen.getAllByRole('button', { name: 'Ver ficha' })[0]);
+    await user.click(screen.getAllByRole('button', { name: /Ver ficha/i })[0]);
 
     expect(
       screen.getByText('Ficha completa do personagem'),
@@ -139,7 +139,7 @@ describe('Criaturas (personagens do Universo vinculados à campanha ativa)', () 
     await waitFor(() =>
       expect(screen.getByText('Fera das Sombras')).toBeInTheDocument(),
     );
-    await user.click(screen.getAllByRole('button', { name: 'Clonar' })[0]);
+    await user.click(screen.getAllByRole('button', { name: /Clonar/i })[0]);
 
     expect(navigate).toHaveBeenCalledWith(
       '/criaturas/clonar',
@@ -147,20 +147,20 @@ describe('Criaturas (personagens do Universo vinculados à campanha ativa)', () 
     );
   });
 
-  it('mostra "Clonado nesta campanha" e ações de editar/remover quando já existe um clone', async () => {
+  it('mostra o badge visual de clone e ações de editar/remover quando já existe um clone', async () => {
     getRmCampanhaCriaturas.mockResolvedValue([
       { id: 'clone1', origemPersonagemId: 'p1', nome: 'Fera das Sombras' },
     ]);
     renderCriaturas();
 
     await waitFor(() =>
-      expect(screen.getByText('Clonado nesta campanha')).toBeInTheDocument(),
+      expect(screen.getByAltText('Clonado nesta campanha')).toBeInTheDocument(),
     );
     expect(
       screen.getByLabelText('Editar clone de Fera das Sombras'),
     ).toBeInTheDocument();
     // Só Golem de Pedra (sem clone) ainda mostra o botão "Clonar".
-    expect(screen.getAllByRole('button', { name: 'Clonar' })).toHaveLength(1);
+    expect(screen.getAllByRole('button', { name: /Clonar/i })).toHaveLength(1);
   });
 
   it('remove um clone', async () => {
@@ -172,7 +172,7 @@ describe('Criaturas (personagens do Universo vinculados à campanha ativa)', () 
     renderCriaturas();
 
     await waitFor(() =>
-      expect(screen.getByText('Clonado nesta campanha')).toBeInTheDocument(),
+      expect(screen.getByAltText('Clonado nesta campanha')).toBeInTheDocument(),
     );
     await user.click(
       screen.getByLabelText('Remover clone de Fera das Sombras'),
@@ -194,7 +194,7 @@ describe('Criaturas (personagens do Universo vinculados à campanha ativa)', () 
       expect(screen.getByText('Fera das Sombras')).toBeInTheDocument(),
     );
     expect(
-      screen.queryByRole('button', { name: 'Clonar' }),
+      screen.queryByRole('button', { name: /Clonar/i }),
     ).not.toBeInTheDocument();
     expect(
       screen.queryByLabelText('Editar clone de Fera das Sombras'),
