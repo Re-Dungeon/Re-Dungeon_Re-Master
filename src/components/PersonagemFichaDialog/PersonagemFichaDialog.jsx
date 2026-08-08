@@ -31,6 +31,10 @@ import {
   getClasse,
   getVeiaAstral,
 } from 'service/storage';
+import {
+  resolverValorAtributoPrimario,
+  resolverValorAtributoSecundario,
+} from 'common/utils/atributosPersonagem';
 
 // Campos já exibidos pelo EntityViewDialog (nome/imagem/descrição) ou que são
 // metadados internos do Re-Dungeon/Re:Master — não repetidos na ficha abaixo.
@@ -70,6 +74,92 @@ const SUBCOLECOES = [
   { chave: 'materiaisInventario', label: 'Materiais (Inventário)' },
   { chave: 'receitasInventario', label: 'Receitas (Inventário)' },
 ];
+
+// Mesmos aliases usados nos cards de NPCs/Criaturas/Jogadores
+// (common/constants/atributosPersonagem.js) — o primeiro alias de cada item é
+// a chave "canônica" sem acento usada em atributosBase/atributosBonus/atributosExtra.
+const ATRIBUTOS_PRINCIPAIS_DIALOG = [
+  {
+    label: 'Força',
+    icon: FitnessCenterOutlinedIcon,
+    aliases: ['forca', 'for', 'forcaBase'],
+  },
+  {
+    label: 'Inteligência',
+    icon: PsychologyOutlinedIcon,
+    aliases: ['inteligencia', 'int', 'inteligenciaBase'],
+  },
+  {
+    label: 'Percepção',
+    icon: VisibilityOutlinedIcon,
+    aliases: ['percepcao', 'per', 'percepcaoBase'],
+  },
+  {
+    label: 'Agilidade',
+    icon: DirectionsRunOutlinedIcon,
+    aliases: ['agilidade', 'agi', 'agilidadeBase'],
+  },
+  {
+    label: 'Sorte',
+    icon: AutoAwesomeOutlinedIcon,
+    aliases: ['sorte', 'sor', 'sorteBase', 'sorBase'],
+  },
+  {
+    label: 'Vitalidade',
+    icon: FavoriteBorderOutlinedIcon,
+    aliases: ['vitalidade', 'vit', 'vitalidadeBase'],
+  },
+];
+
+const ATRIBUTOS_SECUNDARIOS_DIALOG = [
+  {
+    label: 'Ataque',
+    icon: SportsMmaOutlinedIcon,
+    aliases: ['ataque', 'ataqueBase', 'ataqueBonus'],
+  },
+  {
+    label: 'Reação',
+    icon: SpeedOutlinedIcon,
+    aliases: ['reacao', 'reacaoBase', 'reacaoBonus'],
+  },
+  {
+    label: 'Precisão',
+    icon: VisibilityOutlinedIcon,
+    aliases: ['precisao', 'precisaoBase', 'precisaoBonus'],
+  },
+  {
+    label: 'Evasão',
+    icon: ShieldOutlinedIcon,
+    aliases: ['evasao', 'evasaoBase', 'evasaoBonus'],
+  },
+  {
+    label: 'Prontidão Secundária',
+    icon: BoltOutlinedIcon,
+    aliases: ['prontidao', 'prontidaoBase', 'prontidaoBonus'],
+  },
+  {
+    label: 'Defesa Secundária',
+    icon: ShieldOutlinedIcon,
+    aliases: ['defesa', 'defesaBase', 'defesaBonus'],
+  },
+];
+
+// Caso legado: em alguns docs o campo bruto de Sorte vem como objeto
+// ({ valor/atual/value }) em vez de número — resolverValorAtributoPrimario
+// ignora objetos (só resolve primitivos ou soma numérica), então este
+// fallback só entra quando o resolver genérico não encontrou nada.
+const resolverValorSorte = (personagem, aliases) => {
+  const resolvido = resolverValorAtributoPrimario(personagem, aliases);
+  if (resolvido !== '—') return resolvido;
+
+  const bruto = aliases
+    .flatMap(alias => [personagem?.[alias], personagem?.atributosBase?.[alias]])
+    .find(valor => typeof valor === 'object' && valor !== null);
+  if (!bruto) return resolvido;
+
+  const valorBruto = bruto.valor ?? bruto.atual ?? bruto.value;
+  return valorBruto !== undefined ? String(valorBruto) : resolvido;
+};
 
 const humanizarLabel = campo =>
   campo
@@ -329,7 +419,9 @@ const AtributoCard = ({ icon: Icon, label, value }) => (
       }}
     >
       {Icon && (
-        <Icon sx={{ color: 'var(--color-accent)', fontSize: 20, flexShrink: 0 }} />
+        <Icon
+          sx={{ color: 'var(--color-accent)', fontSize: 20, flexShrink: 0 }}
+        />
       )}
       <Typography
         variant="caption"
@@ -348,10 +440,23 @@ const AtributoCard = ({ icon: Icon, label, value }) => (
     </Box>
     <Typography
       variant="h5"
-      sx={{ color: 'var(--text-primary)', fontWeight: 700, fontSize: '1.65rem' }}
+      sx={{
+        color: 'var(--text-primary)',
+        fontWeight: 700,
+        fontSize: '1.65rem',
+      }}
     >
-      {typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean' || ehTimestamp(value) ? (
-        typeof value === 'boolean' ? String(value) : (ehTimestamp(value) ? formatarTimestamp(value) : String(value))
+      {typeof value === 'string' ||
+      typeof value === 'number' ||
+      typeof value === 'boolean' ||
+      ehTimestamp(value) ? (
+        typeof value === 'boolean' ? (
+          String(value)
+        ) : ehTimestamp(value) ? (
+          formatarTimestamp(value)
+        ) : (
+          String(value)
+        )
       ) : (
         <Box sx={{ width: '100%' }}>
           <CampoValor valor={value} />
@@ -417,7 +522,13 @@ StatusCard.propTypes = {
   sublabel: PropTypes.node,
 };
 
-const PanelCard = ({ title, children, collapsible = false, isOpen = true, onToggle }) => (
+const PanelCard = ({
+  title,
+  children,
+  collapsible = false,
+  isOpen = true,
+  onToggle,
+}) => (
   <Paper
     elevation={0}
     sx={{
@@ -490,7 +601,7 @@ const PersonagemFichaDialog = ({
     detalhesAdicionais: false,
   });
 
-  const toggleCollapse = (painel) => {
+  const toggleCollapse = painel => {
     setCollapseStates(prev => ({
       ...prev,
       [painel]: !prev[painel],
@@ -668,8 +779,7 @@ const PersonagemFichaDialog = ({
       )
     : [];
 
-  const statusValue = valor =>
-    valor?.atual ?? valor ?? '—';
+  const statusValue = valor => valor?.atual ?? valor ?? '—';
 
   const construirMeta = () => {
     const meta = [];
@@ -716,72 +826,16 @@ const PersonagemFichaDialog = ({
     },
   ];
 
-  const atributosPrincipais = [
-    {
-      label: 'Força',
-      icon: FitnessCenterOutlinedIcon,
+  const atributosPrincipais = ATRIBUTOS_PRINCIPAIS_DIALOG.map(
+    ({ label, icon, aliases }) => ({
+      label,
+      icon,
       value:
-        personagem?.forca ??
-        personagem?.forcaBase ??
-        personagem?.atributosBase?.forca ??
-        '—',
-    },
-    {
-      label: 'Inteligência',
-      icon: PsychologyOutlinedIcon,
-      value:
-        personagem?.inteligencia ??
-        personagem?.inteligenciaBase ??
-        personagem?.atributosBase?.inteligencia ??
-        '—',
-    },
-    {
-      label: 'Percepção',
-      icon: VisibilityOutlinedIcon,
-      value:
-        personagem?.percepcao ??
-        personagem?.percepcaoBase ??
-        personagem?.atributosBase?.percepcao ??
-        '—',
-    },
-    {
-      label: 'Agilidade',
-      icon: DirectionsRunOutlinedIcon,
-      value:
-        personagem?.agilidade ??
-        personagem?.agilidadeBase ??
-        personagem?.atributosBase?.agilidade ??
-        '—',
-    },
-    {
-      label: 'Sorte',
-      icon: AutoAwesomeOutlinedIcon,
-      value: (() => {
-        const valorSorte =
-          personagem?.sorte ??
-          personagem?.sor ??
-          personagem?.sorteBase ??
-          personagem?.sorBase ??
-          personagem?.atributosBase?.sorte ??
-          personagem?.atributosBase?.sor;
-        if (typeof valorSorte === 'object' && valorSorte !== null) {
-          return (
-            valorSorte.valor ?? valorSorte.atual ?? valorSorte.value ?? '—'
-          );
-        }
-        return valorSorte ?? '—';
-      })(),
-    },
-    {
-      label: 'Vitalidade',
-      icon: FavoriteBorderOutlinedIcon,
-      value:
-        personagem?.vitalidade ??
-        personagem?.vitalidadeBase ??
-        personagem?.atributosBase?.vitalidade ??
-        '—',
-    },
-  ];
+        label === 'Sorte'
+          ? resolverValorSorte(personagem, aliases)
+          : resolverValorAtributoPrimario(personagem, aliases),
+    }),
+  );
 
   const atributosTotais = atributosPrincipais.map(({ label, icon, value }) => ({
     label,
@@ -789,62 +843,13 @@ const PersonagemFichaDialog = ({
     value,
   }));
 
-  const atributosSecundarios = [
-    {
-      label: 'Ataque',
-      icon: SportsMmaOutlinedIcon,
-      value:
-        personagem?.ataque ??
-        personagem?.ataqueBase ??
-        personagem?.atributosBonus?.ataque ??
-        '—',
-    },
-    {
-      label: 'Reação',
-      icon: SpeedOutlinedIcon,
-      value:
-        personagem?.reacao ??
-        personagem?.reacaoBase ??
-        personagem?.atributosBonus?.reacao ??
-        '—',
-    },
-    {
-      label: 'Precisão',
-      icon: VisibilityOutlinedIcon,
-      value:
-        personagem?.precisao ??
-        personagem?.precisaoBase ??
-        personagem?.atributosBonus?.precisao ??
-        '—',
-    },
-    {
-      label: 'Evasão',
-      icon: ShieldOutlinedIcon,
-      value:
-        personagem?.evasao ??
-        personagem?.evasaoBase ??
-        personagem?.atributosBonus?.evasao ??
-        '—',
-    },
-    {
-      label: 'Prontidão Secundária',
-      icon: BoltOutlinedIcon,
-      value:
-        personagem?.prontidao ??
-        personagem?.prontidaoBase ??
-        personagem?.atributosBonus?.prontidao ??
-        '—',
-    },
-    {
-      label: 'Defesa Secundária',
-      icon: ShieldOutlinedIcon,
-      value:
-        personagem?.defesa ??
-        personagem?.defesaBase ??
-        personagem?.atributosBonus?.defesa ??
-        '—',
-    },
-  ];
+  const atributosSecundarios = ATRIBUTOS_SECUNDARIOS_DIALOG.map(
+    ({ label, icon, aliases }) => ({
+      label,
+      icon,
+      value: resolverValorAtributoSecundario(personagem, aliases),
+    }),
+  );
 
   return (
     <Dialog
@@ -882,7 +887,11 @@ const PersonagemFichaDialog = ({
         <Box>
           <Typography
             variant="h5"
-            sx={{ color: 'var(--text-primary)', fontWeight: 800, letterSpacing: 0.4 }}
+            sx={{
+              color: 'var(--text-primary)',
+              fontWeight: 800,
+              letterSpacing: 0.4,
+            }}
           >
             {personagem?.nome}
           </Typography>
@@ -902,7 +911,15 @@ const PersonagemFichaDialog = ({
         </IconButton>
       </Box>
 
-      <Box sx={{ borderBottom: '1px solid rgba(255,255,255,0.08)', background: 'rgba(12, 14, 20, 0.96)', position: 'sticky', top: '72px', zIndex: 9 }}>
+      <Box
+        sx={{
+          borderBottom: '1px solid rgba(255,255,255,0.08)',
+          background: 'rgba(12, 14, 20, 0.96)',
+          position: 'sticky',
+          top: '72px',
+          zIndex: 9,
+        }}
+      >
         <Tabs
           value={aba}
           onChange={(_, valor) => setAba(valor)}
@@ -1037,7 +1054,14 @@ const PersonagemFichaDialog = ({
                     {construirMeta() || 'Nenhuma informação disponível'}
                   </Typography>
                   {personagemResolvido?.raca && (
-                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'baseline' }}>
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        gap: 1,
+                        alignItems: 'baseline',
+                      }}
+                    >
                       <Typography sx={{ color: 'var(--text-muted)', mr: 0.5 }}>
                         Raça:
                       </Typography>
@@ -1047,12 +1071,22 @@ const PersonagemFichaDialog = ({
                     </Box>
                   )}
                   {personagemResolvido?.classes && (
-                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'baseline' }}>
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        gap: 1,
+                        alignItems: 'baseline',
+                      }}
+                    >
                       <Typography sx={{ color: 'var(--text-muted)', mr: 0.5 }}>
                         Classes:
                       </Typography>
                       {personagemResolvido.classes.map((classe, index) => (
-                        <Typography key={`${classe}-${index}`} sx={{ color: 'var(--text-primary)' }}>
+                        <Typography
+                          key={`${classe}-${index}`}
+                          sx={{ color: 'var(--text-primary)' }}
+                        >
                           {classe}
                         </Typography>
                       ))}
@@ -1083,7 +1117,9 @@ const PersonagemFichaDialog = ({
                     Power Combat
                   </Typography>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <SportsMmaOutlinedIcon sx={{ color: 'var(--color-accent)', fontSize: 22 }} />
+                    <SportsMmaOutlinedIcon
+                      sx={{ color: 'var(--color-accent)', fontSize: 22 }}
+                    />
                     <Typography
                       variant="h4"
                       sx={{ color: 'var(--text-primary)', fontWeight: 800 }}
@@ -1294,16 +1330,19 @@ const PersonagemFichaDialog = ({
                     </Box>
                   </Box>
                   <Box component="tbody">
-                    {atributosPrincipais.map(({ label }) => {
-                      const campo = label.toLowerCase();
-                      const base = personagem?.atributosBase?.[campo] ?? '—';
-                      const bonus = personagem?.atributosBonus?.[campo] ?? '—';
-                      const extra = personagem?.atributosExtra?.[campo] ?? '—';
-                      const total =
-                        personagem?.[campo] ??
-                        personagem?.atributos?.[campo] ??
-                        personagem?.atributosBase?.[campo] ??
-                        '—';
+                    {ATRIBUTOS_PRINCIPAIS_DIALOG.map(({ label, aliases }) => {
+                      // Primeiro alias é a chave canônica sem acento (ex.:
+                      // 'forca') usada em atributosBase/Bonus/Extra — usar
+                      // `label.toLowerCase()` aqui quebrava para labels
+                      // acentuados como "Força"/"Inteligência"/"Percepção".
+                      const [chave] = aliases;
+                      const base = personagem?.atributosBase?.[chave] ?? '—';
+                      const bonus = personagem?.atributosBonus?.[chave] ?? '—';
+                      const extra = personagem?.atributosExtra?.[chave] ?? '—';
+                      const total = resolverValorAtributoPrimario(
+                        personagem,
+                        aliases,
+                      );
                       return (
                         <Box component="tr" key={label}>
                           <Box
@@ -1356,7 +1395,9 @@ const PersonagemFichaDialog = ({
                   )}
                 </Box>
               ) : (
-                <Typography sx={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                <Typography
+                  sx={{ color: 'var(--text-muted)', fontStyle: 'italic' }}
+                >
                   Nenhuma informação disponível
                 </Typography>
               )}
@@ -1384,7 +1425,9 @@ const PersonagemFichaDialog = ({
               return (
                 <Box key={chave}>
                   {estado.status === 'loading' && (
-                    <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
+                    <Box
+                      sx={{ display: 'flex', justifyContent: 'center', py: 3 }}
+                    >
                       <CircularProgress
                         size={22}
                         sx={{ color: 'var(--color-accent)' }}
@@ -1409,7 +1452,13 @@ const PersonagemFichaDialog = ({
                     </Typography>
                   )}
                   {estado.status === 'ok' && estado.docs.length > 0 && (
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 1.5,
+                      }}
+                    >
                       {estado.docs.map(doc => (
                         <CardSubcolecaoDoc
                           key={doc.id}
@@ -1418,7 +1467,8 @@ const PersonagemFichaDialog = ({
                             chave === 'aptidoesAdquiridas'
                               ? aptidaoNomes[doc.id] === undefined
                                 ? doc.id
-                                : (aptidaoNomes[doc.id] ?? 'Aptidão não encontrada')
+                                : (aptidaoNomes[doc.id] ??
+                                  'Aptidão não encontrada')
                               : null
                           }
                         />

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 const getPersonagemSubcolecao = vi.fn();
@@ -68,7 +68,9 @@ describe('PersonagemFichaDialog', () => {
     );
     const defesaElements = screen.getAllByText(content => content === 'Defesa');
     expect(defesaElements.length).toBeGreaterThan(0);
-    expect(screen.getByText(content => content === 'Defesa')).toBeInTheDocument();
+    expect(
+      screen.getByText(content => content === 'Defesa'),
+    ).toBeInTheDocument();
     expect(screen.getByText('Prontidao')).toBeInTheDocument();
     expect(screen.queryByText(/"defesa":\s*0/)).not.toBeInTheDocument();
   });
@@ -122,7 +124,9 @@ describe('PersonagemFichaDialog', () => {
       expect(screen.getByText('Atributos Principais')).toBeInTheDocument(),
     );
 
-    const gradeAtributos = screen.getByLabelText('Grade de atributos principais');
+    const gradeAtributos = screen.getByLabelText(
+      'Grade de atributos principais',
+    );
     const gradeStatus = screen.getByLabelText('Grade de status');
 
     expect(gradeAtributos.children).toHaveLength(6);
@@ -151,8 +155,69 @@ describe('PersonagemFichaDialog', () => {
     expect(botoesRetrair.length).toBeGreaterThan(0);
 
     await user.click(botoesRetrair[0]);
-    const atributosTotaisCard = screen.getByText('Atributos Totais').closest('[class*="MuiPaper"]');
+    const atributosTotaisCard = screen
+      .getByText('Atributos Totais')
+      .closest('[class*="MuiPaper"]');
     expect(atributosTotaisCard).toHaveTextContent('Atributos Totais');
+  });
+
+  it('mostra o valor de "totais" em vez do campo base quando ambos existem (ex.: Sorte)', async () => {
+    const personagemComTotal = {
+      ...PERSONAGEM,
+      sorte: 3,
+      totais: { sorte: 31 },
+    };
+    render(
+      <PersonagemFichaDialog
+        open
+        onClose={() => {}}
+        personagem={personagemComTotal}
+      />,
+    );
+
+    const gradeAtributos = await screen.findByLabelText(
+      'Grade de atributos principais',
+    );
+    expect(within(gradeAtributos).getByText('31')).toBeInTheDocument();
+    expect(within(gradeAtributos).queryByText('3')).not.toBeInTheDocument();
+  });
+
+  it('mostra a coluna Base da tabela detalhada mesmo para atributos com label acentuado (Força/Inteligência/Percepção)', async () => {
+    const user = userEvent.setup();
+    const personagemComBase = {
+      ...PERSONAGEM,
+      atributosBase: { forca: 15, inteligencia: 12, percepcao: 14 },
+    };
+    render(
+      <PersonagemFichaDialog
+        open
+        onClose={() => {}}
+        personagem={personagemComBase}
+      />,
+    );
+
+    await expandirTodosOsPainels(user);
+
+    const tabelaDetalhada = screen
+      .getByText('Atributos Detalhados')
+      .closest('[class*="MuiPaper"]');
+    const linhaForca = within(tabelaDetalhada).getByText('Força').closest('tr');
+    const linhaInteligencia = within(tabelaDetalhada)
+      .getByText('Inteligência')
+      .closest('tr');
+    const linhaPercepcao = within(tabelaDetalhada)
+      .getByText('Percepção')
+      .closest('tr');
+    // Antes da correção, `label.toLowerCase()` gerava a chave acentuada
+    // ("força"/"inteligência"/"percepção"), que nunca batia com
+    // atributosBase (chaves sem acento) — a coluna Base ficava sempre "—".
+    // Sem bônus/extra cadastrados, a coluna Total repete o mesmo valor da
+    // Base, por isso a checagem aceita 1+ ocorrências em vez de exatamente 1.
+    expect(within(linhaForca).getAllByText('15').length).toBeGreaterThan(0);
+    expect(within(linhaInteligencia).getAllByText('12').length).toBeGreaterThan(
+      0,
+    );
+    expect(within(linhaPercepcao).getAllByText('14').length).toBeGreaterThan(0);
   });
 
   it('busca as subcoleções conhecidas quando o diálogo abre', async () => {

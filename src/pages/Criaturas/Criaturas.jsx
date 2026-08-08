@@ -1,20 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
-import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
-import IconButton from '@mui/material/IconButton';
 import CircularProgress from '@mui/material/CircularProgress';
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined';
-import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
-import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
-import ContentCopyOutlinedIcon from '@mui/icons-material/ContentCopyOutlined';
-import ImageOutlinedIcon from '@mui/icons-material/ImageOutlined';
-import FitnessCenterOutlinedIcon from '@mui/icons-material/FitnessCenterOutlined';
-import FavoriteBorderOutlinedIcon from '@mui/icons-material/FavoriteBorderOutlined';
-import DirectionsRunOutlinedIcon from '@mui/icons-material/DirectionsRunOutlined';
-import PsychologyOutlinedIcon from '@mui/icons-material/PsychologyOutlined';
-import AutoAwesomeOutlinedIcon from '@mui/icons-material/AutoAwesomeOutlined';
 import { useAuth } from 'context/AuthContext';
 import { useCampanha } from 'context/CampanhaContext';
 import {
@@ -24,101 +12,13 @@ import {
 } from 'service/storage';
 import ListLoadError from 'components/ListLoadError/ListLoadError';
 import PersonagemFichaDialog from 'components/PersonagemFichaDialog/PersonagemFichaDialog';
+import PersonagemCard from 'components/PersonagemCard/PersonagemCard';
 import { ROUTE_PATHS } from 'common/constants/routes';
+import {
+  ATRIBUTOS_PRIMARIOS_PERSONAGEM,
+  ATRIBUTOS_SECUNDARIOS_PERSONAGEM,
+} from 'common/constants/atributosPersonagem';
 import { ehCriaturaDaCampanha } from './criaturaUtils';
-
-const cardSx = {
-  p: 2.5,
-  background: 'var(--bg-card)',
-  border: '1px solid var(--border-primary)',
-  borderRadius: 2.5,
-  boxShadow: '0 12px 32px rgba(0, 0, 0, 0.18)',
-  overflow: 'hidden',
-  display: 'flex',
-  flexDirection: 'column',
-  height: '100%',
-  transition:
-    'transform 220ms ease, border-color 220ms ease, box-shadow 220ms ease',
-  '&:hover': {
-    transform: 'translateY(-2px)',
-    borderColor: 'var(--border-hover)',
-    boxShadow: '0 18px 40px rgba(0, 0, 0, 0.24)',
-  },
-};
-
-const ATRIBUTOS_CRIATURA = [
-  { label: 'FOR', aliases: ['forca', 'for', 'forcaBase'], icon: FitnessCenterOutlinedIcon },
-  { label: 'VIT', aliases: ['vitalidade', 'vit', 'vitalidadeBase'], icon: FavoriteBorderOutlinedIcon },
-  { label: 'AGI', aliases: ['agilidade', 'agi', 'agilidadeBase'], icon: DirectionsRunOutlinedIcon },
-  { label: 'INT', aliases: ['inteligencia', 'int', 'inteligenciaBase'], icon: PsychologyOutlinedIcon },
-  { label: 'PER', aliases: ['percepcao', 'per', 'percepcaoBase'], icon: VisibilityOutlinedIcon },
-  { label: 'SOR', aliases: ['sorte', 'sor', 'sorteBase'], icon: AutoAwesomeOutlinedIcon },
-];
-
-const ATRIBUTOS_SECUNDARIOS = [
-  { label: 'PronT', aliases: ['prontidao', 'prontidaoBase', 'prontidaoBonus'] },
-  { label: 'AtK', aliases: ['ataque', 'ataqueBase', 'ataqueBonus'] },
-  { label: 'DeF', aliases: ['defesa', 'defesaBase', 'defesaBonus'] },
-  { label: 'PreC', aliases: ['precisao', 'precisaoBase', 'precisaoBonus'] },
-  { label: 'ReA', aliases: ['reacao', 'reacaoBase', 'reacaoBonus'] },
-  { label: 'EvA', aliases: ['evasao', 'evasaoBase', 'evasaoBonus'] },
-];
-
-const ehValorPrimitivo = valor =>
-  typeof valor === 'string' || typeof valor === 'number' || typeof valor === 'boolean';
-
-const resolverValorAtributo = (personagem, aliases) => {
-  const candidatos = aliases.flatMap(alias => {
-    const valores = [];
-    const rawValues = [
-      personagem?.[alias],
-      personagem?.atributosBase?.[alias],
-      personagem?.atributos?.[alias],
-    ];
-
-    rawValues.forEach(valor => {
-      if (valor !== undefined && valor !== null && valor !== '') {
-        valores.push(valor);
-      }
-    });
-
-    return valores;
-  });
-
-  const valorPrimitivo = candidatos.find(ehValorPrimitivo);
-  return valorPrimitivo !== undefined ? String(valorPrimitivo) : '—';
-};
-
-const resolverValorAtributoSecundario = (personagem, aliases) => {
-  const temValorSecundario = aliases.some(alias =>
-    personagem?.secundariosTotais?.[alias] !== undefined ||
-    personagem?.totais?.[alias] !== undefined ||
-    personagem?.secundariosBase?.[alias] !== undefined ||
-    personagem?.atributosBonus?.[alias] !== undefined,
-  );
-
-  const total = aliases.reduce((soma, alias) => {
-    const totalDireto =
-      personagem?.secundariosTotais?.[alias] ?? personagem?.totais?.[alias];
-    if (typeof totalDireto === 'number') {
-      return soma + totalDireto;
-    }
-
-    const base = personagem?.secundariosBase?.[alias];
-    const bonus = personagem?.atributosBonus?.[alias];
-    return (
-      soma +
-      (typeof base === 'number' ? base : 0) +
-      (typeof bonus === 'number' ? bonus : 0)
-    );
-  }, 0);
-
-  if (temValorSecundario) {
-    return String(total);
-  }
-
-  return resolverValorAtributo(personagem, aliases);
-};
 
 // Mesmo padrão de pages/Npcs/Npcs.jsx e pages/Jogadores/Jogadores.jsx: a
 // lista vem sempre de `personagens` (Re-Dungeon), filtrada por
@@ -247,233 +147,22 @@ const Criaturas = () => {
             gap: 2,
           }}
         >
-          {criaturasDoUniverso.map(personagem => {
-            const clone = cloneDe(personagem.id);
-            return (
-              <Paper key={personagem.id} elevation={0} sx={cardSx}>
-                <Box
-                  sx={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'flex-start',
-                    mb: 1.5,
-                    gap: 1,
-                  }}
-                >
-                  <Typography
-                    variant="h6"
-                    sx={{ color: 'var(--text-primary)', fontWeight: 700 }}
-                  >
-                    {personagem.nome}
-                  </Typography>
-                  <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
-                    <IconButton
-                      size="small"
-                      onClick={() => setPersonagemVisualizado(personagem)}
-                      sx={{ color: 'var(--color-accent)' }}
-                      aria-label={`Ver ficha de ${personagem.nome}`}
-                    >
-                      <VisibilityOutlinedIcon fontSize="small" />
-                    </IconButton>
-                    {podeEscrever && !clone && (
-                      <IconButton
-                        size="small"
-                        onClick={() => handleClonar(personagem)}
-                        sx={{ color: 'var(--color-accent)' }}
-                        aria-label={`Clonar ${personagem.nome}`}
-                      >
-                        <ContentCopyOutlinedIcon fontSize="small" />
-                      </IconButton>
-                    )}
-                    {podeEscrever && clone && (
-                      <>
-                        <IconButton
-                          size="small"
-                          onClick={() => handleEditarClone(personagem, clone)}
-                          sx={{ color: 'var(--color-accent)' }}
-                          aria-label={`Editar clone de ${personagem.nome}`}
-                        >
-                          <EditOutlinedIcon fontSize="small" />
-                        </IconButton>
-                        <IconButton
-                          size="small"
-                          onClick={() => handleRemoverClone(clone)}
-                          sx={{ color: '#ef4444' }}
-                          aria-label={`Remover clone de ${personagem.nome}`}
-                        >
-                          <DeleteOutlineIcon fontSize="small" />
-                        </IconButton>
-                      </>
-                    )}
-                  </Box>
-                </Box>
-
-                <Box
-                  sx={{
-                    width: '100%',
-                    height: 180,
-                    borderRadius: 2,
-                    border: '1px solid var(--border-primary)',
-                    background: 'var(--bg-secondary)',
-                    overflow: 'hidden',
-                    mb: 1.5,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    position: 'relative',
-                  }}
-                >
-                  {personagem.linkImagem ? (
-                    <Box
-                      component="img"
-                      src={personagem.linkImagem}
-                      alt={personagem.nome}
-                      loading="lazy"
-                      sx={{
-                        width: '100%',
-                        height: '100%',
-                        objectFit: 'cover',
-                        display: 'block',
-                      }}
-                      onError={e => {
-                        e.currentTarget.style.display = 'none';
-                      }}
-                    />
-                  ) : (
-                    <Box
-                      sx={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        gap: 0.75,
-                        color: 'var(--text-muted)',
-                      }}
-                    >
-                      <ImageOutlinedIcon sx={{ fontSize: 30 }} />
-                      <Typography variant="caption">Sem imagem</Typography>
-                    </Box>
-                  )}
-
-                  {clone && (
-                    <Box
-                      component="img"
-                      src="https://i.imgur.com/9jaRlGw.png"
-                      alt="Clonado nesta campanha"
-                      sx={{
-                        position: 'absolute',
-                        right: -8,
-                        bottom: -8,
-                        width: 60,
-                        height: 60,
-                        objectFit: 'contain',
-                        pointerEvents: 'none',
-                        filter: 'drop-shadow(0 4px 10px rgba(0, 0, 0, 0.4))',
-                      }}
-                    />
-                  )}
-                </Box>
-
-                <Box
-                  sx={{
-                    display: 'grid',
-                    gridTemplateColumns: {
-                      xs: 'repeat(3, minmax(0, 1fr))',
-                      md: 'repeat(6, minmax(0, 1fr))',
-                    },
-                    gap: 0.75,
-                    mb: 2,
-                  }}
-                >
-                  {ATRIBUTOS_CRIATURA.map(({ label, aliases, icon: Icon }) => {
-                    const valor = resolverValorAtributo(personagem, aliases);
-                    return (
-                      <Box
-                        key={label}
-                        sx={{
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: 0.25,
-                          alignItems: 'center',
-                          p: 0.9,
-                          borderRadius: 1.5,
-                          background: 'rgba(111, 45, 168, 0.14)',
-                          border: '1px solid rgba(111, 45, 168, 0.2)',
-                        }}
-                      >
-                        <Icon sx={{ fontSize: 16, color: 'var(--color-accent)' }} />
-                        <Typography
-                          variant="caption"
-                          sx={{ color: 'var(--text-muted)', fontWeight: 700 }}
-                        >
-                          {label}
-                        </Typography>
-                        <Typography
-                          variant="body2"
-                          sx={{ color: 'var(--text-primary)', fontWeight: 700 }}
-                        >
-                          {valor}
-                        </Typography>
-                      </Box>
-                    );
-                  })}
-                </Box>
-
-                <Box
-                  sx={{
-                    display: 'grid',
-                    gridTemplateColumns: {
-                      xs: 'repeat(3, minmax(0, 1fr))',
-                      md: 'repeat(6, minmax(0, 1fr))',
-                    },
-                    gap: 0.75,
-                    mb: 2,
-                  }}
-                >
-                  {ATRIBUTOS_SECUNDARIOS.map(({ label, aliases }) => {
-                    const valor = resolverValorAtributoSecundario(personagem, aliases);
-                    return (
-                      <Box
-                        key={label}
-                        sx={{
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: 0.25,
-                          alignItems: 'center',
-                          p: 0.9,
-                          borderRadius: 1.5,
-                          background: 'rgba(111, 45, 168, 0.14)',
-                          border: '1px solid rgba(111, 45, 168, 0.2)',
-                        }}
-                      >
-                        <Typography
-                          variant="caption"
-                          sx={{ color: 'var(--text-muted)', fontWeight: 700 }}
-                        >
-                          {label}
-                        </Typography>
-                        <Typography
-                          variant="body2"
-                          sx={{ color: 'var(--text-primary)', fontWeight: 700 }}
-                        >
-                          {valor}
-                        </Typography>
-                      </Box>
-                    );
-                  })}
-                </Box>
-
-                {personagem.descricao && (
-                  <Typography
-                    variant="body2"
-                    sx={{ color: 'var(--text-secondary)', mb: 1.5 }}
-                  >
-                    {personagem.descricao}
-                  </Typography>
-                )}
-
-              </Paper>
-            );
-          })}
+          {criaturasDoUniverso.map(personagem => (
+            <PersonagemCard
+              key={personagem.id}
+              personagem={personagem}
+              clone={cloneDe(personagem.id)}
+              podeEscrever={podeEscrever}
+              atributosPrimarios={ATRIBUTOS_PRIMARIOS_PERSONAGEM}
+              atributosSecundarios={ATRIBUTOS_SECUNDARIOS_PERSONAGEM}
+              onVisualizar={setPersonagemVisualizado}
+              onClonar={handleClonar}
+              onEditarClone={handleEditarClone}
+              onRemoverClone={handleRemoverClone}
+              exibirDescricao
+              seloCloneBadge
+            />
+          ))}
         </Box>
       )}
 
