@@ -100,18 +100,7 @@
 /* Páginas */
 .page-container {
   display: block;
-  animation: fadeIn var(--transition-normal) ease-in-out;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  opacity: 1;
 }
 
 .page-section {
