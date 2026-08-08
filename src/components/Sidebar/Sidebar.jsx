@@ -11,6 +11,7 @@ import Tooltip from '@mui/material/Tooltip';
 import { NAV_ITEMS, NAV_ITEMS_SECONDARY } from 'common/constants/navItems';
 import { useAuth } from 'context/AuthContext';
 import LoginModal from 'components/LoginModal/LoginModal';
+import ResourceCenterModal from 'components/ResourceCenterModal/ResourceCenterModal';
 import {
   SidebarWrapper,
   LogoSection,
@@ -22,6 +23,7 @@ import {
 
 const Sidebar = () => {
   const [loginModalOpen, setLoginModalOpen] = useState(false);
+  const [resourceModalOpen, setResourceModalOpen] = useState(false);
   const { currentUser, logout, isAdmin, allowedUniversos, loadingPermissions } = useAuth();
   const temAcessoAUniverso = isAdmin || allowedUniversos.length > 0;
 
@@ -95,6 +97,24 @@ const Sidebar = () => {
                   </StyledNavLink>
                 </ListItem>
               ))}
+              <ListItem disablePadding>
+                <NavItemButton
+                  onClick={() => setResourceModalOpen(true)}
+                  className="nav-item-btn"
+                  sx={{ cursor: 'pointer' }}
+                >
+                  <ListItemIcon sx={{ fontSize: 18 }}>
+                    📚
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={
+                      <Typography sx={{ fontSize: 14, fontWeight: 500 }}>
+                        Central de Recursos
+                      </Typography>
+                    }
+                  />
+                </NavItemButton>
+              </ListItem>
             </List>
 
             {NAV_ITEMS_SECONDARY.length > 0 && (
@@ -170,6 +190,10 @@ const Sidebar = () => {
       <LoginModal
         open={loginModalOpen}
         onClose={() => setLoginModalOpen(false)}
+      />
+      <ResourceCenterModal
+        open={resourceModalOpen}
+        onClose={() => setResourceModalOpen(false)}
       />
     </SidebarWrapper>
   );

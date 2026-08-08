@@ -30,11 +30,13 @@ const EntityViewDialog = ({
     onClose={onClose}
     maxWidth="sm"
     fullWidth
-    PaperProps={{
-      sx: {
-        background: 'var(--bg-card)',
-        border: '1px solid var(--border-primary)',
-        borderRadius: 2,
+    slotProps={{
+      paper: {
+        sx: {
+          background: 'var(--bg-card)',
+          border: '1px solid var(--border-primary)',
+          borderRadius: 2,
+        },
       },
     }}
   >

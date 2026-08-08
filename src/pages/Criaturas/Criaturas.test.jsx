@@ -13,11 +13,13 @@ const getPersonagens = vi.fn();
 const getRmCampanhaCriaturas = vi.fn();
 const removeRmCampanhaCriatura = vi.fn();
 const getPersonagemSubcolecao = vi.fn();
+const getCondicoes = vi.fn();
 vi.mock('service/storage', () => ({
   getPersonagens: (...args) => getPersonagens(...args),
   getRmCampanhaCriaturas: (...args) => getRmCampanhaCriaturas(...args),
   removeRmCampanhaCriatura: (...args) => removeRmCampanhaCriatura(...args),
   getPersonagemSubcolecao: (...args) => getPersonagemSubcolecao(...args),
+  getCondicoes: (...args) => getCondicoes(...args),
 }));
 
 const canWrite = vi.fn(() => true);
@@ -93,6 +95,7 @@ describe('Criaturas (personagens do Universo vinculados à campanha ativa)', () 
     getPersonagens.mockResolvedValue(PERSONAGENS_MOCK);
     getRmCampanhaCriaturas.mockResolvedValue([]);
     getPersonagemSubcolecao.mockResolvedValue([]);
+    getCondicoes.mockResolvedValue([]);
   });
 
   it('lista só personagens tipo Criatura, do universo da campanha, vinculados a ela pelo campo campanhas', async () => {

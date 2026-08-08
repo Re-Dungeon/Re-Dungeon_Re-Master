@@ -13,11 +13,13 @@ const getPersonagensJogaveis = vi.fn();
 const getRmCampanhaJogadores = vi.fn();
 const removeRmCampanhaJogador = vi.fn();
 const getPersonagemSubcolecao = vi.fn();
+const getCondicoes = vi.fn();
 vi.mock('service/storage', () => ({
   getPersonagensJogaveis: (...args) => getPersonagensJogaveis(...args),
   getRmCampanhaJogadores: (...args) => getRmCampanhaJogadores(...args),
   removeRmCampanhaJogador: (...args) => removeRmCampanhaJogador(...args),
   getPersonagemSubcolecao: (...args) => getPersonagemSubcolecao(...args),
+  getCondicoes: (...args) => getCondicoes(...args),
 }));
 
 const canWrite = vi.fn(() => true);
@@ -93,6 +95,7 @@ describe('Jogadores (personagens jogáveis do Universo vinculados à campanha at
     getPersonagensJogaveis.mockResolvedValue(PERSONAGENS_MOCK);
     getRmCampanhaJogadores.mockResolvedValue([]);
     getPersonagemSubcolecao.mockResolvedValue([]);
+    getCondicoes.mockResolvedValue([]);
   });
 
   it('lista só personagens tipo Personagem Jogável, do universo da campanha, vinculados a ela pelo campo campanhas', async () => {

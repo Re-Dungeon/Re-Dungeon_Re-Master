@@ -13,11 +13,13 @@ const getPersonagens = vi.fn();
 const getRmCampanhaNpcs = vi.fn();
 const removeRmCampanhaNpc = vi.fn();
 const getPersonagemSubcolecao = vi.fn();
+const getCondicoes = vi.fn();
 vi.mock('service/storage', () => ({
   getPersonagens: (...args) => getPersonagens(...args),
   getRmCampanhaNpcs: (...args) => getRmCampanhaNpcs(...args),
   removeRmCampanhaNpc: (...args) => removeRmCampanhaNpc(...args),
   getPersonagemSubcolecao: (...args) => getPersonagemSubcolecao(...args),
+  getCondicoes: (...args) => getCondicoes(...args),
 }));
 
 const canWrite = vi.fn(() => true);
@@ -101,6 +103,7 @@ describe('Npcs (personagens do Universo vinculados à campanha ativa)', () => {
     getPersonagens.mockResolvedValue(PERSONAGENS_MOCK);
     getRmCampanhaNpcs.mockResolvedValue([]);
     getPersonagemSubcolecao.mockResolvedValue([]);
+    getCondicoes.mockResolvedValue([]);
   });
 
   it('lista só personagens tipo NPC, do universo da campanha, vinculados a ela pelo campo campanhas', async () => {

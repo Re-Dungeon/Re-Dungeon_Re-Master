@@ -88,6 +88,18 @@ const Npcs = () => {
   const cloneDe = personagemId =>
     clones.find(clone => clone.origemPersonagemId === personagemId) ?? null;
 
+  const mergeVisualizacao = (personagem, clone) => ({
+    ...personagem,
+    ...clone,
+    id: personagem.id,
+    origemPersonagemId: clone?.origemPersonagemId ?? personagem.id,
+  });
+
+  const handleVisualizar = personagem => {
+    const clone = cloneDe(personagem.id);
+    setPersonagemVisualizado(clone ? mergeVisualizacao(personagem, clone) : personagem);
+  };
+
   const handleEditarClone = (personagem, clone) => {
     navigate(ROUTE_PATHS.NPC_CLONE, { state: { personagem, clone } });
   };
@@ -147,7 +159,7 @@ const Npcs = () => {
               podeEscrever={podeEscrever}
               atributosPrimarios={ATRIBUTOS_PRIMARIOS_PERSONAGEM}
               atributosSecundarios={ATRIBUTOS_SECUNDARIOS_PERSONAGEM}
-              onVisualizar={setPersonagemVisualizado}
+              onVisualizar={handleVisualizar}
               onEditarClone={handleEditarClone}
               onRemoverClone={handleRemoverClone}
               seloCloneTopo
@@ -160,6 +172,7 @@ const Npcs = () => {
         open={Boolean(personagemVisualizado)}
         onClose={() => setPersonagemVisualizado(null)}
         personagem={personagemVisualizado}
+        clone={personagemVisualizado ? cloneDe(personagemVisualizado.id) : null}
       />
     </Box>
   );
