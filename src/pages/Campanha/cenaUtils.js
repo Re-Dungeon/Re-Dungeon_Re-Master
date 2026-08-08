@@ -11,7 +11,7 @@ import {
 export const ESTADO_CENA_OPCOES = [
   { value: 'nao_iniciado', label: 'Não Iniciado', cor: '#22c55e' },
   { value: 'em_andamento', label: 'Em Andamento', cor: '#eab308' },
-  { value: 'concluido', label: 'Concluído', cor: '#3b82f6' },
+  { value: 'concluido', label: 'Concluído', cor: '#facc15' },
   { value: 'ignorado', label: 'Ignorado pelos Jogadores', cor: '#111827' },
   { value: 'cancelado', label: 'Cancelado', cor: '#6b7280' },
 ];
@@ -29,6 +29,17 @@ export const TIPO_CONSEQUENCIA_OPCOES = [
 ];
 
 export const CONSEQUENCIA_INICIAL = { tipo: 'outro', texto: '' };
+
+// Cor placeholder por lado do handle de onde a conexão entre Cenas parte
+// (fluxograma da Campanha) — troque os valores livremente.
+export const HANDLE_SIDE_COLORS = {
+  left: '#38BDF8',
+  top: '#A78BFA',
+  right: '#FB923C',
+  bottom: '#4ADE80',
+};
+
+export const HANDLE_SIDE_COLOR_FALLBACK = 'var(--color-accent)';
 
 export const CENA_SCHEMA = Yup.object({
   titulo: nomeSchema,

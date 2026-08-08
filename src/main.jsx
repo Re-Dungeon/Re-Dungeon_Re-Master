@@ -15,10 +15,10 @@ import 'common/styles/pages.css';
 const theme = createTheme({
   palette: {
     mode: 'dark',
-    primary: { main: '#6f2da8' },
-    secondary: { main: '#00d9ff' },
-    background: { default: '#050816', paper: '#10182b' },
-    text: { primary: '#f8fafc', secondary: '#94a3b8' },
+    primary: { main: '#8F231C' },
+    secondary: { main: '#A9B0BA' },
+    background: { default: '#0A0C10', paper: '#171B22' },
+    text: { primary: '#F3F4F6', secondary: '#A9B0BA' },
   },
   typography: {
     fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
@@ -26,7 +26,19 @@ const theme = createTheme({
   components: {
     MuiButton: {
       styleOverrides: {
-        root: { textTransform: 'none', borderRadius: 8 },
+        root: {
+          textTransform: 'none',
+          borderRadius: 14,
+          transition: 'all 150ms ease-out',
+        },
+        containedPrimary: {
+          background: 'linear-gradient(135deg, #8F231C 0%, #C43A2F 100%)',
+          color: '#F3F4F6',
+          boxShadow: '0 14px 32px rgba(0, 0, 0, 0.28)',
+        },
+        outlined: {
+          borderColor: 'rgba(255,255,255,0.12)',
+        },
       },
     },
     MuiPaper: {

@@ -181,6 +181,7 @@ export const getAptidao = id => getReferenciaPorId('aptidoes', id);
 export const getRaca = id => getReferenciaPorId('racas', id);
 export const getClasse = id => getReferenciaPorId('classes', id);
 export const getVeiaAstral = id => getReferenciaPorId('veiasAstrais', id);
+export const getOrigem = id => getReferenciaPorId('origens', id);
 
 // ── condicoes (Firestore) — gerida pelo Re-Dungeon, somente leitura aqui.
 // Usada pela Luta para marcar status effects (atordoado, envenenado, etc.)

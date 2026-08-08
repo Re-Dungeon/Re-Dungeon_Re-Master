@@ -4,7 +4,7 @@
 export const STATS_LUTA = [
   { chave: 'vida', label: 'Vida', cor: '#ef4444' },
   { chave: 'fadiga', label: 'Fadiga', cor: '#f59e0b' },
-  { chave: 'mana', label: 'Mana', cor: '#3b82f6' },
+  { chave: 'mana', label: 'Mana', cor: '#60a5fa' },
 ];
 
 // A ficha de personagem do Re-Dungeon guarda vida/fadiga/mana em

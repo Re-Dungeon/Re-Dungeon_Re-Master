@@ -10,7 +10,7 @@ const NODES = [
     position: { x: 0, y: 0 },
     data: {
       cena: { titulo: 'Chegada na Cidade', estado: 'concluido' },
-      cor: '#3b82f6',
+      cor: '#facc15',
     },
   },
   {

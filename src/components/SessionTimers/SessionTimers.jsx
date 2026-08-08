@@ -315,8 +315,8 @@ const SessionTimers = () => {
                 startIcon={<AddIcon fontSize="small" />}
                 onClick={handleAdicionarTimer}
                 sx={{
-                  background: 'var(--color-primary)',
-                  '&:hover': { background: '#5a2090' },
+                  background: 'linear-gradient(135deg, var(--color-primary), var(--color-accent))',
+                  '&:hover': { background: 'linear-gradient(135deg, var(--color-primary-light), var(--color-accent))' },
                 }}
               >
                 Adicionar

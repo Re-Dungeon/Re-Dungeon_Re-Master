@@ -11,9 +11,11 @@ import Tooltip from '@mui/material/Tooltip';
 import { NAV_ITEMS, NAV_ITEMS_SECONDARY } from 'common/constants/navItems';
 import { useAuth } from 'context/AuthContext';
 import LoginModal from 'components/LoginModal/LoginModal';
+import ResourceCenterModal from 'components/ResourceCenterModal/ResourceCenterModal';
 import {
   SidebarWrapper,
   LogoSection,
+  LogoImage,
   StyledNavLink,
   NavItemButton,
   UserButton,
@@ -21,6 +23,7 @@ import {
 
 const Sidebar = () => {
   const [loginModalOpen, setLoginModalOpen] = useState(false);
+  const [resourceModalOpen, setResourceModalOpen] = useState(false);
   const { currentUser, logout, isAdmin, allowedUniversos, loadingPermissions } = useAuth();
   const temAcessoAUniverso = isAdmin || allowedUniversos.length > 0;
 
@@ -35,38 +38,27 @@ const Sidebar = () => {
   return (
     <SidebarWrapper id="remaster-sidebar">
       <LogoSection>
-        <Box
-          sx={{
-            width: 40,
-            height: 40,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: 24,
-            flexShrink: 0,
-          }}
-          aria-hidden="true"
-        >
-          🛡️
-        </Box>
-        <Box>
-          <Typography
-            variant="h6"
-            sx={{
-              color: 'var(--text-primary)',
-              fontWeight: 700,
-              lineHeight: 1.2,
-            }}
-          >
-            Re:Master
-          </Typography>
+        <Box sx={{ position: 'relative', width: '100%', height: 96, flexShrink: 0 }}>
+          <LogoImage
+            src="https://i.imgur.com/3xTDlF9.png"
+            alt="Brasão Re:Master"
+          />
           <Typography
             variant="caption"
             sx={{
-              color: 'var(--accent-primary)',
-              fontWeight: 600,
-              letterSpacing: 1,
+              position: 'absolute',
+              right: 10,
+              bottom: 10,
+              color: '#FFF',
+              fontWeight: 700,
+              letterSpacing: '0.08em',
               textTransform: 'uppercase',
+              fontSize: 10,
+              lineHeight: 1,
+              px: 0.75,
+              py: 0.35,
+              bgcolor: 'rgba(0, 0, 0, 0.55)',
+              borderRadius: '8px',
             }}
           >
             V0.1
@@ -95,16 +87,34 @@ const Sidebar = () => {
                         {item.icon}
                       </ListItemIcon>
                       <ListItemText
-                        primary={item.label}
-                        primaryTypographyProps={{
-                          fontSize: 14,
-                          fontWeight: 500,
-                        }}
+                        primary={
+                          <Typography sx={{ fontSize: 14, fontWeight: 500 }}>
+                            {item.label}
+                          </Typography>
+                        }
                       />
                     </NavItemButton>
                   </StyledNavLink>
                 </ListItem>
               ))}
+              <ListItem disablePadding>
+                <NavItemButton
+                  onClick={() => setResourceModalOpen(true)}
+                  className="nav-item-btn"
+                  sx={{ cursor: 'pointer' }}
+                >
+                  <ListItemIcon sx={{ fontSize: 18 }}>
+                    📚
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={
+                      <Typography sx={{ fontSize: 14, fontWeight: 500 }}>
+                        Central de Recursos
+                      </Typography>
+                    }
+                  />
+                </NavItemButton>
+              </ListItem>
             </List>
 
             {NAV_ITEMS_SECONDARY.length > 0 && (
@@ -121,11 +131,11 @@ const Sidebar = () => {
                             {item.icon}
                           </ListItemIcon>
                           <ListItemText
-                            primary={item.label}
-                            primaryTypographyProps={{
-                              fontSize: 14,
-                              fontWeight: 500,
-                            }}
+                            primary={
+                              <Typography sx={{ fontSize: 14, fontWeight: 500 }}>
+                                {item.label}
+                              </Typography>
+                            }
                           />
                         </NavItemButton>
                       </StyledNavLink>
@@ -180,6 +190,10 @@ const Sidebar = () => {
       <LoginModal
         open={loginModalOpen}
         onClose={() => setLoginModalOpen(false)}
+      />
+      <ResourceCenterModal
+        open={resourceModalOpen}
+        onClose={() => setResourceModalOpen(false)}
       />
     </SidebarWrapper>
   );

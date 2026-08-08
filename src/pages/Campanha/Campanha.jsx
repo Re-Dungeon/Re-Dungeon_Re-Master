@@ -5,7 +5,6 @@ import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
 import CircularProgress from '@mui/material/CircularProgress';
-import Chip from '@mui/material/Chip';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import { useAuth } from 'context/AuthContext';
@@ -63,8 +62,9 @@ const Campanha = () => {
             onClick={() => navigate(ROUTE_PATHS.NOVA_CAMPANHA)}
             sx={{
               background: 'var(--color-primary)',
-              '&:hover': { background: '#5a2090' },
+              '&:hover': { background: 'var(--color-primary-dark)' },
             }}
+            aria-label="+ Nova Campanha"
           >
             + Nova Campanha
           </Button>
@@ -111,21 +111,45 @@ const Campanha = () => {
                   sx={{
                     display: 'flex',
                     justifyContent: 'space-between',
-                    alignItems: 'flex-start',
-                    mb: 1,
+                    alignItems: 'center',
+                    mb: 2,
+                    gap: 2,
                   }}
                 >
-                  {ativa && (
-                    <Chip
-                      label="Ativa"
-                      size="small"
+                  {ativa ? (
+                    <Typography
+                      variant="caption"
                       sx={{
-                        background: 'var(--color-accent)',
-                        color: 'var(--bg-primary)',
-                        fontWeight: 700,
+                        color: 'var(--color-accent)',
+                        fontWeight: 800,
+                        letterSpacing: '0.2em',
+                        textTransform: 'uppercase',
+                        background: 'rgba(196, 58, 47, 0.12)',
+                        px: 2,
+                        py: 0.75,
+                        borderRadius: '999px',
                       }}
-                    />
+                    >
+                      Ativa
+                    </Typography>
+                  ) : (
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        color: '#9FA7B2',
+                        fontWeight: 700,
+                        letterSpacing: '0.18em',
+                        textTransform: 'uppercase',
+                        background: 'rgba(255, 255, 255, 0.04)',
+                        px: 2,
+                        py: 0.75,
+                        borderRadius: '999px',
+                      }}
+                    >
+                      Inativa
+                    </Typography>
                   )}
+
                   <Box sx={{ display: 'flex', gap: 0.5, ml: 'auto' }}>
                     {podeEscrever && (
                       <>
@@ -137,8 +161,9 @@ const Campanha = () => {
                             })
                           }
                           sx={{
-                            color: 'var(--color-accent)',
-                            '&:hover': { opacity: 0.8 },
+                            color: 'rgba(255,255,255,0.84)',
+                            background: 'rgba(255,255,255,0.04)',
+                            '&:hover': { background: 'rgba(255,255,255,0.08)' },
                           }}
                           aria-label={`Editar campanha ${campanha.nome}`}
                         >
@@ -149,7 +174,8 @@ const Campanha = () => {
                           onClick={() => handleRemove(campanha.id)}
                           sx={{
                             color: '#ef4444',
-                            '&:hover': { color: '#ef4444' },
+                            background: 'rgba(239, 68, 68, 0.08)',
+                            '&:hover': { background: 'rgba(239, 68, 68, 0.16)' },
                           }}
                           aria-label={`Remover campanha ${campanha.nome}`}
                         >
@@ -168,12 +194,16 @@ const Campanha = () => {
                     loading="lazy"
                     sx={{
                       width: '100%',
-                      height: 180,
-                      borderRadius: 2,
+                      height: 210,
+                      borderRadius: '20px',
                       objectFit: 'cover',
                       display: 'block',
-                      border: '1px solid var(--border-primary)',
-                      mb: 1.5,
+                      mb: 2,
+                      boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.06)',
+                      transition: 'transform 280ms ease',
+                      '&:hover': {
+                        transform: 'scale(1.02)',
+                      },
                     }}
                     onError={e => {
                       e.currentTarget.style.display = 'none';
@@ -182,11 +212,12 @@ const Campanha = () => {
                 )}
 
                 <Typography
-                  variant="h6"
+                  variant="h5"
                   sx={{
-                    color: 'var(--text-primary)',
-                    fontWeight: 600,
-                    lineHeight: 1.2,
+                    color: '#FFFFFF',
+                    fontWeight: 800,
+                    lineHeight: 1.15,
+                    mb: 1,
                   }}
                 >
                   {campanha.nome}
@@ -194,10 +225,12 @@ const Campanha = () => {
                 <Typography
                   variant="caption"
                   sx={{
-                    color: 'var(--color-accent)',
+                    color: '#7e8a99',
                     fontWeight: 600,
                     display: 'block',
-                    mb: 1,
+                    mb: 1.5,
+                    letterSpacing: '0.08em',
+                    textTransform: 'uppercase',
                   }}
                 >
                   {universos.find(u => u.id === campanha.universoId)?.Nome ||
@@ -207,9 +240,10 @@ const Campanha = () => {
                   <Typography
                     variant="body2"
                     sx={{
-                      color: 'var(--text-secondary)',
+                      color: '#c3cad6',
                       mt: 0.5,
-                      mb: 2,
+                      mb: 2.5,
+                      minHeight: 72,
                       display: '-webkit-box',
                       WebkitLineClamp: 3,
                       WebkitBoxOrient: 'vertical',
@@ -220,23 +254,23 @@ const Campanha = () => {
                   </Typography>
                 )}
 
-                <Box sx={{ display: 'flex', gap: 1 }}>
+                <Box sx={{ display: 'grid', gap: 1.25 }}>
                   <Button
                     fullWidth
-                    variant={ativa ? 'outlined' : 'contained'}
+                    variant="contained"
                     disabled={ativa}
                     onClick={() => setCampanhaAtiva(campanha.id)}
-                    sx={
-                      ativa
-                        ? {
-                            color: 'var(--color-accent)',
-                            borderColor: 'var(--color-accent)',
-                          }
-                        : {
-                            background: 'var(--color-primary)',
-                            '&:hover': { background: '#5a2090' },
-                          }
-                    }
+                    sx={{
+                      color: '#FFFFFF',
+                      background: ativa ? 'rgba(196, 58, 47, 0.16)' : 'var(--color-primary)',
+                      border: ativa ? '1px solid rgba(196, 58, 47, 0.32)' : '1px solid rgba(143, 35, 28, 0.36)',
+                      py: 1.25,
+                      fontWeight: 700,
+                      textTransform: 'none',
+                      '&:hover': {
+                        background: ativa ? 'rgba(196, 58, 47, 0.24)' : 'var(--color-primary-dark)',
+                      },
+                    }}
                   >
                     {ativa ? 'Campanha Ativa' : 'Selecionar Campanha'}
                   </Button>
@@ -249,7 +283,10 @@ const Campanha = () => {
                         background: 'var(--color-accent)',
                         color: 'var(--bg-primary)',
                         fontWeight: 700,
-                        '&:hover': { background: '#00b8dd' },
+                        textTransform: 'none',
+                        py: 1.25,
+                        border: '1px solid rgba(196, 58, 47, 0.4)',
+                        '&:hover': { background: 'var(--color-primary-light)' },
                       }}
                     >
                       Ver Cenas →

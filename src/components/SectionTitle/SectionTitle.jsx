@@ -13,10 +13,11 @@ const SectionTitle = ({ children }) => (
       color: 'var(--color-accent)',
       fontWeight: 700,
       mt: 1,
-      mb: 0.5,
+      mb: 1,
       textTransform: 'uppercase',
       letterSpacing: 1,
-      fontSize: '0.72rem',
+      fontSize: '0.78rem',
+      display: 'block',
     }}
   >
     {children}

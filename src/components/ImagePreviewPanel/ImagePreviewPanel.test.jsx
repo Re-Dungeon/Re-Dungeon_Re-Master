@@ -7,7 +7,7 @@ describe('ImagePreviewPanel', () => {
     render(<ImagePreviewPanel src="" alt="Preview" />);
 
     expect(
-      screen.getByText('Insira um link para ver o preview'),
+      screen.getByText(/cole uma url válida/i),
     ).toBeInTheDocument();
     expect(screen.queryByRole('img')).not.toBeInTheDocument();
   });

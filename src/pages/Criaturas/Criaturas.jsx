@@ -1,15 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
-import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
-import Button from '@mui/material/Button';
-import IconButton from '@mui/material/IconButton';
 import CircularProgress from '@mui/material/CircularProgress';
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined';
-import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
-import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
-import ContentCopyOutlinedIcon from '@mui/icons-material/ContentCopyOutlined';
 import { useAuth } from 'context/AuthContext';
 import { useCampanha } from 'context/CampanhaContext';
 import {
@@ -19,15 +12,13 @@ import {
 } from 'service/storage';
 import ListLoadError from 'components/ListLoadError/ListLoadError';
 import PersonagemFichaDialog from 'components/PersonagemFichaDialog/PersonagemFichaDialog';
+import PersonagemCard from 'components/PersonagemCard/PersonagemCard';
 import { ROUTE_PATHS } from 'common/constants/routes';
+import {
+  ATRIBUTOS_PRIMARIOS_PERSONAGEM,
+  ATRIBUTOS_SECUNDARIOS_PERSONAGEM,
+} from 'common/constants/atributosPersonagem';
 import { ehCriaturaDaCampanha } from './criaturaUtils';
-
-const cardSx = {
-  p: 2.5,
-  background: 'var(--bg-card)',
-  border: '1px solid var(--border-primary)',
-  borderRadius: 2,
-};
 
 // Mesmo padrão de pages/Npcs/Npcs.jsx e pages/Jogadores/Jogadores.jsx: a
 // lista vem sempre de `personagens` (Re-Dungeon), filtrada por
@@ -151,117 +142,27 @@ const Criaturas = () => {
             display: 'grid',
             gridTemplateColumns: {
               xs: '1fr',
-              sm: 'repeat(auto-fill, minmax(280px, 1fr))',
+              sm: 'repeat(auto-fill, minmax(340px, 1fr))',
             },
             gap: 2,
           }}
         >
-          {criaturasDoUniverso.map(personagem => {
-            const clone = cloneDe(personagem.id);
-            return (
-              <Paper key={personagem.id} elevation={0} sx={cardSx}>
-                <Box
-                  sx={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'flex-start',
-                    mb: 1,
-                  }}
-                >
-                  <Typography
-                    variant="h6"
-                    sx={{ color: 'var(--text-primary)', fontWeight: 600 }}
-                  >
-                    {personagem.nome}
-                  </Typography>
-                  {podeEscrever && clone && (
-                    <Box sx={{ display: 'flex', gap: 0.5 }}>
-                      <IconButton
-                        size="small"
-                        onClick={() => handleEditarClone(personagem, clone)}
-                        sx={{ color: 'var(--color-accent)' }}
-                        aria-label={`Editar clone de ${personagem.nome}`}
-                      >
-                        <EditOutlinedIcon fontSize="small" />
-                      </IconButton>
-                      <IconButton
-                        size="small"
-                        onClick={() => handleRemoverClone(clone)}
-                        sx={{ color: '#ef4444' }}
-                        aria-label={`Remover clone de ${personagem.nome}`}
-                      >
-                        <DeleteOutlineIcon fontSize="small" />
-                      </IconButton>
-                    </Box>
-                  )}
-                </Box>
-
-                {personagem.linkImagem && (
-                  <Box
-                    component="img"
-                    src={personagem.linkImagem}
-                    alt={personagem.nome}
-                    loading="lazy"
-                    sx={{
-                      width: '100%',
-                      height: 160,
-                      borderRadius: 2,
-                      objectFit: 'cover',
-                      display: 'block',
-                      border: '1px solid var(--border-primary)',
-                      mb: 1.5,
-                    }}
-                    onError={e => {
-                      e.currentTarget.style.display = 'none';
-                    }}
-                  />
-                )}
-
-                {personagem.descricao && (
-                  <Typography
-                    variant="body2"
-                    sx={{ color: 'var(--text-secondary)', mb: 1.5 }}
-                  >
-                    {personagem.descricao}
-                  </Typography>
-                )}
-
-                {clone && (
-                  <Typography
-                    variant="caption"
-                    sx={{
-                      color: 'var(--color-accent)',
-                      display: 'block',
-                      mb: 1.5,
-                    }}
-                  >
-                    Clonado nesta campanha
-                  </Typography>
-                )}
-
-                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                  <Button
-                    size="small"
-                    startIcon={<VisibilityOutlinedIcon fontSize="small" />}
-                    onClick={() => setPersonagemVisualizado(personagem)}
-                    sx={{ color: 'var(--text-secondary)' }}
-                  >
-                    Ver ficha
-                  </Button>
-                  {podeEscrever && !clone && (
-                    <Button
-                      size="small"
-                      startIcon={<ContentCopyOutlinedIcon fontSize="small" />}
-                      onClick={() => handleClonar(personagem)}
-                      sx={{ color: 'var(--color-accent)' }}
-                    >
-                      Clonar
-                    </Button>
-                  )}
-                </Box>
-              </Paper>
-            );
-          })}
+          {criaturasDoUniverso.map(personagem => (
+            <PersonagemCard
+              key={personagem.id}
+              personagem={personagem}
+              clone={cloneDe(personagem.id)}
+              podeEscrever={podeEscrever}
+              atributosPrimarios={ATRIBUTOS_PRIMARIOS_PERSONAGEM}
+              atributosSecundarios={ATRIBUTOS_SECUNDARIOS_PERSONAGEM}
+              onVisualizar={setPersonagemVisualizado}
+              onClonar={handleClonar}
+              onEditarClone={handleEditarClone}
+              onRemoverClone={handleRemoverClone}
+              exibirDescricao
+              seloCloneBadge
+            />
+          ))}
         </Box>
       )}
 

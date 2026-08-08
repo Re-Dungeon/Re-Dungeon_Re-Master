@@ -579,16 +579,16 @@ const Sorteio = () => {
                       sx={{ borderRadius: 1, mb: 0.5 }}
                     >
                       <ListItemText
-                        primary={log.mensagem}
-                        secondary={formatarHoraEvento(log.createdAt)}
-                        primaryTypographyProps={{
-                          variant: 'body2',
-                          sx: { color: 'var(--text-primary)' },
-                        }}
-                        secondaryTypographyProps={{
-                          variant: 'caption',
-                          sx: { color: 'var(--text-muted)' },
-                        }}
+                        primary={
+                          <Typography variant="body2" sx={{ color: 'var(--text-primary)' }}>
+                            {log.mensagem}
+                          </Typography>
+                        }
+                        secondary={
+                          <Typography variant="caption" sx={{ color: 'var(--text-muted)' }}>
+                            {formatarHoraEvento(log.createdAt)}
+                          </Typography>
+                        }
                       />
                     </ListItemButton>
                   ))}
@@ -617,11 +617,13 @@ const Sorteio = () => {
         onClose={() => setChainAberta(false)}
         maxWidth="sm"
         fullWidth
-        PaperProps={{
-          sx: {
-            background: 'var(--bg-card)',
-            border: '1px solid var(--border-primary)',
-            borderRadius: 2,
+        slotProps={{
+          paper: {
+            sx: {
+              background: 'var(--bg-card)',
+              border: '1px solid var(--border-primary)',
+              borderRadius: 2,
+            },
           },
         }}
       >
@@ -634,16 +636,18 @@ const Sorteio = () => {
               <ListItemText
                 key={vinculo.cartaId}
                 sx={{ mb: 1.5 }}
-                primary={vinculo.cartaNome}
-                secondary={[vinculo.cartaTipo, vinculo.cartaRaridade]
-                  .filter(Boolean)
-                  .join(' · ')}
-                primaryTypographyProps={{
-                  sx: { color: 'var(--text-primary)', fontWeight: 600 },
-                }}
-                secondaryTypographyProps={{
-                  sx: { color: 'var(--text-secondary)' },
-                }}
+                primary={
+                  <Typography sx={{ color: 'var(--text-primary)', fontWeight: 600 }}>
+                    {vinculo.cartaNome}
+                  </Typography>
+                }
+                secondary={
+                  <Typography sx={{ color: 'var(--text-secondary)' }}>
+                    {[vinculo.cartaTipo, vinculo.cartaRaridade]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </Typography>
+                }
               />
             ))}
           </List>

@@ -104,7 +104,7 @@ describe('Sorteio (motor de sorteio ponderado por baralho)', () => {
         screen.getByText('Sorteio — Eventos de Estrada'),
       ).toBeInTheDocument(),
     );
-    expect(screen.getByText('0 / 4')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText('0 / 4')).toBeInTheDocument());
   });
 
   it('compra uma carta do pool válido, grava o estado e o log da sessão', async () => {

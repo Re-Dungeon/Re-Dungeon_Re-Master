@@ -31,7 +31,11 @@ const CenaEdge = ({
       <BaseEdge
         id={id}
         path={edgePath}
-        style={style}
+        style={{
+          ...style,
+          strokeWidth: 2.8,
+          filter: 'drop-shadow(0 0 10px rgba(0, 0, 0, 0.35))',
+        }}
         markerEnd={markerEnd}
         label={label}
       />
@@ -47,14 +51,16 @@ const CenaEdge = ({
               position: 'absolute',
               transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
               pointerEvents: 'all',
-              width: 22,
-              height: 22,
-              background: 'var(--bg-card)',
-              border: '1px solid var(--border-primary)',
+              width: 24,
+              height: 24,
+              minWidth: 24,
+              background: 'rgba(17, 21, 32, 0.94)',
+              border: '1px solid rgba(255,255,255,0.12)',
               color: '#ef4444',
+              boxShadow: '0 12px 28px rgba(0,0,0,0.24)',
               '&:hover': {
-                background: 'var(--bg-secondary)',
-                borderColor: '#ef4444',
+                background: 'rgba(255,255,255,0.06)',
+                borderColor: 'rgba(239,68,68,0.45)',
               },
             }}
             aria-label="Remover conexão entre cenas"

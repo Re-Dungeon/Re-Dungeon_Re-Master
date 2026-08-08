@@ -13,11 +13,13 @@ const getPersonagensJogaveis = vi.fn();
 const getRmCampanhaJogadores = vi.fn();
 const removeRmCampanhaJogador = vi.fn();
 const getPersonagemSubcolecao = vi.fn();
+const getCondicoes = vi.fn();
 vi.mock('service/storage', () => ({
   getPersonagensJogaveis: (...args) => getPersonagensJogaveis(...args),
   getRmCampanhaJogadores: (...args) => getRmCampanhaJogadores(...args),
   removeRmCampanhaJogador: (...args) => removeRmCampanhaJogador(...args),
   getPersonagemSubcolecao: (...args) => getPersonagemSubcolecao(...args),
+  getCondicoes: (...args) => getCondicoes(...args),
 }));
 
 const canWrite = vi.fn(() => true);
@@ -93,6 +95,7 @@ describe('Jogadores (personagens jogáveis do Universo vinculados à campanha at
     getPersonagensJogaveis.mockResolvedValue(PERSONAGENS_MOCK);
     getRmCampanhaJogadores.mockResolvedValue([]);
     getPersonagemSubcolecao.mockResolvedValue([]);
+    getCondicoes.mockResolvedValue([]);
   });
 
   it('lista só personagens tipo Personagem Jogável, do universo da campanha, vinculados a ela pelo campo campanhas', async () => {
@@ -121,7 +124,7 @@ describe('Jogadores (personagens jogáveis do Universo vinculados à campanha at
     renderJogadores();
 
     await waitFor(() => expect(screen.getByText('Kaelen')).toBeInTheDocument());
-    await user.click(screen.getAllByRole('button', { name: 'Ver ficha' })[0]);
+    await user.click(screen.getAllByRole('button', { name: /Ver ficha/i })[0]);
 
     expect(
       screen.getByText('Ficha completa do personagem'),
@@ -133,7 +136,7 @@ describe('Jogadores (personagens jogáveis do Universo vinculados à campanha at
     renderJogadores();
 
     await waitFor(() => expect(screen.getByText('Kaelen')).toBeInTheDocument());
-    await user.click(screen.getAllByRole('button', { name: 'Clonar' })[0]);
+    await user.click(screen.getAllByRole('button', { name: /Clonar/i })[0]);
 
     expect(navigate).toHaveBeenCalledWith(
       '/jogadores/clonar',
@@ -152,7 +155,7 @@ describe('Jogadores (personagens jogáveis do Universo vinculados à campanha at
     );
     expect(screen.getByLabelText('Editar clone de Kaelen')).toBeInTheDocument();
     // Só Sora (sem clone) ainda mostra o botão "Clonar" — Kaelen (já clonado) não.
-    expect(screen.getAllByRole('button', { name: 'Clonar' })).toHaveLength(1);
+    expect(screen.getAllByRole('button', { name: /Clonar/i })).toHaveLength(1);
   });
 
   it('remove um clone', async () => {
@@ -182,7 +185,7 @@ describe('Jogadores (personagens jogáveis do Universo vinculados à campanha at
 
     await waitFor(() => expect(screen.getByText('Kaelen')).toBeInTheDocument());
     expect(
-      screen.queryByRole('button', { name: 'Clonar' }),
+      screen.queryByRole('button', { name: /Clonar/i }),
     ).not.toBeInTheDocument();
     expect(
       screen.queryByLabelText('Editar clone de Kaelen'),

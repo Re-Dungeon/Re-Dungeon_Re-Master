@@ -6,33 +6,29 @@ import ListItemButton from '@mui/material/ListItemButton';
 export const SidebarWrapper = styled.aside`
   width: var(--sidebar-width);
   height: 100vh;
-  background: linear-gradient(135deg, #0a0e27 0%, #0f1629 100%);
+  background: linear-gradient(180deg, #090b10 0%, #11141a 100%);
   display: flex;
   flex-direction: column;
-  border-right: 1px solid rgba(96, 165, 250, 0.1);
-  box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 0 40px rgba(0, 0, 0, 0.35);
   position: relative;
   z-index: 100;
   flex-shrink: 0;
 `;
 
 export const LogoSection = styled(Box)`
-  padding: 24px;
-  border-bottom: 1px solid rgba(96, 165, 250, 0.1);
-  background: linear-gradient(
-    180deg,
-    rgba(96, 165, 250, 0.05) 0%,
-    transparent 100%
-  );
+  padding: 16px 18px 14px;
   display: flex;
-  align-items: center;
-  gap: 16px;
+  align-items: stretch;
 `;
 
 export const LogoImage = styled.img`
-  width: 56px;
-  height: 56px;
-  filter: drop-shadow(0 0 16px rgba(96, 165, 250, 0.6));
+  width: 100%;
+  height: 100%;
+  border-radius: 18px;
+  background: transparent;
+  display: block;
+  object-fit: cover;
 `;
 
 export const StyledNavLink = styled(NavLink)`
@@ -43,58 +39,58 @@ export const StyledNavLink = styled(NavLink)`
   flex: 1 1 auto;
 
   &.active .nav-item-btn {
-    background: rgba(111, 45, 168, 0.3);
-    border-left: 3px solid #6f2da8;
-    color: #00d9ff;
+    background: rgba(196, 58, 47, 0.16);
+    border-left: 3px solid var(--color-primary);
+    color: var(--text-primary);
 
     .MuiListItemIcon-root {
-      color: #00d9ff;
+      color: var(--color-accent);
     }
     .MuiListItemText-primary {
-      color: #00d9ff;
-      font-weight: 600;
+      color: var(--text-primary);
+      font-weight: 700;
     }
   }
 `;
 
 export const NavItemButton = styled(ListItemButton)`
-  border-radius: 8px !important;
-  margin: 2px 8px !important;
-  width: calc(100% - 16px) !important;
-  color: #94a3b8 !important;
+  border-radius: 14px !important;
+  margin: 4px 10px !important;
+  width: calc(100% - 20px) !important;
+  color: var(--text-secondary) !important;
   transition: all 0.2s ease !important;
   border-left: 3px solid transparent !important;
 
   &:hover {
-    background: rgba(96, 165, 250, 0.08) !important;
-    color: #f8fafc !important;
+    background: rgba(196, 58, 47, 0.12) !important;
+    color: var(--text-primary) !important;
 
     .MuiListItemIcon-root {
-      color: #00d9ff;
+      color: var(--color-accent);
     }
   }
 
   .MuiListItemIcon-root {
     min-width: 36px;
-    color: #94a3b8;
+    color: var(--text-secondary);
     font-size: 18px;
     transition: color 0.2s ease;
   }
 
   &.parent-active {
-    background: rgba(111, 45, 168, 0.15) !important;
-    border-left: 3px solid #6f2da8 !important;
-    color: #f8fafc !important;
+    background: rgba(196, 58, 47, 0.12) !important;
+    border-left: 3px solid var(--color-primary) !important;
+    color: var(--text-primary) !important;
 
     .MuiListItemIcon-root {
-      color: #00d9ff;
+      color: var(--color-accent);
     }
   }
 `;
 
 export const UserButton = styled(Box)`
   padding: 16px 24px;
-  border-top: 1px solid rgba(96, 165, 250, 0.1);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
   display: flex;
   align-items: center;
   gap: 12px;
@@ -102,6 +98,6 @@ export const UserButton = styled(Box)`
   transition: background 0.2s ease;
 
   &:hover {
-    background: rgba(96, 165, 250, 0.05);
+    background: rgba(196, 58, 47, 0.08);
   }
 `;
