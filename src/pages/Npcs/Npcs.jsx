@@ -73,6 +73,8 @@ const resolverValorAtributo = (personagem, aliases) => {
       personagem?.[alias],
       personagem?.atributosBase?.[alias],
       personagem?.atributos?.[alias],
+      personagem?.secundariosTotais?.[alias],
+      personagem?.totais?.[alias],
     ];
 
     rawValues.forEach(valor => {

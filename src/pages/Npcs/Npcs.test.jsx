@@ -48,6 +48,14 @@ const PERSONAGENS_MOCK = [
     universo: 'u1',
     campanhas: ['c1'],
     descricao: 'Um orc rabugento',
+    totais: {
+      forca: 31,
+      vitalidade: 41,
+      agilidade: 51,
+      inteligencia: 61,
+      percepcao: 71,
+      sorte: 81,
+    },
   },
   {
     id: 'p2',
@@ -136,6 +144,21 @@ describe('Npcs (personagens do Universo vinculados à campanha ativa)', () => {
       screen.getByLabelText('Ver ficha de Grumnak, o Orc'),
     ).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Clonar' })).not.toBeInTheDocument();
+  });
+
+  it('mostra valores totais de atributos no card de NPC quando disponíveis', async () => {
+    renderNpcs();
+
+    await waitFor(() =>
+      expect(screen.getByText('Grumnak, o Orc')).toBeInTheDocument(),
+    );
+
+    expect(screen.getByText('31')).toBeInTheDocument();
+    expect(screen.getByText('41')).toBeInTheDocument();
+    expect(screen.getByText('51')).toBeInTheDocument();
+    expect(screen.getByText('61')).toBeInTheDocument();
+    expect(screen.getByText('71')).toBeInTheDocument();
+    expect(screen.getByText('81')).toBeInTheDocument();
   });
 
   it('abre a ficha completa do personagem ao clicar no ícone de ver ficha', async () => {

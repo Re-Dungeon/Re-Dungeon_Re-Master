@@ -36,6 +36,13 @@ describe('PersonagemFichaDialog', () => {
     getVeiaAstral.mockResolvedValue(null);
   });
 
+  const expandirTodosOsPainels = async user => {
+    const botoesExpandir = screen.getAllByRole('button', { name: /Expandir/i });
+    for (const botao of botoesExpandir) {
+      await user.click(botao);
+    }
+  };
+
   it('não busca subcoleções nem renderiza campos quando fechado', () => {
     render(
       <PersonagemFichaDialog
@@ -50,10 +57,12 @@ describe('PersonagemFichaDialog', () => {
   });
 
   it('mostra os campos do personagem na aba "Ficha" como grade de label/valor, não JSON cru', async () => {
+    const user = userEvent.setup();
     render(
       <PersonagemFichaDialog open onClose={() => {}} personagem={PERSONAGEM} />,
     );
 
+    await expandirTodosOsPainels(user);
     await waitFor(() =>
       expect(screen.getByText('Secundarios Base')).toBeInTheDocument(),
     );
@@ -65,6 +74,7 @@ describe('PersonagemFichaDialog', () => {
   });
 
   it('formata campo Timestamp do Firestore como data por extenso em pt-BR', async () => {
+    const user = userEvent.setup();
     const data = new Date(2026, 6, 29, 22, 34, 44);
     const personagemComTimestamp = {
       ...PERSONAGEM,
@@ -81,6 +91,8 @@ describe('PersonagemFichaDialog', () => {
       />,
     );
 
+    await expandirTodosOsPainels(user);
+
     const offsetHoras = -data.getTimezoneOffset() / 60;
     const sinal = offsetHoras >= 0 ? '+' : '-';
     const esperado = `29 de julho de 2026 às 22:34:44 UTC${sinal}${Math.abs(offsetHoras)}`;
@@ -89,14 +101,58 @@ describe('PersonagemFichaDialog', () => {
   });
 
   it('renderiza lista de primitivos como chips', async () => {
+    const user = userEvent.setup();
+    render(
+      <PersonagemFichaDialog open onClose={() => {}} personagem={PERSONAGEM} />,
+    );
+
+    await expandirTodosOsPainels(user);
+    await waitFor(() =>
+      expect(screen.getByText('scXcrtWfvpAZNI6WKHAj')).toBeInTheDocument(),
+    );
+    expect(screen.getByText('UYcKdf1pAfOCMck1ITM8')).toBeInTheDocument();
+  });
+
+  it('organiza atributos principais e status em grades separadas', async () => {
     render(
       <PersonagemFichaDialog open onClose={() => {}} personagem={PERSONAGEM} />,
     );
 
     await waitFor(() =>
-      expect(screen.getByText('scXcrtWfvpAZNI6WKHAj')).toBeInTheDocument(),
+      expect(screen.getByText('Atributos Principais')).toBeInTheDocument(),
     );
-    expect(screen.getByText('UYcKdf1pAfOCMck1ITM8')).toBeInTheDocument();
+
+    const gradeAtributos = screen.getByLabelText('Grade de atributos principais');
+    const gradeStatus = screen.getByLabelText('Grade de status');
+
+    expect(gradeAtributos.children).toHaveLength(6);
+    expect(gradeStatus.children).toHaveLength(3);
+  });
+
+  it('permite colapsar e expandir painéis de atributos', async () => {
+    const user = userEvent.setup();
+    const personagemComAtributos = {
+      ...PERSONAGEM,
+      atributosBase: { forca: 15, inteligencia: 12, percepcao: 14 },
+    };
+    render(
+      <PersonagemFichaDialog
+        open
+        onClose={() => {}}
+        personagem={personagemComAtributos}
+      />,
+    );
+
+    await waitFor(() =>
+      expect(screen.getByText('Atributos Totais')).toBeInTheDocument(),
+    );
+
+    const botoesRetrair = screen.getAllByLabelText(/Retrair|Expandir/);
+    expect(botoesRetrair.length).toBeGreaterThan(0);
+
+    await user.click(botoesRetrair[0]);
+    const atributosTotaisCard = screen.getByText('Atributos Totais').closest('[class*="MuiPaper"]');
+    expect(atributosTotaisCard).toHaveTextContent('Atributos Totais');
   });
 
   it('busca as subcoleções conhecidas quando o diálogo abre', async () => {
@@ -151,6 +207,7 @@ describe('PersonagemFichaDialog', () => {
   });
 
   it('resolve raça, classes e nós desbloqueados da veia astral para os nomes (mesmo padrão de aptidão: id igual ao da coleção de referência)', async () => {
+    const user = userEvent.setup();
     const personagemComReferencias = {
       id: 'p2',
       nome: 'Xerath',
@@ -182,6 +239,7 @@ describe('PersonagemFichaDialog', () => {
       />,
     );
 
+    await expandirTodosOsPainels(user);
     await waitFor(() => expect(getRaca).toHaveBeenCalledWith('raca-1'));
     expect(getClasse).toHaveBeenCalledWith('classe-1');
     expect(getClasse).toHaveBeenCalledWith('classe-2');

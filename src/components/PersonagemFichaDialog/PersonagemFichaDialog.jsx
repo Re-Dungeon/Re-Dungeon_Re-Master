@@ -13,6 +13,7 @@ import DialogActions from '@mui/material/DialogActions';
 import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
 import CloseIcon from '@mui/icons-material/Close';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import FitnessCenterOutlinedIcon from '@mui/icons-material/FitnessCenterOutlined';
 import FavoriteBorderOutlinedIcon from '@mui/icons-material/FavoriteBorderOutlined';
 import PsychologyOutlinedIcon from '@mui/icons-material/PsychologyOutlined';
@@ -303,26 +304,43 @@ const AtributoCard = ({ icon: Icon, label, value }) => (
   <Paper
     elevation={0}
     sx={{
-      p: 2,
+      p: 1.5,
       background: 'rgba(25, 28, 37, 0.96)',
       border: '1px solid rgba(255,255,255,0.08)',
       borderRadius: 2,
       display: 'flex',
       flexDirection: 'column',
-      gap: 0.5,
+      gap: 0.75,
       minHeight: 112,
-      justifyContent: 'space-between',
+      justifyContent: 'center',
+      alignItems: 'center',
+      textAlign: 'center',
+      width: '100%',
+      overflow: 'hidden',
     }}
   >
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-      {Icon && <Icon sx={{ color: 'var(--color-accent)', fontSize: 18 }} />}
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: 0.5,
+        width: '100%',
+      }}
+    >
+      {Icon && (
+        <Icon sx={{ color: 'var(--color-accent)', fontSize: 20, flexShrink: 0 }} />
+      )}
       <Typography
         variant="caption"
         sx={{
           color: 'var(--text-muted)',
           textTransform: 'uppercase',
-          letterSpacing: 1,
+          letterSpacing: 0.4,
           fontWeight: 700,
+          fontSize: '0.65rem',
+          lineHeight: 1.2,
+          wordBreak: 'break-word',
         }}
       >
         {label}
@@ -332,7 +350,13 @@ const AtributoCard = ({ icon: Icon, label, value }) => (
       variant="h5"
       sx={{ color: 'var(--text-primary)', fontWeight: 700, fontSize: '1.65rem' }}
     >
-      {value}
+      {typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean' || ehTimestamp(value) ? (
+        typeof value === 'boolean' ? String(value) : (ehTimestamp(value) ? formatarTimestamp(value) : String(value))
+      ) : (
+        <Box sx={{ width: '100%' }}>
+          <CampoValor valor={value} />
+        </Box>
+      )}
     </Typography>
   </Paper>
 );
@@ -340,7 +364,7 @@ const AtributoCard = ({ icon: Icon, label, value }) => (
 AtributoCard.propTypes = {
   icon: PropTypes.elementType,
   label: PropTypes.string.isRequired,
-  value: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  value: PropTypes.any,
 };
 
 const StatusCard = ({ label, value, sublabel }) => (
@@ -355,7 +379,11 @@ const StatusCard = ({ label, value, sublabel }) => (
       flexDirection: 'column',
       gap: 0.5,
       minHeight: 100,
-      justifyContent: 'space-between',
+      justifyContent: 'center',
+      alignItems: 'center',
+      textAlign: 'center',
+      width: '100%',
+      maxWidth: { xs: '100%', md: 220 },
     }}
   >
     <Typography
@@ -389,7 +417,7 @@ StatusCard.propTypes = {
   sublabel: PropTypes.node,
 };
 
-const PanelCard = ({ title, children }) => (
+const PanelCard = ({ title, children, collapsible = false, isOpen = true, onToggle }) => (
   <Paper
     elevation={0}
     sx={{
@@ -399,25 +427,53 @@ const PanelCard = ({ title, children }) => (
       p: 2,
     }}
   >
-    <Typography
-      variant="subtitle2"
+    <Box
       sx={{
-        color: 'var(--color-accent)',
-        textTransform: 'uppercase',
-        letterSpacing: 1,
-        fontWeight: 700,
-        mb: 1.5,
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        mb: isOpen ? 1.5 : 0,
       }}
     >
-      {title}
-    </Typography>
-    {children}
+      <Typography
+        variant="subtitle2"
+        sx={{
+          color: 'var(--color-accent)',
+          textTransform: 'uppercase',
+          letterSpacing: 1,
+          fontWeight: 700,
+        }}
+      >
+        {title}
+      </Typography>
+      {collapsible && (
+        <IconButton
+          size="small"
+          onClick={onToggle}
+          sx={{
+            transition: 'transform 220ms ease',
+            transform: isOpen ? 'rotate(0deg)' : 'rotate(-180deg)',
+            color: 'var(--color-accent)',
+            '&:hover': {
+              background: 'rgba(255,255,255,0.06)',
+            },
+          }}
+          aria-label={isOpen ? 'Retrair' : 'Expandir'}
+        >
+          <ExpandMoreIcon />
+        </IconButton>
+      )}
+    </Box>
+    {isOpen && children}
   </Paper>
 );
 
 PanelCard.propTypes = {
   title: PropTypes.string.isRequired,
   children: PropTypes.node,
+  collapsible: PropTypes.bool,
+  isOpen: PropTypes.bool,
+  onToggle: PropTypes.func,
 };
 
 const PersonagemFichaDialog = ({
@@ -426,6 +482,20 @@ const PersonagemFichaDialog = ({
   personagem,
   actions = null,
 }) => {
+  const [collapseStates, setCollapseStates] = useState({
+    atributosTotais: false,
+    atributosSecundarios: false,
+    atributosDetalhados: false,
+    infoJogador: false,
+    detalhesAdicionais: false,
+  });
+
+  const toggleCollapse = (painel) => {
+    setCollapseStates(prev => ({
+      ...prev,
+      [painel]: !prev[painel],
+    }));
+  };
   const [aba, setAba] = useState(0);
   const [subcolecoes, setSubcolecoes] = useState({});
   const [aptidaoNomes, setAptidaoNomes] = useState({});
@@ -686,11 +756,21 @@ const PersonagemFichaDialog = ({
     {
       label: 'Sorte',
       icon: AutoAwesomeOutlinedIcon,
-      value:
-        personagem?.sorte ??
-        personagem?.sorteBase ??
-        personagem?.atributosBase?.sorte ??
-        '—',
+      value: (() => {
+        const valorSorte =
+          personagem?.sorte ??
+          personagem?.sor ??
+          personagem?.sorteBase ??
+          personagem?.sorBase ??
+          personagem?.atributosBase?.sorte ??
+          personagem?.atributosBase?.sor;
+        if (typeof valorSorte === 'object' && valorSorte !== null) {
+          return (
+            valorSorte.valor ?? valorSorte.atual ?? valorSorte.value ?? '—'
+          );
+        }
+        return valorSorte ?? '—';
+      })(),
     },
     {
       label: 'Vitalidade',
@@ -775,7 +855,7 @@ const PersonagemFichaDialog = ({
       slotProps={{
         paper: {
           sx: {
-            width: 'min(1180px, calc(100vw - 48px))',
+            width: 'min(1400px, calc(100vw - 48px))',
             maxHeight: '92vh',
             background: 'rgba(10, 12, 16, 0.98)',
             border: '1px solid rgba(255,255,255,0.08)',
@@ -1024,10 +1104,15 @@ const PersonagemFichaDialog = ({
             >
               <PanelCard title="Atributos Principais">
                 <Box
+                  aria-label="Grade de atributos principais"
                   sx={{
                     display: 'grid',
                     gap: 2,
-                    gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+                    gridTemplateColumns: {
+                      xs: 'repeat(2, minmax(0, 1fr))',
+                      sm: 'repeat(3, minmax(0, 1fr))',
+                      md: 'repeat(6, minmax(0, 1fr))',
+                    },
                   }}
                 >
                   {atributosPrincipais.map(item => (
@@ -1043,10 +1128,15 @@ const PersonagemFichaDialog = ({
 
               <PanelCard title="Status">
                 <Box
+                  aria-label="Grade de status"
                   sx={{
                     display: 'grid',
                     gap: 2,
-                    gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+                    gridTemplateColumns: {
+                      xs: '1fr',
+                      sm: 'repeat(3, minmax(0, 1fr))',
+                    },
+                    justifyItems: 'center',
                   }}
                 >
                   {statusCards.map(item => (
@@ -1061,7 +1151,12 @@ const PersonagemFichaDialog = ({
               </PanelCard>
             </Box>
 
-            <PanelCard title="Atributos Totais">
+            <PanelCard
+              title="Atributos Totais"
+              collapsible
+              isOpen={collapseStates.atributosTotais}
+              onToggle={() => toggleCollapse('atributosTotais')}
+            >
               <Box
                 sx={{
                   display: 'grid',
@@ -1080,7 +1175,12 @@ const PersonagemFichaDialog = ({
               </Box>
             </PanelCard>
 
-            <PanelCard title="Atributos Secundários">
+            <PanelCard
+              title="Atributos Secundários"
+              collapsible
+              isOpen={collapseStates.atributosSecundarios}
+              onToggle={() => toggleCollapse('atributosSecundarios')}
+            >
               <Box
                 sx={{
                   display: 'grid',
@@ -1099,7 +1199,12 @@ const PersonagemFichaDialog = ({
               </Box>
             </PanelCard>
 
-            <PanelCard title="Atributos Detalhados">
+            <PanelCard
+              title="Atributos Detalhados"
+              collapsible
+              isOpen={collapseStates.atributosDetalhados}
+              onToggle={() => toggleCollapse('atributosDetalhados')}
+            >
               <Box
                 sx={{
                   overflowX: 'auto',
@@ -1233,7 +1338,12 @@ const PersonagemFichaDialog = ({
               </Box>
             </PanelCard>
 
-            <PanelCard title="Informações do Jogador">
+            <PanelCard
+              title="Informações do Jogador"
+              collapsible
+              isOpen={collapseStates.infoJogador}
+              onToggle={() => toggleCollapse('infoJogador')}
+            >
               {personagem?.jogador ? (
                 <Box sx={{ display: 'grid', gap: 1.25 }}>
                   <Typography sx={{ color: 'var(--text-primary)' }}>
@@ -1252,7 +1362,12 @@ const PersonagemFichaDialog = ({
               )}
             </PanelCard>
 
-            <PanelCard title="Detalhes Adicionais">
+            <PanelCard
+              title="Detalhes Adicionais"
+              collapsible
+              isOpen={collapseStates.detalhesAdicionais}
+              onToggle={() => toggleCollapse('detalhesAdicionais')}
+            >
               {renderFichaPrincipal()}
             </PanelCard>
           </Box>
