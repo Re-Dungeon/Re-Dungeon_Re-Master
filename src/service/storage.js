@@ -242,7 +242,7 @@ export const getUserPermissions = async uid => {
 export const getUsuarioNome = async uid => {
   const snap = await getDoc(doc(db, USER_PERMISSIONS_COLLECTION, uid));
   if (!snap.exists()) return null;
-  const nome = snap.data().nome;
+  const nome = snap.data().Nome;
   return typeof nome === 'string' && nome.trim() ? nome.trim() : null;
 };
 
