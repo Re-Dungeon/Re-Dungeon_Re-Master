@@ -32,6 +32,7 @@ import {
   getVeiaAstral,
   getOrigem,
   getCondicoes,
+  getUsuarioNome,
 } from 'service/storage';
 import {
   resolverValorAtributoPrimario,
@@ -2738,6 +2739,7 @@ const PersonagemFichaDialog = ({
   const [origemNome, setOrigemNome] = useState();
   const [noVeiaAstralIcons, setNoVeiaAstralIcons] = useState({});
   const [condicaoReferencias, setCondicaoReferencias] = useState({});
+  const [criadorNome, setCriadorNome] = useState();
 
   useEffect(() => {
     if (!open) return undefined;
@@ -2749,6 +2751,7 @@ const PersonagemFichaDialog = ({
       setRacaNome(undefined);
       setClasseNomes({});
       setNoVeiaAstralNomes({});
+      setCriadorNome(undefined);
     });
     return () => {
       active = false;
@@ -2820,6 +2823,20 @@ const PersonagemFichaDialog = ({
           })
           .catch(() => {
             if (active) setOrigemNome(null);
+          });
+      }
+
+      // `uid` guarda o dono do personagem no Re-Dungeon (ver firestore.rules,
+      // match /personagens/{id}) — resolve para o `nome` cadastrado em
+      // userPermissions/{uid}; sem nome cadastrado, quem exibe cai de volta
+      // para o uid cru.
+      if (personagem.uid) {
+        getUsuarioNome(personagem.uid)
+          .then(nome => {
+            if (active) setCriadorNome(nome);
+          })
+          .catch(() => {
+            if (active) setCriadorNome(null);
           });
       }
     });
@@ -3010,21 +3027,10 @@ const PersonagemFichaDialog = ({
     return meta.filter(Boolean).join(' · ');
   };
 
-  const resolverNomeCriador = () => {
-    const fonteCriador =
-      personagem?.jogador ??
-      personagem?.usuario ??
-      personagem?.createdBy ??
-      personagem?.creator ??
-      personagem?.owner ??
-      personagem?.user ??
-      null;
-
-    return resolverValorInfoJogador(
-      [fonteCriador],
-      ['nome', 'displayName', 'fullName', 'name', 'username', 'userName'],
-    );
-  };
+  // `criadorNome` vem de userPermissions/{personagem.uid}.nome (ver efeito
+  // acima); sem nome cadastrado lá, cai para o uid cru — nunca esconde a
+  // informação de quem criou a ficha.
+  const resolverNomeCriador = () => criadorNome ?? personagem?.uid ?? null;
 
   const renderFichaPrincipal = () => {
     if (campos.length === 0) {

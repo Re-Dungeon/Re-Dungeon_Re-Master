@@ -62,9 +62,18 @@ service cloud.firestore {
     }
 
     // ── userPermissions ────────────────────────────────────────────────────────
-    // Cada usuário só lê o próprio documento; apenas admins podem escrever.
+    // Cada usuário lê o próprio documento; além disso, quem compartilha
+    // permissão de escrita em pelo menos um Universo com o dono do doc também
+    // pode ler (usado pelo Re:Master para resolver uid → nome do usuário que
+    // criou uma ficha de NPC/Criatura/Jogador, quando esse usuário não é quem
+    // está logado). Apenas admins podem escrever.
     match /userPermissions/{userId} {
-      allow read: if isAuth() && request.auth.uid == userId;
+      allow read: if isAuth() && (
+        request.auth.uid == userId ||
+        isAdmin() ||
+        (resource.data.universos is list &&
+         resource.data.universos.hasAny(perms().universos))
+      );
       allow write: if isAdmin();
     }
 

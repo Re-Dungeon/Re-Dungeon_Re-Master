@@ -234,6 +234,18 @@ export const getUserPermissions = async uid => {
   };
 };
 
+// Nome de exibição de um usuário (campo `nome` do doc `userPermissions/{uid}`,
+// preenchido pelo Re-Dungeon) — usado para mostrar quem criou uma ficha de
+// NPC/Criatura/Jogador na modal de visualização. `null` quando o doc não
+// existe ou não tem `nome` cadastrado; quem chama trata o fallback (exibir o
+// uid cru).
+export const getUsuarioNome = async uid => {
+  const snap = await getDoc(doc(db, USER_PERMISSIONS_COLLECTION, uid));
+  if (!snap.exists()) return null;
+  const nome = snap.data().nome;
+  return typeof nome === 'string' && nome.trim() ? nome.trim() : null;
+};
+
 // ── cardflux (Firestore) — gerida por um projeto irmão (banco de cartas de
 // evento do CardFlux), leitura liberada para qualquer autenticado. O
 // Re:Master nunca cria/edita/remove baralhos ou cartas aqui — só lê e
