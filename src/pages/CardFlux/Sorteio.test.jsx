@@ -40,7 +40,7 @@ vi.mock('context/CampanhaContext', () => ({
 
 import Sorteio from './Sorteio';
 
-const BARALHO = { nome: 'Eventos de Estrada' };
+const BARALHOS = ['Eventos de Estrada'];
 const CARTAS_MOCK = [
   {
     id: 'carta1',
@@ -80,7 +80,7 @@ const configurarFirestoreFake = (estadosIniciais = []) => {
   return store;
 };
 
-const renderSorteio = (state = { baralho: BARALHO }) =>
+const renderSorteio = (state = { baralhos: BARALHOS }) =>
   render(
     <MemoryRouter initialEntries={[{ pathname: '/cardflux/sorteio', state }]}>
       <Sorteio />

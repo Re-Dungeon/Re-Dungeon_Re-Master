@@ -99,7 +99,7 @@ describe('CardFlux (baralhos agrupados a partir das cartas do cardflux)', () => 
     await user.click(screen.getByRole('button', { name: 'Sortear' }));
 
     expect(navigate).toHaveBeenCalledWith('/cardflux/sorteio', {
-      state: { baralho: { nome: 'Eventos de Estrada' } },
+      state: { baralhos: ['Eventos de Estrada'] },
     });
   });
 
