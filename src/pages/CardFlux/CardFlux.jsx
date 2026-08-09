@@ -5,6 +5,11 @@ import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
+import Select from '@mui/material/Select';
+import MenuItem from '@mui/material/MenuItem';
+import FormControl from '@mui/material/FormControl';
+import InputLabel from '@mui/material/InputLabel';
+import Chip from '@mui/material/Chip';
 import { useCampanha } from 'context/CampanhaContext';
 import {
   getCardfluxCartas,
@@ -22,6 +27,28 @@ const cardSx = {
   borderRadius: 2,
 };
 
+const selectSx = {
+  color: 'var(--text-primary)',
+  '& .MuiOutlinedInput-notchedOutline': {
+    borderColor: 'var(--border-primary)',
+  },
+  '&:hover .MuiOutlinedInput-notchedOutline': {
+    borderColor: 'var(--border-hover)',
+  },
+  '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+    borderColor: 'var(--color-accent)',
+  },
+  '& .MuiSvgIcon-root': { color: 'var(--text-secondary)' },
+};
+
+const menuPropsSx = {
+  PaperProps: {
+    sx: { background: 'var(--bg-card)', color: 'var(--text-primary)' },
+  },
+};
+
+const multiSorteioLabelId = 'cardflux-multi-sorteio-label';
+
 const CardFlux = () => {
   const navigate = useNavigate();
   const { campanhaAtiva, loadingCampanhas } = useCampanha();
@@ -29,6 +56,7 @@ const CardFlux = () => {
   const [cartas, setCartas] = useState([]);
   const [loadingDados, setLoadingDados] = useState(true);
   const [error, setError] = useState(null);
+  const [baralhosSelecionados, setBaralhosSelecionados] = useState([]);
 
   const carregarDados = useCallback(async () => {
     if (!campanhaAtiva) {
@@ -77,6 +105,19 @@ const CardFlux = () => {
       .sort((a, b) => a.nome.localeCompare(b.nome));
   }, [cartas]);
 
+  const disponiveisSelecionados = useMemo(
+    () =>
+      baralhos
+        .filter(b => baralhosSelecionados.includes(b.nome))
+        .reduce(
+          (soma, b) =>
+            soma +
+            b.cartas.filter(c => c.estadoNoBaralho === 'no_baralho').length,
+          0,
+        ),
+    [baralhos, baralhosSelecionados],
+  );
+
   if (!campanhaAtiva && !loadingCampanhas) return null;
 
   const loading = loadingCampanhas || loadingDados;
@@ -115,75 +156,160 @@ const CardFlux = () => {
           </small>
         </Box>
       ) : (
-        <Box
-          sx={{
-            display: 'grid',
-            gridTemplateColumns: {
-              xs: '1fr',
-              sm: 'repeat(auto-fill, minmax(280px, 1fr))',
-            },
-            gap: 2,
-          }}
-        >
-          {baralhos.map(baralho => {
-            const disponiveis = baralho.cartas.filter(
-              c => c.estadoNoBaralho === 'no_baralho',
-            );
-
-            return (
-              <Paper key={baralho.nome} elevation={0} sx={cardSx}>
-                <Typography
-                  variant="h6"
-                  sx={{ color: 'var(--text-primary)', fontWeight: 600, mb: 1 }}
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <Paper elevation={0} sx={cardSx}>
+            <Typography
+              variant="h6"
+              sx={{ color: 'var(--text-primary)', fontWeight: 600, mb: 1.5 }}
+            >
+              Sortear de múltiplos baralhos
+            </Typography>
+            <Box
+              sx={{
+                display: 'flex',
+                gap: 1.5,
+                alignItems: 'center',
+                flexWrap: 'wrap',
+              }}
+            >
+              <FormControl size="small" sx={{ minWidth: 260, flexGrow: 1 }}>
+                <InputLabel
+                  id={multiSorteioLabelId}
+                  sx={{ color: 'var(--text-secondary)' }}
                 >
-                  {baralho.nome}
-                </Typography>
-
-                <Typography
-                  variant="caption"
-                  sx={{ color: 'var(--text-muted)', display: 'block', mb: 1.5 }}
+                  Baralhos
+                </InputLabel>
+                <Select
+                  multiple
+                  labelId={multiSorteioLabelId}
+                  label="Baralhos"
+                  value={baralhosSelecionados}
+                  onChange={e => setBaralhosSelecionados(e.target.value)}
+                  sx={selectSx}
+                  MenuProps={menuPropsSx}
+                  renderValue={selecionados => (
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                      {selecionados.map(nome => (
+                        <Chip key={nome} size="small" label={nome} />
+                      ))}
+                    </Box>
+                  )}
                 >
-                  {disponiveis.length}/{baralho.cartas.length} cartas
-                  disponíveis
-                </Typography>
+                  {baralhos.map(baralho => (
+                    <MenuItem key={baralho.nome} value={baralho.nome}>
+                      {baralho.nome}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
 
-                <Box sx={{ display: 'flex', gap: 1 }}>
-                  <Button
-                    fullWidth
-                    variant="contained"
-                    onClick={() =>
-                      navigate(ROUTE_PATHS.CARDFLUX_SORTEIO, {
-                        state: { baralho: { nome: baralho.nome } },
-                      })
-                    }
+              {baralhosSelecionados.length > 0 && (
+                <Typography
+                  variant="body2"
+                  sx={{ color: 'var(--text-secondary)' }}
+                >
+                  {disponiveisSelecionados} cartas disponíveis
+                </Typography>
+              )}
+
+              <Button
+                variant="contained"
+                disabled={baralhosSelecionados.length === 0}
+                onClick={() =>
+                  navigate(ROUTE_PATHS.CARDFLUX_SORTEIO, {
+                    state: { baralhos: baralhosSelecionados },
+                  })
+                }
+                sx={{
+                  background: 'var(--color-accent)',
+                  color: 'var(--bg-primary)',
+                  fontWeight: 700,
+                  '&:hover': { background: '#00b8dd' },
+                }}
+              >
+                🎲 Sortear
+              </Button>
+            </Box>
+          </Paper>
+
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: {
+                xs: '1fr',
+                sm: 'repeat(auto-fill, minmax(280px, 1fr))',
+              },
+              gap: 2,
+            }}
+          >
+            {baralhos.map(baralho => {
+              const disponiveis = baralho.cartas.filter(
+                c => c.estadoNoBaralho === 'no_baralho',
+              );
+
+              return (
+                <Paper key={baralho.nome} elevation={0} sx={cardSx}>
+                  <Typography
+                    variant="h6"
                     sx={{
-                      background: 'var(--color-accent)',
-                      color: 'var(--bg-primary)',
-                      fontWeight: 700,
-                      '&:hover': { background: '#00b8dd' },
+                      color: 'var(--text-primary)',
+                      fontWeight: 600,
+                      mb: 1,
                     }}
                   >
-                    Sortear
-                  </Button>
-                  <Button
-                    fullWidth
-                    variant="outlined"
-                    onClick={() =>
-                      navigate(ROUTE_PATHS.CARDFLUX_CARTAS, {
-                        state: { baralho: { nome: baralho.nome } },
-                      })
-                    }
+                    {baralho.nome}
+                  </Typography>
+
+                  <Typography
+                    variant="caption"
                     sx={{
-                      color: 'var(--color-accent)',
-                      borderColor: 'var(--color-accent)',
+                      color: 'var(--text-muted)',
+                      display: 'block',
+                      mb: 1.5,
                     }}
                   >
-                    Ver Cartas
-                  </Button>
-                </Box>
-              </Paper>
-            );
-          })}
+                    {disponiveis.length}/{baralho.cartas.length} cartas
+                    disponíveis
+                  </Typography>
+
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    <Button
+                      fullWidth
+                      variant="contained"
+                      onClick={() =>
+                        navigate(ROUTE_PATHS.CARDFLUX_SORTEIO, {
+                          state: { baralhos: [baralho.nome] },
+                        })
+                      }
+                      sx={{
+                        background: 'var(--color-accent)',
+                        color: 'var(--bg-primary)',
+                        fontWeight: 700,
+                        '&:hover': { background: '#00b8dd' },
+                      }}
+                    >
+                      Sortear
+                    </Button>
+                    <Button
+                      fullWidth
+                      variant="outlined"
+                      onClick={() =>
+                        navigate(ROUTE_PATHS.CARDFLUX_CARTAS, {
+                          state: { baralho: { nome: baralho.nome } },
+                        })
+                      }
+                      sx={{
+                        color: 'var(--color-accent)',
+                        borderColor: 'var(--color-accent)',
+                      }}
+                    >
+                      Ver Cartas
+                    </Button>
+                  </Box>
+                </Paper>
+              );
+            })}
+          </Box>
         </Box>
       )}
     </Box>

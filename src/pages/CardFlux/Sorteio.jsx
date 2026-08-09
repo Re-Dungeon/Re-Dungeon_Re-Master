@@ -69,7 +69,7 @@ const Sorteio = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { campanhaAtiva, loadingCampanhas } = useCampanha();
-  const baralho = location.state?.baralho ?? null;
+  const baralhos = location.state?.baralhos ?? null;
 
   const [cartas, setCartas] = useState([]);
   const [historico, setHistorico] = useState([]);
@@ -91,7 +91,7 @@ const Sorteio = () => {
   const [processandoAcao, setProcessandoAcao] = useState(false);
 
   const carregarDados = useCallback(async () => {
-    if (!campanhaAtiva || !baralho) {
+    if (!campanhaAtiva || !baralhos || baralhos.length === 0) {
       setCartas([]);
       setHistorico([]);
       setLoadingDados(false);
@@ -114,21 +114,21 @@ const Sorteio = () => {
             campanhaAtiva.mestreId,
           ),
         ]);
-      const cartasDoBaralho = cartasDoUniverso.filter(
-        c => c.deck === baralho.nome,
+      const cartasDosBaralhos = cartasDoUniverso.filter(c =>
+        baralhos.includes(c.deck),
       );
       const cartasMescladas = mesclarEstadoCartas(
-        cartasDoBaralho,
+        cartasDosBaralhos,
         estadosDaCampanha,
       );
       setCartas(cartasMescladas);
-      const logsDoBaralho = todosLogs.filter(
+      const logsDosBaralhos = todosLogs.filter(
         log =>
           log.tipo === TIPO_EVENTO_SESSAO.CARTA_SORTEADA &&
-          log.deck === baralho.nome,
+          baralhos.includes(log.deck),
       );
       setHistorico(
-        ordenarLogsPorDataDesc(logsDoBaralho).slice(0, HISTORICO_LIMITE),
+        ordenarLogsPorDataDesc(logsDosBaralhos).slice(0, HISTORICO_LIMITE),
       );
       return cartasMescladas;
     } catch (err) {
@@ -137,14 +137,17 @@ const Sorteio = () => {
     } finally {
       setLoadingDados(false);
     }
-  }, [campanhaAtiva, baralho]);
+  }, [campanhaAtiva, baralhos]);
 
   useAsyncEffect(carregarDados, [carregarDados]);
 
   useEffect(() => {
-    if (!loadingCampanhas && (!campanhaAtiva || !baralho))
+    if (
+      !loadingCampanhas &&
+      (!campanhaAtiva || !baralhos || baralhos.length === 0)
+    )
       navigate(ROUTE_PATHS.CARDFLUX);
-  }, [loadingCampanhas, campanhaAtiva, baralho, navigate]);
+  }, [loadingCampanhas, campanhaAtiva, baralhos, navigate]);
 
   const totalCartasPlanejadas = useMemo(
     () =>
@@ -166,7 +169,11 @@ const Sorteio = () => {
   const podeComprar =
     cartasCompradas < totalCartasPlanejadas && !sorteando && !processandoAcao;
 
-  if ((!campanhaAtiva || !baralho) && !loadingCampanhas) return null;
+  if (
+    (!campanhaAtiva || !baralhos || baralhos.length === 0) &&
+    !loadingCampanhas
+  )
+    return null;
 
   const loading = loadingCampanhas || loadingDados;
 
@@ -174,7 +181,7 @@ const Sorteio = () => {
     const pool = filtrarPoolValido(cartas, intensidadeMinima);
     if (pool.length === 0) {
       setAvisoEsgotado(
-        `Nenhuma carta disponível em "${baralho.nome}" com os filtros atuais (todas compradas, descartadas, em cooldown ou abaixo da intensidade mínima).`,
+        `Nenhuma carta disponível nos baralhos selecionados (${baralhos.join(', ')}) com os filtros atuais (todas compradas, descartadas, em cooldown ou abaixo da intensidade mínima).`,
       );
       return;
     }
@@ -186,10 +193,10 @@ const Sorteio = () => {
       await registrarEventoSessao(
         campanhaAtiva,
         TIPO_EVENTO_SESSAO.CARTA_SORTEADA,
-        `Carta sorteada: "${sorteada.nome}" (${baralho.nome})`,
+        `Carta sorteada: "${sorteada.nome}" (${sorteada.deck})`,
         {
           cartaId: sorteada.id,
-          deck: baralho.nome,
+          deck: sorteada.deck,
           raridade: sorteada.raridade ?? null,
           numero: cartasCompradas + 1,
         },
@@ -264,7 +271,7 @@ const Sorteio = () => {
           variant="h5"
           sx={{ color: 'var(--text-primary)', fontWeight: 700, mb: 0.5 }}
         >
-          Sorteio — {baralho?.nome}
+          Sorteio — {baralhos?.join(', ')}
         </Typography>
       </Box>
 
@@ -580,12 +587,18 @@ const Sorteio = () => {
                     >
                       <ListItemText
                         primary={
-                          <Typography variant="body2" sx={{ color: 'var(--text-primary)' }}>
+                          <Typography
+                            variant="body2"
+                            sx={{ color: 'var(--text-primary)' }}
+                          >
                             {log.mensagem}
                           </Typography>
                         }
                         secondary={
-                          <Typography variant="caption" sx={{ color: 'var(--text-muted)' }}>
+                          <Typography
+                            variant="caption"
+                            sx={{ color: 'var(--text-muted)' }}
+                          >
                             {formatarHoraEvento(log.createdAt)}
                           </Typography>
                         }
@@ -637,7 +650,9 @@ const Sorteio = () => {
                 key={vinculo.cartaId}
                 sx={{ mb: 1.5 }}
                 primary={
-                  <Typography sx={{ color: 'var(--text-primary)', fontWeight: 600 }}>
+                  <Typography
+                    sx={{ color: 'var(--text-primary)', fontWeight: 600 }}
+                  >
                     {vinculo.cartaNome}
                   </Typography>
                 }
