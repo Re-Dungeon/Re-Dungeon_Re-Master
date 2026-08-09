@@ -35,7 +35,7 @@ Copie `.env.example` para `.env` e preencha com as credenciais do projeto Fireba
 | `npm run preview`    | Serve o build de produção localmente para testes       |
 | `npm run eslint`     | Analisa o código com ESLint                            |
 | `npm run eslint-fix` | Corrige automaticamente problemas do ESLint            |
-| `npm run prettier`   | Formata o código com Prettier                          |
+| `npm run prettier`   | Formata o código com Prettier (⚠️ roda no projeto inteiro — prefira `npx prettier --write "src/path/to/file.jsx"` para formatar apenas os arquivos modificados) |
 | `npm run test`       | Executa os testes (Vitest + Testing Library)           |
 
 ---

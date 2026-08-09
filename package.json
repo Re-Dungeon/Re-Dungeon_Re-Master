@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "eslint": "eslint src/",
     "eslint-fix": "eslint src/ --fix",
-    "lint": "eslint src/",
+    "lint": "npm run eslint",
     "prettier": "prettier --write src/**/*.{js,jsx}",
     "test": "vitest"
   },
