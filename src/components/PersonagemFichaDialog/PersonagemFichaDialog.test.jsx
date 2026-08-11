@@ -338,6 +338,37 @@ describe('PersonagemFichaDialog', () => {
     expect(screen.getByText('Mantém segredos pessoais.')).toBeInTheDocument();
   });
 
+  it('mostra a seção de nível quando o clone contém dados de progressão', async () => {
+    const user = userEvent.setup();
+    const clone = {
+      nivel: 7,
+      xp: 1280,
+      pontosPrincipais: 4,
+      pontosSecundarios: 2,
+      historicoNivel: [
+        { nivel: 6, data: '2026-07-29', descricao: 'Subiu de nível após o combate' },
+      ],
+    };
+
+    render(
+      <PersonagemFichaDialog
+        open
+        onClose={() => {}}
+        personagem={PERSONAGEM}
+        clone={clone}
+      />,
+    );
+
+    await expandirTodosOsPainels(user);
+
+    await waitFor(() => expect(screen.getByText('Nível Atual')).toBeInTheDocument());
+    expect(screen.getByText('7')).toBeInTheDocument();
+    expect(screen.getByText('1280')).toBeInTheDocument();
+    expect(screen.getAllByText('4').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('2').length).toBeGreaterThan(0);
+    expect(screen.getByText('Subiu de nível após o combate')).toBeInTheDocument();
+  });
+
   it('não usa um objeto de jogadorInfo como afiliacao quando existem campos separados', async () => {
     const user = userEvent.setup();
     const personagemComInfoAninhada = {

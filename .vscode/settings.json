@@ -1,0 +1,20 @@
+{
+    "chat.tools.terminal.autoApprove": {
+        "/^cd /d d:\\\\Bagre\\.exe\\\\01_PROJETOS\\\\Re-Dungeon_Re-Master; python -c \"from pathlib import Path; p=Path\\('src/components/PersonagemFichaDialog/PersonagemFichaDialog\\.jsx'\\); text=p\\.read_text\\(encoding='utf-8'\\); stack=\\[\\]; pairs=\\{'\\{':'\\}','\\(':'\\)','\\[':'\\]'\\}; import sys; \nfor i,ch in enumerate\\(text,1\\):\n    if ch in '\\{\\(\\[': stack\\.append\\(\\(ch,i\\)\\)\n    elif ch in '\\}\\]\\)':\n        if not stack:\n            print\\('Extra closing', ch, 'at', i\\); sys\\.exit\\(0\\)\n        o,pos=stack\\.pop\\(\\)\n        if pairs\\[o\\] != ch:\n            print\\('Mismatch', o, 'at', pos, 'with', ch, 'at', i\\); sys\\.exit\\(0\\)\nprint\\('stack len', len\\(stack\\)\\)\nif stack: print\\('unmatched top', stack\\[-1\\]\\)\"$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^Set-Location 'd:\\\\Bagre\\.exe\\\\01_PROJETOS\\\\Re-Dungeon_Re-Master'; \\$code = @'\nfrom pathlib import Path\nimport sys\ntext = Path\\('src/components/PersonagemFichaDialog/PersonagemFichaDialog\\.jsx'\\)\\.read_text\\(encoding='utf-8'\\)\nstack = \\[\\]\npairs = \\{'\\{': '\\}', '\\(': '\\)', '\\[': '\\]'\\}\nline = 1\ncol = 0\nfor ch in text:\n    col \\+= 1\n    if ch == '\\\\n':\n        line \\+= 1\n        col = 0\n    if ch in '\\{\\(\\[':\n        stack\\.append\\(\\(ch, line, col\\)\\)\n    elif ch in '\\}\\]\\)':\n        if not stack:\n            print\\('Extra closing', ch, 'at line', line, 'col', col\\)\n            sys\\.exit\\(0\\)\n        o, l, pos = stack\\.pop\\(\\)\n        if pairs\\[o\\] != ch:\n            print\\('Mismatch', o, 'at line', l, 'col', pos, 'with', ch, 'at line', line, 'col', col\\)\n            sys\\.exit\\(0\\)\nprint\\('stack len', len\\(stack\\)\\)\nif stack:\n    print\\('unmatched top', stack\\[-1\\]\\)\n'@; python -c \\$code$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^python \\.\\\\temp_brace_check\\.py$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^Set-Location 'd:\\\\Bagre\\.exe\\\\01_PROJETOS\\\\Re-Dungeon_Re-Master'; python -c \"from pathlib import Path; lines=Path\\('src/components/PersonagemFichaDialog/PersonagemFichaDialog\\.jsx'\\)\\.read_text\\(encoding='utf-8'\\)\\.splitlines\\(\\); import itertools; \\[print\\(f'\\{i\\+1\\}: \\{lines\\[i\\]\\}'\\) for i in range\\(1058,1082\\)\\]\"$/": {
+            "approve": true,
+            "matchCommandLine": true
+        }
+    }
+}

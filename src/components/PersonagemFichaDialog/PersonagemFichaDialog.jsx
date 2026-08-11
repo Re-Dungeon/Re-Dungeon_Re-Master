@@ -215,6 +215,36 @@ const normalizarTextoValor = valor => {
   return String(valor);
 };
 
+const normalizarValorSimples = valor => {
+  if (valor === null || valor === undefined || valor === '') {
+    return null;
+  }
+
+  if (typeof valor === 'object' && !Array.isArray(valor)) {
+    const candidato = [
+      'valor',
+      'atual',
+      'value',
+      'nivel',
+      'level',
+      'xp',
+      'experiencia',
+      'pontosPrincipais',
+      'pontosPrincipaisDisponiveis',
+      'pontos_principais_disponiveis',
+      'pontosSecundarios',
+      'pontosSecundariosDisponiveis',
+      'pontos_secundarios_disponiveis',
+    ].find(chave => !ehVazio(valor[chave]));
+
+    if (candidato) {
+      return normalizarTextoValor(valor[candidato]);
+    }
+  }
+
+  return normalizarTextoValor(valor);
+};
+
 const ehVazio = valor =>
   valor === null ||
   valor === undefined ||
@@ -2714,7 +2744,7 @@ const PersonagemFichaDialog = ({
   onClose,
   personagem,
   clone = null,
-  actions = null,
+  actions = null
 }) => {
   const [collapseStates, setCollapseStates] = useState({
     atributosTotais: false,
@@ -3044,6 +3074,446 @@ const PersonagemFichaDialog = ({
       );
     }
 
+    const buscarValorCampo = aliases => {
+      for (const alias of aliases) {
+        const valor =
+          clone?.[alias] ?? personagemResolvido?.[alias] ?? personagem?.[alias];
+        if (!ehVazio(valor)) return valor;
+      }
+      return null;
+    };
+
+    const nivelAtual = buscarValorCampo([
+      'nivel',
+      'level',
+      'nivelAtual',
+      'nivel_atual',
+    ]);
+    const xpAtual = buscarValorCampo([
+      'xpAtual',
+      'xp_atual',
+      'xp',
+      'experienciaAtual',
+      'experiencia_atual',
+      'experiencia',
+      'experience',
+    ]);
+    const pontosPrincipaisDisponiveis = buscarValorCampo([
+      'pontosPrincipais',
+      'pontos_principais',
+      'pontosPrincipaisDisponiveis',
+      'pontos_principais_disponiveis',
+      'pontosPrincipaisAtuais',
+      'pontos_principais_atuais',
+      'mainPoints',
+      'pointsMain',
+    ]);
+    const pontosSecundariosDisponiveis = buscarValorCampo([
+      'pontosSecundarios',
+      'pontos_secundarios',
+      'pontosSecundariosDisponiveis',
+      'pontos_secundarios_disponiveis',
+      'pontosSecundariosAtuais',
+      'pontos_secundarios_atuais',
+      'secondaryPoints',
+      'pointsSecondary',
+    ]);
+    const historicoNivelRaw = buscarValorCampo([
+      'historicoNivel',
+      'historico_nivel',
+      'nivelHistorico',
+      'nivel_historico',
+      'historicoLevel',
+      'historico_level',
+      'levelHistory',
+      'level_history',
+    ]);
+
+    const nivelHistoricoItems = (() => {
+      if (!historicoNivelRaw) return [];
+      const rawItems = Array.isArray(historicoNivelRaw)
+        ? historicoNivelRaw
+        : [historicoNivelRaw];
+      return rawItems
+        .map(item => {
+          if (item === null || item === undefined || item === '') return null;
+          if (typeof item === 'string' || typeof item === 'number') {
+            return {
+              nivel: String(item),
+              data: null,
+              descricao: null,
+            };
+          }
+          if (typeof item === 'object') {
+            const nivel =
+              extrairCampoHistorico(item, [
+                'nivel',
+                'level',
+                'nivelAtual',
+                'nivel_atual',
+              ]) ??
+              normalizarTextoValor(item?.nivel ?? item?.level ?? item?.nivelAtual ?? item?.nivel_atual) ??
+              null;
+            const data = formatarTextoHistorico(
+              extrairCampoHistorico(item, [
+                'data',
+                'createdAt',
+                'updatedAt',
+                'timestamp',
+                'dataHora',
+                'dataRegistro',
+                'momento',
+                'date',
+                'dateTime',
+              ]),
+            );
+            const descricao = formatarTextoHistorico(
+              extrairCampoHistorico(item, [
+                'descricao',
+                'descricaoNivel',
+                'detalhes',
+                'recompensa',
+                'resultado',
+                'nota',
+                'observacao',
+                'observacoes',
+                'descricaoEvento',
+                'resumo',
+              ]) ?? item,
+            );
+            return {
+              nivel: nivel ?? normalizarTextoValor(item) ?? 'Nível',
+              data,
+              descricao:
+                descricao && descricao !== nivel ? descricao : null,
+            };
+          }
+          return {
+            nivel: String(item),
+            data: null,
+            descricao: null,
+          };
+        })
+        .filter(Boolean);
+    })();
+
+    const renderNivelCard = ({ label, value, description, icon: Icon }) => {
+      const valorExibido = normalizarValorSimples(value);
+      return (
+        <Paper
+          elevation={0}
+          sx={{
+            p: 2,
+            background: 'rgba(18, 22, 32, 0.92)',
+            border: '1px solid rgba(212,175,55,0.12)',
+            borderRadius: 2,
+            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04)',
+            minHeight: 120,
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            gap: 1,
+            wordBreak: 'normal',
+            overflowWrap: 'normal',
+            whiteSpace: 'normal',
+            minWidth: 180,
+          }}
+        >
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Box
+            sx={{
+              width: 24,
+              height: 24,
+              borderRadius: '50%',
+              background: 'rgba(212,175,55,0.16)',
+              display: 'grid',
+              placeItems: 'center',
+              color: 'rgba(212,175,55,0.94)',
+            }}
+          >
+            {Icon ? <Icon sx={{ fontSize: 16 }} /> : '✦'}
+          </Box>
+          <Typography
+            variant="caption"
+            sx={{
+              color: 'var(--text-muted)',
+              textTransform: 'uppercase',
+              letterSpacing: 1,
+              fontWeight: 700,
+              fontSize: { xs: '0.64rem', sm: '0.68rem' },
+              lineHeight: 1.2,
+              wordBreak: 'normal',
+              overflowWrap: 'normal',
+            }}
+          >
+            {label}
+          </Typography>
+        </Box>
+        <Typography
+          sx={{
+            color: 'var(--text-primary)',
+            fontWeight: 800,
+            fontSize: { xs: '1.4rem', sm: '1.8rem' },
+            lineHeight: 1,
+            wordBreak: 'normal',
+            overflowWrap: 'normal',
+          }}
+        >
+          {valorExibido ?? '—'}
+        </Typography>
+        <Typography
+          sx={{
+            color: 'rgba(255,255,255,0.65)',
+            fontSize: { xs: '0.72rem', sm: '0.78rem' },
+            lineHeight: 1.35,
+            wordBreak: 'normal',
+            overflowWrap: 'normal',
+            whiteSpace: 'normal',
+          }}
+        >
+          {description}
+        </Typography>
+      </Paper>
+    );
+    };
+
+    const renderNivelHistorico = () => (
+      <Paper
+        elevation={0}
+        sx={{
+          p: 2,
+          background: 'rgba(12, 14, 20, 0.96)',
+          border: '1px solid rgba(255,255,255,0.08)',
+          borderRadius: 2,
+          minHeight: 216,
+          display: 'grid',
+          gap: 1.5,
+        }}
+      >
+        <Typography
+          sx={{
+            color: 'rgba(212,175,55,0.96)',
+            textTransform: 'uppercase',
+            fontWeight: 700,
+            letterSpacing: 1,
+            fontSize: '0.74rem',
+          }}
+        >
+          Histórico de Nível
+        </Typography>
+        <Box
+          sx={{
+            flex: 1,
+            minHeight: 0,
+            overflowY: 'auto',
+            pr: 1,
+          }}
+        >
+          {nivelHistoricoItems.length === 0 ? (
+            <Box
+              sx={{
+                p: 2,
+                borderRadius: 2,
+                background: 'rgba(255,255,255,0.02)',
+                color: 'var(--text-muted)',
+                fontSize: '0.95rem',
+                minHeight: 132,
+                display: 'grid',
+                placeItems: 'center',
+                textAlign: 'center',
+              }}
+            >
+              Nenhum histórico de progressão registrado
+            </Box>
+          ) : (
+            <Box
+              sx={{
+                display: 'grid',
+                gap: 2,
+                position: 'relative',
+                pl: 2,
+                '&::before': {
+                  content: '""',
+                  position: 'absolute',
+                  left: 8,
+                  top: 10,
+                  bottom: 10,
+                  width: 1,
+                  background: 'rgba(255,255,255,0.12)',
+                },
+              }}
+            >
+              {nivelHistoricoItems.map((item, index) => (
+                <Box key={`${String(item.nivel)}-${index}`} sx={{ display: 'grid', gap: 0.75, position: 'relative' }}>
+                  <Box
+                    sx={{
+                      position: 'absolute',
+                      left: -10,
+                      top: 8,
+                      width: 12,
+                      height: 12,
+                      transform: 'rotate(45deg)',
+                      background: 'rgba(212,175,55,0.95)',
+                      border: '1px solid rgba(212,175,55,0.24)',
+                    }}
+                  />
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      gap: 1,
+                      flexWrap: 'wrap',
+                    }}
+                  >
+                    <Typography
+                      sx={{
+                        color: 'var(--text-primary)',
+                        fontWeight: 700,
+                        fontSize: '0.96rem',
+                      }}
+                    >
+                      {item.nivel || 'Nível'}
+                    </Typography>
+                    {item.data ? (
+                      <Typography
+                        sx={{
+                          color: 'var(--text-muted)',
+                          fontSize: '0.72rem',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {item.data}
+                      </Typography>
+                    ) : null}
+                  </Box>
+                  {item.descricao ? (
+                    <Typography
+                      sx={{
+                        color: 'rgba(255,255,255,0.68)',
+                        fontSize: '0.78rem',
+                        lineHeight: 1.45,
+                      }}
+                    >
+                      {item.descricao}
+                    </Typography>
+                  ) : null}
+                </Box>
+              ))}
+            </Box>
+          )}
+        </Box>
+      </Paper>
+    );
+
+    const renderNivelSection = () => {
+      const hasNivelData =
+        !ehVazio(nivelAtual) ||
+        !ehVazio(xpAtual) ||
+        !ehVazio(pontosPrincipaisDisponiveis) ||
+        !ehVazio(pontosSecundariosDisponiveis) ||
+        nivelHistoricoItems.length > 0;
+
+      if (!hasNivelData) return null;
+
+      return (
+        <Box sx={{ display: 'grid', gap: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+            <AutoAwesomeOutlinedIcon sx={{ color: 'rgba(212,175,55,0.94)', fontSize: 18 }} />
+            <Typography
+              sx={{
+                color: 'rgba(212,175,55,0.96)',
+                textTransform: 'uppercase',
+                letterSpacing: 1,
+                fontWeight: 700,
+                fontSize: '0.82rem',
+              }}
+            >
+              Nível
+            </Typography>
+          </Box>
+          <Box
+            sx={{
+              display: 'grid',
+              gap: 2,
+              gridTemplateColumns: {
+                xs: '1fr',
+                sm: 'repeat(2, minmax(220px, 1fr))',
+                md: 'repeat(4, minmax(220px, 1fr))',
+              },
+              alignItems: 'stretch',
+            }}
+          >
+            {renderNivelCard({
+              label: 'Nível Atual',
+              value: nivelAtual,
+              description: 'Nível do personagem',
+              icon: AutoAwesomeOutlinedIcon,
+            })}
+            {renderNivelCard({
+              label: 'XP Atual',
+              value: xpAtual,
+              description: 'Experiência acumulada',
+              icon: AutoAwesomeOutlinedIcon,
+            })}
+            {renderNivelCard({
+              label: 'Pontos Principais',
+              value: pontosPrincipaisDisponiveis,
+              description: 'Disponíveis',
+              icon: AutoAwesomeOutlinedIcon,
+            })}
+            {renderNivelCard({
+              label: 'Pontos Secundários',
+              value: pontosSecundariosDisponiveis,
+              description: 'Disponíveis',
+              icon: AutoAwesomeOutlinedIcon,
+            })}
+          </Box>
+          {renderNivelHistorico()}
+        </Box>
+      );
+    };
+
+    const renderedKeys = new Set();
+
+    // Marcar campos utilizados para que não apareçam em outros painéis.
+    [
+      'nivel',
+      'level',
+      'nivelAtual',
+      'nivel_atual',
+      'xpAtual',
+      'xp_atual',
+      'xp',
+      'experienciaAtual',
+      'experiencia_atual',
+      'experiencia',
+      'experience',
+      'pontosPrincipais',
+      'pontos_principais',
+      'pontosPrincipaisDisponiveis',
+      'pontos_principais_disponiveis',
+      'pontosPrincipaisAtuais',
+      'pontos_principais_atuais',
+      'mainPoints',
+      'pointsMain',
+      'pontosSecundarios',
+      'pontos_secundarios',
+      'pontosSecundariosDisponiveis',
+      'pontos_secundarios_disponiveis',
+      'pontosSecundariosAtuais',
+      'pontos_secundarios_atuais',
+      'secondaryPoints',
+      'pointsSecondary',
+      'historicoNivel',
+      'historico_nivel',
+      'nivelHistorico',
+      'nivel_historico',
+      'historicoLevel',
+      'historico_level',
+      'levelHistory',
+      'level_history',
+    ].forEach(key => renderedKeys.add(key));
+
     // Helpers para renderizar listas de atributos com alinhamento nome/valor
     const renderAttributeList = (obj, primaryOrder) => {
       if (!obj || typeof obj !== 'object') return null;
@@ -3145,7 +3615,6 @@ const PersonagemFichaDialog = ({
     };
 
     // Para rastrear quais campos já renderizamos e evitar duplicação
-    const renderedKeys = new Set();
 
     const renderGroup = ({ key, title, type }) => {
       const valor = personagem?.[key];
@@ -3282,6 +3751,8 @@ const PersonagemFichaDialog = ({
           {renderSecundariosTotais()}
         </Box>
 
+        {renderNivelSection()}
+
         {/* Raça / Habilidades Ativas em card compacto */}
         {/* Raça / Habilidades Ativas, Origem e Sorte em três colunas responsivas */}
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr 1fr' }, gap: 2 }}>
@@ -3339,19 +3810,147 @@ const PersonagemFichaDialog = ({
           })()}
         </Box>
 
-        {/* Loja Trapaceiro padronizada */}
+        {/* Loja Trapaceiro / Loja Rokmas padronizada */}
         {(() => {
+          const lojaDados = personagem?.lojaRokmas ?? personagem?.lojaTrapaceiro ?? null;
+          const lojaTitle = personagem?.lojaRokmas ? 'Loja Rokmas' : 'Loja Trapaceiro';
+          renderedKeys.add('lojaRokmas');
           renderedKeys.add('lojaTrapaceiro');
-          return ehVazio(personagem?.lojaTrapaceiro) ? (
-            <SmallPanel title="Loja Trapaceiro">
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Typography sx={{ color: 'var(--text-muted)' }}>👜</Typography>
-                <Typography sx={{ color: 'var(--text-muted)' }}>Nenhum item disponível</Typography>
+
+          if (ehVazio(lojaDados)) {
+            return (
+              <SmallPanel title={lojaTitle}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Typography sx={{ color: 'var(--text-muted)' }}>👜</Typography>
+                  <Typography sx={{ color: 'var(--text-muted)' }}>Nenhum item disponível</Typography>
+                </Box>
+              </SmallPanel>
+            );
+          }
+
+          const saldoRokmas =
+            lojaDados?.saldoRokmas ??
+            lojaDados?.saldo_rokmas ??
+            lojaDados?.saldo ??
+            lojaDados?.balance ??
+            null;
+          const historicoCompras =
+            lojaDados?.historicoCompras ??
+            lojaDados?.historico_compras ??
+            lojaDados?.compras ??
+            lojaDados?.purchaseHistory ??
+            lojaDados?.history ??
+            null;
+
+          const hasSaldo = !ehVazio(saldoRokmas);
+          const hasHistorico = !ehVazio(historicoCompras);
+
+          return (
+            <SmallPanel title={lojaTitle}>
+              <Box sx={{ display: 'grid', gap: 2 }}>
+                {(hasSaldo || hasHistorico) ? (
+                  <Box
+                    sx={{
+                      display: 'grid',
+                      gap: 2,
+                      gridTemplateColumns: {
+                        xs: '1fr',
+                        md: hasSaldo && hasHistorico ? '260px minmax(0, 1fr)' : '1fr',
+                      },
+                    }}
+                  >
+                    {hasSaldo && (
+                      <Paper
+                        elevation={0}
+                        sx={{
+                          p: 2,
+                          background: 'rgba(18, 22, 32, 0.92)',
+                          border: '1px solid rgba(212,175,55,0.12)',
+                          borderRadius: 2,
+                          boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04)',
+                          minHeight: 100,
+                          display: 'flex',
+                          flexDirection: 'column',
+                          justifyContent: 'center',
+                          alignItems: 'center',
+                          gap: 1,
+                          textAlign: 'center',
+                        }}
+                      >
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            color: 'var(--text-muted)',
+                            textTransform: 'uppercase',
+                            letterSpacing: 1,
+                            fontWeight: 700,
+                          }}
+                        >
+                          Saldo Rokmas
+                        </Typography>
+                        <Typography
+                          sx={{
+                            color: 'var(--text-primary)',
+                            fontWeight: 800,
+                            fontSize: '1.8rem',
+                            lineHeight: 1,
+                          }}
+                        >
+                          {normalizarValorSimples(saldoRokmas) ?? '—'}
+                        </Typography>
+                      </Paper>
+                    )}
+                    {hasHistorico && (
+                      <Paper
+                        elevation={0}
+                        sx={{
+                          p: 2,
+                          background: 'rgba(12, 14, 20, 0.96)',
+                          border: '1px solid rgba(255,255,255,0.08)',
+                          borderRadius: 2,
+                          minHeight: 320,
+                          display: 'grid',
+                          gap: 1,
+                        }}
+                      >
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            color: 'var(--text-muted)',
+                            textTransform: 'uppercase',
+                            letterSpacing: 1,
+                            fontWeight: 700,
+                          }}
+                        >
+                          Histórico de Compras
+                        </Typography>
+                        {Array.isArray(historicoCompras) ? (
+                          <Box sx={{ display: 'grid', gap: 1, maxHeight: 260, overflowY: 'auto', pr: 0.5 }}>
+                            {historicoCompras.map((item, index) => (
+                              <Paper
+                                key={`compra-${index}`}
+                                elevation={0}
+                                sx={{
+                                  p: 1.25,
+                                  background: 'rgba(255,255,255,0.04)',
+                                  border: '1px solid rgba(255,255,255,0.08)',
+                                  borderRadius: 1.5,
+                                }}
+                              >
+                                <CampoValor valor={item} />
+                              </Paper>
+                            ))}
+                          </Box>
+                        ) : (
+                          <CampoValor valor={historicoCompras} />
+                        )}
+                      </Paper>
+                    )}
+                  </Box>
+                ) : (
+                  <CampoValor valor={lojaDados} />
+                )}
               </Box>
-            </SmallPanel>
-          ) : (
-            <SmallPanel title="Loja Trapaceiro">
-              <CampoValor valor={personagem.lojaTrapaceiro} />
             </SmallPanel>
           );
         })()}
