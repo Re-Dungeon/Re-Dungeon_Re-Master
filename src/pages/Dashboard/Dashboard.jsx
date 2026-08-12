@@ -196,7 +196,8 @@ const Dashboard = () => {
     );
   }
 
-  const logsRecentes = logs.slice(0, 5);
+  const MAX_LOGS_DISPLAY = 12;
+  const logsRecentes = logs.slice(0, MAX_LOGS_DISPLAY);
   const cenaAtual = cenas.find(c => c.id === campanhaAtiva.cenaAtualId) ?? null;
   const estadoCenaAtual =
     cenaAtual && ESTADO_CENA_OPCOES.find(o => o.value === cenaAtual.estado);
@@ -409,7 +410,7 @@ const Dashboard = () => {
                         fontSize: 15,
                       }}
                     >
-                      {cenaAtual?.objetivo ?? 'Ainda não existe uma cena ativa. Selecione uma para iniciar o comando da sua sessão.'}
+                      {cenaAtual?.resumo ?? 'Ainda não existe uma cena ativa. Selecione uma para iniciar o comando da sua sessão.'}
                     </Typography>
                   </Box>
                   <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mt: 3 }}>
@@ -671,34 +672,43 @@ const Dashboard = () => {
                     </Typography>
                   </Box>
                 ) : (
-                  logsRecentes.map(log => (
-                    <Box key={log.id} sx={logItemSx}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                        <Box
-                          sx={{
-                            width: 36,
-                            height: 36,
-                            borderRadius: '50%',
-                            background: 'rgba(196,58,47,0.18)',
-                            display: 'grid',
-                            placeItems: 'center',
-                            color: '#C43A2F',
-                            fontWeight: 700,
-                          }}
-                        >
-                          {ICONE_EVENTO_SESSAO[log.tipo] ?? '•'}
-                        </Box>
-                        <Box sx={{ minWidth: 0 }}>
-                          <Typography variant="body2" sx={{ color: '#F5F5F5', fontWeight: 700 }}>
-                            {log.mensagem}
-                          </Typography>
-                          <Typography variant="caption" sx={{ color: '#9FA7B2' }}>
-                            {formatarHoraEvento(log.createdAt)}
-                          </Typography>
+                  <>
+                    {logsRecentes.map(log => (
+                      <Box key={log.id} sx={logItemSx}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                          <Box
+                            sx={{
+                              width: 36,
+                              height: 36,
+                              borderRadius: '50%',
+                              background: 'rgba(196,58,47,0.18)',
+                              display: 'grid',
+                              placeItems: 'center',
+                              color: '#C43A2F',
+                              fontWeight: 700,
+                            }}
+                          >
+                            {ICONE_EVENTO_SESSAO[log.tipo] ?? '•'}
+                          </Box>
+                          <Box sx={{ minWidth: 0 }}>
+                            <Typography variant="body2" sx={{ color: '#F5F5F5', fontWeight: 700 }}>
+                              {log.mensagem}
+                            </Typography>
+                            <Typography variant="caption" sx={{ color: '#9FA7B2' }}>
+                              {formatarHoraEvento(log.createdAt)}
+                            </Typography>
+                          </Box>
                         </Box>
                       </Box>
-                    </Box>
-                  ))
+                    ))}
+
+                    {/* filler boxes to keep layout balanced when few logs exist */}
+                    {logsRecentes.length < MAX_LOGS_DISPLAY && (
+                      Array.from({ length: MAX_LOGS_DISPLAY - logsRecentes.length }).map((_, i) => (
+                        <Box key={`filler-${i}`} sx={{ ...logItemSx, opacity: 0.06, background: 'transparent', borderStyle: 'dashed' }} />
+                      ))
+                    )}
+                  </>
                 )}
               </Box>
             </Paper>

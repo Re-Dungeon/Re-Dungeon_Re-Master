@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import PropTypes from 'prop-types';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
@@ -11,6 +11,25 @@ import Chip from '@mui/material/Chip';
 import Paper from '@mui/material/Paper';
 import IconButton from '@mui/material/IconButton';
 import Button from '@mui/material/Button';
+import Modal from '@mui/material/Modal';
+import Fade from '@mui/material/Fade';
+import Backdrop from '@mui/material/Backdrop';
+import Tooltip from '@mui/material/Tooltip';
+import Divider from '@mui/material/Divider';
+import CloseIcon from '@mui/icons-material/Close';
+import RemoveRedEyeOutlinedIcon from '@mui/icons-material/RemoveRedEyeOutlined';
+import UndoIcon from '@mui/icons-material/Undo';
+import RedoIcon from '@mui/icons-material/Redo';
+import FormatBoldIcon from '@mui/icons-material/FormatBold';
+import FormatItalicIcon from '@mui/icons-material/FormatItalic';
+import FormatUnderlinedIcon from '@mui/icons-material/FormatUnderlined';
+import FormatListBulletedIcon from '@mui/icons-material/FormatListBulleted';
+import FormatListNumberedIcon from '@mui/icons-material/FormatListNumbered';
+import FormatAlignLeftIcon from '@mui/icons-material/FormatAlignLeft';
+import FormatAlignCenterIcon from '@mui/icons-material/FormatAlignCenter';
+import FormatAlignRightIcon from '@mui/icons-material/FormatAlignRight';
+import FormatAlignJustifyIcon from '@mui/icons-material/FormatAlignJustify';
+import HorizontalRuleIcon from '@mui/icons-material/HorizontalRule';
 import { Formik, Form, FastField, Field, FieldArray } from 'formik';
 import useStableListKeys from 'hooks/useStableListKeys';
 import ImagePreviewPanel from 'components/ImagePreviewPanel/ImagePreviewPanel';
@@ -31,19 +50,19 @@ import {
 const inputSx = {
   '& .MuiOutlinedInput-root': {
     color: 'var(--text-primary)',
-    borderRadius: '12px',
+    borderRadius: '16px',
     padding: 0,
-    '& fieldset': { borderColor: 'rgba(255,255,255,0.06)' },
-    '&:hover fieldset': { borderColor: 'rgba(255,255,255,0.12)' },
+    '& fieldset': { borderColor: 'rgba(255,255,255,0.08)' },
+    '&:hover fieldset': { borderColor: 'rgba(255,255,255,0.18)' },
     '&.Mui-focused fieldset': {
       borderColor: 'rgba(196,58,47,0.9)',
       boxShadow: '0 6px 20px rgba(196,58,47,0.10)',
     },
-    '& input, & textarea': { padding: '12px 14px' },
+    '& input, & textarea': { padding: '14px 16px' },
   },
   '& .MuiInputLabel-root': {
     color: 'var(--text-secondary)',
-    fontWeight: 600,
+    fontWeight: 700,
   },
   '& .MuiInputLabel-root.Mui-focused': { color: 'var(--color-accent)' },
   '& .MuiFormHelperText-root': { color: '#ef4444' },
@@ -70,8 +89,201 @@ const sectionSx = {
   background: 'rgba(8,12,18,0.64)',
   backdropFilter: 'blur(6px)',
   border: '1px solid rgba(255,255,255,0.04)',
+  borderRadius: '18px',
+  boxShadow: '0 12px 32px rgba(0,0,0,0.38)',
+};
+
+const editorTriggerSx = {
+  position: 'absolute',
+  right: 14,
+  bottom: 14,
+  zIndex: 2,
+  background: 'rgba(16, 20, 32, 0.96)',
+  border: '1px solid rgba(255,255,255,0.12)',
+  color: 'var(--text-primary)',
+  width: 40,
+  height: 40,
+  boxShadow: '0 10px 24px rgba(0, 0, 0, 0.18)',
+  '&:hover': {
+    background: 'rgba(255,255,255,0.08)',
+    borderColor: 'rgba(196,58,47,0.85)',
+    color: 'var(--color-accent)',
+  },
+};
+
+const narrationEditorModalSx = {
+  position: 'fixed',
+  left: '50%',
+  top: '50%',
+  transform: 'translate(-50%, -50%)',
+  width: { xs: 'calc(100% - 30px)', md: '82vw' },
+  maxWidth: 1200,
+  maxHeight: '90vh',
+  bgcolor: 'rgba(7, 10, 17, 0.98)',
+  border: '1px solid rgba(255,255,255,0.1)',
+  borderRadius: '24px',
+  boxShadow: '0 32px 80px rgba(0,0,0,0.55)',
+  p: { xs: 3, md: 4 },
+  outline: 'none',
+  display: 'flex',
+  flexDirection: 'column',
+};
+
+const narrationEditorHeaderSx = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 1,
+  mb: 2,
+};
+
+const narrationEditorHeaderTopSx = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  gap: 2,
+};
+
+const narrationEditorTitleSx = {
+  color: 'var(--text-primary)',
+  fontWeight: 900,
+  letterSpacing: '0.04em',
+  fontSize: { xs: '1.15rem', md: '1.35rem' },
+};
+
+const narrationEditorDescriptionSx = {
+  color: 'var(--text-secondary)',
+  lineHeight: 1.6,
+  fontSize: '0.97rem',
+};
+
+const narrationDividerSx = {
+  borderColor: 'rgba(255,255,255,0.08)',
+  my: 2,
+};
+
+const narrationToolbarSx = {
+  display: 'flex',
+  flexWrap: 'wrap',
+  alignItems: 'center',
+  gap: 1,
+  padding: '10px 12px',
   borderRadius: '16px',
-  boxShadow: '0 10px 30px rgba(0,0,0,0.45)',
+  background: 'rgba(15,18,28,0.92)',
+  border: '1px solid rgba(255,255,255,0.08)',
+};
+
+const narrationToolbarGroupSx = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 0.5,
+  pr: 1,
+  '&:not(:last-of-type)': {
+    borderRight: '1px solid rgba(255,255,255,0.08)',
+  },
+};
+
+const narrationToolButtonSx = {
+  color: 'var(--text-secondary)',
+  borderRadius: '14px',
+  width: 36,
+  height: 36,
+  minWidth: 36,
+  p: 0,
+  '&:hover': {
+    background: 'rgba(255,255,255,0.08)',
+    color: 'var(--color-accent)',
+  },
+};
+
+const narrationSeparatorButtonSx = {
+  ...narrationToolButtonSx,
+  width: 46,
+  height: 46,
+  minWidth: 46,
+  border: '1px solid rgba(196,58,47,0.35)',
+  color: 'rgba(196,58,47,0.95)',
+  '&:hover': {
+    background: 'rgba(196,58,47,0.12)',
+    color: 'var(--color-accent)',
+  },
+};
+
+const narrationEditorAreaSx = {
+  flex: 1,
+  minHeight: 360,
+  maxHeight: 'calc(90vh - 250px)',
+  overflow: 'hidden',
+  background: 'rgba(13, 18, 30, 0.96)',
+  border: '1px solid rgba(255,255,255,0.1)',
+  borderRadius: '22px',
+  display: 'flex',
+  flexDirection: 'column',
+};
+
+const narrationTextareaWrapperSx = {
+  flex: 1,
+  overflowY: 'auto',
+  px: { xs: 3.5, md: 4.5 },
+  py: { xs: 3, md: 4 },
+  '&::-webkit-scrollbar': {
+    width: 8,
+  },
+  '&::-webkit-scrollbar-track': {
+    background: 'rgba(255,255,255,0.04)',
+  },
+  '&::-webkit-scrollbar-thumb': {
+    background: 'rgba(196,58,47,0.4)',
+    borderRadius: 999,
+  },
+  '&::-webkit-scrollbar-thumb:hover': {
+    background: 'rgba(196,58,47,0.65)',
+  },
+  scrollbarWidth: 'thin',
+  scrollbarColor: 'rgba(196,58,47,0.4) rgba(255,255,255,0.04)',
+};
+
+const narrationTextareaSx = {
+  width: '100%',
+  minHeight: 320,
+  border: 'none',
+  outline: 'none',
+  background: 'transparent',
+  color: 'var(--text-primary)',
+  fontSize: '1rem',
+  lineHeight: 1.9,
+  fontFamily: 'Inter, system-ui, sans-serif',
+  whiteSpace: 'pre-wrap',
+  wordBreak: 'break-word',
+};
+
+const narrationEditorFooterSx = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  gap: 2,
+  mt: 2,
+  pt: 1,
+  borderTop: '1px solid rgba(255,255,255,0.08)',
+};
+
+const narrationFooterTextSx = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 1,
+  color: 'var(--text-secondary)',
+  fontSize: '0.95rem',
+};
+
+const narrationFooterStatusDotSx = {
+  width: 10,
+  height: 10,
+  borderRadius: '50%',
+  background: 'rgba(196,58,47,0.95)',
+};
+
+const narrationFooterCountSx = {
+  color: 'var(--text-secondary)',
+  fontSize: '0.95rem',
 };
 
 const PlaceholderModulo = ({ children }) => (
@@ -114,6 +326,248 @@ const CenaForm = ({
   const [npcs, setNpcs] = useState([]);
   const [criaturas, setCriaturas] = useState([]);
   const [missoes, setMissoes] = useState([]);
+  const [editorAberto, setEditorAberto] = useState(false);
+  const [editorConteudo, setEditorConteudo] = useState('');
+  const [previewMode, setPreviewMode] = useState(false);
+  const [, setUndoStack] = useState([]);
+  const [, setRedoStack] = useState([]);
+
+  const editorRef = useRef(null);
+  const textAreaRef = useRef(null);
+
+  const pushUndoState = value => {
+    setUndoStack(prev => {
+      const next = [...prev, value];
+      return next.length > 40 ? next.slice(next.length - 40) : next;
+    });
+    setRedoStack([]);
+  };
+
+  const abrirEditorNarracao = valor => {
+    setEditorConteudo(valor ?? '');
+    setPreviewMode(false);
+    setUndoStack([]);
+    setRedoStack([]);
+    setEditorAberto(true);
+  };
+
+  const fecharEditorNarracao = (setFieldValue, currentValue) => {
+    if (typeof setFieldValue === 'function') {
+      setFieldValue('descricaoNarracao', currentValue ?? '');
+    }
+    setEditorAberto(false);
+  };
+
+  const handleEditorClose = (setFieldValue, currentValue) => {
+    fecharEditorNarracao(setFieldValue, currentValue);
+  };
+
+  const updateEditorContent = (nextValue, callback) => {
+    pushUndoState(editorConteudo);
+    setEditorConteudo(nextValue);
+    if (typeof callback === 'function') {
+      window.requestAnimationFrame(callback);
+    }
+  };
+
+  const restoreTextAreaState = (textarea, start, end, scrollTop) => {
+    if (!textarea) return;
+    if (typeof textarea.focus === 'function') {
+      textarea.focus({ preventScroll: true });
+    }
+    textarea.setSelectionRange(start, end);
+    textarea.scrollTop = scrollTop;
+  };
+
+  const getSelectionInfo = () => {
+    const textarea = textAreaRef.current;
+    if (!textarea) return null;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    return { textarea, start, end };
+  };
+
+  const wrapSelection = (prefix, suffix = prefix) => {
+    const selection = getSelectionInfo();
+    if (!selection) return;
+    const { textarea, start, end } = selection;
+    const text = editorConteudo;
+
+    let before = text.slice(0, start);
+    let selected = text.slice(start, end);
+    let after = text.slice(end);
+    let nextSelectionStart = start + prefix.length;
+    let nextSelectionEnd = nextSelectionStart + (selected || 'Texto').length;
+
+    if (start === end) {
+      const lineStart = text.lastIndexOf('\n', Math.max(0, start - 1)) + 1;
+      const newlineIndex = text.indexOf('\n', lineStart);
+      const lineEnd = newlineIndex === -1 ? text.length : newlineIndex;
+      const originalLineEnd = lineEnd;
+      let selectedLine = text.slice(lineStart, lineEnd);
+      if (selectedLine.endsWith('\r')) {
+        selectedLine = selectedLine.slice(0, -1);
+      }
+      before = text.slice(0, lineStart);
+      selected = selectedLine;
+      after = text.slice(originalLineEnd);
+      nextSelectionStart = lineStart + prefix.length;
+      nextSelectionEnd = nextSelectionStart + (selected || 'Texto').length;
+    }
+
+    const wrapped = `${prefix}${selected || 'Texto'}${suffix}`;
+    const scrollTop = textarea.scrollTop;
+
+    updateEditorContent(`${before}${wrapped}${after}`, () => {
+      restoreTextAreaState(textarea, nextSelectionStart, nextSelectionEnd, scrollTop);
+    });
+  };
+
+  const wrapLines = prefixFn => {
+    const selection = getSelectionInfo();
+    if (!selection) return;
+    const { textarea, start, end } = selection;
+    const text = editorConteudo;
+    const before = text.slice(0, start);
+    const selectionText = text.slice(start, end);
+    const after = text.slice(end);
+    const lines = selectionText.split('\n');
+    const transformed = lines.map((line, index) => prefixFn(line, index)).join('\n');
+    const scrollTop = textarea.scrollTop;
+
+    updateEditorContent(`${before}${transformed}${after}`, () => {
+      restoreTextAreaState(textarea, start, start + transformed.length, scrollTop);
+    });
+  };
+
+  const handleToolbarMouseDown = event => {
+    event.preventDefault();
+  };
+
+  const renderMarkdownPreview = text => {
+    const escapeHTML = value =>
+      value.replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+
+    const escaped = escapeHTML(text);
+    const formatted = escaped
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*(.*?)\*/g, '<em>$1</em>')
+      .replace(/__(.*?)__/g, '<u>$1</u>')
+      .replace(/^(?:-\s)(.*)$/gm, '<li>$1</li>')
+      .replace(/^(?:\d+\.\s)(.*)$/gm, '<li>$1</li>')
+      .replace(/^──+\s*⋆✦⋆\s*──+$/gm, '<div style="text-align:center;color:#ef4444;letter-spacing:0.18em;">⋆✦⋆</div>');
+
+    const withLists = formatted
+      .replace(/(<li>.*?<\/li>\n?)+/gs, match => {
+        const items = match.trim().split(/\n+/).map(item => item.trim()).filter(Boolean);
+        if (!items.length) return match;
+        const listItems = items.join('');
+        return `<ul style="padding-left:18px;margin:8px 0;">${listItems}</ul>`;
+      });
+
+    const withAlignment = withLists.replace(/\[align=(left|center|right|justify)\]([\s\S]*?)\[\/align\]/g, (match, align, content) => {
+      const inner = content.replace(/\n/g, '<br />');
+      return `<div style="text-align:${align}; margin:0.8rem 0;">${inner}</div>`;
+    });
+
+    return withAlignment.replace(/\n/g, '<br />');
+  };
+
+  const handleUndo = () => {
+    setUndoStack(prev => {
+      if (prev.length === 0) return prev;
+      const previous = prev[prev.length - 1];
+      setRedoStack(rprev => [editorConteudo, ...rprev]);
+      setEditorConteudo(previous);
+      return prev.slice(0, -1);
+    });
+  };
+
+  const handleRedo = () => {
+    setRedoStack(prev => {
+      if (prev.length === 0) return prev;
+      const [next, ...remaining] = prev;
+      pushUndoState(editorConteudo);
+      setEditorConteudo(next);
+      return remaining;
+    });
+  };
+
+  const handleToggleBold = () => wrapSelection('**', '**');
+  const handleToggleItalic = () => wrapSelection('*', '*');
+  const handleToggleUnderline = () => wrapSelection('__', '__');
+  const wrapAlignment = alignment => {
+    const selection = getSelectionInfo();
+    if (!selection) return;
+    const { textarea, start, end } = selection;
+    const text = editorConteudo;
+
+    let before = text.slice(0, start);
+    let selected = text.slice(start, end);
+    let after = text.slice(end);
+    let nextSelectionStart = start;
+    let nextSelectionEnd = end;
+
+    if (start === end) {
+      const lineStart = text.lastIndexOf('\n', Math.max(0, start - 1)) + 1;
+      const lineEnd = text.indexOf('\n', lineStart);
+      const resolvedLineEnd = lineEnd === -1 ? text.length : lineEnd;
+      before = text.slice(0, lineStart);
+      selected = text.slice(lineStart, resolvedLineEnd);
+      if (selected.endsWith('\r')) {
+        selected = selected.slice(0, -1);
+      }
+      after = text.slice(resolvedLineEnd);
+      nextSelectionStart = lineStart;
+      nextSelectionEnd = lineStart + (selected || 'Texto').length;
+    }
+
+    const opening = `[align=${alignment}]`;
+    const closing = `[/align]`;
+    const wrapped = `${opening}${selected || 'Texto'}${closing}`;
+    const scrollTop = textarea.scrollTop;
+
+    updateEditorContent(`${before}${wrapped}${after}`, () => {
+      restoreTextAreaState(
+        textarea,
+        nextSelectionStart + opening.length,
+        nextSelectionEnd + opening.length,
+        scrollTop,
+      );
+    });
+  };
+
+  const handleAlignLeft = () => wrapAlignment('left');
+  const handleAlignCenter = () => wrapAlignment('center');
+  const handleAlignRight = () => wrapAlignment('right');
+  const handleAlignJustify = () => wrapAlignment('justify');
+
+  const handleInsertSeparator = () => {
+    const selection = getSelectionInfo();
+    if (!selection) return;
+    const { textarea, start, end } = selection;
+    const text = editorConteudo;
+    const before = text.slice(0, start);
+    const after = text.slice(end);
+    const separator = `${before.endsWith('\n') || before.length === 0 ? '' : '\n\n'}──────────────────────────────────────   ⋆✦⋆   ──────────────────────────────────────\n\n`;
+    const scrollTop = textarea.scrollTop;
+
+    updateEditorContent(`${before}${separator}${after}`, () => {
+      restoreTextAreaState(textarea, start + separator.length, start + separator.length, scrollTop);
+    });
+  };
+
+  const handleToggleBulletedList = () => {
+    wrapLines(line => (line.trim() ? `- ${line}` : line));
+  };
+
+  const handleToggleNumberedList = () => {
+    wrapLines((line, index) => (line.trim() ? `${index + 1}. ${line}` : line));
+  };
 
   useEffect(() => {
     if (!campanhaId) return;
@@ -146,9 +600,290 @@ const CenaForm = ({
       validationSchema={CENA_SCHEMA}
       onSubmit={onSubmit}
     >
-      {({ values, errors, touched, isSubmitting }) => (
+      {({ values, errors, touched, isSubmitting, setFieldValue }) => (
         <Form>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <Modal
+              open={editorAberto}
+              onClose={() => handleEditorClose(setFieldValue, editorConteudo)}
+              closeAfterTransition
+              slots={{ backdrop: Backdrop }}
+              slotProps={{
+                backdrop: {
+                  timeout: 240,
+                  sx: {
+                    bgcolor: 'rgba(0,0,0,0.7)',
+                    backdropFilter: 'blur(5px)',
+                  },
+                },
+              }}
+            >
+              <Fade in={editorAberto} timeout={220}>
+                <Box sx={narrationEditorModalSx} ref={editorRef}>
+                  <Box sx={narrationEditorHeaderSx}>
+                    <Box sx={narrationEditorHeaderTopSx}>
+                      <Box>
+                        <Typography component="h2" sx={narrationEditorTitleSx}>
+                          Editor de Narração
+                        </Typography>
+                        <Typography sx={narrationEditorDescriptionSx}>
+                          Edite o texto completo de narração da cena. As alterações são sincronizadas automaticamente com o campo de narração.
+                        </Typography>
+                        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 1 }}>
+                          <Button
+                            variant={previewMode ? 'outlined' : 'contained'}
+                            size="small"
+                            onClick={() => setPreviewMode(false)}
+                            sx={{
+                              color: previewMode ? 'var(--text-secondary)' : 'var(--text-primary)',
+                              borderColor: 'rgba(255,255,255,0.12)',
+                              background: previewMode ? 'transparent' : 'rgba(255,255,255,0.04)',
+                              '&:hover': {
+                                background: 'rgba(255,255,255,0.08)',
+                              },
+                            }}
+                          >
+                            Editor
+                          </Button>
+                          <Button
+                            variant={previewMode ? 'contained' : 'outlined'}
+                            size="small"
+                            onClick={() => setPreviewMode(true)}
+                            sx={{
+                              color: previewMode ? 'var(--text-primary)' : 'var(--text-secondary)',
+                              borderColor: 'rgba(255,255,255,0.12)',
+                              background: previewMode ? 'rgba(255,255,255,0.08)' : 'transparent',
+                              '&:hover': {
+                                background: 'rgba(255,255,255,0.08)',
+                              },
+                            }}
+                          >
+                            Visualizar
+                          </Button>
+                        </Box>
+                      </Box>
+                      <IconButton
+                        type="button"
+                        onClick={() => handleEditorClose(setFieldValue, editorConteudo)}
+                        sx={{
+                          color: 'var(--text-secondary)',
+                          border: '1px solid rgba(255,255,255,0.08)',
+                          width: 40,
+                          height: 40,
+                          borderRadius: '14px',
+                          '&:hover': {
+                            background: 'rgba(255,255,255,0.08)',
+                            color: 'var(--color-accent)',
+                          },
+                        }}
+                        aria-label="Fechar editor de narração"
+                      >
+                        <CloseIcon fontSize="small" />
+                      </IconButton>
+                    </Box>
+                    <Divider sx={narrationDividerSx} />
+                    <Box sx={narrationToolbarSx}>
+                      <Box sx={narrationToolbarGroupSx}>
+                        <Tooltip title="Desfazer" arrow>
+                          <IconButton
+                            sx={narrationToolButtonSx}
+                            type="button"
+                            onMouseDown={handleToolbarMouseDown}
+                            aria-label="Desfazer"
+                            onClick={handleUndo}
+                          >
+                            <UndoIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Refazer" arrow>
+                          <IconButton
+                            sx={narrationToolButtonSx}
+                            type="button"
+                            onMouseDown={handleToolbarMouseDown}
+                            aria-label="Refazer"
+                            onClick={handleRedo}
+                          >
+                            <RedoIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </Box>
+                      <Box sx={narrationToolbarGroupSx}>
+                        <Tooltip title="Negrito" arrow>
+                          <IconButton
+                            sx={narrationToolButtonSx}
+                            type="button"
+                            onMouseDown={handleToolbarMouseDown}
+                            aria-label="Negrito"
+                            onClick={handleToggleBold}
+                          >
+                            <FormatBoldIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Itálico" arrow>
+                          <IconButton
+                            sx={narrationToolButtonSx}
+                            type="button"
+                            onMouseDown={handleToolbarMouseDown}
+                            aria-label="Itálico"
+                            onClick={handleToggleItalic}
+                          >
+                            <FormatItalicIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Sublinhado" arrow>
+                          <IconButton
+                            sx={narrationToolButtonSx}
+                            type="button"
+                            onMouseDown={handleToolbarMouseDown}
+                            aria-label="Sublinhado"
+                            onClick={handleToggleUnderline}
+                          >
+                            <FormatUnderlinedIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </Box>
+                      <Box sx={narrationToolbarGroupSx}>
+                        <Tooltip title="Alinhar à esquerda" arrow>
+                          <IconButton
+                            sx={narrationToolButtonSx}
+                            type="button"
+                            onMouseDown={handleToolbarMouseDown}
+                            aria-label="Alinhar à esquerda"
+                            onClick={handleAlignLeft}
+                          >
+                            <FormatAlignLeftIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Centralizar" arrow>
+                          <IconButton
+                            sx={narrationToolButtonSx}
+                            type="button"
+                            onMouseDown={handleToolbarMouseDown}
+                            aria-label="Centralizar"
+                            onClick={handleAlignCenter}
+                          >
+                            <FormatAlignCenterIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Alinhar à direita" arrow>
+                          <IconButton
+                            sx={narrationToolButtonSx}
+                            type="button"
+                            onMouseDown={handleToolbarMouseDown}
+                            aria-label="Alinhar à direita"
+                            onClick={handleAlignRight}
+                          >
+                            <FormatAlignRightIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Justificar" arrow>
+                          <IconButton
+                            sx={narrationToolButtonSx}
+                            type="button"
+                            onMouseDown={handleToolbarMouseDown}
+                            aria-label="Justificar"
+                            onClick={handleAlignJustify}
+                          >
+                            <FormatAlignJustifyIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </Box>
+                      <Box sx={narrationToolbarGroupSx}>
+                        <Tooltip title="Lista" arrow>
+                          <IconButton
+                            sx={narrationToolButtonSx}
+                            type="button"
+                            onMouseDown={handleToolbarMouseDown}
+                            aria-label="Lista"
+                            onClick={handleToggleBulletedList}
+                          >
+                            <FormatListBulletedIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Lista numerada" arrow>
+                          <IconButton
+                            sx={narrationToolButtonSx}
+                            type="button"
+                            onMouseDown={handleToolbarMouseDown}
+                            aria-label="Lista numerada"
+                            onClick={handleToggleNumberedList}
+                          >
+                            <FormatListNumberedIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </Box>
+                      <Box sx={narrationToolbarGroupSx}>
+                        <Tooltip title="Inserir separador" arrow>
+                          <IconButton
+                            sx={narrationSeparatorButtonSx}
+                            type="button"
+                            aria-label="Inserir separador"
+                            onMouseDown={handleToolbarMouseDown}
+                            onClick={handleInsertSeparator}
+                          >
+                            <HorizontalRuleIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </Box>
+                    </Box>
+                  </Box>
+                  <Box sx={narrationEditorAreaSx}>
+                    {previewMode ? (
+                      <Box
+                        sx={{
+                          flex: 1,
+                          overflowY: 'auto',
+                          px: { xs: 3.5, md: 4.5 },
+                          py: { xs: 3, md: 4 },
+                          color: 'var(--text-primary)',
+                          fontSize: '1rem',
+                          lineHeight: 1.8,
+                          '& strong': { fontWeight: 700 },
+                          '& em': { fontStyle: 'italic' },
+                          '& u': { textDecoration: 'underline' },
+                          '& ul': { paddingLeft: 20, margin: '8px 0' },
+                          '& li': { marginBottom: 6 },
+                          '& p': { margin: '0 0 0.75rem' },
+                        }}
+                        dangerouslySetInnerHTML={{ __html: renderMarkdownPreview(editorConteudo) }}
+                      />
+                    ) : (
+                      <Box sx={narrationTextareaWrapperSx}>
+                        <TextField
+                          value={editorConteudo}
+                          onChange={event => updateEditorContent(event.target.value)}
+                          multiline
+                          minRows={14}
+                          maxRows={30}
+                          variant="outlined"
+                          aria-label="Editor de narração completa"
+                          inputRef={textAreaRef}
+                          fullWidth
+                          sx={{
+                            ...narrationTextareaSx,
+                            '& .MuiOutlinedInput-inputMultiline': {
+                              minHeight: 360,
+                              padding: 0,
+                              overflow: 'visible',
+                            },
+                          }}
+                        />
+                      </Box>
+                    )}
+                  </Box>
+                  <Box sx={narrationEditorFooterSx}>
+                    <Box sx={narrationFooterTextSx}>
+                      <Box sx={narrationFooterStatusDotSx} />
+                      <Typography>Alterações sincronizadas automaticamente</Typography>
+                    </Box>
+                    <Typography sx={narrationFooterCountSx}>
+                      {editorConteudo.length} caracteres
+                    </Typography>
+                  </Box>
+                </Box>
+              </Fade>
+            </Modal>
+
             <Paper elevation={0} sx={{ ...sectionSx, mb: 1.5 }}>
               <SectionTitle>Informações Gerais</SectionTitle>
               <Box
@@ -240,10 +975,16 @@ const CenaForm = ({
                       label="Objetivo Principal"
                       fullWidth
                       multiline
-                      rows={2}
+                      rows={5}
                       error={touched.objetivo && Boolean(errors.objetivo)}
                       helperText={touched.objetivo && errors.objetivo}
-                      sx={inputSx}
+                      sx={{
+                        ...inputSx,
+                        '& .MuiOutlinedInput-inputMultiline': {
+                          maxHeight: 180,
+                          overflow: 'auto',
+                        },
+                      }}
                     />
                   )}
                 </FastField>
@@ -255,31 +996,59 @@ const CenaForm = ({
                       label="Resumo"
                       fullWidth
                       multiline
-                      rows={2}
+                      rows={5}
                       error={touched.resumo && Boolean(errors.resumo)}
                       helperText={touched.resumo && errors.resumo}
-                      sx={inputSx}
+                      sx={{
+                        ...inputSx,
+                        '& .MuiOutlinedInput-inputMultiline': {
+                          maxHeight: 180,
+                          overflow: 'auto',
+                        },
+                      }}
                     />
                   )}
                 </FastField>
 
                 <FastField name="descricaoNarracao">
                   {({ field }) => (
-                    <TextField
-                      {...field}
-                      label="Descrição / Texto de Narração"
-                      fullWidth
-                      multiline
-                      rows={6}
-                      error={
-                        touched.descricaoNarracao &&
-                        Boolean(errors.descricaoNarracao)
-                      }
-                      helperText={
-                        touched.descricaoNarracao && errors.descricaoNarracao
-                      }
-                      sx={inputSx}
-                    />
+                    <Box sx={{ position: 'relative' }}>
+                      <TextField
+                        {...field}
+                        label="Descrição / Texto de Narração"
+                        fullWidth
+                        multiline
+                        rows={7}
+                        error={
+                          touched.descricaoNarracao &&
+                          Boolean(errors.descricaoNarracao)
+                        }
+                        helperText={
+                          touched.descricaoNarracao && errors.descricaoNarracao
+                        }
+                        sx={{
+                          ...inputSx,
+                          '& .MuiInputBase-root': {
+                            minHeight: 260,
+                          },
+                          '& .MuiOutlinedInput-inputMultiline': {
+                            maxHeight: 260,
+                            overflow: 'auto',
+                            paddingBottom: '52px',
+                          },
+                        }}
+                      />
+                      <Tooltip title="Editar/visualizar narração" arrow>
+                        <IconButton
+                          type="button"
+                          onClick={() => abrirEditorNarracao(values.descricaoNarracao)}
+                          sx={editorTriggerSx}
+                          aria-label="Editar ou visualizar narração"
+                        >
+                          <RemoveRedEyeOutlinedIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    </Box>
                   )}
                 </FastField>
               </Box>
