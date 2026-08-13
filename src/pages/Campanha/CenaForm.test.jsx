@@ -121,13 +121,13 @@ describe('CenaForm — seletores de NPCs/Criaturas/Missões', () => {
     );
   });
 
-  it('limita o resumo a 900 caracteres no input', async () => {
+  it('permite mais de 900 caracteres no resumo do input', async () => {
     renderForm();
 
     const input = screen.getByLabelText('Resumo');
-    // definir o valor diretamente é mais confiável com MUI + Formik neste caso
-    fireEvent.change(input, { target: { value: 'a'.repeat(1200) } });
+    const value = 'a'.repeat(1200);
+    fireEvent.change(input, { target: { value } });
 
-    expect(input).toHaveValue('a'.repeat(900));
+    expect(input).toHaveValue(value);
   });
 });

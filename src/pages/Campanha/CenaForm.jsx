@@ -36,7 +36,6 @@ import useStableListKeys from 'hooks/useStableListKeys';
 import ImagePreviewPanel from 'components/ImagePreviewPanel/ImagePreviewPanel';
 import FormActions from 'components/FormActions/FormActions';
 import SectionTitle from 'components/SectionTitle/SectionTitle';
-import { CAMPO_CURTO_MAX } from 'common/utils/yupSchemas';
 import {
   getRmCampanhaNpcs,
   getRmCampanhaCriaturas,
@@ -1009,8 +1008,7 @@ const CenaForm = ({
                       multiline
                       rows={5}
                       onChange={event => {
-                        const value = event.target.value.slice(0, CAMPO_CURTO_MAX);
-                        setFieldValue('resumo', value);
+                        setFieldValue('resumo', event.target.value);
                       }}
                       error={touched.resumo && Boolean(errors.resumo)}
                       helperText={touched.resumo && errors.resumo}
