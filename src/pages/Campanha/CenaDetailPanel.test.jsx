@@ -111,4 +111,30 @@ describe('CenaDetailPanel', () => {
       screen.queryByLabelText('Remover cena Chegada na Cidade'),
     ).not.toBeInTheDocument();
   });
+
+  it('mostra feedback e reabilita o formulário quando o submit falha', async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn().mockRejectedValue(new Error('permission-denied'));
+
+    render(
+      <CenaDetailPanel
+        cena={CENA}
+        podeEscrever
+        ehCenaAtual={false}
+        onClose={vi.fn()}
+        onSave={onSave}
+        onDelete={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Salvar Alterações' }));
+
+    expect(onSave).toHaveBeenCalledWith('cena1', expect.any(Object));
+    expect(
+      screen.getByText(/Não foi possível salvar as alterações desta cena/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Salvar Alterações' }),
+    ).not.toBeDisabled();
+  });
 });

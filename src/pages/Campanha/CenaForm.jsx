@@ -14,6 +14,7 @@ import Button from '@mui/material/Button';
 import Modal from '@mui/material/Modal';
 import Fade from '@mui/material/Fade';
 import Backdrop from '@mui/material/Backdrop';
+import Alert from '@mui/material/Alert';
 import Tooltip from '@mui/material/Tooltip';
 import Divider from '@mui/material/Divider';
 import CloseIcon from '@mui/icons-material/Close';
@@ -600,8 +601,17 @@ const CenaForm = ({
       validationSchema={CENA_SCHEMA}
       onSubmit={onSubmit}
     >
-      {({ values, errors, touched, isSubmitting, setFieldValue }) => (
+      {({ values, errors, touched, isSubmitting, status, setFieldValue }) => (
         <Form>
+          {status?.submitError && (
+            <Alert
+              severity="error"
+              sx={{ mb: 2, borderRadius: '12px' }}
+              variant="filled"
+            >
+              {status.submitError}
+            </Alert>
+          )}
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
             <Modal
               open={editorAberto}
@@ -997,6 +1007,9 @@ const CenaForm = ({
                       fullWidth
                       multiline
                       rows={5}
+                      onChange={event => {
+                        setFieldValue('resumo', event.target.value);
+                      }}
                       error={touched.resumo && Boolean(errors.resumo)}
                       helperText={touched.resumo && errors.resumo}
                       sx={{

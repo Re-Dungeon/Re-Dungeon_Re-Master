@@ -1,7 +1,6 @@
 import * as Yup from 'yup';
 import {
   nomeSchema,
-  campoCurtoSchema,
   descricaoSchema,
   textoLongoSchema,
   urlImagemSchema,
@@ -45,7 +44,7 @@ export const CENA_SCHEMA = Yup.object({
   titulo: nomeSchema,
   linkImagem: urlImagemSchema,
   objetivo: descricaoSchema,
-  resumo: campoCurtoSchema,
+  resumo: Yup.string().trim(),
   descricaoNarracao: textoLongoSchema,
   pontosImportantes: Yup.array().of(Yup.string()),
   estado: Yup.string()
