@@ -182,8 +182,9 @@ const useCampanhaGrafo = campanha => {
       try {
         await updateRmCena(cenaId, values);
         await carregar();
-      } catch {
+      } catch (error) {
         notifyError('Não foi possível salvar as alterações da cena.');
+        throw error;
       }
     },
     [carregar, notifyError],

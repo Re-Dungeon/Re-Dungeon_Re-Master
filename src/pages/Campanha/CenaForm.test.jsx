@@ -120,4 +120,14 @@ describe('CenaForm — seletores de NPCs/Criaturas/Missões', () => {
       ),
     );
   });
+
+  it('limita o resumo a 900 caracteres no input', async () => {
+    const user = userEvent.setup();
+    renderForm();
+
+    const input = screen.getByLabelText('Resumo');
+    await user.type(input, 'a'.repeat(1200));
+
+    expect(input).toHaveValue('a'.repeat(900));
+  });
 });
