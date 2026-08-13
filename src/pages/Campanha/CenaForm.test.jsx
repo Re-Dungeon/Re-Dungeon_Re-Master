@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import CenaForm from './CenaForm';
 import { CENA_INITIAL_VALUES } from './cenaUtils';
@@ -122,11 +122,11 @@ describe('CenaForm — seletores de NPCs/Criaturas/Missões', () => {
   });
 
   it('limita o resumo a 900 caracteres no input', async () => {
-    const user = userEvent.setup();
     renderForm();
 
     const input = screen.getByLabelText('Resumo');
-    await user.type(input, 'a'.repeat(1200));
+    // definir o valor diretamente é mais confiável com MUI + Formik neste caso
+    fireEvent.change(input, { target: { value: 'a'.repeat(1200) } });
 
     expect(input).toHaveValue('a'.repeat(900));
   });
