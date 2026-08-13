@@ -1,7 +1,7 @@
 import * as Yup from 'yup';
 
 export const NOME_MAX = 100;
-export const CAMPO_CURTO_MAX = 300;
+export const CAMPO_CURTO_MAX = 900;
 export const DESCRICAO_MAX = 2000;
 export const TEXTO_LONGO_MAX = 8000;
 

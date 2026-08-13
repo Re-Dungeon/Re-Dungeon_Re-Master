@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import CenaForm from './CenaForm';
 import { CENA_INITIAL_VALUES } from './cenaUtils';
@@ -119,5 +119,15 @@ describe('CenaForm — seletores de NPCs/Criaturas/Missões', () => {
         expect.anything(),
       ),
     );
+  });
+
+  it('permite mais de 900 caracteres no resumo do input', async () => {
+    renderForm();
+
+    const input = screen.getByLabelText('Resumo');
+    const value = 'a'.repeat(1200);
+    fireEvent.change(input, { target: { value } });
+
+    expect(input).toHaveValue(value);
   });
 });

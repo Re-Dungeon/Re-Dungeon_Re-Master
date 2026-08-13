@@ -55,6 +55,7 @@ const CENAS_MOCK = [
     titulo: 'Chegada na Cidade',
     estado: 'em_andamento',
     objetivo: 'Entrar na cidade',
+    resumo: 'Entrar na cidade',
   },
   { id: 'cena2', titulo: 'Encontro com o Prefeito', estado: 'nao_iniciado' },
 ];

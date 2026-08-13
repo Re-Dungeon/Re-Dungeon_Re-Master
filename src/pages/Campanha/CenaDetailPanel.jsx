@@ -27,8 +27,23 @@ const CenaDetailPanel = ({
   const aberto = Boolean(cena);
 
   const handleSubmit = async (values, formikHelpers) => {
-    await onSave(cena.id, values);
-    formikHelpers.setSubmitting(false);
+    const { setSubmitting, setStatus } = formikHelpers;
+
+    try {
+      setStatus({});
+      await onSave(cena.id, values);
+    } catch (error) {
+      const mensagemPadrao = 'Não foi possível salvar as alterações desta cena.';
+      const mensagemErro =
+        error?.message === 'permission-denied' ||
+        error?.code === 'permission-denied'
+          ? mensagemPadrao
+          : error?.message || mensagemPadrao;
+
+      setStatus({ submitError: mensagemErro });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -145,17 +160,19 @@ const CenaDetailPanel = ({
 
               <Box sx={{ overflowY: 'auto', flex: 1, pr: 1 }}>
                 {podeEscrever ? (
-                  <CenaForm
-                    key={cena.id}
-                    initialValues={{ ...CENA_INITIAL_VALUES, ...cena }}
-                    onSubmit={handleSubmit}
-                    onCancelar={onClose}
-                    labelSalvar="Salvar Alterações"
-                    idPrefix={`cena-painel-${cena.id}`}
-                    campanhaId={cena.campanhaId}
-                    universoId={cena.universoId}
-                    mestreId={cena.mestreId}
-                  />
+                  <>
+                    <CenaForm
+                      key={cena.id}
+                      initialValues={{ ...CENA_INITIAL_VALUES, ...cena }}
+                      onSubmit={handleSubmit}
+                      onCancelar={onClose}
+                      labelSalvar="Salvar Alterações"
+                      idPrefix={`cena-painel-${cena.id}`}
+                      campanhaId={cena.campanhaId}
+                      universoId={cena.universoId}
+                      mestreId={cena.mestreId}
+                    />
+                  </>
                 ) : (
                   <Button
                     variant="outlined"
