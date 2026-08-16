@@ -3,32 +3,20 @@ import PropTypes from 'prop-types';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 
-/**
- * Painel de preview de imagem repetido em toda página `Nova`/`Novo` de
- * entidade: mostra a imagem de `src` (tipicamente `values.linkImagem` do
- * Formik) ou um placeholder quando vazio/inválido. O estado de erro é
- * interno e reseta automaticamente sempre que `src` muda (ajustado durante
- * a renderização, sem `useEffect`, seguindo o padrão recomendado pelo React
- * para "adjusting state when a prop changes").
- */
-const ImagePreviewPanel = ({ src, alt }) => {
-  const [lastSrc, setLastSrc] = useState(src);
+const ImagePreviewInner = ({ src, alt }) => {
   const [imgError, setImgError] = useState(false);
-  const [loading, setLoading] = useState(false);
-
-  if (src !== lastSrc) {
-    setLastSrc(src);
-    setImgError(false);
-  }
+  const [loading, setLoading] = useState(Boolean(src));
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.2 }}>
       <Typography
         variant="caption"
         sx={{
           color: 'var(--text-muted)',
           textTransform: 'uppercase',
-          letterSpacing: 0.5,
+          letterSpacing: '0.12em',
+          fontWeight: 700,
+          fontSize: '0.68rem',
         }}
       >
         Preview
@@ -36,47 +24,95 @@ const ImagePreviewPanel = ({ src, alt }) => {
       <Box
         sx={{
           width: '100%',
-          aspectRatio: '1 / 1',
-          borderRadius: 2,
-          border: '1px solid rgba(255,255,255,0.06)',
-          background: 'linear-gradient(180deg, rgba(10,14,22,0.6), rgba(6,8,10,0.5))',
+          minHeight: { xs: 220, md: 300 },
+          aspectRatio: '4 / 5',
+          borderRadius: 2.5,
+          border: '1px solid var(--border-primary)',
+          background:
+            'linear-gradient(180deg, rgba(15, 18, 24, 0.72), rgba(9, 11, 16, 0.9))',
           overflow: 'hidden',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          boxShadow: '0 8px 22px rgba(0,0,0,0.45)',
+          boxShadow: '0 18px 32px rgba(0,0,0,0.28)',
+          position: 'relative',
         }}
       >
         {src && !imgError ? (
-          <img
-            src={src}
-            alt={alt}
-            onLoad={() => setLoading(false)}
-            onError={() => setImgError(true)}
-            style={{
-              width: '100%',
-              height: '100%',
-              objectFit: 'cover',
-              transition: 'opacity 320ms ease',
-              opacity: loading ? 0.6 : 1,
-            }}
-          />
+          <>
+            <Box
+              component="img"
+              key={src}
+              src={src}
+              alt={alt}
+              onLoad={() => {
+                setLoading(false);
+                setImgError(false);
+              }}
+              onError={() => {
+                setImgError(true);
+                setLoading(false);
+              }}
+              sx={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+                transition: 'opacity 220ms ease, transform 220ms ease',
+                opacity: loading ? 0.6 : 1,
+                display: 'block',
+              }}
+            />
+            {loading && (
+              <Box
+                sx={{
+                  position: 'absolute',
+                  inset: 0,
+                  background: 'rgba(10, 12, 16, 0.42)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: 'var(--text-secondary)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.12em',
+                  }}
+                >
+                  Carregando preview...
+                </Typography>
+              </Box>
+            )}
+          </>
         ) : (
-          <Box sx={{ textAlign: 'center', px: 2 }}>
+          <Box sx={{ textAlign: 'center', px: 2, maxWidth: 220 }}>
             <Typography
               variant="body2"
-              sx={{ color: 'var(--text-muted)', mb: 0.5 }}
+              sx={{ color: 'var(--text-muted)', mb: 0.75, fontWeight: 600 }}
             >
               {imgError ? 'Imagem não encontrada' : 'Nenhuma imagem selecionada'}
             </Typography>
             <Typography variant="caption" sx={{ color: 'var(--text-secondary)' }}>
-              Cole uma URL válida no campo &quot;Link da Imagem&quot; para ver o preview
+              {imgError
+                ? 'A URL informada não pôde ser carregada.'
+                : 'Cole uma URL válida no campo "Link da Imagem" para ver o preview.'}
             </Typography>
           </Box>
         )}
       </Box>
     </Box>
   );
+};
+
+const ImagePreviewPanel = ({ src, alt }) => (
+  <ImagePreviewInner key={src || 'empty-preview'} src={src} alt={alt} />
+);
+
+ImagePreviewInner.propTypes = {
+  src: PropTypes.string,
+  alt: PropTypes.string.isRequired,
 };
 
 ImagePreviewPanel.propTypes = {

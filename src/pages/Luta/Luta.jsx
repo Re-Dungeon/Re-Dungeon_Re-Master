@@ -752,8 +752,10 @@ const Luta = () => {
                       border: '1px solid rgba(255,255,255,0.08)',
                       '& .MuiSelect-select': { py: 1 },
                     }}
-                    inputProps={{
-                      'aria-label': `Adicionar condição a ${participante.nome}`,
+                    slotProps={{
+                      input: {
+                        'aria-label': `Adicionar condição a ${participante.nome}`,
+                      },
                     }}
                   >
                     {condicoesDisponiveis

@@ -241,7 +241,8 @@ describe('PersonagemFichaDialog', () => {
   it('usa os campos do clone da campanha no painel de Informações do Jogador', async () => {
     const user = userEvent.setup();
     const clone = {
-      background: 'Nascido em uma cidade em ruínas, treinou sob um mestre silencioso.',
+      background:
+        'Nascido em uma cidade em ruínas, treinou sob um mestre silencioso.',
       notasAdicionais: 'Fala pouco, mas guarda rancor antigo.',
       titulo: 'Guardião do Pátio',
       afiliacao: 'Irmandade do Pórtico',
@@ -271,15 +272,22 @@ describe('PersonagemFichaDialog', () => {
     expect(screen.getByText('Guardião do Pátio')).toBeInTheDocument();
     expect(screen.getByText('Irmandade do Pórtico')).toBeInTheDocument();
     expect(screen.getByText('Em vigilância')).toBeInTheDocument();
-    expect(screen.getByText('Nascido em uma cidade em ruínas, treinou sob um mestre silencioso.')).toBeInTheDocument();
-    expect(screen.getByText('Fala pouco, mas guarda rancor antigo.')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Nascido em uma cidade em ruínas, treinou sob um mestre silencioso.',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('Fala pouco, mas guarda rancor antigo.'),
+    ).toBeInTheDocument();
   });
 
   it('aceita o bloco infoJogador aninhado do clone sem renderizar um objeto cru', async () => {
     const user = userEvent.setup();
     const clone = {
       infoJogador: {
-        background: 'Nascido em uma cidade em ruínas, treinou sob um mestre silencioso.',
+        background:
+          'Nascido em uma cidade em ruínas, treinou sob um mestre silencioso.',
         notasAdicionais: 'Fala pouco, mas guarda rancor antigo.',
         titulo: 'Guardião do Pátio',
         afiliacao: 'Irmandade do Pórtico',
@@ -334,8 +342,107 @@ describe('PersonagemFichaDialog', () => {
     );
     expect(screen.getByText('Círculo das Sombras')).toBeInTheDocument();
     expect(screen.getByText('Vigente e observando')).toBeInTheDocument();
-    expect(screen.getByText('Nascido sob uma antiga tradição.')).toBeInTheDocument();
+    expect(
+      screen.getByText('Nascido sob uma antiga tradição.'),
+    ).toBeInTheDocument();
     expect(screen.getByText('Mantém segredos pessoais.')).toBeInTheDocument();
+  });
+
+  it('mostra a seção de nível quando o clone contém dados de progressão', async () => {
+    const user = userEvent.setup();
+    const clone = {
+      nivel: 7,
+      xp: 1280,
+      pontosPrincipais: 4,
+      pontosSecundarios: 2,
+      historicoNivel: [
+        {
+          nivel: 6,
+          data: '2026-07-29',
+          descricao: 'Subiu de nível após o combate',
+        },
+      ],
+    };
+
+    render(
+      <PersonagemFichaDialog
+        open
+        onClose={() => {}}
+        personagem={PERSONAGEM}
+        clone={clone}
+      />,
+    );
+
+    await expandirTodosOsPainels(user);
+
+    await waitFor(() =>
+      expect(screen.getByText('Nível Atual')).toBeInTheDocument(),
+    );
+    expect(screen.getByText('7')).toBeInTheDocument();
+    expect(screen.getByText('1280')).toBeInTheDocument();
+    expect(screen.getAllByText('4').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('2').length).toBeGreaterThan(0);
+    expect(
+      screen.getByText('Subiu de nível após o combate'),
+    ).toBeInTheDocument();
+  });
+
+  it('lê nível/xp/pontos/histórico do campo `nivel` aninhado (schema real da Ficha-RPG)', async () => {
+    const user = userEvent.setup();
+    const personagemComNivelAninhado = {
+      ...PERSONAGEM,
+      nivel: {
+        atual: 140,
+        xpAtual: 3200,
+        pontosPrincipaisDisponiveis: 5,
+        pontosSecundariosDisponiveis: 3,
+        historico: {
+          principais: { forca: 10, vitalidade: 0, agilidade: 4 },
+          secundarios: { defesa: 2 },
+          sorte: 6,
+        },
+      },
+    };
+
+    render(
+      <PersonagemFichaDialog
+        open
+        onClose={() => {}}
+        personagem={personagemComNivelAninhado}
+      />,
+    );
+
+    await expandirTodosOsPainels(user);
+
+    await waitFor(() =>
+      expect(screen.getByText('Nível Atual')).toBeInTheDocument(),
+    );
+    expect(screen.getByText('140')).toBeInTheDocument();
+    expect(screen.getByText('3200')).toBeInTheDocument();
+    expect(screen.getAllByText('5').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('3').length).toBeGreaterThan(0);
+
+    // PERSONAGEM já tem `atributosBonus: { agilidade, vitalidade }` num outro
+    // painel, então escopa as checagens do histórico ao painel "Histórico de
+    // Nível" pra não colidir com esses labels repetidos.
+    const historicoPanel = screen
+      .getByText('Histórico de Nível')
+      .closest('[class*="MuiPaper"]');
+    expect(within(historicoPanel).getByText('Força')).toBeInTheDocument();
+    expect(within(historicoPanel).getByText('+10')).toBeInTheDocument();
+    expect(within(historicoPanel).getByText('Agilidade')).toBeInTheDocument();
+    expect(within(historicoPanel).getByText('+4')).toBeInTheDocument();
+    expect(
+      within(historicoPanel).getByText('Defesa Secundária'),
+    ).toBeInTheDocument();
+    expect(within(historicoPanel).getByText('+2')).toBeInTheDocument();
+    // "Sorte" aparece duas vezes no painel: como título do grupo e como label
+    // do item (o grupo "Sorte" só tem esse item).
+    expect(within(historicoPanel).getAllByText('Sorte').length).toBe(2);
+    expect(within(historicoPanel).getByText('+6')).toBeInTheDocument();
+    expect(
+      within(historicoPanel).queryByText('Vitalidade'),
+    ).not.toBeInTheDocument();
   });
 
   it('não usa um objeto de jogadorInfo como afiliacao quando existem campos separados', async () => {
@@ -361,9 +468,13 @@ describe('PersonagemFichaDialog', () => {
 
     await expandirTodosOsPainels(user);
 
-    await waitFor(() => expect(screen.getByText('Ordem do Pórtico')).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText('Ordem do Pórtico')).toBeInTheDocument(),
+    );
     expect(screen.queryByText('A Última')).not.toBeInTheDocument();
-    expect(screen.getByText('Uma história longa para o background.')).toBeInTheDocument();
+    expect(
+      screen.getByText('Uma história longa para o background.'),
+    ).toBeInTheDocument();
     expect(screen.getByText('Notas do jogador.')).toBeInTheDocument();
     expect(screen.getByText('Ativo na trama')).toBeInTheDocument();
     expect(screen.getByText('O luminista')).toBeInTheDocument();
@@ -372,7 +483,8 @@ describe('PersonagemFichaDialog', () => {
   it('aplica rolagem interna aos campos longos de informação do jogador', async () => {
     const user = userEvent.setup();
     const clone = {
-      background: 'Linha 1\nLinha 2\nLinha 3\nLinha 4\nLinha 5\nLinha 6\nLinha 7',
+      background:
+        'Linha 1\nLinha 2\nLinha 3\nLinha 4\nLinha 5\nLinha 6\nLinha 7',
       notasAdicionais: 'Nota 1\nNota 2\nNota 3\nNota 4\nNota 5\nNota 6\nNota 7',
     };
 
@@ -387,11 +499,19 @@ describe('PersonagemFichaDialog', () => {
 
     await expandirTodosOsPainels(user);
 
-    const backgroundText = screen.getByText(content => content.includes('Linha 7'));
+    const backgroundText = screen.getByText(content =>
+      content.includes('Linha 7'),
+    );
     const notasText = screen.getByText(content => content.includes('Nota 7'));
 
-    expect(backgroundText).toHaveStyle({ overflowY: 'auto', maxHeight: 'calc(1.7em * 6)' });
-    expect(notasText).toHaveStyle({ overflowY: 'auto', maxHeight: 'calc(1.7em * 6)' });
+    expect(backgroundText).toHaveStyle({
+      overflowY: 'auto',
+      maxHeight: 'calc(1.7em * 6)',
+    });
+    expect(notasText).toHaveStyle({
+      overflowY: 'auto',
+      maxHeight: 'calc(1.7em * 6)',
+    });
   });
 
   it('permite colapsar e expandir painéis de atributos', async () => {
@@ -544,6 +664,33 @@ describe('PersonagemFichaDialog', () => {
     await user.click(screen.getByText('Artes (1)'));
 
     expect(screen.getByText('Golpe Sombrio')).toBeInTheDocument();
+  });
+
+  it('traduz códigos de ação em artes para nomes legíveis', async () => {
+    getPersonagemSubcolecao.mockImplementation((_id, subcolecao) =>
+      subcolecao === 'arts'
+        ? Promise.resolve([
+            {
+              id: 'a1',
+              nome: 'Golpe Sombrio',
+              tipoAcao: { codigo: 'I', nome: 'Imediata' },
+              custo: 3,
+            },
+          ])
+        : Promise.resolve([]),
+    );
+    const user = userEvent.setup();
+    render(
+      <PersonagemFichaDialog open onClose={() => {}} personagem={PERSONAGEM} />,
+    );
+
+    await waitFor(() =>
+      expect(screen.getByText('Artes (1)')).toBeInTheDocument(),
+    );
+    await user.click(screen.getByText('Artes (1)'));
+
+    expect(screen.getByText('Ação')).toBeInTheDocument();
+    expect(screen.getByText('Imediata')).toBeInTheDocument();
   });
 
   it('renderiza núcleos em cards com cabeçalho, essência e badge de artes', async () => {

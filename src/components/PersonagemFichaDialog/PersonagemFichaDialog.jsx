@@ -175,6 +175,12 @@ const resolverValorSorte = (personagem, aliases) => {
   return valorBruto !== undefined ? String(valorBruto) : resolvido;
 };
 
+// Resolve o label acentuado já usado no resto da ficha (ATRIBUTOS_*_DIALOG)
+// em vez do humanizarLabel genérico, que não sabe acentuar "forca" -> "Força".
+const resolverLabelAtributo = (chave, lista) =>
+  lista.find(({ aliases }) => aliases.includes(chave))?.label ??
+  humanizarLabel(chave);
+
 const humanizarLabel = campo =>
   campo
     .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
@@ -206,13 +212,46 @@ const normalizarTextoValor = valor => {
     const entradas = Object.entries(valor).filter(([, item]) => !ehVazio(item));
     if (entradas.length === 0) return null;
     const texto = entradas
-      .map(([chave, item]) => `${humanizarLabel(chave)}: ${normalizarTextoValor(item)}`)
+      .map(
+        ([chave, item]) =>
+          `${humanizarLabel(chave)}: ${normalizarTextoValor(item)}`,
+      )
       .filter(Boolean)
       .join(' • ');
     return texto || null;
   }
 
   return String(valor);
+};
+
+const normalizarValorSimples = valor => {
+  if (valor === null || valor === undefined || valor === '') {
+    return null;
+  }
+
+  if (typeof valor === 'object' && !Array.isArray(valor)) {
+    const candidato = [
+      'valor',
+      'atual',
+      'value',
+      'nivel',
+      'level',
+      'xp',
+      'experiencia',
+      'pontosPrincipais',
+      'pontosPrincipaisDisponiveis',
+      'pontos_principais_disponiveis',
+      'pontosSecundarios',
+      'pontosSecundariosDisponiveis',
+      'pontos_secundarios_disponiveis',
+    ].find(chave => !ehVazio(valor[chave]));
+
+    if (candidato) {
+      return normalizarTextoValor(valor[candidato]);
+    }
+  }
+
+  return normalizarTextoValor(valor);
 };
 
 const ehVazio = valor =>
@@ -228,7 +267,11 @@ const resolverValorInfoJogador = (fontes, aliases) => {
   for (const fonte of fontes) {
     if (ehVazio(fonte)) continue;
 
-    if (typeof fonte === 'string' || typeof fonte === 'number' || typeof fonte === 'boolean') {
+    if (
+      typeof fonte === 'string' ||
+      typeof fonte === 'number' ||
+      typeof fonte === 'boolean'
+    ) {
       return normalizarTextoValor(fonte) ?? null;
     }
 
@@ -258,7 +301,10 @@ const resolverValorInfoJogador = (fontes, aliases) => {
       for (const aliasAninhado of aliasesAninhados) {
         const valorAninhado = fonte[aliasAninhado];
         if (!ehVazio(valorAninhado)) {
-          const valorResolvido = resolverValorInfoJogador([valorAninhado], aliases);
+          const valorResolvido = resolverValorInfoJogador(
+            [valorAninhado],
+            aliases,
+          );
           if (!ehVazio(valorResolvido)) {
             return valorResolvido;
           }
@@ -297,7 +343,8 @@ const painelInfoJogadorSx = {
     'linear-gradient(135deg, rgba(14, 18, 28, 0.98), rgba(8, 10, 16, 0.98))',
   border: '1px solid rgba(255,255,255,0.08)',
   borderRadius: 2.25,
-  boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.03), 0 12px 30px rgba(0, 0, 0, 0.16)',
+  boxShadow:
+    'inset 0 1px 0 rgba(255,255,255,0.03), 0 12px 30px rgba(0, 0, 0, 0.16)',
   position: 'relative',
   overflow: 'hidden',
   '&::before': {
@@ -506,17 +553,23 @@ const MiniAtributoCard = ({ label, value, Icon }) => (
     }}
   >
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-      {Icon && (
-        <Icon sx={{ color: 'var(--color-accent)', fontSize: 16 }} />
-      )}
+      {Icon && <Icon sx={{ color: 'var(--color-accent)', fontSize: 16 }} />}
     </Box>
     <Typography
       variant="caption"
-      sx={{ color: 'var(--text-muted)', textTransform: 'uppercase', fontSize: '0.6rem', letterSpacing: 0.6 }}
+      sx={{
+        color: 'var(--text-muted)',
+        textTransform: 'uppercase',
+        fontSize: '0.6rem',
+        letterSpacing: 0.6,
+      }}
     >
       {label}
     </Typography>
-    <Typography variant="h6" sx={{ color: 'var(--text-primary)', fontWeight: 700 }}>
+    <Typography
+      variant="h6"
+      sx={{ color: 'var(--text-primary)', fontWeight: 700 }}
+    >
       {String(value)}
     </Typography>
   </Paper>
@@ -529,7 +582,6 @@ MiniAtributoCard.propTypes = {
 };
 
 const SecaoCampo = ({ campo, valor }) => {
-
   // Se o valor for um objeto simples com várias chaves, apresentar como
   // mini-cards (painel de atributos) para melhorar a legibilidade.
   if (valor && typeof valor === 'object' && !Array.isArray(valor)) {
@@ -550,7 +602,9 @@ const SecaoCampo = ({ campo, valor }) => {
           >
             {humanizarLabel(campo)}
           </Typography>
-          <Typography sx={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>—</Typography>
+          <Typography sx={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>
+            —
+          </Typography>
         </Box>
       );
     }
@@ -586,10 +640,12 @@ const SecaoCampo = ({ campo, valor }) => {
               label={humanizarLabel(k)}
               value={(() => {
                 if (ehTimestamp(v)) return formatarTimestamp(v);
-                if (typeof v === 'object' && v !== null && (v.atual || v.valor || v.value)) {
-                  return v.atual ?? v.valor ?? v.value;
-                }
-                return Array.isArray(v) ? v.join(', ') : String(v);
+                // Prefer explicit simple normalizers to avoid [object Object]
+                const simples = normalizarValorSimples(v);
+                if (simples !== null && simples !== undefined) return simples;
+                const texto = normalizarTextoValor(v);
+                if (texto !== null && texto !== undefined) return texto;
+                return String(v);
               })()}
             />
           ))}
@@ -635,10 +691,20 @@ const SmallPanel = ({ title, children }) => (
   >
     <Typography
       variant="caption"
-      sx={{ color: 'var(--color-accent)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, mb: 1 }}
+      sx={{
+        color: 'var(--color-accent)',
+        fontWeight: 700,
+        textTransform: 'uppercase',
+        letterSpacing: 1,
+        mb: 1,
+      }}
     >
       {title}
-      <Box component="span" sx={{ display: 'none' }}>{String(title).normalize('NFD').replace(/[\u0300-\u036f]/g, '')}</Box>
+      <Box component="span" sx={{ display: 'none' }}>
+        {String(title)
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')}
+      </Box>
     </Typography>
     {children}
   </Paper>
@@ -700,8 +766,119 @@ const resolverValorNucleo = (doc, aliases) => {
   return null;
 };
 
+const extrairNomeLocal = valor => {
+  if (!valor || typeof valor !== 'object') return null;
+  const candidates = [
+    'nome',
+    'titulo',
+    'name',
+    'label',
+    'lugar',
+    'nomeLugar',
+    'regiao',
+    'nomeRegiao',
+  ];
+  for (const c of candidates) {
+    const v = valor[c];
+    if (!ehVazio(v)) return normalizarTextoValor(v) ?? String(v);
+  }
+  // Heurística: busca recursiva por uma string que pareça um nome legível
+  const looksLikeName = s =>
+    typeof s === 'string' && /[a-zà-ú]/i.test(s) && !/^[A-Z0-9_-]{6,}$/.test(s);
+
+  const buscarRecursivo = (o, depth = 0) => {
+    if (depth > 3 || ehVazio(o)) return null;
+    if (typeof o === 'string' && looksLikeName(o)) return o;
+    if (typeof o === 'object') {
+      for (const k of Object.keys(o)) {
+        const v = o[k];
+        const found = buscarRecursivo(v, depth + 1);
+        if (found) return found;
+      }
+    }
+    return null;
+  };
+
+  const encontrado = buscarRecursivo(valor, 0);
+  return encontrado ? normalizarTextoValor(encontrado) ?? String(encontrado) : null;
+};
+
+const extrairImagemLocal = valor => {
+  if (!valor || typeof valor !== 'object') return null;
+  const candidates = ['imagem', 'imagemUrl', 'image', 'linkImagem', 'url', 'foto'];
+  for (const c of candidates) {
+    const v = valor[c];
+    if (!ehVazio(v)) return String(v);
+  }
+  // Heurística: busca recursiva por URL de imagem
+  const looksLikeUrl = s => typeof s === 'string' && /https?:\/\/.+\.(png|jpe?g|webp|gif|svg)/i.test(s);
+
+  const buscarUrl = (o, depth = 0) => {
+    if (depth > 3 || ehVazio(o)) return null;
+    if (typeof o === 'string' && looksLikeUrl(o)) return o;
+    if (typeof o === 'object') {
+      for (const k of Object.keys(o)) {
+        const v = o[k];
+        const found = buscarUrl(v, depth + 1);
+        if (found) return found;
+      }
+    }
+    return null;
+  };
+
+  return buscarUrl(valor, 0);
+};
+
+const extrairFamaTerror = valor => {
+  // Retorna { fama, terror } com fallback para 0 ou valores encontrados
+  let fama = null;
+  let terror = null;
+  if (valor === null || valor === undefined) return { fama: 0, terror: 0 };
+  if (typeof valor === 'object' && !Array.isArray(valor)) {
+    const possibleFama = [
+      'fama',
+      'valorFama',
+      'famaValor',
+      'fame',
+      'fama_atual',
+      'valor',
+    ];
+    const possibleTerror = ['terror', 'valorTerror', 'terrorValor', 'fear'];
+    for (const k of possibleFama) {
+      if (!ehVazio(valor[k])) {
+        fama = normalizarTextoValor(valor[k]) ?? String(valor[k]);
+        break;
+      }
+    }
+    for (const k of possibleTerror) {
+      if (!ehVazio(valor[k])) {
+        terror = normalizarTextoValor(valor[k]) ?? String(valor[k]);
+        break;
+      }
+    }
+    // Alguns casos: valor pode ser um número simples representando fama
+    if (fama === null) {
+      const simples = normalizarValorSimples(valor);
+      if (simples !== null) {
+        // assumir que simples representa fama
+        fama = simples;
+      }
+    }
+  }
+  if (fama === null) fama = 0;
+  if (terror === null) terror = 0;
+  return { fama, terror };
+};
+
 const resolverQuantidadeArtes = doc => {
-  const candidates = [doc?.artes, doc?.artesRelacionadas, doc?.arts, doc?.artesIds, doc?.artesAssociadas, doc?.artesRelacionadasIds];
+  const candidates = [
+    doc?.artes,
+    doc?.artesRelacionadas,
+    doc?.arts,
+    doc?.artesIds,
+    doc?.artesAssociadas,
+    doc?.artesRelacionadasIds,
+  ];
   for (const candidate of candidates) {
     if (Array.isArray(candidate)) {
       return candidate.length;
@@ -714,14 +891,53 @@ const resolverQuantidadeArtes = doc => {
 };
 
 const NucleoCard = ({ doc }) => {
-  const nome = resolverValorNucleo(doc, ['nome', 'titulo', 'tituloNucleo', 'nomeNucleo']) ?? doc?.id ?? 'Núcleo';
+  const nome =
+    resolverValorNucleo(doc, [
+      'nome',
+      'titulo',
+      'tituloNucleo',
+      'nomeNucleo',
+    ]) ??
+    doc?.id ??
+    'Núcleo';
   const imagem = resolveImagemAsset(doc);
-  const tipo = resolverValorNucleo(doc, ['tipo', 'tipoNucleo', 'categoria', 'categoriaNucleo']) ?? '—';
-  const essencia = resolverValorNucleo(doc, ['essencia', 'essenciaNucleo', 'conteudo', 'textoEssencia']) ?? 'Sem essência cadastrada.';
-  const descricao = resolverValorNucleo(doc, ['descricao', 'descricaoNucleo', 'descricaoDetalhada', 'resumo']) ?? null;
-  const bonus = resolverValorNucleo(doc, ['bonus', 'bonusNucleo', 'beneficio', 'efeito']) ?? null;
-  const criadoEm = resolverValorNucleo(doc, ['createdAt', 'dataCriacao', 'dataCriado', 'criadoEm']) ?? null;
-  const atualizadoEm = resolverValorNucleo(doc, ['updatedAt', 'dataAtualizacao', 'atualizadoEm']) ?? null;
+  const tipo =
+    resolverValorNucleo(doc, [
+      'tipo',
+      'tipoNucleo',
+      'categoria',
+      'categoriaNucleo',
+    ]) ?? '—';
+  const essencia =
+    resolverValorNucleo(doc, [
+      'essencia',
+      'essenciaNucleo',
+      'conteudo',
+      'textoEssencia',
+    ]) ?? 'Sem essência cadastrada.';
+  const descricao =
+    resolverValorNucleo(doc, [
+      'descricao',
+      'descricaoNucleo',
+      'descricaoDetalhada',
+      'resumo',
+    ]) ?? null;
+  const bonus =
+    resolverValorNucleo(doc, ['bonus', 'bonusNucleo', 'beneficio', 'efeito']) ??
+    null;
+  const criadoEm =
+    resolverValorNucleo(doc, [
+      'createdAt',
+      'dataCriacao',
+      'dataCriado',
+      'criadoEm',
+    ]) ?? null;
+  const atualizadoEm =
+    resolverValorNucleo(doc, [
+      'updatedAt',
+      'dataAtualizacao',
+      'atualizadoEm',
+    ]) ?? null;
   const quantidadeArtes = resolverQuantidadeArtes(doc);
 
   const camposExtras = [
@@ -734,7 +950,8 @@ const NucleoCard = ({ doc }) => {
       elevation={0}
       sx={{
         p: { xs: 1.5, sm: 1.75 },
-        background: 'linear-gradient(135deg, rgba(15, 20, 30, 0.97), rgba(8, 11, 18, 0.98))',
+        background:
+          'linear-gradient(135deg, rgba(15, 20, 30, 0.97), rgba(8, 11, 18, 0.98))',
         border: '1px solid rgba(255,255,255,0.08)',
         borderRadius: 2.25,
         boxShadow: '0 14px 34px rgba(0, 0, 0, 0.16)',
@@ -748,34 +965,109 @@ const NucleoCard = ({ doc }) => {
           content: '""',
           position: 'absolute',
           inset: 0,
-          background: 'linear-gradient(90deg, rgba(0, 120, 255, 0.16), transparent 45%, rgba(0, 217, 255, 0.08))',
+          background:
+            'linear-gradient(90deg, rgba(0, 120, 255, 0.16), transparent 45%, rgba(0, 217, 255, 0.08))',
           pointerEvents: 'none',
         },
       }}
     >
-      <Box sx={{ position: 'relative', zIndex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1.25 }}>
-          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
-          <Box sx={{ width: 100, height: 100, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: imagem ? 'transparent' : 'rgba(0, 120, 255, 0.16)', border: '1px solid rgba(0, 120, 255, 0.25)', overflow: 'hidden', flexShrink: 0 }}>
+      <Box
+        sx={{
+          position: 'relative',
+          zIndex: 1,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          gap: 1.25,
+        }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+          <Box
+            sx={{
+              width: 100,
+              height: 100,
+              borderRadius: '50%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: imagem ? 'transparent' : 'rgba(0, 120, 255, 0.16)',
+              border: '1px solid rgba(0, 120, 255, 0.25)',
+              overflow: 'hidden',
+              flexShrink: 0,
+            }}
+          >
             {imagem ? (
-              <Box component="img" src={imagem} alt={nome} sx={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+              <Box
+                component="img"
+                src={imagem}
+                alt={nome}
+                sx={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover',
+                  display: 'block',
+                }}
+              />
             ) : (
-              <AutoAwesomeOutlinedIcon sx={{ color: 'var(--color-accent)', fontSize: 20 }} />
+              <AutoAwesomeOutlinedIcon
+                sx={{ color: 'var(--color-accent)', fontSize: 20 }}
+              />
             )}
           </Box>
           <Box sx={{ minWidth: 0 }}>
-            <Typography sx={{ color: 'var(--text-primary)', fontSize: '1rem', fontWeight: 800, lineHeight: 1.3, wordBreak: 'break-word' }}>
+            <Typography
+              sx={{
+                color: 'var(--text-primary)',
+                fontSize: '1rem',
+                fontWeight: 800,
+                lineHeight: 1.3,
+                wordBreak: 'break-word',
+              }}
+            >
               {nome}
             </Typography>
-            <Typography sx={{ color: 'var(--text-secondary)', fontSize: '0.82rem', mt: 0.25 }}>
+            <Typography
+              sx={{
+                color: 'var(--text-secondary)',
+                fontSize: '0.82rem',
+                mt: 0.25,
+              }}
+            >
               Tipo: {tipo}
             </Typography>
-            <Typography sx={{ color: 'var(--text-muted)', fontSize: '0.78rem', mt: 0.2 }}>
-              Essência: {resolverValorNucleo(doc, ['essencia', 'essenciaNucleo', 'conteudo', 'textoEssencia']) ?? '—'}
+            <Typography
+              sx={{ color: 'var(--text-muted)', fontSize: '0.78rem', mt: 0.2 }}
+            >
+              Essência:{' '}
+              {resolverValorNucleo(doc, [
+                'essencia',
+                'essenciaNucleo',
+                'conteudo',
+                'textoEssencia',
+              ]) ?? '—'}
             </Typography>
           </Box>
         </Box>
-        <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.6, px: 1, py: 0.5, borderRadius: 999, background: 'rgba(0, 120, 255, 0.16)', border: '1px solid rgba(0, 120, 255, 0.24)', color: 'var(--text-primary)', fontSize: '0.76rem', fontWeight: 700, flexShrink: 0 }}>
-          <Typography component="span" sx={{ fontSize: '0.76rem', fontWeight: 700, lineHeight: 1 }}>
+        <Box
+          sx={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 0.6,
+            px: 1,
+            py: 0.5,
+            borderRadius: 999,
+            background: 'rgba(0, 120, 255, 0.16)',
+            border: '1px solid rgba(0, 120, 255, 0.24)',
+            color: 'var(--text-primary)',
+            fontSize: '0.76rem',
+            fontWeight: 700,
+            flexShrink: 0,
+          }}
+        >
+          <Typography
+            component="span"
+            sx={{ fontSize: '0.76rem', fontWeight: 700, lineHeight: 1 }}
+          >
             {`📜 ${quantidadeArtes} art(s)`}
           </Typography>
         </Box>
@@ -783,11 +1075,40 @@ const NucleoCard = ({ doc }) => {
 
       <Box sx={{ position: 'relative', zIndex: 1, display: 'grid', gap: 1 }}>
         <Box>
-          <Typography variant="overline" sx={{ color: 'var(--color-accent)', letterSpacing: '0.16em', fontSize: '0.62rem', textTransform: 'uppercase', mb: 0.4, display: 'block' }}>
+          <Typography
+            variant="overline"
+            sx={{
+              color: 'var(--color-accent)',
+              letterSpacing: '0.16em',
+              fontSize: '0.62rem',
+              textTransform: 'uppercase',
+              mb: 0.4,
+              display: 'block',
+            }}
+          >
             Essência
           </Typography>
-          <Box sx={{ p: 1.1, borderRadius: 1.5, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', maxHeight: 'calc(1.7em * 6)', overflowY: 'auto', pr: 0.75 }}>
-            <Typography sx={{ color: 'var(--text-primary)', lineHeight: 1.7, whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'anywhere', fontSize: '0.94rem' }}>
+          <Box
+            sx={{
+              p: 1.1,
+              borderRadius: 1.5,
+              background: 'rgba(255,255,255,0.03)',
+              border: '1px solid rgba(255,255,255,0.06)',
+              maxHeight: 'calc(1.7em * 6)',
+              overflowY: 'auto',
+              pr: 0.75,
+            }}
+          >
+            <Typography
+              sx={{
+                color: 'var(--text-primary)',
+                lineHeight: 1.7,
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-word',
+                overflowWrap: 'anywhere',
+                fontSize: '0.94rem',
+              }}
+            >
               {essencia}
             </Typography>
           </Box>
@@ -808,10 +1129,29 @@ const NucleoCard = ({ doc }) => {
                     : {}),
                 }}
               >
-                <Typography variant="overline" sx={{ color: 'var(--text-muted)', letterSpacing: '0.14em', fontSize: '0.58rem', textTransform: 'uppercase', display: 'block', mb: 0.4 }}>
+                <Typography
+                  variant="overline"
+                  sx={{
+                    color: 'var(--text-muted)',
+                    letterSpacing: '0.14em',
+                    fontSize: '0.58rem',
+                    textTransform: 'uppercase',
+                    display: 'block',
+                    mb: 0.4,
+                  }}
+                >
                   {item.label}
                 </Typography>
-                <Typography sx={{ color: 'var(--text-primary)', lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'anywhere', fontSize: '0.9rem' }}>
+                <Typography
+                  sx={{
+                    color: 'var(--text-primary)',
+                    lineHeight: 1.6,
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-word',
+                    overflowWrap: 'anywhere',
+                    fontSize: '0.9rem',
+                  }}
+                >
                   {item.valor}
                 </Typography>
               </Box>
@@ -822,12 +1162,16 @@ const NucleoCard = ({ doc }) => {
         {(criadoEm || atualizadoEm) && (
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, pt: 0.25 }}>
             {criadoEm ? (
-              <Typography sx={{ color: 'var(--text-muted)', fontSize: '0.74rem' }}>
+              <Typography
+                sx={{ color: 'var(--text-muted)', fontSize: '0.74rem' }}
+              >
                 Criado em: {criadoEm}
               </Typography>
             ) : null}
             {atualizadoEm ? (
-              <Typography sx={{ color: 'var(--text-muted)', fontSize: '0.74rem' }}>
+              <Typography
+                sx={{ color: 'var(--text-muted)', fontSize: '0.74rem' }}
+              >
                 Atualizado em: {atualizadoEm}
               </Typography>
             ) : null}
@@ -854,48 +1198,83 @@ const CardSubcolecaoDoc = ({ doc, titulo = null, subcolecaoKey = null }) => {
 
   if (subcolecaoKey === 'historicoSorte') {
     const tipo = formatarTextoHistorico(
-      extrairCampoHistorico(doc, ['tipo', 'tipoAcao', 'acao', 'acaoEvento', 'tipoEvento', 'evento']),
+      extrairCampoHistorico(doc, [
+        'tipo',
+        'tipoAcao',
+        'acao',
+        'acaoEvento',
+        'tipoEvento',
+        'evento',
+      ]),
     );
     const valor = formatarTextoHistorico(
-      extrairCampoHistorico(doc, ['resultado', 'valor', 'valorFinal', 'valorSorte', 'resultadoSorte', 'sorte', 'total']),
+      extrairCampoHistorico(doc, [
+        'resultado',
+        'valor',
+        'valorFinal',
+        'valorSorte',
+        'resultadoSorte',
+        'sorte',
+        'total',
+      ]),
     );
     const descricao = formatarTextoHistorico(
-      extrairCampoHistorico(doc, ['descricao', 'descricaoEvento', 'detalhes', 'observacao', 'observacoes', 'resumo', 'nota']),
+      extrairCampoHistorico(doc, [
+        'descricao',
+        'descricaoEvento',
+        'detalhes',
+        'observacao',
+        'observacoes',
+        'resumo',
+        'nota',
+      ]),
     );
     const timestamp = formatarTextoHistorico(
-      extrairCampoHistorico(doc, ['createdAt', 'updatedAt', 'data', 'timestamp', 'momento', 'dataHora', 'dataRegistro', 'dataCriacao']),
+      extrairCampoHistorico(doc, [
+        'createdAt',
+        'updatedAt',
+        'data',
+        'timestamp',
+        'momento',
+        'dataHora',
+        'dataRegistro',
+        'dataCriacao',
+      ]),
     );
 
-    const camposExtras = Object.entries(campos).filter(([campo]) => ![
-      'tipo',
-      'tipoAcao',
-      'acao',
-      'acaoEvento',
-      'tipoEvento',
-      'evento',
-      'resultado',
-      'valor',
-      'valorFinal',
-      'valorSorte',
-      'resultadoSorte',
-      'sorte',
-      'total',
-      'descricao',
-      'descricaoEvento',
-      'detalhes',
-      'observacao',
-      'observacoes',
-      'resumo',
-      'nota',
-      'createdAt',
-      'updatedAt',
-      'data',
-      'timestamp',
-      'momento',
-      'dataHora',
-      'dataRegistro',
-      'dataCriacao',
-    ].includes(campo));
+    const camposExtras = Object.entries(campos).filter(
+      ([campo]) =>
+        ![
+          'tipo',
+          'tipoAcao',
+          'acao',
+          'acaoEvento',
+          'tipoEvento',
+          'evento',
+          'resultado',
+          'valor',
+          'valorFinal',
+          'valorSorte',
+          'resultadoSorte',
+          'sorte',
+          'total',
+          'descricao',
+          'descricaoEvento',
+          'detalhes',
+          'observacao',
+          'observacoes',
+          'resumo',
+          'nota',
+          'createdAt',
+          'updatedAt',
+          'data',
+          'timestamp',
+          'momento',
+          'dataHora',
+          'dataRegistro',
+          'dataCriacao',
+        ].includes(campo),
+    );
 
     const valorNegativo = typeof valor === 'string' && valor.startsWith('-');
 
@@ -904,7 +1283,8 @@ const CardSubcolecaoDoc = ({ doc, titulo = null, subcolecaoKey = null }) => {
         elevation={0}
         sx={{
           p: { xs: 1.35, sm: 1.5 },
-          background: 'linear-gradient(180deg, rgba(18, 21, 29, 0.96) 0%, rgba(12, 15, 22, 0.98) 100%)',
+          background:
+            'linear-gradient(180deg, rgba(18, 21, 29, 0.96) 0%, rgba(12, 15, 22, 0.98) 100%)',
           border: '1px solid rgba(212, 175, 55, 0.12)',
           borderRadius: 2,
           boxShadow: '0 10px 24px rgba(0, 0, 0, 0.16)',
@@ -915,7 +1295,15 @@ const CardSubcolecaoDoc = ({ doc, titulo = null, subcolecaoKey = null }) => {
           overflow: 'hidden',
         }}
       >
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1.25, minWidth: 0 }}>
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'flex-start',
+            gap: 1.25,
+            minWidth: 0,
+          }}
+        >
           <Box sx={{ minWidth: 0, flex: 1 }}>
             <Typography
               sx={{
@@ -957,11 +1345,22 @@ const CardSubcolecaoDoc = ({ doc, titulo = null, subcolecaoKey = null }) => {
                 px: 0.9,
                 py: 0.7,
                 borderRadius: 1.25,
-                background: valorNegativo ? 'rgba(255, 107, 107, 0.12)' : 'rgba(111, 45, 168, 0.16)',
-                border: valorNegativo ? '1px solid rgba(255, 107, 107, 0.15)' : '1px solid rgba(111, 45, 168, 0.2)',
+                background: valorNegativo
+                  ? 'rgba(255, 107, 107, 0.12)'
+                  : 'rgba(111, 45, 168, 0.16)',
+                border: valorNegativo
+                  ? '1px solid rgba(255, 107, 107, 0.15)'
+                  : '1px solid rgba(111, 45, 168, 0.2)',
               }}
             >
-              <Typography sx={{ color: 'var(--text-muted)', fontSize: '0.62rem', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+              <Typography
+                sx={{
+                  color: 'var(--text-muted)',
+                  fontSize: '0.62rem',
+                  letterSpacing: '0.12em',
+                  textTransform: 'uppercase',
+                }}
+              >
                 Resultado
               </Typography>
               <Typography
@@ -992,7 +1391,13 @@ const CardSubcolecaoDoc = ({ doc, titulo = null, subcolecaoKey = null }) => {
             <Box component="span" aria-hidden sx={{ fontSize: '0.92rem' }}>
               ⏱
             </Box>
-            <Typography sx={{ color: 'var(--text-muted)', fontSize: '0.76rem', lineHeight: 1.45 }}>
+            <Typography
+              sx={{
+                color: 'var(--text-muted)',
+                fontSize: '0.76rem',
+                lineHeight: 1.45,
+              }}
+            >
               {timestamp}
             </Typography>
           </Box>
@@ -1018,7 +1423,13 @@ const CardSubcolecaoDoc = ({ doc, titulo = null, subcolecaoKey = null }) => {
                   border: '1px solid rgba(255,255,255,0.06)',
                 }}
               >
-                <Typography sx={{ color: 'var(--text-muted)', fontSize: '0.67rem', lineHeight: 1.25 }}>
+                <Typography
+                  sx={{
+                    color: 'var(--text-muted)',
+                    fontSize: '0.67rem',
+                    lineHeight: 1.25,
+                  }}
+                >
                   {humanizarLabel(campo)}: {String(valorExtra)}
                 </Typography>
               </Box>
@@ -1036,11 +1447,13 @@ const CardSubcolecaoDoc = ({ doc, titulo = null, subcolecaoKey = null }) => {
     const raridade =
       doc.raridade ?? doc.rarity ?? doc.rarityLevel ?? doc.rarity_level ?? null;
     const tipo = doc.tipo ?? doc.type ?? doc.categoria ?? null;
-    const nivel = doc.nivel ?? doc.level ?? doc.nivelAtual ?? doc.nivel_atual ?? null;
+    const nivel =
+      doc.nivel ?? doc.level ?? doc.nivelAtual ?? doc.nivel_atual ?? null;
 
     function localizarValor(obj, aliases = []) {
       if (!obj || typeof obj !== 'object') return null;
-      const tryValue = v => (v === null || v === undefined || v === '' ? null : v);
+      const tryValue = v =>
+        v === null || v === undefined || v === '' ? null : v;
 
       // 1) tentativas diretas por alias
       for (const a of aliases) {
@@ -1075,7 +1488,8 @@ const CardSubcolecaoDoc = ({ doc, titulo = null, subcolecaoKey = null }) => {
     const scanForDice = o => {
       const diceRe = /\b\d+d\d+\b/i;
       const check = val => {
-        if (typeof val === 'string' && diceRe.test(val)) return val.match(diceRe)[0];
+        if (typeof val === 'string' && diceRe.test(val))
+          return val.match(diceRe)[0];
         if (Array.isArray(val)) {
           for (const it of val) {
             const r = check(it);
@@ -1095,7 +1509,13 @@ const CardSubcolecaoDoc = ({ doc, titulo = null, subcolecaoKey = null }) => {
 
     const scanForNumericByKey = (o, keyPatterns = []) => {
       const patterns = keyPatterns.map(k => k.toLowerCase());
-      const isNumeric = v => typeof v === 'number' || (typeof v === 'string' && v.trim() !== '' && !Number.isNaN(Number(String(v).replace(/[,\s]/g, '').replace(',', '.'))));
+      const isNumeric = v =>
+        typeof v === 'number' ||
+        (typeof v === 'string' &&
+          v.trim() !== '' &&
+          !Number.isNaN(
+            Number(String(v).replace(/[,\s]/g, '').replace(',', '.')),
+          ));
 
       const checkObj = obj => {
         for (const [k, v] of Object.entries(obj)) {
@@ -1119,19 +1539,54 @@ const CardSubcolecaoDoc = ({ doc, titulo = null, subcolecaoKey = null }) => {
       null;
     if (!roll) roll = scanForDice(doc) ?? null;
 
-    const extra = localizarValor(doc, ['extra', 'extras', 'extraInfo', 'bonus']) ?? null;
+    const extra =
+      localizarValor(doc, ['extra', 'extras', 'extraInfo', 'bonus']) ?? null;
 
     let quantidade =
-      localizarValor(doc, ['quantidade', 'qtd', 'qty', 'quant', 'amount']) ?? null;
-    if (quantidade == null) quantidade = scanForNumericByKey(doc, ['quant', 'qtd', 'quantity', 'amount']);
+      localizarValor(doc, ['quantidade', 'qtd', 'qty', 'quant', 'amount']) ??
+      null;
+    if (quantidade == null)
+      quantidade = scanForNumericByKey(doc, [
+        'quant',
+        'qtd',
+        'quantity',
+        'amount',
+      ]);
 
     let unitario =
-      localizarValor(doc, ['unitario', 'va4Unitario', 'unitPrice', 'precoUnitario', 'valor', 'price']) ?? null;
-    if (unitario == null) unitario = scanForNumericByKey(doc, ['unit', 'unitario', 'valor', 'price', 'preco']);
+      localizarValor(doc, [
+        'unitario',
+        'va4Unitario',
+        'unitPrice',
+        'precoUnitario',
+        'valor',
+        'price',
+      ]) ?? null;
+    if (unitario == null)
+      unitario = scanForNumericByKey(doc, [
+        'unit',
+        'unitario',
+        'valor',
+        'price',
+        'preco',
+      ]);
 
     let total =
-      localizarValor(doc, ['total', 'valorTotal', 'priceTotal', 'preco', 'valor']) ?? null;
-    if (total == null) total = scanForNumericByKey(doc, ['total', 'valor_total', 'preco_total', 'price_total', 'price']);
+      localizarValor(doc, [
+        'total',
+        'valorTotal',
+        'priceTotal',
+        'preco',
+        'valor',
+      ]) ?? null;
+    if (total == null)
+      total = scanForNumericByKey(doc, [
+        'total',
+        'valor_total',
+        'preco_total',
+        'price_total',
+        'price',
+      ]);
 
     // helper: tenta converter string/number em Number (aceita vírgula como decimal)
     const toNumber = v => {
@@ -1147,11 +1602,18 @@ const CardSubcolecaoDoc = ({ doc, titulo = null, subcolecaoKey = null }) => {
     // Se total ausente e puder calcular com quantidade * unitario, faz fallback
     const qtdNum = toNumber(quantidade);
     const unitNum = toNumber(unitario);
-    if ((total === null || total === undefined || total === '—') && qtdNum != null && unitNum != null) {
+    if (
+      (total === null || total === undefined || total === '—') &&
+      qtdNum != null &&
+      unitNum != null
+    ) {
       const calc = qtdNum * unitNum;
       // formata como 2 casas no formato pt-BR
       try {
-        total = calc.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        total = calc.toLocaleString('pt-BR', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        });
       } catch {
         total = String(calc.toFixed(2));
       }
@@ -1162,11 +1624,25 @@ const CardSubcolecaoDoc = ({ doc, titulo = null, subcolecaoKey = null }) => {
     // --- Habilidades (skill) detection
     const detectSkillsFromKeys = o => {
       if (!o || typeof o !== 'object') return null;
-      const patterns = ['habil', 'skill', 'ability', 'aptid', 'aptida', 'art', 'arts', 'arte'];
+      const patterns = [
+        'habil',
+        'skill',
+        'ability',
+        'aptid',
+        'aptida',
+        'art',
+        'arts',
+        'arte',
+      ];
       for (const [k, v] of Object.entries(o)) {
         const lk = String(k).toLowerCase();
         for (const p of patterns) {
-          if (lk.includes(p) && v != null && v !== '' && (Array.isArray(v) ? v.length > 0 : true)) {
+          if (
+            lk.includes(p) &&
+            v != null &&
+            v !== '' &&
+            (Array.isArray(v) ? v.length > 0 : true)
+          ) {
             return v;
           }
         }
@@ -1174,9 +1650,23 @@ const CardSubcolecaoDoc = ({ doc, titulo = null, subcolecaoKey = null }) => {
       return null;
     };
 
-    const habilidadesRaw = localizarValor(doc, ['habilidades', 'habilidade', 'skills', 'abilities', 'aptidoes', 'aptidoesRelacionadas', 'arts', 'artsRelacionadas']) ??
+    const habilidadesRaw =
+      localizarValor(doc, [
+        'habilidades',
+        'habilidade',
+        'skills',
+        'abilities',
+        'aptidoes',
+        'aptidoesRelacionadas',
+        'arts',
+        'artsRelacionadas',
+      ]) ??
       detectSkillsFromKeys(doc) ??
-      doc?.habilidades ?? doc?.habilidade ?? doc?.skills ?? doc?.abilities ?? null;
+      doc?.habilidades ??
+      doc?.habilidade ??
+      doc?.skills ??
+      doc?.abilities ??
+      null;
 
     const hasSkillStructure = o => {
       if (!o) return false;
@@ -1185,20 +1675,30 @@ const CardSubcolecaoDoc = ({ doc, titulo = null, subcolecaoKey = null }) => {
       }
       if (typeof o === 'object') {
         const keys = Object.keys(o).map(k => k.toLowerCase());
-        if (keys.includes('nome') || keys.includes('name') || keys.includes('titulo') || keys.includes('title') || keys.includes('descricao') || keys.includes('description')) return true;
-        return Object.values(o).some(v => typeof v === 'object' && hasSkillStructure(v));
+        if (
+          keys.includes('nome') ||
+          keys.includes('name') ||
+          keys.includes('titulo') ||
+          keys.includes('title') ||
+          keys.includes('descricao') ||
+          keys.includes('description')
+        )
+          return true;
+        return Object.values(o).some(
+          v => typeof v === 'object' && hasSkillStructure(v),
+        );
       }
       return false;
     };
-
-    
 
     const habilidadesArray = (() => {
       if (!habilidadesRaw) return null;
       if (Array.isArray(habilidadesRaw)) return habilidadesRaw;
       if (typeof habilidadesRaw === 'string') return [habilidadesRaw];
       if (typeof habilidadesRaw === 'object') {
-        const vals = Object.values(habilidadesRaw).filter(v => v !== undefined && v !== null && v !== '');
+        const vals = Object.values(habilidadesRaw).filter(
+          v => v !== undefined && v !== null && v !== '',
+        );
         return vals.length > 0 ? vals : [habilidadesRaw];
       }
       return [habilidadesRaw];
@@ -1206,39 +1706,81 @@ const CardSubcolecaoDoc = ({ doc, titulo = null, subcolecaoKey = null }) => {
 
     const isSpecialSkill = hb => {
       if (!hb) return false;
-      const nome = String(hb?.nome ?? hb?.name ?? hb?.titulo ?? hb?.title ?? '').toLowerCase();
-      if (nome.includes('especial') || nome.includes('especiale') || nome.includes('especials')) return true;
-      const tipoH = String(hb?.tipo ?? hb?.category ?? hb?.categoria ?? hb?.type ?? '').toLowerCase();
-      if (tipoH.includes('especial') || tipoH.includes('especialidade') || tipoH.includes('especials')) return true;
+      const nome = String(
+        hb?.nome ?? hb?.name ?? hb?.titulo ?? hb?.title ?? '',
+      ).toLowerCase();
+      if (
+        nome.includes('especial') ||
+        nome.includes('especiale') ||
+        nome.includes('especials')
+      )
+        return true;
+      const tipoH = String(
+        hb?.tipo ?? hb?.category ?? hb?.categoria ?? hb?.type ?? '',
+      ).toLowerCase();
+      if (
+        tipoH.includes('especial') ||
+        tipoH.includes('especialidade') ||
+        tipoH.includes('especials')
+      )
+        return true;
       if (hb?.especial === true) return true;
       const tags = hb?.tags ?? hb?.etiquetas ?? hb?.labels ?? null;
-      if (Array.isArray(tags) && tags.some(t => String(t).toLowerCase().includes('especial'))) return true;
+      if (
+        Array.isArray(tags) &&
+        tags.some(t => String(t).toLowerCase().includes('especial'))
+      )
+        return true;
       // fallback: if description explicitly mentions 'Especial' in a heading
-      const desc = String(hb?.descricao ?? hb?.description ?? hb?.texto ?? hb?.detalhes ?? '').toLowerCase();
-      if (desc.includes('habilidades especiais') || desc.includes('habilidade especial') || desc.includes('especial')) return true;
+      const desc = String(
+        hb?.descricao ?? hb?.description ?? hb?.texto ?? hb?.detalhes ?? '',
+      ).toLowerCase();
+      if (
+        desc.includes('habilidades especiais') ||
+        desc.includes('habilidade especial') ||
+        desc.includes('especial')
+      )
+        return true;
       return false;
     };
 
-    const specialSkills = habilidadesArray ? habilidadesArray.filter(isSpecialSkill) : [];
+    const specialSkills = habilidadesArray
+      ? habilidadesArray.filter(isSpecialSkill)
+      : [];
 
-    const showSkillButton = Boolean((habilidadesArray && habilidadesArray.length > 0) || (specialSkills && specialSkills.length > 0) || detectSkillsFromKeys(doc) || hasSkillStructure(doc));
+    const showSkillButton = Boolean(
+      (habilidadesArray && habilidadesArray.length > 0) ||
+      (specialSkills && specialSkills.length > 0) ||
+      detectSkillsFromKeys(doc) ||
+      hasSkillStructure(doc),
+    );
 
     const rarityBg = (() => {
-      const r = (String(raridade ?? '')).toLowerCase();
+      const r = String(raridade ?? '').toLowerCase();
       if (r.includes('comum')) return 'rgba(255,255,255,0.03)';
-      if (r.includes('incomum') || r.includes('uncommon')) return 'rgba(0,120,255,0.08)';
-      if (r.includes('raro') || r.includes('rare')) return 'rgba(111,45,168,0.12)';
-      if (r.includes('épico') || r.includes('epico') || r.includes('epic')) return 'rgba(212,175,55,0.12)';
-      if (r.includes('lendario') || r.includes('lendário') || r.includes('legend')) return 'rgba(255,140,0,0.12)';
+      if (r.includes('incomum') || r.includes('uncommon'))
+        return 'rgba(0,120,255,0.08)';
+      if (r.includes('raro') || r.includes('rare'))
+        return 'rgba(111,45,168,0.12)';
+      if (r.includes('épico') || r.includes('epico') || r.includes('epic'))
+        return 'rgba(212,175,55,0.12)';
+      if (
+        r.includes('lendario') ||
+        r.includes('lendário') ||
+        r.includes('legend')
+      )
+        return 'rgba(255,140,0,0.12)';
       return 'rgba(255,255,255,0.03)';
     })();
 
     const rarityBorder = (() => {
-      const r = (String(raridade ?? '')).toLowerCase();
+      const r = String(raridade ?? '').toLowerCase();
       if (r.includes('raro')) return 'rgba(111,45,168,0.28)';
-      if (r.includes('épico') || r.includes('epico')) return 'rgba(212,175,55,0.28)';
+      if (r.includes('épico') || r.includes('epico'))
+        return 'rgba(212,175,55,0.28)';
       if (r.includes('incomum')) return 'rgba(0,120,255,0.28)';
-      if (r.includes('lendario') || r.includes('lendário')) return 'rgba(255,140,0,0.28)';
+      if (r.includes('lendario') || r.includes('lendário'))
+        return 'rgba(255,140,0,0.28)';
       return 'rgba(255,255,255,0.06)';
     })();
 
@@ -1271,7 +1813,8 @@ const CardSubcolecaoDoc = ({ doc, titulo = null, subcolecaoKey = null }) => {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                background: 'linear-gradient(180deg, rgba(255,255,255,0.01), rgba(0,0,0,0.02))',
+                background:
+                  'linear-gradient(180deg, rgba(255,255,255,0.01), rgba(0,0,0,0.02))',
               }}
             >
               {imagem ? (
@@ -1280,16 +1823,39 @@ const CardSubcolecaoDoc = ({ doc, titulo = null, subcolecaoKey = null }) => {
                   src={imagem}
                   alt={nome}
                   loading="lazy"
-                  sx={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                  sx={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover',
+                    display: 'block',
+                  }}
                 />
               ) : (
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
-                    <Typography sx={{ color: 'var(--text-muted)' }}>Sem imagem</Typography>
-                  </Box>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: 'var(--text-muted)',
+                  }}
+                >
+                  <Typography sx={{ color: 'var(--text-muted)' }}>
+                    Sem imagem
+                  </Typography>
+                </Box>
               )}
             </Box>
 
-            <Box sx={{ position: 'relative', px: 1, py: 0.5, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Box
+              sx={{
+                position: 'relative',
+                px: 1,
+                py: 0.5,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
               <Typography
                 sx={{
                   color: 'var(--text-primary)',
@@ -1331,39 +1897,147 @@ const CardSubcolecaoDoc = ({ doc, titulo = null, subcolecaoKey = null }) => {
             </Box>
           </Box>
 
-          <Box sx={{ px: 1, display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 0.75 }}>
+          <Box
+            sx={{
+              px: 1,
+              display: 'grid',
+              gridTemplateColumns: 'repeat(2, 1fr)',
+              gap: 0.75,
+            }}
+          >
             <Box>
-              <Typography sx={{ color: 'var(--text-muted)', fontSize: '0.6rem', textTransform: 'uppercase', letterSpacing: 0.6 }}>Tipo</Typography>
-              <Typography sx={{ color: 'var(--text-primary)', fontWeight: 700 }}>{normalizarTextoValor(tipo) ?? '—'}</Typography>
+              <Typography
+                sx={{
+                  color: 'var(--text-muted)',
+                  fontSize: '0.6rem',
+                  textTransform: 'uppercase',
+                  letterSpacing: 0.6,
+                }}
+              >
+                Tipo
+              </Typography>
+              <Typography
+                sx={{ color: 'var(--text-primary)', fontWeight: 700 }}
+              >
+                {normalizarTextoValor(tipo) ?? '—'}
+              </Typography>
             </Box>
             <Box>
-              <Typography sx={{ color: 'var(--text-muted)', fontSize: '0.6rem', textTransform: 'uppercase', letterSpacing: 0.6 }}>Nível</Typography>
-              <Typography sx={{ color: 'var(--text-primary)', fontWeight: 700 }}>{normalizarTextoValor(nivel) ?? '—'}</Typography>
+              <Typography
+                sx={{
+                  color: 'var(--text-muted)',
+                  fontSize: '0.6rem',
+                  textTransform: 'uppercase',
+                  letterSpacing: 0.6,
+                }}
+              >
+                Nível
+              </Typography>
+              <Typography
+                sx={{ color: 'var(--text-primary)', fontWeight: 700 }}
+              >
+                {normalizarTextoValor(nivel) ?? '—'}
+              </Typography>
             </Box>
             <Box>
-              <Typography sx={{ color: 'var(--text-muted)', fontSize: '0.6rem', textTransform: 'uppercase', letterSpacing: 0.6 }}>Roll</Typography>
-              <Typography sx={{ color: 'var(--text-primary)', fontWeight: 700 }}>{normalizarTextoValor(roll) ?? '—'}</Typography>
+              <Typography
+                sx={{
+                  color: 'var(--text-muted)',
+                  fontSize: '0.6rem',
+                  textTransform: 'uppercase',
+                  letterSpacing: 0.6,
+                }}
+              >
+                Roll
+              </Typography>
+              <Typography
+                sx={{ color: 'var(--text-primary)', fontWeight: 700 }}
+              >
+                {normalizarTextoValor(roll) ?? '—'}
+              </Typography>
             </Box>
             <Box>
-              <Typography sx={{ color: 'var(--text-muted)', fontSize: '0.6rem', textTransform: 'uppercase', letterSpacing: 0.6 }}>Extra</Typography>
-              <Typography sx={{ color: 'var(--text-primary)', fontWeight: 700 }}>{normalizarTextoValor(extra) ?? '—'}</Typography>
+              <Typography
+                sx={{
+                  color: 'var(--text-muted)',
+                  fontSize: '0.6rem',
+                  textTransform: 'uppercase',
+                  letterSpacing: 0.6,
+                }}
+              >
+                Extra
+              </Typography>
+              <Typography
+                sx={{ color: 'var(--text-primary)', fontWeight: 700 }}
+              >
+                {normalizarTextoValor(extra) ?? '—'}
+              </Typography>
             </Box>
           </Box>
 
-          <Box sx={{ px: 1, pt: 1, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
-              <Typography sx={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>Quantidade</Typography>
-              <Typography sx={{ color: 'var(--text-primary)', fontWeight: 800 }}>{normalizarTextoValor(quantidade) ?? '—'}</Typography>
+          <Box
+            sx={{ px: 1, pt: 1, borderTop: '1px solid rgba(255,255,255,0.06)' }}
+          >
+            <Box
+              sx={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                mb: 0.5,
+              }}
+            >
+              <Typography
+                sx={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}
+              >
+                Quantidade
+              </Typography>
+              <Typography
+                sx={{ color: 'var(--text-primary)', fontWeight: 800 }}
+              >
+                {normalizarTextoValor(quantidade) ?? '—'}
+              </Typography>
             </Box>
 
-            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.25 }}>
+            <Box
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap: 1.25,
+              }}
+            >
               <Box>
-                <Typography sx={{ color: 'var(--text-muted)', fontSize: '0.6rem', textTransform: 'uppercase', letterSpacing: 0.6 }}>Unitário</Typography>
-                <Typography sx={{ color: 'var(--text-primary)', fontWeight: 700 }}>{normalizarTextoValor(unitario) ?? '—'}</Typography>
+                <Typography
+                  sx={{
+                    color: 'var(--text-muted)',
+                    fontSize: '0.6rem',
+                    textTransform: 'uppercase',
+                    letterSpacing: 0.6,
+                  }}
+                >
+                  Unitário
+                </Typography>
+                <Typography
+                  sx={{ color: 'var(--text-primary)', fontWeight: 700 }}
+                >
+                  {normalizarTextoValor(unitario) ?? '—'}
+                </Typography>
               </Box>
               <Box>
-                <Typography sx={{ color: 'var(--text-muted)', fontSize: '0.6rem', textTransform: 'uppercase', letterSpacing: 0.6 }}>Total</Typography>
-                <Typography sx={{ color: 'var(--text-primary)', fontWeight: 700 }}>{normalizarTextoValor(total) ?? '—'}</Typography>
+                <Typography
+                  sx={{
+                    color: 'var(--text-muted)',
+                    fontSize: '0.6rem',
+                    textTransform: 'uppercase',
+                    letterSpacing: 0.6,
+                  }}
+                >
+                  Total
+                </Typography>
+                <Typography
+                  sx={{ color: 'var(--text-primary)', fontWeight: 700 }}
+                >
+                  {normalizarTextoValor(total) ?? '—'}
+                </Typography>
               </Box>
             </Box>
             <Box sx={{ mt: 1 }}>
@@ -1388,26 +2062,56 @@ const CardSubcolecaoDoc = ({ doc, titulo = null, subcolecaoKey = null }) => {
           fullWidth
           maxWidth="sm"
         >
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 2, py: 1 }}>
-            <Typography sx={{ fontWeight: 800, color: 'var(--text-primary)' }}>Habilidades Especiais</Typography>
-            <IconButton onClick={() => setSkillDialogOpen(false)} aria-label="fechar dialogo de habilidades">
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              px: 2,
+              py: 1,
+            }}
+          >
+            <Typography sx={{ fontWeight: 800, color: 'var(--text-primary)' }}>
+              Habilidades Especiais
+            </Typography>
+            <IconButton
+              onClick={() => setSkillDialogOpen(false)}
+              aria-label="fechar dialogo de habilidades"
+            >
               <CloseIcon sx={{ color: 'var(--text-primary)' }} />
             </IconButton>
           </Box>
           <DialogContent dividers>
             {(() => {
-              const skillsToShow = (specialSkills && specialSkills.length > 0)
-                ? specialSkills
-                : (habilidadesArray && habilidadesArray.length > 0 ? habilidadesArray : []);
+              const skillsToShow =
+                specialSkills && specialSkills.length > 0
+                  ? specialSkills
+                  : habilidadesArray && habilidadesArray.length > 0
+                    ? habilidadesArray
+                    : [];
 
               if (!skillsToShow || skillsToShow.length === 0) {
-                return <Typography sx={{ color: 'var(--text-secondary)' }}>Nenhuma habilidade especial cadastrada.</Typography>;
+                return (
+                  <Typography sx={{ color: 'var(--text-secondary)' }}>
+                    Nenhuma habilidade especial cadastrada.
+                  </Typography>
+                );
               }
 
               return skillsToShow.map((hb, idx) => {
-                const nomeH = hb?.nome ?? hb?.name ?? hb?.titulo ?? hb?.title ?? (typeof hb === 'string' ? hb : `Habilidade ${idx + 1}`);
-                const descH = hb?.descricao ?? hb?.description ?? hb?.texto ?? hb?.detalhes ?? null;
-                const pruned = (hb && typeof hb === 'object') ? { ...hb } : hb;
+                const nomeH =
+                  hb?.nome ??
+                  hb?.name ??
+                  hb?.titulo ??
+                  hb?.title ??
+                  (typeof hb === 'string' ? hb : `Habilidade ${idx + 1}`);
+                const descH =
+                  hb?.descricao ??
+                  hb?.description ??
+                  hb?.texto ??
+                  hb?.detalhes ??
+                  null;
+                const pruned = hb && typeof hb === 'object' ? { ...hb } : hb;
                 if (pruned && typeof pruned === 'object') {
                   delete pruned.nome;
                   delete pruned.name;
@@ -1418,12 +2122,43 @@ const CardSubcolecaoDoc = ({ doc, titulo = null, subcolecaoKey = null }) => {
                   delete pruned.texto;
                   delete pruned.detalhes;
                 }
-                const hasPrunedContent = pruned && typeof pruned === 'object' && Object.keys(pruned).length > 0;
+                const hasPrunedContent =
+                  pruned &&
+                  typeof pruned === 'object' &&
+                  Object.keys(pruned).length > 0;
                 return (
-                  <Paper key={idx} elevation={0} sx={{ p: 1.25, mb: 1.25, background: 'linear-gradient(180deg, rgba(32,20,45,0.95), rgba(18,16,24,0.95))', border: '1px solid rgba(212,175,55,0.12)', borderRadius: 1.5 }}>
-                    <Typography sx={{ fontWeight: 800, color: 'var(--text-primary)', mb: 0.5 }}>{String(nomeH)}</Typography>
+                  <Paper
+                    key={idx}
+                    elevation={0}
+                    sx={{
+                      p: 1.25,
+                      mb: 1.25,
+                      background:
+                        'linear-gradient(180deg, rgba(32,20,45,0.95), rgba(18,16,24,0.95))',
+                      border: '1px solid rgba(212,175,55,0.12)',
+                      borderRadius: 1.5,
+                    }}
+                  >
+                    <Typography
+                      sx={{
+                        fontWeight: 800,
+                        color: 'var(--text-primary)',
+                        mb: 0.5,
+                      }}
+                    >
+                      {String(nomeH)}
+                    </Typography>
                     {descH ? (
-                      <Typography sx={{ color: 'var(--text-secondary)', mb: 0.75, textAlign: 'justify', lineHeight: 1.6 }}>{normalizarTextoValor(descH)}</Typography>
+                      <Typography
+                        sx={{
+                          color: 'var(--text-secondary)',
+                          mb: 0.75,
+                          textAlign: 'justify',
+                          lineHeight: 1.6,
+                        }}
+                      >
+                        {normalizarTextoValor(descH)}
+                      </Typography>
                     ) : null}
                     {hasPrunedContent ? <CampoValor valor={pruned} /> : null}
                   </Paper>
@@ -1444,7 +2179,8 @@ const CardSubcolecaoDoc = ({ doc, titulo = null, subcolecaoKey = null }) => {
     // helpers locais (mirrored da versão para itens) — mantidos aqui para escopo limitado
     function localizarValor(obj, aliases = []) {
       if (!obj || typeof obj !== 'object') return null;
-      const tryValue = v => (v === null || v === undefined || v === '' ? null : v);
+      const tryValue = v =>
+        v === null || v === undefined || v === '' ? null : v;
 
       for (const a of aliases) {
         if (Object.prototype.hasOwnProperty.call(obj, a)) {
@@ -1475,7 +2211,13 @@ const CardSubcolecaoDoc = ({ doc, titulo = null, subcolecaoKey = null }) => {
 
     const scanForNumericByKey = (o, keyPatterns = []) => {
       const patterns = keyPatterns.map(k => k.toLowerCase());
-      const isNumeric = v => typeof v === 'number' || (typeof v === 'string' && v.trim() !== '' && !Number.isNaN(Number(String(v).replace(/[,\s]/g, '').replace(',', '.'))));
+      const isNumeric = v =>
+        typeof v === 'number' ||
+        (typeof v === 'string' &&
+          v.trim() !== '' &&
+          !Number.isNaN(
+            Number(String(v).replace(/[,\s]/g, '').replace(',', '.')),
+          ));
 
       const checkObj = obj => {
         for (const [k, v] of Object.entries(obj)) {
@@ -1494,18 +2236,61 @@ const CardSubcolecaoDoc = ({ doc, titulo = null, subcolecaoKey = null }) => {
     };
     const nome = doc.nome ?? doc.name ?? doc.titulo ?? doc.title ?? doc.id;
     const imagem = resolveImagemAsset(doc);
-    const raridade = localizarValor(doc, ['raridade', 'rarity', 'rarityLevel', 'rarity_level']) ?? null;
+    const raridade =
+      localizarValor(doc, [
+        'raridade',
+        'rarity',
+        'rarityLevel',
+        'rarity_level',
+      ]) ?? null;
 
-    const tipo = localizarValor(doc, ['tipo', 'type', 'categoria', 'material', 'materialType']) ?? null;
-    const pureza = localizarValor(doc, ['pureza', 'purity', 'grade', 'qualidade']) ?? null;
-    let taxaDrop = localizarValor(doc, ['taxaDrop', 'dropRate', 'taxa', 'chanceDrop', 'drop']) ?? null;
-    if (taxaDrop == null) taxaDrop = scanForNumericByKey(doc, ['drop', 'taxa', 'chance', 'rate']);
+    const tipo =
+      localizarValor(doc, [
+        'tipo',
+        'type',
+        'categoria',
+        'material',
+        'materialType',
+      ]) ?? null;
+    const pureza =
+      localizarValor(doc, ['pureza', 'purity', 'grade', 'qualidade']) ?? null;
+    let taxaDrop =
+      localizarValor(doc, [
+        'taxaDrop',
+        'dropRate',
+        'taxa',
+        'chanceDrop',
+        'drop',
+      ]) ?? null;
+    if (taxaDrop == null)
+      taxaDrop = scanForNumericByKey(doc, ['drop', 'taxa', 'chance', 'rate']);
 
-    let valorMercado = localizarValor(doc, ['valorMercado', 'marketValue', 'valor', 'price', 'value']) ?? null;
-    if (valorMercado == null) valorMercado = scanForNumericByKey(doc, ['valor', 'price', 'market', 'value']);
+    let valorMercado =
+      localizarValor(doc, [
+        'valorMercado',
+        'marketValue',
+        'valor',
+        'price',
+        'value',
+      ]) ?? null;
+    if (valorMercado == null)
+      valorMercado = scanForNumericByKey(doc, [
+        'valor',
+        'price',
+        'market',
+        'value',
+      ]);
 
-    let quantidade = localizarValor(doc, ['quantidade', 'qtd', 'qty', 'amount', 'quantity']) ?? null;
-    if (quantidade == null) quantidade = scanForNumericByKey(doc, ['quant', 'qtd', 'amount', 'quantity']);
+    let quantidade =
+      localizarValor(doc, ['quantidade', 'qtd', 'qty', 'amount', 'quantity']) ??
+      null;
+    if (quantidade == null)
+      quantidade = scanForNumericByKey(doc, [
+        'quant',
+        'qtd',
+        'amount',
+        'quantity',
+      ]);
 
     return (
       <>
@@ -1523,76 +2308,278 @@ const CardSubcolecaoDoc = ({ doc, titulo = null, subcolecaoKey = null }) => {
           }}
         >
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-            <Box sx={{ position: 'relative', borderRadius: 1.5, overflow: 'hidden', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.03)' }}>
-              <Box sx={{ height: { xs: 120, sm: 160 }, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(180deg, rgba(255,255,255,0.01), rgba(0,0,0,0.02))' }}>
+            <Box
+              sx={{
+                position: 'relative',
+                borderRadius: 1.5,
+                overflow: 'hidden',
+                background: 'rgba(255,255,255,0.02)',
+                border: '1px solid rgba(255,255,255,0.03)',
+              }}
+            >
+              <Box
+                sx={{
+                  height: { xs: 120, sm: 160 },
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background:
+                    'linear-gradient(180deg, rgba(255,255,255,0.01), rgba(0,0,0,0.02))',
+                }}
+              >
                 {imagem ? (
-                  <Box component="img" src={imagem} alt={nome} loading="lazy" sx={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center', display: 'block' }} />
+                  <Box
+                    component="img"
+                    src={imagem}
+                    alt={nome}
+                    loading="lazy"
+                    sx={{
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'cover',
+                      objectPosition: 'center',
+                      display: 'block',
+                    }}
+                  />
                 ) : (
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
-                    <Typography sx={{ color: 'var(--text-muted)' }}>Sem imagem</Typography>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: 'var(--text-muted)',
+                    }}
+                  >
+                    <Typography sx={{ color: 'var(--text-muted)' }}>
+                      Sem imagem
+                    </Typography>
                   </Box>
                 )}
               </Box>
 
               {raridade ? (
-                <Box sx={{ position: 'absolute', right: 8, top: 8, px: 1.05, py: 0.4, borderRadius: 1.25, background: 'linear-gradient(135deg, rgba(255,200,80,0.98), rgba(255,120,35,0.98))', border: '1px solid rgba(0,0,0,0.12)', color: '#091018', fontWeight: 900, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', boxShadow: '0 10px 28px rgba(0,0,0,0.48)', zIndex: 6 }}>
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    right: 8,
+                    top: 8,
+                    px: 1.05,
+                    py: 0.4,
+                    borderRadius: 1.25,
+                    background:
+                      'linear-gradient(135deg, rgba(255,200,80,0.98), rgba(255,120,35,0.98))',
+                    border: '1px solid rgba(0,0,0,0.12)',
+                    color: '#091018',
+                    fontWeight: 900,
+                    fontSize: '0.72rem',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.08em',
+                    boxShadow: '0 10px 28px rgba(0,0,0,0.48)',
+                    zIndex: 6,
+                  }}
+                >
                   {String(raridade)}
                 </Box>
               ) : null}
 
-              <Box sx={{ px: 1, py: 0.5, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Typography sx={{ color: 'var(--text-primary)', fontWeight: 800, fontSize: '0.98rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'center', width: '100%' }} title={String(nome)}>
+              <Box
+                sx={{
+                  px: 1,
+                  py: 0.5,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Typography
+                  sx={{
+                    color: 'var(--text-primary)',
+                    fontWeight: 800,
+                    fontSize: '0.98rem',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    textAlign: 'center',
+                    width: '100%',
+                  }}
+                  title={String(nome)}
+                >
                   {normalizarTextoValor(nome) ?? '—'}
                 </Typography>
               </Box>
             </Box>
 
-            <Box sx={{ px: 1, display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 0.75 }}>
+            <Box
+              sx={{
+                px: 1,
+                display: 'grid',
+                gridTemplateColumns: 'repeat(2, 1fr)',
+                gap: 0.75,
+              }}
+            >
               <Box>
-                <Typography sx={{ color: 'var(--text-muted)', fontSize: '0.6rem', textTransform: 'uppercase', letterSpacing: 0.6 }}>Tipo</Typography>
-                <Typography sx={{ color: 'var(--text-primary)', fontWeight: 700 }}>{normalizarTextoValor(tipo) ?? '—'}</Typography>
+                <Typography
+                  sx={{
+                    color: 'var(--text-muted)',
+                    fontSize: '0.6rem',
+                    textTransform: 'uppercase',
+                    letterSpacing: 0.6,
+                  }}
+                >
+                  Tipo
+                </Typography>
+                <Typography
+                  sx={{ color: 'var(--text-primary)', fontWeight: 700 }}
+                >
+                  {normalizarTextoValor(tipo) ?? '—'}
+                </Typography>
               </Box>
               <Box>
-                <Typography sx={{ color: 'var(--text-muted)', fontSize: '0.6rem', textTransform: 'uppercase', letterSpacing: 0.6 }}>Pureza</Typography>
-                <Typography sx={{ color: 'var(--text-primary)', fontWeight: 700 }}>{normalizarTextoValor(pureza) ?? '—'}</Typography>
+                <Typography
+                  sx={{
+                    color: 'var(--text-muted)',
+                    fontSize: '0.6rem',
+                    textTransform: 'uppercase',
+                    letterSpacing: 0.6,
+                  }}
+                >
+                  Pureza
+                </Typography>
+                <Typography
+                  sx={{ color: 'var(--text-primary)', fontWeight: 700 }}
+                >
+                  {normalizarTextoValor(pureza) ?? '—'}
+                </Typography>
               </Box>
               <Box>
-                <Typography sx={{ color: 'var(--text-muted)', fontSize: '0.6rem', textTransform: 'uppercase', letterSpacing: 0.6 }}>Taxa de Drop</Typography>
-                <Typography sx={{ color: 'var(--text-primary)', fontWeight: 700 }}>{normalizarTextoValor(taxaDrop) ?? '—'}</Typography>
+                <Typography
+                  sx={{
+                    color: 'var(--text-muted)',
+                    fontSize: '0.6rem',
+                    textTransform: 'uppercase',
+                    letterSpacing: 0.6,
+                  }}
+                >
+                  Taxa de Drop
+                </Typography>
+                <Typography
+                  sx={{ color: 'var(--text-primary)', fontWeight: 700 }}
+                >
+                  {normalizarTextoValor(taxaDrop) ?? '—'}
+                </Typography>
               </Box>
               <Box>
-                <Typography sx={{ color: 'var(--text-muted)', fontSize: '0.6rem', textTransform: 'uppercase', letterSpacing: 0.6 }}>Valor de Mercado</Typography>
-                <Typography sx={{ color: 'var(--text-primary)', fontWeight: 700 }}>{normalizarTextoValor(valorMercado) ?? '—'}</Typography>
+                <Typography
+                  sx={{
+                    color: 'var(--text-muted)',
+                    fontSize: '0.6rem',
+                    textTransform: 'uppercase',
+                    letterSpacing: 0.6,
+                  }}
+                >
+                  Valor de Mercado
+                </Typography>
+                <Typography
+                  sx={{ color: 'var(--text-primary)', fontWeight: 700 }}
+                >
+                  {normalizarTextoValor(valorMercado) ?? '—'}
+                </Typography>
               </Box>
             </Box>
 
-            <Box sx={{ px: 1, pt: 1, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
-                <Typography sx={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>Quantidade</Typography>
-                <Typography sx={{ color: 'var(--text-primary)', fontWeight: 800 }}>{normalizarTextoValor(quantidade) ?? '—'}</Typography>
+            <Box
+              sx={{
+                px: 1,
+                pt: 1,
+                borderTop: '1px solid rgba(255,255,255,0.06)',
+              }}
+            >
+              <Box
+                sx={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  mb: 0.5,
+                }}
+              >
+                <Typography
+                  sx={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}
+                >
+                  Quantidade
+                </Typography>
+                <Typography
+                  sx={{ color: 'var(--text-primary)', fontWeight: 800 }}
+                >
+                  {normalizarTextoValor(quantidade) ?? '—'}
+                </Typography>
               </Box>
               {/* botão para Descrição/Propriedades */}
               <Box sx={{ mt: 1 }}>
                 {(() => {
-                  const descricaoRaw = localizarValor(doc, ['descricao', 'description', 'texto', 'desc', 'detalhes']) ?? doc?.descricao ?? doc?.description ?? null;
+                  const descricaoRaw =
+                    localizarValor(doc, [
+                      'descricao',
+                      'description',
+                      'texto',
+                      'desc',
+                      'detalhes',
+                    ]) ??
+                    doc?.descricao ??
+                    doc?.description ??
+                    null;
                   const detectProps = o => {
                     if (!o || typeof o !== 'object') return null;
-                    const patterns = ['propr', 'prop', 'property', 'props', 'atrib', 'attr', 'detalh'];
+                    const patterns = [
+                      'propr',
+                      'prop',
+                      'property',
+                      'props',
+                      'atrib',
+                      'attr',
+                      'detalh',
+                    ];
                     for (const [k, v] of Object.entries(o)) {
                       const lk = String(k).toLowerCase();
                       for (const p of patterns) {
-                        if (lk.includes(p) && v != null && v !== '' && (Array.isArray(v) ? v.length > 0 : true)) return v;
+                        if (
+                          lk.includes(p) &&
+                          v != null &&
+                          v !== '' &&
+                          (Array.isArray(v) ? v.length > 0 : true)
+                        )
+                          return v;
                       }
                     }
                     return null;
                   };
-                  const propsRaw = detectProps(doc) ?? localizarValor(doc, ['propriedades', 'propriedade', 'properties', 'property', 'props', 'attributes', 'atributos']) ?? null;
+                  const propsRaw =
+                    detectProps(doc) ??
+                    localizarValor(doc, [
+                      'propriedades',
+                      'propriedade',
+                      'properties',
+                      'property',
+                      'props',
+                      'attributes',
+                      'atributos',
+                    ]) ??
+                    null;
                   const hasDesc = descricaoRaw && descricaoRaw !== '';
-                  const hasProps = propsRaw && (Array.isArray(propsRaw) ? propsRaw.length > 0 : Object.keys(propsRaw || {}).length > 0);
+                  const hasProps =
+                    propsRaw &&
+                    (Array.isArray(propsRaw)
+                      ? propsRaw.length > 0
+                      : Object.keys(propsRaw || {}).length > 0);
                   if (hasDesc || hasProps) {
                     return (
                       <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-                        <Button size="small" variant="outlined" onClick={() => setMaterialDialogOpen(true)}>Descrição</Button>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          onClick={() => setMaterialDialogOpen(true)}
+                        >
+                          Descrição
+                        </Button>
                       </Box>
                     );
                   }
@@ -1603,30 +2590,89 @@ const CardSubcolecaoDoc = ({ doc, titulo = null, subcolecaoKey = null }) => {
           </Box>
         </Paper>
 
-        <Dialog open={materialDialogOpen} onClose={() => setMaterialDialogOpen(false)} fullWidth maxWidth="sm">
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 2, py: 1 }}>
-            <Typography sx={{ fontWeight: 800, color: 'var(--text-primary)' }}>Descrição e Propriedades</Typography>
-            <IconButton onClick={() => setMaterialDialogOpen(false)} aria-label="fechar dialogo de material"><CloseIcon sx={{ color: 'var(--text-primary)' }} /></IconButton>
+        <Dialog
+          open={materialDialogOpen}
+          onClose={() => setMaterialDialogOpen(false)}
+          fullWidth
+          maxWidth="sm"
+        >
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              px: 2,
+              py: 1,
+            }}
+          >
+            <Typography sx={{ fontWeight: 800, color: 'var(--text-primary)' }}>
+              Descrição e Propriedades
+            </Typography>
+            <IconButton
+              onClick={() => setMaterialDialogOpen(false)}
+              aria-label="fechar dialogo de material"
+            >
+              <CloseIcon sx={{ color: 'var(--text-primary)' }} />
+            </IconButton>
           </Box>
           <DialogContent dividers>
             {(() => {
-              const descricaoRaw = localizarValor(doc, ['descricao', 'description', 'texto', 'desc', 'detalhes']) ?? doc?.descricao ?? doc?.description ?? null;
+              const descricaoRaw =
+                localizarValor(doc, [
+                  'descricao',
+                  'description',
+                  'texto',
+                  'desc',
+                  'detalhes',
+                ]) ??
+                doc?.descricao ??
+                doc?.description ??
+                null;
               const detectProps = o => {
                 if (!o || typeof o !== 'object') return null;
-                const patterns = ['propr', 'prop', 'property', 'props', 'atrib', 'attr', 'detalh'];
+                const patterns = [
+                  'propr',
+                  'prop',
+                  'property',
+                  'props',
+                  'atrib',
+                  'attr',
+                  'detalh',
+                ];
                 for (const [k, v] of Object.entries(o)) {
                   const lk = String(k).toLowerCase();
                   for (const p of patterns) {
-                    if (lk.includes(p) && v != null && v !== '' && (Array.isArray(v) ? v.length > 0 : true)) return v;
+                    if (
+                      lk.includes(p) &&
+                      v != null &&
+                      v !== '' &&
+                      (Array.isArray(v) ? v.length > 0 : true)
+                    )
+                      return v;
                   }
                 }
                 return null;
               };
-              const propsRaw = detectProps(doc) ?? localizarValor(doc, ['propriedades', 'propriedade', 'properties', 'property', 'props', 'attributes', 'atributos']) ?? null;
+              const propsRaw =
+                detectProps(doc) ??
+                localizarValor(doc, [
+                  'propriedades',
+                  'propriedade',
+                  'properties',
+                  'property',
+                  'props',
+                  'attributes',
+                  'atributos',
+                ]) ??
+                null;
               const propsArray = (() => {
                 if (!propsRaw) return null;
                 if (Array.isArray(propsRaw)) return propsRaw;
-                if (typeof propsRaw === 'object') return Object.entries(propsRaw).map(([k, v]) => ({ nome: k, descricao: v }));
+                if (typeof propsRaw === 'object')
+                  return Object.entries(propsRaw).map(([k, v]) => ({
+                    nome: k,
+                    descricao: v,
+                  }));
                 return [propsRaw];
               })();
 
@@ -1634,26 +2680,83 @@ const CardSubcolecaoDoc = ({ doc, titulo = null, subcolecaoKey = null }) => {
                 <>
                   {descricaoRaw ? (
                     <Box sx={{ mb: 1.25 }}>
-                      <Typography sx={{ color: 'var(--color-accent)', fontWeight: 800, textTransform: 'uppercase', mb: 1 }}>Descrição</Typography>
-                      <Typography sx={{ color: 'var(--text-secondary)', textAlign: 'justify', lineHeight: 1.6 }}>{normalizarTextoValor(descricaoRaw)}</Typography>
+                      <Typography
+                        sx={{
+                          color: 'var(--color-accent)',
+                          fontWeight: 800,
+                          textTransform: 'uppercase',
+                          mb: 1,
+                        }}
+                      >
+                        Descrição
+                      </Typography>
+                      <Typography
+                        sx={{
+                          color: 'var(--text-secondary)',
+                          textAlign: 'justify',
+                          lineHeight: 1.6,
+                        }}
+                      >
+                        {normalizarTextoValor(descricaoRaw)}
+                      </Typography>
                     </Box>
                   ) : null}
 
-                  <Typography sx={{ color: 'var(--color-accent)', fontWeight: 800, textTransform: 'uppercase', mb: 1 }}>Propriedades</Typography>
+                  <Typography
+                    sx={{
+                      color: 'var(--color-accent)',
+                      fontWeight: 800,
+                      textTransform: 'uppercase',
+                      mb: 1,
+                    }}
+                  >
+                    Propriedades
+                  </Typography>
                   {propsArray && propsArray.length > 0 ? (
                     propsArray.map((p, i) => {
                       const isObj = p && typeof p === 'object';
                       const title = isObj ? (p.nome ?? p.label ?? null) : null;
-                      const desc = isObj ? (p.descricao ?? p.valor ?? p.value ?? '') : p;
+                      const desc = isObj
+                        ? (p.descricao ?? p.valor ?? p.value ?? '')
+                        : p;
                       return (
-                        <Paper key={i} elevation={0} sx={{ p: 1, mb: 1, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)', borderRadius: 1.25 }}>
-                          {title ? <Typography sx={{ fontWeight: 800, color: 'var(--text-primary)', mb: 0.5 }}>{String(title)}</Typography> : null}
-                          <Typography sx={{ color: 'var(--text-secondary)', textAlign: 'justify' }}>{normalizarTextoValor(desc ?? '')}</Typography>
+                        <Paper
+                          key={i}
+                          elevation={0}
+                          sx={{
+                            p: 1,
+                            mb: 1,
+                            background: 'rgba(255,255,255,0.02)',
+                            border: '1px solid rgba(255,255,255,0.04)',
+                            borderRadius: 1.25,
+                          }}
+                        >
+                          {title ? (
+                            <Typography
+                              sx={{
+                                fontWeight: 800,
+                                color: 'var(--text-primary)',
+                                mb: 0.5,
+                              }}
+                            >
+                              {String(title)}
+                            </Typography>
+                          ) : null}
+                          <Typography
+                            sx={{
+                              color: 'var(--text-secondary)',
+                              textAlign: 'justify',
+                            }}
+                          >
+                            {normalizarTextoValor(desc ?? '')}
+                          </Typography>
                         </Paper>
                       );
                     })
                   ) : (
-                    <Typography sx={{ color: 'var(--text-secondary)' }}>Nenhuma propriedade cadastrada.</Typography>
+                    <Typography sx={{ color: 'var(--text-secondary)' }}>
+                      Nenhuma propriedade cadastrada.
+                    </Typography>
                   )}
                 </>
               );
@@ -1671,7 +2774,8 @@ const CardSubcolecaoDoc = ({ doc, titulo = null, subcolecaoKey = null }) => {
   if (subcolecaoKey === 'receitasInventario') {
     function localizarValor(obj, aliases = []) {
       if (!obj || typeof obj !== 'object') return null;
-      const tryValue = v => (v === null || v === undefined || v === '' ? null : v);
+      const tryValue = v =>
+        v === null || v === undefined || v === '' ? null : v;
 
       for (const a of aliases) {
         if (Object.prototype.hasOwnProperty.call(obj, a)) {
@@ -1702,7 +2806,13 @@ const CardSubcolecaoDoc = ({ doc, titulo = null, subcolecaoKey = null }) => {
 
     const scanForNumericByKey = (o, keyPatterns = []) => {
       const patterns = keyPatterns.map(k => k.toLowerCase());
-      const isNumeric = v => typeof v === 'number' || (typeof v === 'string' && v.trim() !== '' && !Number.isNaN(Number(String(v).replace(/[,\s]/g, '').replace(',', '.'))));
+      const isNumeric = v =>
+        typeof v === 'number' ||
+        (typeof v === 'string' &&
+          v.trim() !== '' &&
+          !Number.isNaN(
+            Number(String(v).replace(/[,\s]/g, '').replace(',', '.')),
+          ));
 
       const checkObj = obj => {
         for (const [k, v] of Object.entries(obj)) {
@@ -1722,93 +2832,319 @@ const CardSubcolecaoDoc = ({ doc, titulo = null, subcolecaoKey = null }) => {
 
     const nome = doc.nome ?? doc.name ?? doc.titulo ?? doc.title ?? doc.id;
     const imagem = resolveImagemAsset(doc);
-    const raridade = localizarValor(doc, ['raridade', 'rarity', 'rarityLevel', 'rarity_level']) ?? null;
+    const raridade =
+      localizarValor(doc, [
+        'raridade',
+        'rarity',
+        'rarityLevel',
+        'rarity_level',
+      ]) ?? null;
 
-    const tipo = localizarValor(doc, ['tipo', 'type', 'categoria', 'categoriaReceita']) ?? null;
+    const tipo =
+      localizarValor(doc, ['tipo', 'type', 'categoria', 'categoriaReceita']) ??
+      null;
     // Detectar valores de compra/venda caso o documento armazene preços
-    const valorCompra = localizarValor(doc, ['valorCompra', 'valor_compra', 'precoCompra', 'preco_compra', 'buyPrice', 'priceBuy', 'preco']) ?? null;
-    const valorVenda = localizarValor(doc, ['valorVenda', 'valor_venda', 'precoVenda', 'preco_venda', 'sellPrice', 'priceSell']) ?? null;
+    const valorCompra =
+      localizarValor(doc, [
+        'valorCompra',
+        'valor_compra',
+        'precoCompra',
+        'preco_compra',
+        'buyPrice',
+        'priceBuy',
+        'preco',
+      ]) ?? null;
+    const valorVenda =
+      localizarValor(doc, [
+        'valorVenda',
+        'valor_venda',
+        'precoVenda',
+        'preco_venda',
+        'sellPrice',
+        'priceSell',
+      ]) ?? null;
     // Manter rendimento/tempo/dificuldade como fallback quando presentes
-    const rendimento = localizarValor(doc, ['rendimento', 'yield', 'produces', 'output']) ?? null;
-    const tempo = localizarValor(doc, ['tempo', 'time', 'duracao', 'duration']) ?? null;
+    const rendimento =
+      localizarValor(doc, ['rendimento', 'yield', 'produces', 'output']) ??
+      null;
+    const tempo =
+      localizarValor(doc, ['tempo', 'time', 'duracao', 'duration']) ?? null;
 
     const detectIngredientes = o => {
       if (!o || typeof o !== 'object') return null;
       const keys = Object.keys(o).map(k => String(k).toLowerCase());
       for (const k of keys) {
-        if (k.includes('ingred') || k.includes('ingredient') || k.includes('component')) return o[k];
+        if (
+          k.includes('ingred') ||
+          k.includes('ingredient') ||
+          k.includes('component')
+        )
+          return o[k];
       }
       return null;
     };
-    const ingredientesRaw = detectIngredientes(doc) ?? localizarValor(doc, ['ingredientes', 'ingredients', 'componentes', 'components']) ?? null;
+    const ingredientesRaw =
+      detectIngredientes(doc) ??
+      localizarValor(doc, [
+        'ingredientes',
+        'ingredients',
+        'componentes',
+        'components',
+      ]) ??
+      null;
     const ingredientesArray = (() => {
       if (!ingredientesRaw) return null;
       if (Array.isArray(ingredientesRaw)) return ingredientesRaw;
-      if (typeof ingredientesRaw === 'object') return Object.entries(ingredientesRaw).map(([k, v]) => ({ nome: k, quantidade: v }));
+      if (typeof ingredientesRaw === 'object')
+        return Object.entries(ingredientesRaw).map(([k, v]) => ({
+          nome: k,
+          quantidade: v,
+        }));
       return [ingredientesRaw];
     })();
 
-    let quantidade = localizarValor(doc, ['quantidade', 'qtd', 'qty', 'amount', 'quantity']) ?? null;
-    if (quantidade == null) quantidade = scanForNumericByKey(doc, ['quant', 'qtd', 'amount', 'quantity']);
+    let quantidade =
+      localizarValor(doc, ['quantidade', 'qtd', 'qty', 'amount', 'quantity']) ??
+      null;
+    if (quantidade == null)
+      quantidade = scanForNumericByKey(doc, [
+        'quant',
+        'qtd',
+        'amount',
+        'quantity',
+      ]);
 
     return (
       <>
-        <Paper elevation={0} sx={{ p: 1.25, background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 2, overflow: 'hidden', maxWidth: 320, width: '100%', minHeight: 300 }}>
+        <Paper
+          elevation={0}
+          sx={{
+            p: 1.25,
+            background: 'var(--bg-card)',
+            border: '1px solid var(--border-primary)',
+            borderRadius: 2,
+            overflow: 'hidden',
+            maxWidth: 320,
+            width: '100%',
+            minHeight: 300,
+          }}
+        >
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-            <Box sx={{ position: 'relative', borderRadius: 1.5, overflow: 'hidden', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.03)' }}>
-              <Box sx={{ height: { xs: 120, sm: 160 }, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(180deg, rgba(255,255,255,0.01), rgba(0,0,0,0.02))' }}>
+            <Box
+              sx={{
+                position: 'relative',
+                borderRadius: 1.5,
+                overflow: 'hidden',
+                background: 'rgba(255,255,255,0.02)',
+                border: '1px solid rgba(255,255,255,0.03)',
+              }}
+            >
+              <Box
+                sx={{
+                  height: { xs: 120, sm: 160 },
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background:
+                    'linear-gradient(180deg, rgba(255,255,255,0.01), rgba(0,0,0,0.02))',
+                }}
+              >
                 {imagem ? (
-                  <Box component="img" src={imagem} alt={nome} loading="lazy" sx={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center', display: 'block' }} />
+                  <Box
+                    component="img"
+                    src={imagem}
+                    alt={nome}
+                    loading="lazy"
+                    sx={{
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'cover',
+                      objectPosition: 'center',
+                      display: 'block',
+                    }}
+                  />
                 ) : (
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
-                    <Typography sx={{ color: 'var(--text-muted)' }}>Sem imagem</Typography>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: 'var(--text-muted)',
+                    }}
+                  >
+                    <Typography sx={{ color: 'var(--text-muted)' }}>
+                      Sem imagem
+                    </Typography>
                   </Box>
                 )}
               </Box>
 
               {raridade ? (
-                <Box sx={{ position: 'absolute', right: 8, top: 8, px: 1.05, py: 0.4, borderRadius: 1.25, background: 'linear-gradient(135deg, rgba(255,200,80,0.98), rgba(255,120,35,0.98))', border: '1px solid rgba(0,0,0,0.12)', color: '#091018', fontWeight: 900, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', boxShadow: '0 10px 28px rgba(0,0,0,0.48)', zIndex: 6 }}>
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    right: 8,
+                    top: 8,
+                    px: 1.05,
+                    py: 0.4,
+                    borderRadius: 1.25,
+                    background:
+                      'linear-gradient(135deg, rgba(255,200,80,0.98), rgba(255,120,35,0.98))',
+                    border: '1px solid rgba(0,0,0,0.12)',
+                    color: '#091018',
+                    fontWeight: 900,
+                    fontSize: '0.72rem',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.08em',
+                    boxShadow: '0 10px 28px rgba(0,0,0,0.48)',
+                    zIndex: 6,
+                  }}
+                >
                   {String(raridade)}
                 </Box>
               ) : null}
 
-              <Box sx={{ px: 1, py: 0.5, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Typography sx={{ color: 'var(--text-primary)', fontWeight: 800, fontSize: '0.98rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'center', width: '100%' }} title={String(nome)}>
+              <Box
+                sx={{
+                  px: 1,
+                  py: 0.5,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Typography
+                  sx={{
+                    color: 'var(--text-primary)',
+                    fontWeight: 800,
+                    fontSize: '0.98rem',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    textAlign: 'center',
+                    width: '100%',
+                  }}
+                  title={String(nome)}
+                >
                   {normalizarTextoValor(nome) ?? '—'}
                 </Typography>
               </Box>
             </Box>
 
-            <Box sx={{ px: 1, display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 0.75 }}>
+            <Box
+              sx={{
+                px: 1,
+                display: 'grid',
+                gridTemplateColumns: 'repeat(2, 1fr)',
+                gap: 0.75,
+              }}
+            >
               <Box>
-                <Typography sx={{ color: 'var(--text-muted)', fontSize: '0.6rem', textTransform: 'uppercase', letterSpacing: 0.6 }}>Tipo</Typography>
-                <Typography sx={{ color: 'var(--text-primary)', fontWeight: 700 }}>{normalizarTextoValor(tipo) ?? '—'}</Typography>
+                <Typography
+                  sx={{
+                    color: 'var(--text-muted)',
+                    fontSize: '0.6rem',
+                    textTransform: 'uppercase',
+                    letterSpacing: 0.6,
+                  }}
+                >
+                  Tipo
+                </Typography>
+                <Typography
+                  sx={{ color: 'var(--text-primary)', fontWeight: 700 }}
+                >
+                  {normalizarTextoValor(tipo) ?? '—'}
+                </Typography>
               </Box>
               <Box>
-                <Typography sx={{ color: 'var(--text-muted)', fontSize: '0.6rem', textTransform: 'uppercase', letterSpacing: 0.6 }}>Valor Compra</Typography>
-                <Typography sx={{ color: 'var(--text-primary)', fontWeight: 700 }}>{normalizarTextoValor(valorCompra ?? rendimento) ?? '—'}</Typography>
+                <Typography
+                  sx={{
+                    color: 'var(--text-muted)',
+                    fontSize: '0.6rem',
+                    textTransform: 'uppercase',
+                    letterSpacing: 0.6,
+                  }}
+                >
+                  Valor Compra
+                </Typography>
+                <Typography
+                  sx={{ color: 'var(--text-primary)', fontWeight: 700 }}
+                >
+                  {normalizarTextoValor(valorCompra ?? rendimento) ?? '—'}
+                </Typography>
               </Box>
               <Box>
-                <Typography sx={{ color: 'var(--text-muted)', fontSize: '0.6rem', textTransform: 'uppercase', letterSpacing: 0.6 }}>Valor Venda</Typography>
-                <Typography sx={{ color: 'var(--text-primary)', fontWeight: 700 }}>{normalizarTextoValor(valorVenda ?? tempo) ?? '—'}</Typography>
+                <Typography
+                  sx={{
+                    color: 'var(--text-muted)',
+                    fontSize: '0.6rem',
+                    textTransform: 'uppercase',
+                    letterSpacing: 0.6,
+                  }}
+                >
+                  Valor Venda
+                </Typography>
+                <Typography
+                  sx={{ color: 'var(--text-primary)', fontWeight: 700 }}
+                >
+                  {normalizarTextoValor(valorVenda ?? tempo) ?? '—'}
+                </Typography>
               </Box>
               {/* Rendimento removido por solicitação */}
             </Box>
 
-            <Box sx={{ px: 1, pt: 1, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
-                <Typography sx={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>Quantidade</Typography>
-                <Typography sx={{ color: 'var(--text-primary)', fontWeight: 800 }}>{normalizarTextoValor(quantidade) ?? '—'}</Typography>
+            <Box
+              sx={{
+                px: 1,
+                pt: 1,
+                borderTop: '1px solid rgba(255,255,255,0.06)',
+              }}
+            >
+              <Box
+                sx={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  mb: 0.5,
+                }}
+              >
+                <Typography
+                  sx={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}
+                >
+                  Quantidade
+                </Typography>
+                <Typography
+                  sx={{ color: 'var(--text-primary)', fontWeight: 800 }}
+                >
+                  {normalizarTextoValor(quantidade) ?? '—'}
+                </Typography>
               </Box>
               {/* botão para Descrição/Ingredientes */}
               <Box sx={{ mt: 1 }}>
                 {(() => {
-                  const hasDesc = localizarValor(doc, ['descricao', 'description', 'texto', 'desc', 'detalhes']) ?? doc?.descricao ?? doc?.description ?? null;
-                  const hasIngr = ingredientesArray && ingredientesArray.length > 0;
+                  const hasDesc =
+                    localizarValor(doc, [
+                      'descricao',
+                      'description',
+                      'texto',
+                      'desc',
+                      'detalhes',
+                    ]) ??
+                    doc?.descricao ??
+                    doc?.description ??
+                    null;
+                  const hasIngr =
+                    ingredientesArray && ingredientesArray.length > 0;
                   if (hasDesc || hasIngr) {
                     return (
                       <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-                        <Button size="small" variant="outlined" onClick={() => setReceitaDialogOpen(true)}>Descrição</Button>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          onClick={() => setReceitaDialogOpen(true)}
+                        >
+                          Descrição
+                        </Button>
                       </Box>
                     );
                   }
@@ -1819,33 +3155,113 @@ const CardSubcolecaoDoc = ({ doc, titulo = null, subcolecaoKey = null }) => {
           </Box>
         </Paper>
 
-        <Dialog open={receitaDialogOpen} onClose={() => setReceitaDialogOpen(false)} fullWidth maxWidth="sm">
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 2, py: 1 }}>
-            <Typography sx={{ fontWeight: 800, color: 'var(--text-primary)' }}>Descrição e Ingredientes</Typography>
-            <IconButton onClick={() => setReceitaDialogOpen(false)} aria-label="fechar dialogo de receita"><CloseIcon sx={{ color: 'var(--text-primary)' }} /></IconButton>
+        <Dialog
+          open={receitaDialogOpen}
+          onClose={() => setReceitaDialogOpen(false)}
+          fullWidth
+          maxWidth="sm"
+        >
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              px: 2,
+              py: 1,
+            }}
+          >
+            <Typography sx={{ fontWeight: 800, color: 'var(--text-primary)' }}>
+              Descrição e Ingredientes
+            </Typography>
+            <IconButton
+              onClick={() => setReceitaDialogOpen(false)}
+              aria-label="fechar dialogo de receita"
+            >
+              <CloseIcon sx={{ color: 'var(--text-primary)' }} />
+            </IconButton>
           </Box>
           <DialogContent dividers>
             {(() => {
-              const descricaoRaw = localizarValor(doc, ['descricao', 'description', 'texto', 'desc', 'detalhes']) ?? doc?.descricao ?? doc?.description ?? null;
+              const descricaoRaw =
+                localizarValor(doc, [
+                  'descricao',
+                  'description',
+                  'texto',
+                  'desc',
+                  'detalhes',
+                ]) ??
+                doc?.descricao ??
+                doc?.description ??
+                null;
               return (
                 <>
                   {descricaoRaw ? (
                     <Box sx={{ mb: 1.25 }}>
-                      <Typography sx={{ color: 'var(--color-accent)', fontWeight: 800, textTransform: 'uppercase', mb: 1 }}>Descrição</Typography>
-                      <Typography sx={{ color: 'var(--text-secondary)', textAlign: 'justify', lineHeight: 1.6 }}>{normalizarTextoValor(descricaoRaw)}</Typography>
+                      <Typography
+                        sx={{
+                          color: 'var(--color-accent)',
+                          fontWeight: 800,
+                          textTransform: 'uppercase',
+                          mb: 1,
+                        }}
+                      >
+                        Descrição
+                      </Typography>
+                      <Typography
+                        sx={{
+                          color: 'var(--text-secondary)',
+                          textAlign: 'justify',
+                          lineHeight: 1.6,
+                        }}
+                      >
+                        {normalizarTextoValor(descricaoRaw)}
+                      </Typography>
                     </Box>
                   ) : null}
 
-                  <Typography sx={{ color: 'var(--color-accent)', fontWeight: 800, textTransform: 'uppercase', mb: 1 }}>Ingredientes</Typography>
+                  <Typography
+                    sx={{
+                      color: 'var(--color-accent)',
+                      fontWeight: 800,
+                      textTransform: 'uppercase',
+                      mb: 1,
+                    }}
+                  >
+                    Ingredientes
+                  </Typography>
                   {ingredientesArray && ingredientesArray.length > 0 ? (
                     ingredientesArray.map((ing, i) => (
-                      <Paper key={i} elevation={0} sx={{ p: 1, mb: 1, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)', borderRadius: 1.5 }}>
-                        <Typography sx={{ fontWeight: 800, color: 'var(--text-primary)', mb: 0.5 }}>{ing?.nome ?? ing?.label ?? `Ingrediente ${i + 1}`}</Typography>
-                        <Typography sx={{ color: 'var(--text-secondary)' }}>{String(ing?.quantidade ?? ing?.amount ?? ing?.qtd ?? ing)}</Typography>
+                      <Paper
+                        key={i}
+                        elevation={0}
+                        sx={{
+                          p: 1,
+                          mb: 1,
+                          background: 'rgba(255,255,255,0.02)',
+                          border: '1px solid rgba(255,255,255,0.04)',
+                          borderRadius: 1.5,
+                        }}
+                      >
+                        <Typography
+                          sx={{
+                            fontWeight: 800,
+                            color: 'var(--text-primary)',
+                            mb: 0.5,
+                          }}
+                        >
+                          {ing?.nome ?? ing?.label ?? `Ingrediente ${i + 1}`}
+                        </Typography>
+                        <Typography sx={{ color: 'var(--text-secondary)' }}>
+                          {String(
+                            ing?.quantidade ?? ing?.amount ?? ing?.qtd ?? ing,
+                          )}
+                        </Typography>
                       </Paper>
                     ))
                   ) : (
-                    <Typography sx={{ color: 'var(--text-secondary)' }}>Nenhum ingrediente listado.</Typography>
+                    <Typography sx={{ color: 'var(--text-secondary)' }}>
+                      Nenhum ingrediente listado.
+                    </Typography>
                   )}
                 </>
               );
@@ -1859,7 +3275,6 @@ const CardSubcolecaoDoc = ({ doc, titulo = null, subcolecaoKey = null }) => {
     );
   }
 
-  
   return (
     <Paper
       elevation={0}
@@ -1901,8 +3316,8 @@ const ArtCard = ({ doc, titulo = null, condicaoReferencias = {} }) => {
   const categorias = Array.isArray(doc.categoria)
     ? doc.categoria
     : doc.categoria
-    ? [doc.categoria]
-    : [];
+      ? [doc.categoria]
+      : [];
   const recarga = doc.recarga ?? doc.cooldown ?? doc.recarrega ?? 'N/D';
   // Heurística robusta para extrair o campo de ação (pode vir com vários nomes
   // ou aninhado em um objeto). Prioriza valores primitivos, depois campos
@@ -1910,7 +3325,8 @@ const ArtCard = ({ doc, titulo = null, condicaoReferencias = {} }) => {
   // chaves que contenham o alias.
   const localizarCampo = (obj, aliases = []) => {
     if (!obj || typeof obj !== 'object') return null;
-    const tryValue = v => (v === null || v === undefined || v === '' ? null : v);
+    const tryValue = v =>
+      v === null || v === undefined || v === '' ? null : v;
 
     for (const a of aliases) {
       if (Object.prototype.hasOwnProperty.call(obj, a)) {
@@ -1927,41 +3343,132 @@ const ArtCard = ({ doc, titulo = null, condicaoReferencias = {} }) => {
             if (vv != null) return vv;
           }
         }
-        const candidate = v.nome ?? v.name ?? v.titulo ?? v.label ?? v.descricao ?? v.description ?? null;
+        const candidate =
+          v.nome ??
+          v.name ??
+          v.titulo ??
+          v.title ??
+          v.label ??
+          v.descricao ??
+          v.description ??
+          v.codigo ??
+          v.code ??
+          null;
         if (tryValue(candidate) != null) return candidate;
       }
     }
 
     for (const [, v] of Object.entries(obj)) {
-      // se a chave contém um dos aliases, já tentamos acima; aqui só
-      // verificamos valores primitivos que pareçam relevantes
       if (typeof v !== 'object' && tryValue(v) != null) return v;
     }
 
     return null;
   };
 
-  const acaoRaw = localizarCampo(doc, ['acao', 'acaoHabilidade', 'acaoArte', 'acaoVariante', 'acaoNome', 'action', 'actionName', 'abilityAction', 'skillAction', 'trigger']);
+  const normalizarValorAcao = valor => {
+    if (valor == null || valor === '') return null;
+
+    if (typeof valor === 'string' || typeof valor === 'number') {
+      const texto = String(valor).trim();
+      return texto || null;
+    }
+
+    if (Array.isArray(valor)) {
+      for (const item of valor) {
+        const texto = normalizarValorAcao(item);
+        if (texto) return texto;
+      }
+      return null;
+    }
+
+    if (typeof valor === 'object') {
+      const preferidos = ['nome', 'name', 'titulo', 'title', 'label', 'tipo', 'type'];
+      for (const chave of preferidos) {
+        if (Object.prototype.hasOwnProperty.call(valor, chave)) {
+          const texto = normalizarValorAcao(valor[chave]);
+          if (texto) return texto;
+        }
+      }
+
+      const codigo = normalizarValorAcao(valor.codigo ?? valor.code ?? valor.sigla);
+      if (codigo) return codigo;
+
+      for (const item of Object.values(valor)) {
+        const texto = normalizarValorAcao(item);
+        if (texto) return texto;
+      }
+    }
+
+    return null;
+  };
+
+  const acaoRaw = localizarCampo(doc, [
+    'acao',
+    'acaoHabilidade',
+    'acaoArte',
+    'acaoVariante',
+    'acaoNome',
+    'action',
+    'actionName',
+    'abilityAction',
+    'skillAction',
+    'trigger',
+  ]);
   // Determina o tipo legível da ação: Imediata / Duradoura / Sustentada
   const determinarTipoAcao = (raw, docObj) => {
     const preferencias = [];
     if (docObj) {
-      preferencias.push(docObj.tipoAcao ?? docObj.tipo_acao ?? docObj.tipo ?? null);
+      preferencias.push(
+        docObj.tipoAcao ?? docObj.tipo_acao ?? docObj.tipo ?? null,
+      );
     }
     preferencias.push(raw);
 
-    const textFrom = v => (v == null ? '' : String(v).toLowerCase());
-    const texto = preferencias.map(textFrom).join(' ');
+    const textosLegiveis = preferencias
+      .map(item => normalizarValorAcao(item))
+      .filter(Boolean);
+    const texto = textosLegiveis.join(' ').toLowerCase();
 
-    if (/imediat|instant|instantânea|instantanea|immediate|quick|rápida|rapida/.test(texto)) return 'Imediata';
+    if (
+      /imediat|instant|instantânea|instantanea|immediate|quick|rápida|rapida/.test(
+        texto,
+      )
+    )
+      return 'Imediata';
     if (/sustent|sustain|sustained/.test(texto)) return 'Sustentada';
     if (/durad|duration|long|longo|longa/.test(texto)) return 'Duradoura';
 
-    // fallback: se o raw for curto e reconhecível como chave (p.ex. 'I','D','S') mapear
-    const short = String(raw ?? '').trim().toLowerCase();
-    if (short === 'i' || short === 'im' || short === 'imediata') return 'Imediata';
-    if (short === 'd' || short === 'duradoura' || short === 'dur') return 'Duradoura';
-    if (short === 's' || short === 'sustentada' || short === 'sus') return 'Sustentada';
+    const valorLegivel = textosLegiveis[0] ?? null;
+    if (valorLegivel) {
+      const short = String(valorLegivel).trim().toLowerCase();
+      if (['i', 'im', 'imediata', 'instantânea', 'instantanea'].includes(short))
+        return 'Imediata';
+      if (
+        ['d', 'dur', 'duradoura', 'duration', 'longa', 'longo'].includes(short)
+      )
+        return 'Duradoura';
+      if (
+        ['s', 'sus', 'sustentada', 'sustained', 'sustain'].includes(short)
+      )
+        return 'Sustentada';
+      if (['1', 'um', 'one'].includes(short)) return 'Imediata';
+      if (['2', 'dois', 'two'].includes(short)) return 'Duradoura';
+      if (['3', 'três', 'tres', 'three'].includes(short)) return 'Sustentada';
+      return String(valorLegivel);
+    }
+
+    const short = String(raw ?? '')
+      .trim()
+      .toLowerCase();
+    if (short === 'i' || short === 'im' || short === 'imediata')
+      return 'Imediata';
+    if (short === 'd' || short === 'duradoura' || short === 'dur')
+      return 'Duradoura';
+    if (short === 's' || short === 'sustentada' || short === 'sus')
+      return 'Sustentada';
+    if (short === '1') return 'Imediata';
+    if (short === '2') return 'Duradoura';
+    if (short === '3') return 'Sustentada';
 
     return raw == null ? 'N/D' : String(raw);
   };
@@ -1970,7 +3477,8 @@ const ArtCard = ({ doc, titulo = null, condicaoReferencias = {} }) => {
   const alcance = doc.alcance ?? doc.range ?? 'N/D';
   const alvos = doc.alvos ?? doc.targets ?? 'N/D';
   const custo = doc.custo ?? doc.cost ?? 'N/D';
-  const descricao = doc.descricao ?? doc.description ?? 'Sem descrição disponível';
+  const descricao =
+    doc.descricao ?? doc.description ?? 'Sem descrição disponível';
   const condicoes =
     doc.condicao ??
     doc.condicoes ??
@@ -2007,7 +3515,13 @@ const ArtCard = ({ doc, titulo = null, condicaoReferencias = {} }) => {
   const renderCondicoesContent = () => {
     if (condicoes === null || condicoes === undefined) {
       return (
-        <Typography sx={{ color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: 1.6 }}>
+        <Typography
+          sx={{
+            color: 'var(--text-secondary)',
+            fontSize: '0.9rem',
+            lineHeight: 1.6,
+          }}
+        >
           Não há condições cadastradas.
         </Typography>
       );
@@ -2016,7 +3530,13 @@ const ArtCard = ({ doc, titulo = null, condicaoReferencias = {} }) => {
     const items = Array.isArray(condicoes) ? condicoes : [condicoes];
     if (items.length === 0) {
       return (
-        <Typography sx={{ color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: 1.6 }}>
+        <Typography
+          sx={{
+            color: 'var(--text-secondary)',
+            fontSize: '0.9rem',
+            lineHeight: 1.6,
+          }}
+        >
           Não há condições cadastradas.
         </Typography>
       );
@@ -2026,16 +3546,18 @@ const ArtCard = ({ doc, titulo = null, condicaoReferencias = {} }) => {
       const condicaoId =
         typeof item === 'string' || typeof item === 'number'
           ? String(item)
-          : item?.id ?? item?.condicaoId ?? item?.conditionId ?? null;
-      const referencia = condicaoId
-        ? condicaoReferencias[condicaoId]
-        : null;
+          : (item?.id ?? item?.condicaoId ?? item?.conditionId ?? null);
+      const referencia = condicaoId ? condicaoReferencias[condicaoId] : null;
 
       if (referencia) {
         return {
           key: referencia.id,
           label:
-            referencia.nome ?? referencia.name ?? referencia.titulo ?? referencia.label ?? referencia.id,
+            referencia.nome ??
+            referencia.name ??
+            referencia.titulo ??
+            referencia.label ??
+            referencia.id,
           image: resolveImagemAsset(referencia),
         };
       }
@@ -2141,11 +3663,7 @@ const ArtCard = ({ doc, titulo = null, condicaoReferencias = {} }) => {
 
   const renderTabContent = () => {
     if (activeTab === 'cantico') {
-      return (
-        <CampoValor
-          valor={cantico ?? 'Não há cântico cadastrado.'}
-        />
-      );
+      return <CampoValor valor={cantico ?? 'Não há cântico cadastrado.'} />;
     }
 
     if (activeTab === 'condicoes') {
@@ -2282,10 +3800,24 @@ const ArtCard = ({ doc, titulo = null, condicaoReferencias = {} }) => {
               justifyContent: 'center',
             }}
           >
-            <Typography sx={{ color: 'rgba(200,210,230,0.8)', fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: 0.8, mb: 0.5 }}>
+            <Typography
+              sx={{
+                color: 'rgba(200,210,230,0.8)',
+                fontSize: '0.65rem',
+                textTransform: 'uppercase',
+                letterSpacing: 0.8,
+                mb: 0.5,
+              }}
+            >
               {label}
             </Typography>
-            <Typography sx={{ color: 'var(--text-primary)', fontWeight: 700, fontSize: '0.95rem' }}>
+            <Typography
+              sx={{
+                color: 'var(--text-primary)',
+                fontWeight: 700,
+                fontSize: '0.95rem',
+              }}
+            >
               {String(value)}
             </Typography>
           </Paper>
@@ -2301,8 +3833,14 @@ const ArtCard = ({ doc, titulo = null, condicaoReferencias = {} }) => {
             label={tab.label}
             size="small"
             sx={{
-              background: activeTab === tab.id ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.04)',
-              color: activeTab === tab.id ? 'var(--text-primary)' : 'rgba(200,210,230,0.75)',
+              background:
+                activeTab === tab.id
+                  ? 'rgba(255,255,255,0.14)'
+                  : 'rgba(255,255,255,0.04)',
+              color:
+                activeTab === tab.id
+                  ? 'var(--text-primary)'
+                  : 'rgba(200,210,230,0.75)',
               border: '1px solid rgba(255,255,255,0.08)',
               fontWeight: 700,
               cursor: 'pointer',
@@ -2321,11 +3859,24 @@ const ArtCard = ({ doc, titulo = null, condicaoReferencias = {} }) => {
           overflow: 'hidden',
         }}
       >
-        <Typography sx={{ color: 'var(--text-primary)', fontWeight: 700, mb: 1, fontSize: '0.95rem' }}>
+        <Typography
+          sx={{
+            color: 'var(--text-primary)',
+            fontWeight: 700,
+            mb: 1,
+            fontSize: '0.95rem',
+          }}
+        >
           {tabs.find(tab => tab.id === activeTab)?.label ?? 'Descrição'}
         </Typography>
         {activeTab === 'descricao' ? (
-          <Box sx={{ maxHeight: 'calc(1.7em * 4 + 0.5rem)', overflowY: 'auto', pr: 0.75 }}>
+          <Box
+            sx={{
+              maxHeight: 'calc(1.7em * 4 + 0.5rem)',
+              overflowY: 'auto',
+              pr: 0.75,
+            }}
+          >
             {renderTabContent()}
           </Box>
         ) : (
@@ -2333,11 +3884,32 @@ const ArtCard = ({ doc, titulo = null, condicaoReferencias = {} }) => {
         )}
       </Box>
 
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, flexWrap: 'wrap', mt: 2 }}>
-        <Typography sx={{ color: 'rgba(200,210,230,0.75)', fontSize: '0.75rem' }}>
-          Atualizado em {ehTimestamp(updated) ? formatarTimestamp(updated) : String(updated ?? 'N/D')}
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 1,
+          flexWrap: 'wrap',
+          mt: 2,
+        }}
+      >
+        <Typography
+          sx={{ color: 'rgba(200,210,230,0.75)', fontSize: '0.75rem' }}
+        >
+          Atualizado em{' '}
+          {ehTimestamp(updated)
+            ? formatarTimestamp(updated)
+            : String(updated ?? 'N/D')}
         </Typography>
-        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
+        <Box
+          sx={{
+            display: 'flex',
+            gap: 1,
+            flexWrap: 'wrap',
+            alignItems: 'center',
+          }}
+        >
           {dominio && (
             <Chip
               label={`Domínio ${String(dominio)}`}
@@ -2380,7 +3952,8 @@ const resolveImagemAsset = doc => {
     const value = doc[field];
     if (!value) return null;
     if (typeof value === 'string') return value;
-    if (typeof value === 'object') return value.url ?? value.link ?? value.src ?? null;
+    if (typeof value === 'object')
+      return value.url ?? value.link ?? value.src ?? null;
     return null;
   };
 
@@ -2434,33 +4007,98 @@ const AptidaoItem = ({ doc, referencia, titulo }) => {
         gap: 2,
         alignItems: 'center',
         width: '100%',
-        transition: 'box-shadow 0.2s ease, border-color 0.2s ease, transform 0.2s ease',
+        transition:
+          'box-shadow 0.2s ease, border-color 0.2s ease, transform 0.2s ease',
         '&:hover': {
           borderColor: 'rgba(212,175,55,0.22)',
           boxShadow: '0 6px 20px rgba(212,175,55,0.06)',
-          transform: 'translateY(-2px)'
+          transform: 'translateY(-2px)',
         },
       }}
     >
-      <Box sx={{ flex: '0 0 auto', width: 64, height: 64, borderRadius: '50%', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(10,12,16,0.6)', border: '1px solid rgba(212,175,55,0.08)' }}>
+      <Box
+        sx={{
+          flex: '0 0 auto',
+          width: 64,
+          height: 64,
+          borderRadius: '50%',
+          overflow: 'hidden',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: 'rgba(10,12,16,0.6)',
+          border: '1px solid rgba(212,175,55,0.08)',
+        }}
+      >
         {imagem ? (
-          <Box component="img" src={imagem} alt={nome} sx={{ width: 64, height: 64, objectFit: 'cover', display: 'block' }} />
+          <Box
+            component="img"
+            src={imagem}
+            alt={nome}
+            sx={{ width: 64, height: 64, objectFit: 'cover', display: 'block' }}
+          />
         ) : (
-          <Typography sx={{ color: 'var(--text-primary)', fontWeight: 800 }}>{String(nome).charAt(0) ?? '·'}</Typography>
+          <Typography sx={{ color: 'var(--text-primary)', fontWeight: 800 }}>
+            {String(nome).charAt(0) ?? '·'}
+          </Typography>
         )}
       </Box>
 
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, flex: '1 1 0' }}>
-        <Typography sx={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: '18px', textAlign: 'left' }}>{nome}</Typography>
-        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 0.5,
+          flex: '1 1 0',
+        }}
+      >
+        <Typography
+          sx={{
+            color: 'var(--text-primary)',
+            fontWeight: 600,
+            fontSize: '18px',
+            textAlign: 'left',
+          }}
+        >
+          {nome}
+        </Typography>
+        <Box
+          sx={{
+            display: 'flex',
+            gap: 1,
+            alignItems: 'center',
+            flexWrap: 'wrap',
+          }}
+        >
           {nivel !== null && (
-            <Box sx={{ background: 'rgba(2,10,30,0.9)', border: '1px solid rgba(255,255,255,0.04)', color: 'var(--text-primary)', px: 1.25, py: '4px', borderRadius: '999px', fontSize: '0.85rem', fontWeight: 700 }}>
+            <Box
+              sx={{
+                background: 'rgba(2,10,30,0.9)',
+                border: '1px solid rgba(255,255,255,0.04)',
+                color: 'var(--text-primary)',
+                px: 1.25,
+                py: '4px',
+                borderRadius: '999px',
+                fontSize: '0.85rem',
+                fontWeight: 700,
+              }}
+            >
               {`Nível ${nivel}`}
             </Box>
           )}
           {updated && (
-            <Typography sx={{ color: 'var(--text-secondary)', fontSize: '13px', whiteSpace: { xs: 'normal', sm: 'nowrap' }, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {ehTimestamp(updated) ? formatarTimestamp(updated) : String(updated)}
+            <Typography
+              sx={{
+                color: 'var(--text-secondary)',
+                fontSize: '13px',
+                whiteSpace: { xs: 'normal', sm: 'nowrap' },
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              {ehTimestamp(updated)
+                ? formatarTimestamp(updated)
+                : String(updated)}
             </Typography>
           )}
         </Box>
@@ -2700,7 +4338,9 @@ const renderTabLabel = (label, count, active = false) => (
           lineHeight: 1,
           bgcolor: active ? 'rgba(255,255,255,0.16)' : 'rgba(255,255,255,0.08)',
           color: active ? 'var(--text-primary)' : 'inherit',
-          border: active ? '1px solid rgba(255,255,255,0.18)' : '1px solid rgba(255,255,255,0.1)',
+          border: active
+            ? '1px solid rgba(255,255,255,0.18)'
+            : '1px solid rgba(255,255,255,0.1)',
         }}
       >
         {count}
@@ -2907,7 +4547,8 @@ const PersonagemFichaDialog = ({
 
   useEffect(() => {
     if (!open || !personagem) return undefined;
-    const universoId = personagem.universo ?? personagem.universoId ?? personagem.universo?.id;
+    const universoId =
+      personagem.universo ?? personagem.universoId ?? personagem.universo?.id;
     if (!universoId) return undefined;
 
     let active = true;
@@ -2917,7 +4558,9 @@ const PersonagemFichaDialog = ({
         .then(condicoes => {
           if (active) {
             setCondicaoReferencias(
-              Object.fromEntries(condicoes.map(condicao => [condicao.id, condicao])),
+              Object.fromEntries(
+                condicoes.map(condicao => [condicao.id, condicao]),
+              ),
             );
           }
         })
@@ -2978,44 +4621,52 @@ const PersonagemFichaDialog = ({
 
   const infoJogador = {
     titulo: resolverValorInfoJogador(
-      [
-        clone,
-        infoJogadorBase,
-        personagem,
-      ],
+      [clone, infoJogadorBase, personagem],
       ['titulo', 'tituloJogador', 'title', 'titleJogador', 'titlePlayer'],
     ),
     afiliacao: resolverValorInfoJogador(
+      [clone, infoJogadorBase, personagem],
       [
-        clone,
-        infoJogadorBase,
-        personagem,
+        'afiliacao',
+        'afiliacaoJogador',
+        'affiliation',
+        'affiliationJogador',
+        'faction',
+        'organization',
+        'group',
       ],
-      ['afiliacao', 'afiliacaoJogador', 'affiliation', 'affiliationJogador', 'faction', 'organization', 'group'],
     ),
     statusNarrativo: resolverValorInfoJogador(
+      [clone, infoJogadorBase, personagem],
       [
-        clone,
-        infoJogadorBase,
-        personagem,
+        'statusNarrativo',
+        'statusNarrativoJogador',
+        'narrativeStatus',
+        'narrativeStatusJogador',
+        'statusNarrativoInfo',
       ],
-      ['statusNarrativo', 'statusNarrativoJogador', 'narrativeStatus', 'narrativeStatusJogador', 'statusNarrativoInfo'],
     ),
     background: resolverValorInfoJogador(
+      [clone, infoJogadorBase, personagem],
       [
-        clone,
-        infoJogadorBase,
-        personagem,
+        'background',
+        'backgroundJogador',
+        'backgroundPlayer',
+        'backgroundInfo',
+        'backgroundJogadorInfo',
+        'backgroundPlayerInfo',
       ],
-      ['background', 'backgroundJogador', 'backgroundPlayer', 'backgroundInfo', 'backgroundJogadorInfo', 'backgroundPlayerInfo'],
     ),
     notasAdicionais: resolverValorInfoJogador(
+      [clone, infoJogadorBase, personagem],
       [
-        clone,
-        infoJogadorBase,
-        personagem,
+        'notasAdicionais',
+        'notasAdicionaisJogador',
+        'additionalNotes',
+        'additionalNotesJogador',
+        'notes',
+        'notesJogador',
       ],
-      ['notasAdicionais', 'notasAdicionaisJogador', 'additionalNotes', 'additionalNotesJogador', 'notes', 'notesJogador'],
     ),
   };
 
@@ -3043,6 +4694,595 @@ const PersonagemFichaDialog = ({
         </Typography>
       );
     }
+
+    const buscarValorCampo = aliases => {
+      for (const alias of aliases) {
+        const valor =
+          clone?.[alias] ?? personagemResolvido?.[alias] ?? personagem?.[alias];
+        if (!ehVazio(valor)) return valor;
+      }
+      return null;
+    };
+
+    // Schema real do Re-Dungeon (Ficha-RPG): a progressão de nível vive
+    // aninhada num único campo `nivel` — { atual, xpAtual,
+    // pontosPrincipaisDisponiveis, pontosSecundariosDisponiveis, historico }
+    // — em vez de campos soltos no documento. Prioriza essa forma conhecida
+    // e só cai para os aliases genéricos abaixo quando `nivel` não tiver
+    // essa estrutura (ex.: schema legado ou de outra entidade).
+    const nivelBruto = buscarValorCampo(['nivel']);
+    const nivelObj =
+      nivelBruto && typeof nivelBruto === 'object' && !Array.isArray(nivelBruto)
+        ? nivelBruto
+        : null;
+
+    const nivelAtual = !ehVazio(nivelObj?.atual)
+      ? nivelObj.atual
+      : buscarValorCampo(['nivel', 'level', 'nivelAtual', 'nivel_atual']);
+    const xpAtual = !ehVazio(nivelObj?.xpAtual)
+      ? nivelObj.xpAtual
+      : buscarValorCampo([
+          'xpAtual',
+          'xp_atual',
+          'xp',
+          'experienciaAtual',
+          'experiencia_atual',
+          'experiencia',
+          'experience',
+        ]);
+    const pontosPrincipaisDisponiveis = !ehVazio(
+      nivelObj?.pontosPrincipaisDisponiveis,
+    )
+      ? nivelObj.pontosPrincipaisDisponiveis
+      : buscarValorCampo([
+          'pontosPrincipais',
+          'pontos_principais',
+          'pontosPrincipaisDisponiveis',
+          'pontos_principais_disponiveis',
+          'pontosPrincipaisAtuais',
+          'pontos_principais_atuais',
+          'mainPoints',
+          'pointsMain',
+        ]);
+    const pontosSecundariosDisponiveis = !ehVazio(
+      nivelObj?.pontosSecundariosDisponiveis,
+    )
+      ? nivelObj.pontosSecundariosDisponiveis
+      : buscarValorCampo([
+          'pontosSecundarios',
+          'pontos_secundarios',
+          'pontosSecundariosDisponiveis',
+          'pontos_secundarios_disponiveis',
+          'pontosSecundariosAtuais',
+          'pontos_secundarios_atuais',
+          'secondaryPoints',
+          'pointsSecondary',
+        ]);
+    const historicoNivelRaw = buscarValorCampo([
+      'historicoNivel',
+      'historico_nivel',
+      'nivelHistorico',
+      'nivel_historico',
+      'historicoLevel',
+      'historico_level',
+      'levelHistory',
+      'level_history',
+    ]);
+
+    const nivelHistoricoItems = (() => {
+      if (!historicoNivelRaw) return [];
+      const rawItems = Array.isArray(historicoNivelRaw)
+        ? historicoNivelRaw
+        : [historicoNivelRaw];
+      return rawItems
+        .map(item => {
+          if (item === null || item === undefined || item === '') return null;
+          if (typeof item === 'string' || typeof item === 'number') {
+            return {
+              nivel: String(item),
+              data: null,
+              descricao: null,
+            };
+          }
+          if (typeof item === 'object') {
+            const nivel =
+              extrairCampoHistorico(item, [
+                'nivel',
+                'level',
+                'nivelAtual',
+                'nivel_atual',
+              ]) ??
+              normalizarTextoValor(
+                item?.nivel ??
+                  item?.level ??
+                  item?.nivelAtual ??
+                  item?.nivel_atual,
+              ) ??
+              null;
+            const data = formatarTextoHistorico(
+              extrairCampoHistorico(item, [
+                'data',
+                'createdAt',
+                'updatedAt',
+                'timestamp',
+                'dataHora',
+                'dataRegistro',
+                'momento',
+                'date',
+                'dateTime',
+              ]),
+            );
+            const descricao = formatarTextoHistorico(
+              extrairCampoHistorico(item, [
+                'descricao',
+                'descricaoNivel',
+                'detalhes',
+                'recompensa',
+                'resultado',
+                'nota',
+                'observacao',
+                'observacoes',
+                'descricaoEvento',
+                'resumo',
+              ]) ?? item,
+            );
+            return {
+              nivel: nivel ?? normalizarTextoValor(item) ?? 'Nível',
+              data,
+              descricao: descricao && descricao !== nivel ? descricao : null,
+            };
+          }
+          return {
+            nivel: String(item),
+            data: null,
+            descricao: null,
+          };
+        })
+        .filter(Boolean);
+    })();
+
+    // Schema real: `nivel.historico` guarda totais de pontos já investidos
+    // por atributo via o sistema de Nível (usado pela Ficha só pra saber
+    // quanto descontar num reset) — uma foto do total acumulado, não uma
+    // lista de eventos como o formato genérico de `historicoNivelItems`.
+    const nivelPontosInvestidos = (() => {
+      const historicoNivel = nivelObj?.historico;
+      if (!historicoNivel || typeof historicoNivel !== 'object') return [];
+      const grupos = [
+        {
+          grupo: 'Atributos Principais',
+          dados: historicoNivel.principais,
+          labels: ATRIBUTOS_PRINCIPAIS_DIALOG,
+        },
+        {
+          grupo: 'Atributos Secundários',
+          dados: historicoNivel.secundarios,
+          labels: ATRIBUTOS_SECUNDARIOS_DIALOG,
+        },
+      ];
+      const itens = [];
+      grupos.forEach(({ grupo, dados, labels }) => {
+        if (!dados || typeof dados !== 'object') return;
+        Object.entries(dados).forEach(([chave, valor]) => {
+          if (typeof valor === 'number' && valor > 0) {
+            itens.push({
+              label: resolverLabelAtributo(chave, labels),
+              valor,
+              grupo,
+            });
+          }
+        });
+      });
+      if (
+        typeof historicoNivel.sorte === 'number' &&
+        historicoNivel.sorte > 0
+      ) {
+        itens.push({
+          label: 'Sorte',
+          valor: historicoNivel.sorte,
+          grupo: 'Sorte',
+        });
+      }
+      return itens;
+    })();
+
+    const renderNivelCard = ({ label, value, description, icon: Icon }) => {
+      const valorExibido = normalizarValorSimples(value);
+      return (
+        <Paper
+          elevation={0}
+          sx={{
+            p: 2,
+            background: 'rgba(18, 22, 32, 0.92)',
+            border: '1px solid rgba(212,175,55,0.12)',
+            borderRadius: 2,
+            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04)',
+            minHeight: 120,
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            gap: 1,
+            wordBreak: 'normal',
+            overflowWrap: 'normal',
+            whiteSpace: 'normal',
+            minWidth: 180,
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Box
+              sx={{
+                width: 24,
+                height: 24,
+                borderRadius: '50%',
+                background: 'rgba(212,175,55,0.16)',
+                display: 'grid',
+                placeItems: 'center',
+                color: 'rgba(212,175,55,0.94)',
+              }}
+            >
+              {Icon ? <Icon sx={{ fontSize: 16 }} /> : '✦'}
+            </Box>
+            <Typography
+              variant="caption"
+              sx={{
+                color: 'var(--text-muted)',
+                textTransform: 'uppercase',
+                letterSpacing: 1,
+                fontWeight: 700,
+                fontSize: { xs: '0.64rem', sm: '0.68rem' },
+                lineHeight: 1.2,
+                wordBreak: 'normal',
+                overflowWrap: 'normal',
+              }}
+            >
+              {label}
+            </Typography>
+          </Box>
+          <Typography
+            sx={{
+              color: 'var(--text-primary)',
+              fontWeight: 800,
+              fontSize: { xs: '1.4rem', sm: '1.8rem' },
+              lineHeight: 1,
+              wordBreak: 'normal',
+              overflowWrap: 'normal',
+            }}
+          >
+            {valorExibido ?? '—'}
+          </Typography>
+          <Typography
+            sx={{
+              color: 'rgba(255,255,255,0.65)',
+              fontSize: { xs: '0.72rem', sm: '0.78rem' },
+              lineHeight: 1.35,
+              wordBreak: 'normal',
+              overflowWrap: 'normal',
+              whiteSpace: 'normal',
+            }}
+          >
+            {description}
+          </Typography>
+        </Paper>
+      );
+    };
+
+    const renderNivelHistorico = () => (
+      <Paper
+        elevation={0}
+        sx={{
+          p: 2,
+          background: 'rgba(12, 14, 20, 0.96)',
+          border: '1px solid rgba(255,255,255,0.08)',
+          borderRadius: 2,
+          minHeight: 216,
+          display: 'grid',
+          gap: 1.5,
+        }}
+      >
+        <Typography
+          sx={{
+            color: 'rgba(212,175,55,0.96)',
+            textTransform: 'uppercase',
+            fontWeight: 700,
+            letterSpacing: 1,
+            fontSize: '0.74rem',
+          }}
+        >
+          Histórico de Nível
+        </Typography>
+        <Box
+          sx={{
+            flex: 1,
+            minHeight: 0,
+            overflowY: 'auto',
+            pr: 1,
+          }}
+        >
+          {nivelPontosInvestidos.length > 0 ? (
+            <Box sx={{ display: 'grid', gap: 1.5 }}>
+              {['Atributos Principais', 'Atributos Secundários', 'Sorte']
+                .map(grupo => ({
+                  grupo,
+                  itens: nivelPontosInvestidos.filter(
+                    item => item.grupo === grupo,
+                  ),
+                }))
+                .filter(({ itens }) => itens.length > 0)
+                .map(({ grupo, itens }) => (
+                  <Box key={grupo}>
+                    <Typography
+                      sx={{
+                        color: 'var(--text-muted)',
+                        fontSize: '0.68rem',
+                        textTransform: 'uppercase',
+                        letterSpacing: 0.6,
+                        mb: 0.5,
+                      }}
+                    >
+                      {grupo}
+                    </Typography>
+                    <Box
+                      sx={{
+                        display: 'grid',
+                        gap: 0.6,
+                        gridTemplateColumns:
+                          'repeat(auto-fill, minmax(140px, 1fr))',
+                      }}
+                    >
+                      {itens.map(item => (
+                        <Box
+                          key={item.label}
+                          sx={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            gap: 1,
+                            px: 1,
+                            py: 0.6,
+                            borderRadius: 1.25,
+                            background: 'rgba(255,255,255,0.03)',
+                            border: '1px solid rgba(255,255,255,0.06)',
+                          }}
+                        >
+                          <Typography
+                            sx={{
+                              color: 'var(--text-secondary)',
+                              fontSize: '0.82rem',
+                            }}
+                          >
+                            {item.label}
+                          </Typography>
+                          <Typography
+                            sx={{
+                              color: 'var(--text-primary)',
+                              fontWeight: 800,
+                              fontSize: '0.82rem',
+                            }}
+                          >
+                            +{item.valor}
+                          </Typography>
+                        </Box>
+                      ))}
+                    </Box>
+                  </Box>
+                ))}
+            </Box>
+          ) : nivelHistoricoItems.length === 0 ? (
+            <Box
+              sx={{
+                p: 2,
+                borderRadius: 2,
+                background: 'rgba(255,255,255,0.02)',
+                color: 'var(--text-muted)',
+                fontSize: '0.95rem',
+                minHeight: 132,
+                display: 'grid',
+                placeItems: 'center',
+                textAlign: 'center',
+              }}
+            >
+              Nenhum histórico de progressão registrado
+            </Box>
+          ) : (
+            <Box
+              sx={{
+                display: 'grid',
+                gap: 2,
+                position: 'relative',
+                pl: 2,
+                '&::before': {
+                  content: '""',
+                  position: 'absolute',
+                  left: 8,
+                  top: 10,
+                  bottom: 10,
+                  width: 1,
+                  background: 'rgba(255,255,255,0.12)',
+                },
+              }}
+            >
+              {nivelHistoricoItems.map((item, index) => (
+                <Box
+                  key={`${String(item.nivel)}-${index}`}
+                  sx={{ display: 'grid', gap: 0.75, position: 'relative' }}
+                >
+                  <Box
+                    sx={{
+                      position: 'absolute',
+                      left: -10,
+                      top: 8,
+                      width: 12,
+                      height: 12,
+                      transform: 'rotate(45deg)',
+                      background: 'rgba(212,175,55,0.95)',
+                      border: '1px solid rgba(212,175,55,0.24)',
+                    }}
+                  />
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      gap: 1,
+                      flexWrap: 'wrap',
+                    }}
+                  >
+                    <Typography
+                      sx={{
+                        color: 'var(--text-primary)',
+                        fontWeight: 700,
+                        fontSize: '0.96rem',
+                      }}
+                    >
+                      {item.nivel || 'Nível'}
+                    </Typography>
+                    {item.data ? (
+                      <Typography
+                        sx={{
+                          color: 'var(--text-muted)',
+                          fontSize: '0.72rem',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {item.data}
+                      </Typography>
+                    ) : null}
+                  </Box>
+                  {item.descricao ? (
+                    <Typography
+                      sx={{
+                        color: 'rgba(255,255,255,0.68)',
+                        fontSize: '0.78rem',
+                        lineHeight: 1.45,
+                      }}
+                    >
+                      {item.descricao}
+                    </Typography>
+                  ) : null}
+                </Box>
+              ))}
+            </Box>
+          )}
+        </Box>
+      </Paper>
+    );
+
+    const renderNivelSection = () => {
+      const hasNivelData =
+        !ehVazio(nivelAtual) ||
+        !ehVazio(xpAtual) ||
+        !ehVazio(pontosPrincipaisDisponiveis) ||
+        !ehVazio(pontosSecundariosDisponiveis) ||
+        nivelHistoricoItems.length > 0 ||
+        nivelPontosInvestidos.length > 0;
+
+      if (!hasNivelData) return null;
+
+      return (
+        <Box sx={{ display: 'grid', gap: 2 }}>
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1,
+              flexWrap: 'wrap',
+            }}
+          >
+            <AutoAwesomeOutlinedIcon
+              sx={{ color: 'rgba(212,175,55,0.94)', fontSize: 18 }}
+            />
+            <Typography
+              sx={{
+                color: 'rgba(212,175,55,0.96)',
+                textTransform: 'uppercase',
+                letterSpacing: 1,
+                fontWeight: 700,
+                fontSize: '0.82rem',
+              }}
+            >
+              Nível
+            </Typography>
+          </Box>
+          <Box
+            sx={{
+              display: 'grid',
+              gap: 2,
+              gridTemplateColumns: {
+                xs: '1fr',
+                sm: 'repeat(2, minmax(220px, 1fr))',
+                md: 'repeat(4, minmax(220px, 1fr))',
+              },
+              alignItems: 'stretch',
+            }}
+          >
+            {renderNivelCard({
+              label: 'Nível Atual',
+              value: nivelAtual,
+              description: 'Nível do personagem',
+              icon: AutoAwesomeOutlinedIcon,
+            })}
+            {renderNivelCard({
+              label: 'XP Atual',
+              value: xpAtual,
+              description: 'Experiência acumulada',
+              icon: AutoAwesomeOutlinedIcon,
+            })}
+            {renderNivelCard({
+              label: 'Pontos Principais',
+              value: pontosPrincipaisDisponiveis,
+              description: 'Disponíveis',
+              icon: AutoAwesomeOutlinedIcon,
+            })}
+            {renderNivelCard({
+              label: 'Pontos Secundários',
+              value: pontosSecundariosDisponiveis,
+              description: 'Disponíveis',
+              icon: AutoAwesomeOutlinedIcon,
+            })}
+          </Box>
+          {renderNivelHistorico()}
+        </Box>
+      );
+    };
+
+    const renderedKeys = new Set();
+
+    // Marcar campos utilizados para que não apareçam em outros painéis.
+    [
+      'nivel',
+      'level',
+      'nivelAtual',
+      'nivel_atual',
+      'xpAtual',
+      'xp_atual',
+      'xp',
+      'experienciaAtual',
+      'experiencia_atual',
+      'experiencia',
+      'experience',
+      'pontosPrincipais',
+      'pontos_principais',
+      'pontosPrincipaisDisponiveis',
+      'pontos_principais_disponiveis',
+      'pontosPrincipaisAtuais',
+      'pontos_principais_atuais',
+      'mainPoints',
+      'pointsMain',
+      'pontosSecundarios',
+      'pontos_secundarios',
+      'pontosSecundariosDisponiveis',
+      'pontos_secundarios_disponiveis',
+      'pontosSecundariosAtuais',
+      'pontos_secundarios_atuais',
+      'secondaryPoints',
+      'pointsSecondary',
+      'historicoNivel',
+      'historico_nivel',
+      'nivelHistorico',
+      'nivel_historico',
+      'historicoLevel',
+      'historico_level',
+      'levelHistory',
+      'level_history',
+    ].forEach(key => renderedKeys.add(key));
 
     // Helpers para renderizar listas de atributos com alinhamento nome/valor
     const renderAttributeList = (obj, primaryOrder) => {
@@ -3078,8 +5318,18 @@ const PersonagemFichaDialog = ({
               <Typography sx={{ color: 'var(--text-secondary)' }}>
                 {humanizarLabel(k)}
               </Typography>
-              <Typography sx={{ color: 'var(--text-primary)', fontWeight: 700, textAlign: 'right' }}>
-                {ehTimestamp(v) ? formatarTimestamp(v) : Array.isArray(v) ? v.join(', ') : String(v)}
+              <Typography
+                sx={{
+                  color: 'var(--text-primary)',
+                  fontWeight: 700,
+                  textAlign: 'right',
+                }}
+              >
+                {ehTimestamp(v)
+                  ? formatarTimestamp(v)
+                  : Array.isArray(v)
+                    ? v.join(', ')
+                    : String(v)}
               </Typography>
             </Box>
           ))}
@@ -3087,15 +5337,26 @@ const PersonagemFichaDialog = ({
       );
     };
 
-    
     // Ordem visual obrigatória conforme pedido do usuário
     const orderedGroups = [
       { key: 'atributosBonus', title: 'Atributos Bônus', type: 'primarios' },
       { key: 'atributosExtra', title: 'Atributos Extra', type: 'primarios' },
-      { key: 'secundariosExtra', title: 'Secundários Extra', type: 'secundarios' },
-      { key: 'secundariosBonus', title: 'Secundários Bônus', type: 'secundarios' },
+      {
+        key: 'secundariosExtra',
+        title: 'Secundários Extra',
+        type: 'secundarios',
+      },
+      {
+        key: 'secundariosBonus',
+        title: 'Secundários Bônus',
+        type: 'secundarios',
+      },
       { key: 'atributosBase', title: 'Atributos Base', type: 'primarios' },
-      { key: 'secundariosBase', title: 'Secundários Base', type: 'secundarios' },
+      {
+        key: 'secundariosBase',
+        title: 'Secundários Base',
+        type: 'secundarios',
+      },
     ];
 
     // Render de atributos totais em grade compacta com estilo dourado
@@ -3103,18 +5364,69 @@ const PersonagemFichaDialog = ({
       const obj = personagem?.atributosTotais ?? personagem?.atributos;
       if (!obj || typeof obj !== 'object') return null;
       renderedKeys.add('atributosTotais');
-      const itens = ATRIBUTOS_PRINCIPAIS_DIALOG.map(({ label, aliases }) => ({ label, key: aliases[0], value: obj[aliases[0]] ?? '—' }));
+      const itens = ATRIBUTOS_PRINCIPAIS_DIALOG.map(({ label, aliases }) => ({
+        label,
+        key: aliases[0],
+        value: obj[aliases[0]] ?? '—',
+      }));
 
       return (
-        <Paper elevation={0} sx={{ p: 2.25, background: 'rgba(15,23,42,0.35)', border: '1px solid rgba(212,175,55,0.12)', borderRadius: '16px' }}>
-          <Typography variant="subtitle2" sx={{ color: 'var(--color-accent)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1, mb: 1 }}>
+        <Paper
+          elevation={0}
+          sx={{
+            p: 2.25,
+            background: 'rgba(15,23,42,0.35)',
+            border: '1px solid rgba(212,175,55,0.12)',
+            borderRadius: '16px',
+          }}
+        >
+          <Typography
+            variant="subtitle2"
+            sx={{
+              color: 'var(--color-accent)',
+              fontWeight: 800,
+              textTransform: 'uppercase',
+              letterSpacing: 1,
+              mb: 1,
+            }}
+          >
             Atributos Totais
           </Typography>
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2,1fr)', sm: 'repeat(3,1fr)' }, gap: 1 }}>
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: 'repeat(2,1fr)', sm: 'repeat(3,1fr)' },
+              gap: 1,
+            }}
+          >
             {itens.map(item => (
-              <Box key={item.key} sx={{ p: 1.25, background: 'rgba(18,22,32,0.6)', borderRadius: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 84 }}>
-                <Typography sx={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>{item.label}</Typography>
-                <Typography sx={{ color: 'var(--text-primary)', fontWeight: 900, fontSize: '1.1rem' }}>{String(item.value)}</Typography>
+              <Box
+                key={item.key}
+                sx={{
+                  p: 1.25,
+                  background: 'rgba(18,22,32,0.6)',
+                  borderRadius: 1,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  minHeight: 84,
+                }}
+              >
+                <Typography
+                  sx={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}
+                >
+                  {item.label}
+                </Typography>
+                <Typography
+                  sx={{
+                    color: 'var(--text-primary)',
+                    fontWeight: 900,
+                    fontSize: '1.1rem',
+                  }}
+                >
+                  {String(item.value)}
+                </Typography>
               </Box>
             ))}
           </Box>
@@ -3126,17 +5438,68 @@ const PersonagemFichaDialog = ({
       const obj = personagem?.secundariosTotais ?? personagem?.secundarios;
       if (!obj || typeof obj !== 'object') return null;
       renderedKeys.add('secundariosTotais');
-      const itens = ATRIBUTOS_SECUNDARIOS_DIALOG.map(({ label, aliases }) => ({ label, key: aliases[0], value: obj[aliases[0]] ?? '—' }));
+      const itens = ATRIBUTOS_SECUNDARIOS_DIALOG.map(({ label, aliases }) => ({
+        label,
+        key: aliases[0],
+        value: obj[aliases[0]] ?? '—',
+      }));
       return (
-        <Paper elevation={0} sx={{ p: 2.25, background: 'rgba(15,23,42,0.35)', border: '1px solid rgba(212,175,55,0.12)', borderRadius: '16px' }}>
-          <Typography variant="subtitle2" sx={{ color: 'var(--color-accent)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1, mb: 1 }}>
+        <Paper
+          elevation={0}
+          sx={{
+            p: 2.25,
+            background: 'rgba(15,23,42,0.35)',
+            border: '1px solid rgba(212,175,55,0.12)',
+            borderRadius: '16px',
+          }}
+        >
+          <Typography
+            variant="subtitle2"
+            sx={{
+              color: 'var(--color-accent)',
+              fontWeight: 800,
+              textTransform: 'uppercase',
+              letterSpacing: 1,
+              mb: 1,
+            }}
+          >
             Secundários Totais
           </Typography>
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2,1fr)', sm: 'repeat(3,1fr)' }, gap: 1 }}>
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: 'repeat(2,1fr)', sm: 'repeat(3,1fr)' },
+              gap: 1,
+            }}
+          >
             {itens.map(item => (
-              <Box key={item.key} sx={{ p: 1.25, background: 'rgba(18,22,32,0.6)', borderRadius: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 84 }}>
-                <Typography sx={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>{item.label}</Typography>
-                <Typography sx={{ color: 'var(--text-primary)', fontWeight: 900, fontSize: '1.1rem' }}>{String(item.value)}</Typography>
+              <Box
+                key={item.key}
+                sx={{
+                  p: 1.25,
+                  background: 'rgba(18,22,32,0.6)',
+                  borderRadius: 1,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  minHeight: 84,
+                }}
+              >
+                <Typography
+                  sx={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}
+                >
+                  {item.label}
+                </Typography>
+                <Typography
+                  sx={{
+                    color: 'var(--text-primary)',
+                    fontWeight: 900,
+                    fontSize: '1.1rem',
+                  }}
+                >
+                  {String(item.value)}
+                </Typography>
               </Box>
             ))}
           </Box>
@@ -3145,7 +5508,6 @@ const PersonagemFichaDialog = ({
     };
 
     // Para rastrear quais campos já renderizamos e evitar duplicação
-    const renderedKeys = new Set();
 
     const renderGroup = ({ key, title, type }) => {
       const valor = personagem?.[key];
@@ -3176,19 +5538,36 @@ const PersonagemFichaDialog = ({
         return (
           <SmallPanel key={key} title={title}>
             {Array.isArray(nos) && nos.length > 0 ? (
-              <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  gap: 0.75,
+                  flexWrap: 'wrap',
+                  alignItems: 'flex-start',
+                }}
+              >
                 {nos.map((id, i) => {
                   const nome = resolverNome(noVeiaAstralNomes, id);
                   const icone = noVeiaAstralIcons[id];
                   return (
-                    <Box key={`${id}-${i}`} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5, width: 92 }}>
+                    <Box
+                      key={`${id}-${i}`}
+                      sx={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: 0.5,
+                        width: 92,
+                      }}
+                    >
                       <Box
                         aria-hidden
                         sx={{
                           width: 52,
                           height: 52,
                           borderRadius: '50%',
-                          background: 'linear-gradient(180deg, rgba(212,175,55,0.14), rgba(212,175,55,0.06))',
+                          background:
+                            'linear-gradient(180deg, rgba(212,175,55,0.14), rgba(212,175,55,0.06))',
                           border: '1px solid rgba(212,175,55,0.12)',
                           display: 'flex',
                           alignItems: 'center',
@@ -3201,22 +5580,60 @@ const PersonagemFichaDialog = ({
                         }}
                       >
                         {(() => {
-                          if (!icone) return <Typography sx={{ color: 'var(--text-primary)' }}>{String(nome).charAt(0) ?? '·'}</Typography>;
-                          const imagem = resolveImagemAsset({ imagem: icone, image: icone, icon: icone, token: icone, foto: icone, thumbnail: icone });
-                          const isUrl = typeof imagem === 'string' && (imagem.startsWith('http://') || imagem.startsWith('https://'));
+                          if (!icone)
+                            return (
+                              <Typography sx={{ color: 'var(--text-primary)' }}>
+                                {String(nome).charAt(0) ?? '·'}
+                              </Typography>
+                            );
+                          const imagem = resolveImagemAsset({
+                            imagem: icone,
+                            image: icone,
+                            icon: icone,
+                            token: icone,
+                            foto: icone,
+                            thumbnail: icone,
+                          });
+                          const isUrl =
+                            typeof imagem === 'string' &&
+                            (imagem.startsWith('http://') ||
+                              imagem.startsWith('https://'));
                           if (isUrl) {
                             return (
-                              <Box component="img" src={imagem} alt={nome} sx={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                              <Box
+                                component="img"
+                                src={imagem}
+                                alt={nome}
+                                sx={{
+                                  width: '100%',
+                                  height: '100%',
+                                  objectFit: 'cover',
+                                  display: 'block',
+                                }}
+                              />
                             );
                           }
                           return (
-                            <Typography sx={{ color: 'var(--text-primary)', fontSize: '1rem' }}>
+                            <Typography
+                              sx={{
+                                color: 'var(--text-primary)',
+                                fontSize: '1rem',
+                              }}
+                            >
                               {String(icone)}
                             </Typography>
                           );
                         })()}
                       </Box>
-                      <Typography sx={{ color: 'var(--text-primary)', fontSize: '0.75rem', textAlign: 'center', wordBreak: 'break-word', maxWidth: 88 }}>
+                      <Typography
+                        sx={{
+                          color: 'var(--text-primary)',
+                          fontSize: '0.75rem',
+                          textAlign: 'center',
+                          wordBreak: 'break-word',
+                          maxWidth: 88,
+                        }}
+                      >
                         {nome}
                       </Typography>
                     </Box>
@@ -3224,7 +5641,11 @@ const PersonagemFichaDialog = ({
                 })}
               </Box>
             ) : (
-              <Typography sx={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>—</Typography>
+              <Typography
+                sx={{ color: 'var(--text-muted)', fontStyle: 'italic' }}
+              >
+                —
+              </Typography>
             )}
           </SmallPanel>
         );
@@ -3235,14 +5656,42 @@ const PersonagemFichaDialog = ({
         return (
           <SmallPanel key={key} title={title}>
             <Box sx={{ display: 'grid', gap: 0.5 }}>
-              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr auto', alignItems: 'center' }}>
-                <Typography sx={{ color: 'var(--text-secondary)' }}>Fortuna Atual</Typography>
-                <Typography sx={{ color: 'var(--text-primary)', fontWeight: 800, textAlign: 'right' }}>{resolverValorSorte(personagem, ['sorte'])}</Typography>
+              <Box
+                sx={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr auto',
+                  alignItems: 'center',
+                }}
+              >
+                <Typography sx={{ color: 'var(--text-secondary)' }}>
+                  Fortuna Atual
+                </Typography>
+                <Typography
+                  sx={{
+                    color: 'var(--text-primary)',
+                    fontWeight: 800,
+                    textAlign: 'right',
+                  }}
+                >
+                  {resolverValorSorte(personagem, ['sorte'])}
+                </Typography>
               </Box>
               {personagem?.historicoSorte && (
-                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr auto', alignItems: 'center' }}>
-                  <Typography sx={{ color: 'var(--text-secondary)' }}>Última Rolagem</Typography>
-                  <Typography sx={{ color: 'var(--text-primary)', textAlign: 'right' }}>{String(personagem.historicoSorte?.slice(-1)[0] ?? '—')}</Typography>
+                <Box
+                  sx={{
+                    display: 'grid',
+                    gridTemplateColumns: '1fr auto',
+                    alignItems: 'center',
+                  }}
+                >
+                  <Typography sx={{ color: 'var(--text-secondary)' }}>
+                    Última Rolagem
+                  </Typography>
+                  <Typography
+                    sx={{ color: 'var(--text-primary)', textAlign: 'right' }}
+                  >
+                    {String(personagem.historicoSorte?.slice(-1)[0] ?? '—')}
+                  </Typography>
                 </Box>
               )}
             </Box>
@@ -3264,9 +5713,17 @@ const PersonagemFichaDialog = ({
         {(() => {
           const cols = 3;
           const per = Math.ceil(orderedGroups.length / cols);
-          const columns = Array.from({ length: cols }, (_, i) => orderedGroups.slice(i * per, (i + 1) * per));
+          const columns = Array.from({ length: cols }, (_, i) =>
+            orderedGroups.slice(i * per, (i + 1) * per),
+          );
           return (
-            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' }, gap: 2 }}>
+            <Box
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' },
+                gap: 2,
+              }}
+            >
               {columns.map((col, idx) => (
                 <Box key={idx} sx={{ display: 'grid', gap: 1 }}>
                   {col.map(g => renderGroup(g))}
@@ -3277,44 +5734,78 @@ const PersonagemFichaDialog = ({
         })()}
 
         {/* Atributos Totais e Secundários Totais lado a lado (2 colunas responsivas) */}
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
+            gap: 2,
+          }}
+        >
           {renderAtributosTotais()}
           {renderSecundariosTotais()}
         </Box>
 
+        {renderNivelSection()}
+
         {/* Raça / Habilidades Ativas em card compacto */}
         {/* Raça / Habilidades Ativas, Origem e Sorte em três colunas responsivas */}
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr 1fr' }, gap: 2 }}>
-          {personagemResolvido?.raca && (() => {
-            renderedKeys.add('raca');
-            return (
-              <SmallPanel title="Raça / Habilidades Ativas">
-                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
-                  <Typography sx={{ color: 'var(--text-primary)', fontWeight: 800 }}>{personagemResolvido.raca}</Typography>
-                  {personagemResolvido?.habilidadesAtivas ? (
-                    <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                      {personagemResolvido.habilidadesAtivas.map((h, i) => (
-                        <Paper key={`${h}-${i}`} elevation={0} sx={{ px: 1, py: 0.5, background: 'rgba(255,255,255,0.02)', borderRadius: 1 }}>
-                          <Typography sx={{ color: 'var(--text-primary)' }}>{String(h)}</Typography>
-                        </Paper>
-                      ))}
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: { xs: '1fr', md: 'repeat(4, 1fr)' },
+            gap: 2,
+          }}
+        >
+          {personagemResolvido?.raca &&
+            (() => {
+              renderedKeys.add('raca');
+              return (
+                <SmallPanel title="Raça / Habilidades Ativas">
+                  <Box sx={{ display: 'grid', gap: 1 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Box sx={{ width: 20, height: 20, borderRadius: '50%', background: 'linear-gradient(180deg, rgba(196,58,47,0.12), rgba(196,58,47,0.04))', display: 'grid', placeItems: 'center', color: 'rgba(196,58,47,0.95)' }}>✦</Box>
+                      <Typography sx={{ color: 'rgba(196,58,47,0.95)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.8 }}>{'Raça'}</Typography>
                     </Box>
-                  ) : null}
-                </Box>
-              </SmallPanel>
-            );
-          })()}
+                    <Box sx={{ p: 1, background: 'rgba(255,255,255,0.02)', borderRadius: 1 }}>
+                      <Typography sx={{ color: 'var(--text-primary)', fontWeight: 800 }}>{personagemResolvido.raca}</Typography>
+                    </Box>
+                    {personagemResolvido?.habilidadesAtivas ? (
+                      <Box sx={{ display: 'grid', gap: 0.5 }}>
+                        <Typography sx={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>Habilidades Ativas</Typography>
+                        <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                          {personagemResolvido.habilidadesAtivas.map((h, i) => (
+                            <Paper key={`${h}-${i}`} elevation={0} sx={{ px: 1, py: 0.5, background: 'rgba(18,22,32,0.6)', borderRadius: 1, border: '1px solid rgba(255,255,255,0.03)' }}>
+                              <Typography sx={{ color: 'var(--text-primary)', fontSize: '0.95rem' }}>{String(h)}</Typography>
+                            </Paper>
+                          ))}
+                        </Box>
+                      </Box>
+                    ) : null}
+                  </Box>
+                </SmallPanel>
+              );
+            })()}
 
-          {personagemResolvido?.origem && (() => {
-            renderedKeys.add('origem');
-            return (
-              <SmallPanel title="Origem">
-                <Box sx={{ fontFamily: 'monospace', wordBreak: 'break-all', whiteSpace: 'pre-wrap', p: 0.5 }}>
-                  <Typography sx={{ color: 'var(--text-primary)' }}>{String(personagemResolvido.origem)}</Typography>
-                </Box>
-              </SmallPanel>
-            );
-          })()}
+          {personagemResolvido?.origem &&
+            (() => {
+              renderedKeys.add('origem');
+              return (
+                <SmallPanel title="Origem">
+                  <Box
+                    sx={{
+                      fontFamily: 'monospace',
+                      wordBreak: 'break-all',
+                      whiteSpace: 'pre-wrap',
+                      p: 0.5,
+                    }}
+                  >
+                    <Typography sx={{ color: 'var(--text-primary)' }}>
+                      {String(personagemResolvido.origem)}
+                    </Typography>
+                  </Box>
+                </SmallPanel>
+              );
+            })()}
 
           {/* Sorte — mover para a terceira coluna junto com Raça/Origem */}
           {(() => {
@@ -3323,48 +5814,306 @@ const PersonagemFichaDialog = ({
             return (
               <SmallPanel title="Sorte">
                 <Box sx={{ display: 'grid', gap: 0.5 }}>
-                  <Box sx={{ display: 'grid', gridTemplateColumns: '1fr auto', alignItems: 'center' }}>
-                    <Typography sx={{ color: 'var(--text-secondary)' }}>Fortuna Atual</Typography>
-                    <Typography sx={{ color: 'var(--text-primary)', fontWeight: 800, textAlign: 'right' }}>{resolverValorSorte(personagem, ['sorte'])}</Typography>
+                  <Box
+                    sx={{
+                      display: 'grid',
+                      gridTemplateColumns: '1fr auto',
+                      alignItems: 'center',
+                    }}
+                  >
+                    <Typography sx={{ color: 'var(--text-secondary)' }}>
+                      Fortuna Atual
+                    </Typography>
+                    <Typography
+                      sx={{
+                        color: 'var(--text-primary)',
+                        fontWeight: 800,
+                        textAlign: 'right',
+                      }}
+                    >
+                      {resolverValorSorte(personagem, ['sorte'])}
+                    </Typography>
                   </Box>
                   {personagem?.historicoSorte && (
-                    <Box sx={{ display: 'grid', gridTemplateColumns: '1fr auto', alignItems: 'center' }}>
-                      <Typography sx={{ color: 'var(--text-secondary)' }}>Última Rolagem</Typography>
-                      <Typography sx={{ color: 'var(--text-primary)', textAlign: 'right' }}>{String(personagem.historicoSorte?.slice(-1)[0] ?? '—')}</Typography>
+                    <Box
+                      sx={{
+                        display: 'grid',
+                        gridTemplateColumns: '1fr auto',
+                        alignItems: 'center',
+                      }}
+                    >
+                      <Typography sx={{ color: 'var(--text-secondary)' }}>
+                        Última Rolagem
+                      </Typography>
+                      <Typography
+                        sx={{
+                          color: 'var(--text-primary)',
+                          textAlign: 'right',
+                        }}
+                      >
+                        {String(personagem.historicoSorte?.slice(-1)[0] ?? '—')}
+                      </Typography>
                     </Box>
                   )}
                 </Box>
               </SmallPanel>
             );
           })()}
+          {/* 4ª coluna: detectar campo extra de "Raça Habilidades Ativas" e renderizar ao lado */}
+          {(() => {
+            const extraKey = Object.keys(personagemResolvido || {}).find(
+              k =>
+                /raca.*habil/i.test(k) ||
+                /habil.*raca/i.test(k) ||
+                k.toLowerCase().includes('raca_habilidades') ||
+                k.toLowerCase().includes('racahabil'),
+            );
+            if (!extraKey) return null;
+            renderedKeys.add(extraKey);
+            // Renderizar sem título para evitar duplicação do header
+            return (
+              <Paper elevation={0} sx={{ p: 1.25, borderRadius: 1.5, background: 'rgba(18,22,32,0.85)', border: '1px solid rgba(255,255,255,0.04)' }}>
+                <SecaoCampo campo={extraKey} valor={personagemResolvido[extraKey]} />
+              </Paper>
+            );
+          })()}
         </Box>
 
-        {/* Loja Trapaceiro padronizada */}
+        {/* Loja Trapaceiro / Loja Rokmas padronizada */}
         {(() => {
+          const lojaDados =
+            personagem?.lojaRokmas ?? personagem?.lojaTrapaceiro ?? null;
+          const lojaTitle = personagem?.lojaRokmas
+            ? 'Loja Rokmas'
+            : 'Loja Trapaceiro';
+          renderedKeys.add('lojaRokmas');
           renderedKeys.add('lojaTrapaceiro');
-          return ehVazio(personagem?.lojaTrapaceiro) ? (
-            <SmallPanel title="Loja Trapaceiro">
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Typography sx={{ color: 'var(--text-muted)' }}>👜</Typography>
-                <Typography sx={{ color: 'var(--text-muted)' }}>Nenhum item disponível</Typography>
+
+          if (ehVazio(lojaDados)) {
+            return (
+              <SmallPanel title={lojaTitle}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Typography sx={{ color: 'var(--text-muted)' }}>
+                    👜
+                  </Typography>
+                  <Typography sx={{ color: 'var(--text-muted)' }}>
+                    Nenhum item disponível
+                  </Typography>
+                </Box>
+              </SmallPanel>
+            );
+          }
+
+          const saldoRokmas =
+            lojaDados?.saldoRokmas ??
+            lojaDados?.saldo_rokmas ??
+            lojaDados?.saldo ??
+            lojaDados?.balance ??
+            null;
+          const historicoCompras =
+            lojaDados?.historicoCompras ??
+            lojaDados?.historico_compras ??
+            lojaDados?.compras ??
+            lojaDados?.purchaseHistory ??
+            lojaDados?.history ??
+            null;
+
+          const hasSaldo = !ehVazio(saldoRokmas);
+          const hasHistorico = !ehVazio(historicoCompras);
+
+          return (
+            <SmallPanel title={lojaTitle}>
+              <Box sx={{ display: 'grid', gap: 2 }}>
+                {hasSaldo || hasHistorico ? (
+                  <Box
+                    sx={{
+                      display: 'grid',
+                      gap: 2,
+                      gridTemplateColumns: {
+                        xs: '1fr',
+                        md:
+                          hasSaldo && hasHistorico
+                            ? '260px minmax(0, 1fr)'
+                            : '1fr',
+                      },
+                    }}
+                  >
+                    {hasSaldo && (
+                      <Paper
+                        elevation={0}
+                        sx={{
+                          p: 2,
+                          background: 'rgba(18, 22, 32, 0.92)',
+                          border: '1px solid rgba(212,175,55,0.12)',
+                          borderRadius: 2,
+                          boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04)',
+                          minHeight: 100,
+                          display: 'flex',
+                          flexDirection: 'column',
+                          justifyContent: 'center',
+                          alignItems: 'center',
+                          gap: 1,
+                          textAlign: 'center',
+                        }}
+                      >
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            color: 'var(--text-muted)',
+                            textTransform: 'uppercase',
+                            letterSpacing: 1,
+                            fontWeight: 700,
+                          }}
+                        >
+                          Saldo Rokmas
+                        </Typography>
+                        <Typography
+                          sx={{
+                            color: 'var(--text-primary)',
+                            fontWeight: 800,
+                            fontSize: '1.8rem',
+                            lineHeight: 1,
+                          }}
+                        >
+                          {normalizarValorSimples(saldoRokmas) ?? '—'}
+                        </Typography>
+                      </Paper>
+                    )}
+                    {hasHistorico && (
+                      <Paper
+                        elevation={0}
+                        sx={{
+                          p: 2,
+                          background: 'rgba(12, 14, 20, 0.96)',
+                          border: '1px solid rgba(255,255,255,0.08)',
+                          borderRadius: 2,
+                          minHeight: 320,
+                          display: 'grid',
+                          gap: 1,
+                        }}
+                      >
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            color: 'var(--text-muted)',
+                            textTransform: 'uppercase',
+                            letterSpacing: 1,
+                            fontWeight: 700,
+                          }}
+                        >
+                          Histórico de Compras
+                        </Typography>
+                        {Array.isArray(historicoCompras) ? (
+                          <Box
+                            sx={{
+                              display: 'grid',
+                              gap: 1,
+                              maxHeight: 260,
+                              overflowY: 'auto',
+                              pr: 0.5,
+                            }}
+                          >
+                            {historicoCompras.map((item, index) => (
+                              <Paper
+                                key={`compra-${index}`}
+                                elevation={0}
+                                sx={{
+                                  p: 1.25,
+                                  background: 'rgba(255,255,255,0.04)',
+                                  border: '1px solid rgba(255,255,255,0.08)',
+                                  borderRadius: 1.5,
+                                }}
+                              >
+                                <CampoValor valor={item} />
+                              </Paper>
+                            ))}
+                          </Box>
+                        ) : (
+                          <CampoValor valor={historicoCompras} />
+                        )}
+                      </Paper>
+                    )}
+                  </Box>
+                ) : (
+                  <CampoValor valor={lojaDados} />
+                )}
               </Box>
-            </SmallPanel>
-          ) : (
-            <SmallPanel title="Loja Trapaceiro">
-              <CampoValor valor={personagem.lojaTrapaceiro} />
             </SmallPanel>
           );
         })()}
 
         {/* Veias Astrais por último (Sorte já foi movida para a coluna superior) */}
-        {renderGroup({ key: 'veiasAstrais', title: 'Veias Astrais', type: 'veias' })}
+        {renderGroup({
+          key: 'veiasAstrais',
+          title: 'Veias Astrais',
+          type: 'veias',
+        })}
 
-        {/* Renderizar qualquer campo não mapeado com o SecaoCampo (fallback) */}
+        {/* Renderizar qualquer campo não mapeado com tratamento visual especial */}
         {campos
           .filter(([campo]) => !renderedKeys.has(campo))
-          .map(([campo, valor]) => (
-            <SecaoCampo key={campo} campo={campo} valor={valor} />
-          ))}
+          .map(([campo, valor]) => {
+            // Reputações: transformar em stat-cards refinados
+            if (campo === 'reputacoes' && valor && typeof valor === 'object') {
+              const reputs = Object.entries(valor).filter(([, v]) => !ehVazio(v));
+              if (reputs.length === 0) {
+                return (
+                  <SmallPanel key={campo} title="Reputações">
+                    <Typography sx={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>—</Typography>
+                  </SmallPanel>
+                );
+              }
+
+              return (
+                <SmallPanel key={campo} title="Reputações">
+                  <Box sx={{ display: 'grid', gap: 1, gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(3, 1fr)', md: 'repeat(4, 1fr)' } }}>
+                    {reputs.map(([k, v]) => {
+                      const nomeLugar = extrairNomeLocal(v) ?? humanizarLabel(k);
+                      const imagemLugar = extrairImagemLocal(v);
+                      const valores = extrairFamaTerror(v);
+                      return (
+                        <Paper
+                          key={k}
+                          elevation={0}
+                          sx={{
+                            p: 1.25,
+                            borderRadius: 2,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 0.5,
+                            transition: 'transform 180ms ease, box-shadow 180ms ease',
+                            overflow: 'hidden',
+                            position: 'relative',
+                            backgroundImage: imagemLugar
+                              ? `linear-gradient(to bottom, rgba(6,8,12,0.62), rgba(6,8,12,0.7)), url(${imagemLugar})`
+                              : 'linear-gradient(180deg, rgba(18,22,32,0.78), rgba(12,14,20,0.9))',
+                            backgroundSize: 'cover',
+                            backgroundPosition: 'center',
+                            border: '1px solid rgba(255,255,255,0.04)',
+                            '&:hover': {
+                              transform: 'translateY(-4px)',
+                              boxShadow: '0 10px 30px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.02)'
+                            }
+                          }}
+                        >
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Typography sx={{ color: 'rgba(255,255,255,0.88)', fontSize: '0.78rem', fontWeight: 700 }}>{nomeLugar}</Typography>
+                          </Box>
+                          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', pt: 1 }}>
+                            <Typography sx={{ color: 'var(--text-primary)', fontWeight: 900, fontSize: '1.25rem' }}>
+                              {`Fama: ${String(valores.fama)} • Terror: ${String(valores.terror)}`}
+                            </Typography>
+                          </Box>
+                        </Paper>
+                      );
+                    })}
+                  </Box>
+                </SmallPanel>
+              );
+            }
+
+            return <SecaoCampo key={campo} campo={campo} valor={valor} />;
+          })}
       </Box>
     );
   };
@@ -3423,7 +6172,8 @@ const PersonagemFichaDialog = ({
           sx: {
             width: 'min(1400px, calc(100vw - 48px))',
             maxHeight: '92vh',
-            background: 'linear-gradient(145deg, rgba(12, 14, 20, 0.99) 0%, rgba(7, 9, 14, 0.98) 100%)',
+            background:
+              'linear-gradient(145deg, rgba(12, 14, 20, 0.99) 0%, rgba(7, 9, 14, 0.98) 100%)',
             border: '1px solid rgba(255,255,255,0.08)',
             borderRadius: 3.5,
             overflow: 'hidden',
@@ -3438,7 +6188,8 @@ const PersonagemFichaDialog = ({
           px: { xs: 2.25, md: 3.25 },
           py: { xs: 2.25, md: 2.75 },
           borderBottom: '1px solid rgba(255,255,255,0.06)',
-          background: 'linear-gradient(180deg, rgba(16, 18, 26, 0.98) 0%, rgba(10, 12, 18, 0.96) 100%)',
+          background:
+            'linear-gradient(180deg, rgba(16, 18, 26, 0.98) 0%, rgba(10, 12, 18, 0.96) 100%)',
           top: 0,
           zIndex: 10,
           position: 'sticky',
@@ -3509,7 +6260,8 @@ const PersonagemFichaDialog = ({
       <Box
         sx={{
           borderBottom: '1px solid rgba(255,255,255,0.06)',
-          background: 'linear-gradient(180deg, rgba(14, 16, 24, 0.98) 0%, rgba(9, 11, 16, 0.96) 100%)',
+          background:
+            'linear-gradient(180deg, rgba(14, 16, 24, 0.98) 0%, rgba(9, 11, 16, 0.96) 100%)',
           position: 'sticky',
           top: '88px',
           zIndex: 9,
@@ -3562,7 +6314,8 @@ const PersonagemFichaDialog = ({
           <Tab label="Ficha" />
           {SUBCOLECOES.map(({ chave, label }, indice) => {
             const count =
-              subcolecoes[chave]?.status === 'ok' && subcolecoes[chave].docs.length > 0
+              subcolecoes[chave]?.status === 'ok' &&
+              subcolecoes[chave].docs.length > 0
                 ? subcolecoes[chave].docs.length
                 : null;
             return (
@@ -3581,7 +6334,8 @@ const PersonagemFichaDialog = ({
           px: { xs: 1.75, md: 2.75 },
           py: { xs: 2, md: 2.75 },
           overflowY: 'auto',
-          background: 'linear-gradient(180deg, rgba(7, 9, 14, 0.98) 0%, rgba(10, 12, 17, 0.97) 100%)',
+          background:
+            'linear-gradient(180deg, rgba(7, 9, 14, 0.98) 0%, rgba(10, 12, 17, 0.97) 100%)',
           scrollbarWidth: 'thin',
           scrollbarColor: 'rgba(255,255,255,0.16) transparent',
           '&::-webkit-scrollbar': {
@@ -3598,184 +6352,235 @@ const PersonagemFichaDialog = ({
       >
         <Box sx={{ display: 'grid', gap: 2.5, width: '100%' }}>
           {aba === 0 && (
-          <Box sx={{ display: 'grid', gap: 3 }}>
-            <Box
-              sx={{
-                display: 'grid',
-                gap: 3,
-                gridTemplateColumns: 'minmax(220px, 300px) minmax(0, 1fr)',
-                alignItems: 'start',
-              }}
-            >
-              <Paper
-                elevation={0}
+            <Box sx={{ display: 'grid', gap: 3 }}>
+              <Box
                 sx={{
-                  position: 'relative',
-                  overflow: 'hidden',
-                  borderRadius: 3,
-                  border: '1px solid rgba(255,255,255,0.08)',
-                  minHeight: 320,
-                  background: 'rgba(20, 24, 34, 0.98)',
+                  display: 'grid',
+                  gap: 3,
+                  gridTemplateColumns: 'minmax(220px, 300px) minmax(0, 1fr)',
+                  alignItems: 'start',
                 }}
               >
-                {personagem?.linkImagem ? (
-                  <Box
-                    component="img"
-                    src={personagem.linkImagem}
-                    alt={personagem.nome}
-                    loading="lazy"
-                    sx={{
-                      width: '100%',
-                      height: 320,
-                      objectFit: 'cover',
-                      display: 'block',
-                    }}
-                  />
-                ) : (
-                  <Box
-                    sx={{
-                      width: '100%',
-                      height: 320,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      background: 'rgba(255,255,255,0.04)',
-                    }}
-                  >
-                    <Typography sx={{ color: 'var(--text-muted)' }}>
-                      Sem imagem
-                    </Typography>
-                  </Box>
-                )}
-                <Box
-                  sx={{
-                    position: 'absolute',
-                    inset: 0,
-                    background:
-                      'linear-gradient(180deg, rgba(10,12,16,0.00) 0%, rgba(10,12,16,0.88) 100%)',
-                  }}
-                />
-              </Paper>
-              <Box sx={{ display: 'grid', gap: 2 }}>
                 <Paper
                   elevation={0}
                   sx={{
-                    p: 2,
-                    background: 'rgba(25, 28, 37, 0.96)',
+                    position: 'relative',
+                    overflow: 'hidden',
+                    borderRadius: 3,
                     border: '1px solid rgba(255,255,255,0.08)',
-                    borderRadius: 2,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 1,
+                    minHeight: 320,
+                    background: 'rgba(20, 24, 34, 0.98)',
                   }}
                 >
-                  <Typography
-                    variant="overline"
-                    sx={{
-                      color: 'var(--color-muted)',
-                      textTransform: 'uppercase',
-                      letterSpacing: 1,
-                    }}
-                  >
-                    Identidade
-                  </Typography>
-                  <Typography
-                    variant="h6"
-                    sx={{ color: 'var(--text-primary)', fontWeight: 700 }}
-                  >
-                    {personagem?.nome}
-                  </Typography>
-                  {resolverNomeCriador() && (
-                    <Typography sx={{ color: 'var(--text-secondary)' }}>
-                      Criado por {resolverNomeCriador()}
-                    </Typography>
-                  )}
-                  <Typography sx={{ color: 'var(--text-secondary)' }}>
-                    {construirMeta() || 'Nenhuma informação disponível'}
-                  </Typography>
-                  {/* Raça movida para o painel "Detalhes Adicionais" para evitar duplicação */}
-                  {personagemResolvido?.classes && (
+                  {personagem?.linkImagem ? (
+                    <Box
+                      component="img"
+                      src={personagem.linkImagem}
+                      alt={personagem.nome}
+                      loading="lazy"
+                      sx={{
+                        width: '100%',
+                        height: 320,
+                        objectFit: 'cover',
+                        display: 'block',
+                      }}
+                    />
+                  ) : (
                     <Box
                       sx={{
+                        width: '100%',
+                        height: 320,
                         display: 'flex',
-                        flexWrap: 'wrap',
-                        gap: 1,
-                        alignItems: 'baseline',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        background: 'rgba(255,255,255,0.04)',
                       }}
                     >
-                      <Typography sx={{ color: 'var(--text-muted)', mr: 0.5 }}>
-                        Classes:
+                      <Typography sx={{ color: 'var(--text-muted)' }}>
+                        Sem imagem
                       </Typography>
-                      {personagemResolvido.classes.map((classe, index) => (
-                        <Typography
-                          key={`${classe}-${index}`}
-                          sx={{ color: 'var(--text-primary)' }}
-                        >
-                          {classe}
-                        </Typography>
-                      ))}
                     </Box>
                   )}
-                </Paper>
-
-                <Paper
-                  elevation={0}
-                  sx={{
-                    p: 2,
-                    background: 'rgba(25, 28, 37, 0.96)',
-                    border: '1px solid rgba(255,255,255,0.08)',
-                    borderRadius: 2,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 1,
-                  }}
-                >
-                  <Typography
-                    variant="overline"
+                  <Box
                     sx={{
-                      color: 'var(--color-muted)',
-                      textTransform: 'uppercase',
-                      letterSpacing: 1,
+                      position: 'absolute',
+                      inset: 0,
+                      background:
+                        'linear-gradient(180deg, rgba(10,12,16,0.00) 0%, rgba(10,12,16,0.88) 100%)',
+                    }}
+                  />
+                </Paper>
+                <Box sx={{ display: 'grid', gap: 2 }}>
+                  <Paper
+                    elevation={0}
+                    sx={{
+                      p: 2,
+                      background: 'rgba(25, 28, 37, 0.96)',
+                      border: '1px solid rgba(255,255,255,0.08)',
+                      borderRadius: 2,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 1,
                     }}
                   >
-                    Power Combat
-                  </Typography>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <SportsMmaOutlinedIcon
-                      sx={{ color: 'var(--color-accent)', fontSize: 22 }}
-                    />
                     <Typography
-                      variant="h4"
-                      sx={{ color: 'var(--text-primary)', fontWeight: 800 }}
+                      variant="overline"
+                      sx={{
+                        color: 'var(--color-muted)',
+                        textTransform: 'uppercase',
+                        letterSpacing: 1,
+                      }}
                     >
-                      {personagem?.powerCombat ?? '—'}
+                      Identidade
                     </Typography>
-                  </Box>
-                </Paper>
-              </Box>
-            </Box>
+                    <Typography
+                      variant="h6"
+                      sx={{ color: 'var(--text-primary)', fontWeight: 700 }}
+                    >
+                      {personagem?.nome}
+                    </Typography>
+                    {resolverNomeCriador() && (
+                      <Typography sx={{ color: 'var(--text-secondary)' }}>
+                        Criado por {resolverNomeCriador()}
+                      </Typography>
+                    )}
+                    <Typography sx={{ color: 'var(--text-secondary)' }}>
+                      {construirMeta() || 'Nenhuma informação disponível'}
+                    </Typography>
+                    {/* Raça movida para o painel "Detalhes Adicionais" para evitar duplicação */}
+                    {personagemResolvido?.classes && (
+                      <Box
+                        sx={{
+                          display: 'flex',
+                          flexWrap: 'wrap',
+                          gap: 1,
+                          alignItems: 'baseline',
+                        }}
+                      >
+                        <Typography
+                          sx={{ color: 'var(--text-muted)', mr: 0.5 }}
+                        >
+                          Classes:
+                        </Typography>
+                        {personagemResolvido.classes.map((classe, index) => (
+                          <Typography
+                            key={`${classe}-${index}`}
+                            sx={{ color: 'var(--text-primary)' }}
+                          >
+                            {classe}
+                          </Typography>
+                        ))}
+                      </Box>
+                    )}
+                  </Paper>
 
-            <Box
-              sx={{
-                display: 'grid',
-                gap: 3,
-                gridTemplateColumns: '1fr 1fr',
-              }}
-            >
-              <PanelCard title="Atributos Principais">
+                  <Paper
+                    elevation={0}
+                    sx={{
+                      p: 2,
+                      background: 'rgba(25, 28, 37, 0.96)',
+                      border: '1px solid rgba(255,255,255,0.08)',
+                      borderRadius: 2,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 1,
+                    }}
+                  >
+                    <Typography
+                      variant="overline"
+                      sx={{
+                        color: 'var(--color-muted)',
+                        textTransform: 'uppercase',
+                        letterSpacing: 1,
+                      }}
+                    >
+                      Power Combat
+                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <SportsMmaOutlinedIcon
+                        sx={{ color: 'var(--color-accent)', fontSize: 22 }}
+                      />
+                      <Typography
+                        variant="h4"
+                        sx={{ color: 'var(--text-primary)', fontWeight: 800 }}
+                      >
+                        {personagem?.powerCombat ?? '—'}
+                      </Typography>
+                    </Box>
+                  </Paper>
+                </Box>
+              </Box>
+
+              <Box
+                sx={{
+                  display: 'grid',
+                  gap: 3,
+                  gridTemplateColumns: '1fr 1fr',
+                }}
+              >
+                <PanelCard title="Atributos Principais">
+                  <Box
+                    aria-label="Grade de atributos principais"
+                    sx={{
+                      display: 'grid',
+                      gap: 2,
+                      gridTemplateColumns: {
+                        xs: 'repeat(2, minmax(0, 1fr))',
+                        sm: 'repeat(3, minmax(0, 1fr))',
+                        md: 'repeat(6, minmax(0, 1fr))',
+                      },
+                    }}
+                  >
+                    {atributosPrincipais.map(item => (
+                      <AtributoCard
+                        key={item.label}
+                        icon={item.icon}
+                        label={item.label}
+                        value={item.value}
+                      />
+                    ))}
+                  </Box>
+                </PanelCard>
+
+                <PanelCard title="Status">
+                  <Box
+                    aria-label="Grade de status"
+                    sx={{
+                      display: 'grid',
+                      gap: 2,
+                      gridTemplateColumns: {
+                        xs: '1fr',
+                        sm: 'repeat(3, minmax(0, 1fr))',
+                      },
+                      justifyItems: 'center',
+                    }}
+                  >
+                    {statusCards.map(item => (
+                      <StatusCard
+                        key={item.label}
+                        label={item.label}
+                        value={item.value}
+                        sublabel={item.sublabel}
+                      />
+                    ))}
+                  </Box>
+                </PanelCard>
+              </Box>
+
+              <PanelCard
+                title="Atributos Totais"
+                collapsible
+                isOpen={collapseStates.atributosTotais}
+                onToggle={() => toggleCollapse('atributosTotais')}
+              >
                 <Box
-                  aria-label="Grade de atributos principais"
                   sx={{
                     display: 'grid',
                     gap: 2,
-                    gridTemplateColumns: {
-                      xs: 'repeat(2, minmax(0, 1fr))',
-                      sm: 'repeat(3, minmax(0, 1fr))',
-                      md: 'repeat(6, minmax(0, 1fr))',
-                    },
+                    gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
                   }}
                 >
-                  {atributosPrincipais.map(item => (
+                  {atributosTotais.map(item => (
                     <AtributoCard
                       key={item.label}
                       icon={item.icon}
@@ -3786,473 +6591,639 @@ const PersonagemFichaDialog = ({
                 </Box>
               </PanelCard>
 
-              <PanelCard title="Status">
+              <PanelCard
+                title="Atributos Secundários"
+                collapsible
+                isOpen={collapseStates.atributosSecundarios}
+                onToggle={() => toggleCollapse('atributosSecundarios')}
+              >
                 <Box
-                  aria-label="Grade de status"
                   sx={{
                     display: 'grid',
                     gap: 2,
-                    gridTemplateColumns: {
-                      xs: '1fr',
-                      sm: 'repeat(3, minmax(0, 1fr))',
-                    },
-                    justifyItems: 'center',
+                    gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
                   }}
                 >
-                  {statusCards.map(item => (
-                    <StatusCard
+                  {atributosSecundarios.map(item => (
+                    <AtributoCard
                       key={item.label}
+                      icon={item.icon}
                       label={item.label}
                       value={item.value}
-                      sublabel={item.sublabel}
                     />
                   ))}
                 </Box>
               </PanelCard>
-            </Box>
 
-            <PanelCard
-              title="Atributos Totais"
-              collapsible
-              isOpen={collapseStates.atributosTotais}
-              onToggle={() => toggleCollapse('atributosTotais')}
-            >
-              <Box
-                sx={{
-                  display: 'grid',
-                  gap: 2,
-                  gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-                }}
+              <PanelCard
+                title="Atributos Detalhados"
+                collapsible
+                isOpen={collapseStates.atributosDetalhados}
+                onToggle={() => toggleCollapse('atributosDetalhados')}
               >
-                {atributosTotais.map(item => (
-                  <AtributoCard
-                    key={item.label}
-                    icon={item.icon}
-                    label={item.label}
-                    value={item.value}
-                  />
-                ))}
-              </Box>
-            </PanelCard>
-
-            <PanelCard
-              title="Atributos Secundários"
-              collapsible
-              isOpen={collapseStates.atributosSecundarios}
-              onToggle={() => toggleCollapse('atributosSecundarios')}
-            >
-              <Box
-                sx={{
-                  display: 'grid',
-                  gap: 2,
-                  gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-                }}
-              >
-                {atributosSecundarios.map(item => (
-                  <AtributoCard
-                    key={item.label}
-                    icon={item.icon}
-                    label={item.label}
-                    value={item.value}
-                  />
-                ))}
-              </Box>
-            </PanelCard>
-
-            <PanelCard
-              title="Atributos Detalhados"
-              collapsible
-              isOpen={collapseStates.atributosDetalhados}
-              onToggle={() => toggleCollapse('atributosDetalhados')}
-            >
-              <Box sx={{ overflowX: 'auto', width: '100%' }}>
-                <Box
-                  sx={{
-                    width: '100%',
-                    minWidth: { xs: 0, sm: 640 },
-                    borderCollapse: 'collapse',
-                    tableLayout: 'fixed',
-                  }}
-                  component="table"
-                >
-                  <Box component="thead">
-                    <Box component="tr" sx={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                      <Box component="th" sx={{ textAlign: 'left', py: 1, px: 1.25 }}>
-                        <Typography sx={{ color: 'var(--text-secondary)', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: 1 }}>Atributo</Typography>
-                      </Box>
-                      <Box component="th" sx={{ textAlign: 'right', py: 1, px: 1.25 }}>
-                        <Typography sx={{ color: 'var(--text-secondary)', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: 1 }}>Base</Typography>
-                      </Box>
-                      <Box component="th" sx={{ textAlign: 'right', py: 1, px: 1.25 }}>
-                        <Typography sx={{ color: 'var(--text-secondary)', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: 1 }}>Bônus</Typography>
-                      </Box>
-                      <Box component="th" sx={{ textAlign: 'right', py: 1, px: 1.25 }}>
-                        <Typography sx={{ color: 'var(--text-secondary)', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: 1 }}>Extra</Typography>
-                      </Box>
-                      <Box component="th" sx={{ textAlign: 'right', py: 1, px: 1.25 }}>
-                        <Typography sx={{ color: 'var(--text-secondary)', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: 1 }}>Total</Typography>
-                      </Box>
-                    </Box>
-                  </Box>
-                  <Box component="tbody">
-                    {ATRIBUTOS_PRINCIPAIS_DIALOG.map(({ label, icon: Icon, aliases }) => {
-                      const [chave] = aliases;
-                      const base = personagem?.atributosBase?.[chave] ?? '—';
-                      const bonus = personagem?.atributosBonus?.[chave] ?? '—';
-                      const extra = personagem?.atributosExtra?.[chave] ?? '—';
-                      const total = resolverValorAtributoPrimario(personagem, aliases);
-                      return (
-                        <Box key={label} component="tr" sx={{ borderBottom: '1px solid rgba(255,255,255,0.02)', '&:hover': { background: 'rgba(255,255,255,0.01)' } }}>
-                          <Box component="td" sx={{ py: 1.25, px: 1.25 }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                              {Icon && <Icon sx={{ color: 'var(--color-accent)', fontSize: 18 }} />}
-                              <Typography sx={{ color: 'var(--text-primary)', fontWeight: 700 }}>{label}</Typography>
-                            </Box>
-                          </Box>
-
-                          <Box component="td" sx={{ py: 1.25, px: 1.25, textAlign: 'right' }}>
-                            <Typography sx={{ color: 'var(--text-secondary)' }}>{String(base)}</Typography>
-                          </Box>
-                          <Box component="td" sx={{ py: 1.25, px: 1.25, textAlign: 'right' }}>
-                            <Typography sx={{ color: 'var(--text-secondary)' }}>{String(bonus)}</Typography>
-                          </Box>
-                          <Box component="td" sx={{ py: 1.25, px: 1.25, textAlign: 'right' }}>
-                            <Typography sx={{ color: 'var(--text-secondary)' }}>{String(extra)}</Typography>
-                          </Box>
-
-                          <Box component="td" sx={{ py: 1.25, px: 1.25, textAlign: 'right' }}>
-                            <Box sx={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', minWidth: 64, px: 1.25, py: 0.5, borderRadius: 999, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.04)' }}>
-                              <Typography sx={{ color: 'var(--text-primary)', fontWeight: 800 }}>{String(total)}</Typography>
-                            </Box>
-                          </Box>
-                        </Box>
-                      );
-                    })}
-                  </Box>
-                </Box>
-              </Box>
-            </PanelCard>
-
-            <PanelCard
-              title="Informações do Jogador"
-              collapsible
-              isOpen={collapseStates.infoJogador}
-              onToggle={() => toggleCollapse('infoJogador')}
-            >
-              {temInfoJogador ? (
-                <Box sx={{ display: 'grid', gap: 1.5 }}>
-                  <Paper elevation={0} sx={painelInfoJogadorSx}>
-                    <Box sx={{ position: 'relative', zIndex: 1, display: 'grid', gap: 1.25 }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, flexWrap: 'wrap' }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <Box sx={chipInfoJogadorSx}>Jogador</Box>
+                <Box sx={{ overflowX: 'auto', width: '100%' }}>
+                  <Box
+                    sx={{
+                      width: '100%',
+                      minWidth: { xs: 0, sm: 640 },
+                      borderCollapse: 'collapse',
+                      tableLayout: 'fixed',
+                    }}
+                    component="table"
+                  >
+                    <Box component="thead">
+                      <Box
+                        component="tr"
+                        sx={{
+                          borderBottom: '1px solid rgba(255,255,255,0.04)',
+                        }}
+                      >
+                        <Box
+                          component="th"
+                          sx={{ textAlign: 'left', py: 1, px: 1.25 }}
+                        >
                           <Typography
                             sx={{
                               color: 'var(--text-secondary)',
-                              fontSize: '0.85rem',
-                              fontWeight: 600,
+                              fontSize: '0.75rem',
+                              textTransform: 'uppercase',
+                              letterSpacing: 1,
                             }}
                           >
-                            Perfil narrativo e contexto do personagem
+                            Atributo
+                          </Typography>
+                        </Box>
+                        <Box
+                          component="th"
+                          sx={{ textAlign: 'right', py: 1, px: 1.25 }}
+                        >
+                          <Typography
+                            sx={{
+                              color: 'var(--text-secondary)',
+                              fontSize: '0.75rem',
+                              textTransform: 'uppercase',
+                              letterSpacing: 1,
+                            }}
+                          >
+                            Base
+                          </Typography>
+                        </Box>
+                        <Box
+                          component="th"
+                          sx={{ textAlign: 'right', py: 1, px: 1.25 }}
+                        >
+                          <Typography
+                            sx={{
+                              color: 'var(--text-secondary)',
+                              fontSize: '0.75rem',
+                              textTransform: 'uppercase',
+                              letterSpacing: 1,
+                            }}
+                          >
+                            Bônus
+                          </Typography>
+                        </Box>
+                        <Box
+                          component="th"
+                          sx={{ textAlign: 'right', py: 1, px: 1.25 }}
+                        >
+                          <Typography
+                            sx={{
+                              color: 'var(--text-secondary)',
+                              fontSize: '0.75rem',
+                              textTransform: 'uppercase',
+                              letterSpacing: 1,
+                            }}
+                          >
+                            Extra
+                          </Typography>
+                        </Box>
+                        <Box
+                          component="th"
+                          sx={{ textAlign: 'right', py: 1, px: 1.25 }}
+                        >
+                          <Typography
+                            sx={{
+                              color: 'var(--text-secondary)',
+                              fontSize: '0.75rem',
+                              textTransform: 'uppercase',
+                              letterSpacing: 1,
+                            }}
+                          >
+                            Total
                           </Typography>
                         </Box>
                       </Box>
+                    </Box>
+                    <Box component="tbody">
+                      {ATRIBUTOS_PRINCIPAIS_DIALOG.map(
+                        ({ label, icon: Icon, aliases }) => {
+                          const [chave] = aliases;
+                          const base =
+                            personagem?.atributosBase?.[chave] ?? '—';
+                          const bonus =
+                            personagem?.atributosBonus?.[chave] ?? '—';
+                          const extra =
+                            personagem?.atributosExtra?.[chave] ?? '—';
+                          const total = resolverValorAtributoPrimario(
+                            personagem,
+                            aliases,
+                          );
+                          return (
+                            <Box
+                              key={label}
+                              component="tr"
+                              sx={{
+                                borderBottom:
+                                  '1px solid rgba(255,255,255,0.02)',
+                                '&:hover': {
+                                  background: 'rgba(255,255,255,0.01)',
+                                },
+                              }}
+                            >
+                              <Box component="td" sx={{ py: 1.25, px: 1.25 }}>
+                                <Box
+                                  sx={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 1,
+                                  }}
+                                >
+                                  {Icon && (
+                                    <Icon
+                                      sx={{
+                                        color: 'var(--color-accent)',
+                                        fontSize: 18,
+                                      }}
+                                    />
+                                  )}
+                                  <Typography
+                                    sx={{
+                                      color: 'var(--text-primary)',
+                                      fontWeight: 700,
+                                    }}
+                                  >
+                                    {label}
+                                  </Typography>
+                                </Box>
+                              </Box>
 
-                      <Paper
-                        elevation={0}
+                              <Box
+                                component="td"
+                                sx={{ py: 1.25, px: 1.25, textAlign: 'right' }}
+                              >
+                                <Typography
+                                  sx={{ color: 'var(--text-secondary)' }}
+                                >
+                                  {String(base)}
+                                </Typography>
+                              </Box>
+                              <Box
+                                component="td"
+                                sx={{ py: 1.25, px: 1.25, textAlign: 'right' }}
+                              >
+                                <Typography
+                                  sx={{ color: 'var(--text-secondary)' }}
+                                >
+                                  {String(bonus)}
+                                </Typography>
+                              </Box>
+                              <Box
+                                component="td"
+                                sx={{ py: 1.25, px: 1.25, textAlign: 'right' }}
+                              >
+                                <Typography
+                                  sx={{ color: 'var(--text-secondary)' }}
+                                >
+                                  {String(extra)}
+                                </Typography>
+                              </Box>
+
+                              <Box
+                                component="td"
+                                sx={{ py: 1.25, px: 1.25, textAlign: 'right' }}
+                              >
+                                <Box
+                                  sx={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'flex-end',
+                                    minWidth: 64,
+                                    px: 1.25,
+                                    py: 0.5,
+                                    borderRadius: 999,
+                                    background: 'rgba(255,255,255,0.03)',
+                                    border: '1px solid rgba(255,255,255,0.04)',
+                                  }}
+                                >
+                                  <Typography
+                                    sx={{
+                                      color: 'var(--text-primary)',
+                                      fontWeight: 800,
+                                    }}
+                                  >
+                                    {String(total)}
+                                  </Typography>
+                                </Box>
+                              </Box>
+                            </Box>
+                          );
+                        },
+                      )}
+                    </Box>
+                  </Box>
+                </Box>
+              </PanelCard>
+
+              <PanelCard
+                title="Informações do Jogador"
+                collapsible
+                isOpen={collapseStates.infoJogador}
+                onToggle={() => toggleCollapse('infoJogador')}
+              >
+                {temInfoJogador ? (
+                  <Box sx={{ display: 'grid', gap: 1.5 }}>
+                    <Paper elevation={0} sx={painelInfoJogadorSx}>
+                      <Box
                         sx={{
-                          ...painelInfoJogadorSx,
-                          p: 1.5,
-                          background:
-                            'linear-gradient(135deg, rgba(20, 24, 34, 0.96), rgba(10, 13, 21, 0.96))',
-                          boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.02)',
-                          '&::before': { display: 'none' },
+                          position: 'relative',
+                          zIndex: 1,
+                          display: 'grid',
+                          gap: 1.25,
+                        }}
+                      >
+                        <Box
+                          sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            gap: 1,
+                            flexWrap: 'wrap',
+                          }}
+                        >
+                          <Box
+                            sx={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 1,
+                            }}
+                          >
+                            <Box sx={chipInfoJogadorSx}>Jogador</Box>
+                            <Typography
+                              sx={{
+                                color: 'var(--text-secondary)',
+                                fontSize: '0.85rem',
+                                fontWeight: 600,
+                              }}
+                            >
+                              Perfil narrativo e contexto do personagem
+                            </Typography>
+                          </Box>
+                        </Box>
+
+                        <Paper
+                          elevation={0}
+                          sx={{
+                            ...painelInfoJogadorSx,
+                            p: 1.5,
+                            background:
+                              'linear-gradient(135deg, rgba(20, 24, 34, 0.96), rgba(10, 13, 21, 0.96))',
+                            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.02)',
+                            '&::before': { display: 'none' },
+                          }}
+                        >
+                          <Typography
+                            variant="overline"
+                            sx={{
+                              color: 'var(--color-accent)',
+                              textTransform: 'uppercase',
+                              letterSpacing: '0.18em',
+                              fontSize: '0.64rem',
+                              mb: 0.8,
+                              display: 'block',
+                            }}
+                          >
+                            BACKGROUND
+                          </Typography>
+                          <Typography sx={textoScrollSx}>
+                            {infoJogador.background ??
+                              'Nenhuma informação cadastrada.'}
+                          </Typography>
+                        </Paper>
+
+                        <Paper
+                          elevation={0}
+                          sx={{
+                            ...painelInfoJogadorSx,
+                            p: 1.5,
+                            background:
+                              'linear-gradient(135deg, rgba(16, 20, 30, 0.96), rgba(10, 13, 21, 0.96))',
+                            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.02)',
+                            '&::before': { display: 'none' },
+                          }}
+                        >
+                          <Typography
+                            variant="overline"
+                            sx={{
+                              color: 'var(--color-accent)',
+                              textTransform: 'uppercase',
+                              letterSpacing: '0.18em',
+                              fontSize: '0.64rem',
+                              mb: 0.8,
+                              display: 'block',
+                            }}
+                          >
+                            NOTAS ADICIONAIS
+                          </Typography>
+                          <Typography sx={textoScrollSx}>
+                            {infoJogador.notasAdicionais ??
+                              'Nenhuma informação cadastrada.'}
+                          </Typography>
+                        </Paper>
+
+                        <Box
+                          sx={{
+                            display: 'grid',
+                            gap: 1.25,
+                            gridTemplateColumns: {
+                              xs: '1fr',
+                              md: 'repeat(3, minmax(0, 1fr))',
+                            },
+                          }}
+                        >
+                          <Paper
+                            elevation={0}
+                            sx={{
+                              p: 1.35,
+                              background:
+                                'linear-gradient(135deg, rgba(18, 23, 33, 0.96), rgba(10, 13, 21, 0.94))',
+                              border: '1px solid rgba(255,255,255,0.06)',
+                              borderRadius: 1.75,
+                              minHeight: 108,
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: 0.6,
+                              boxShadow: '0 8px 22px rgba(0, 0, 0, 0.12)',
+                            }}
+                          >
+                            <Typography
+                              variant="overline"
+                              sx={{
+                                color: 'var(--color-accent)',
+                                letterSpacing: '0.16em',
+                                fontSize: '0.62rem',
+                                textTransform: 'uppercase',
+                              }}
+                            >
+                              TÍTULO
+                            </Typography>
+                            <Typography sx={valorInfoJogadorSx}>
+                              {infoJogador.titulo ?? '—'}
+                            </Typography>
+                          </Paper>
+
+                          <Paper
+                            elevation={0}
+                            sx={{
+                              p: 1.35,
+                              background:
+                                'linear-gradient(135deg, rgba(18, 23, 33, 0.96), rgba(10, 13, 21, 0.94))',
+                              border: '1px solid rgba(255,255,255,0.06)',
+                              borderRadius: 1.75,
+                              minHeight: 108,
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: 0.6,
+                              boxShadow: '0 8px 22px rgba(0, 0, 0, 0.12)',
+                            }}
+                          >
+                            <Typography
+                              variant="overline"
+                              sx={{
+                                color: 'var(--color-accent)',
+                                letterSpacing: '0.16em',
+                                fontSize: '0.62rem',
+                                textTransform: 'uppercase',
+                              }}
+                            >
+                              AFILIAÇÃO
+                            </Typography>
+                            <Typography sx={valorInfoJogadorSx}>
+                              {infoJogador.afiliacao ?? '—'}
+                            </Typography>
+                          </Paper>
+
+                          <Paper
+                            elevation={0}
+                            sx={{
+                              p: 1.35,
+                              background:
+                                'linear-gradient(135deg, rgba(18, 23, 33, 0.96), rgba(10, 13, 21, 0.94))',
+                              border: '1px solid rgba(255,255,255,0.06)',
+                              borderRadius: 1.75,
+                              minHeight: 108,
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: 0.6,
+                              boxShadow: '0 8px 22px rgba(0, 0, 0, 0.12)',
+                            }}
+                          >
+                            <Typography
+                              variant="overline"
+                              sx={{
+                                color: 'var(--color-accent)',
+                                letterSpacing: '0.16em',
+                                fontSize: '0.62rem',
+                                textTransform: 'uppercase',
+                              }}
+                            >
+                              STATUS NARRATIVO
+                            </Typography>
+                            <Typography sx={valorInfoJogadorSx}>
+                              {infoJogador.statusNarrativo ?? '—'}
+                            </Typography>
+                          </Paper>
+                        </Box>
+                      </Box>
+                    </Paper>
+                  </Box>
+                ) : (
+                  <Box
+                    sx={{
+                      p: 2.25,
+                      background: 'rgba(10, 12, 17, 0.72)',
+                      border: '1px dashed rgba(255,255,255,0.08)',
+                      borderRadius: 2,
+                      color: 'var(--text-muted)',
+                    }}
+                  >
+                    <Typography
+                      sx={{ color: 'var(--text-muted)', fontStyle: 'italic' }}
+                    >
+                      Nenhuma informação disponível
+                    </Typography>
+                  </Box>
+                )}
+              </PanelCard>
+
+              <PanelCard
+                title="Detalhes Adicionais"
+                collapsible
+                isOpen={collapseStates.detalhesAdicionais}
+                onToggle={() => toggleCollapse('detalhesAdicionais')}
+              >
+                {renderFichaPrincipal()}
+              </PanelCard>
+            </Box>
+          )}
+
+          {aba >= 1 && (
+            <Box sx={{ display: 'grid', gap: 2 }}>
+              {SUBCOLECOES.map(({ chave, label }, indice) => {
+                if (aba !== indice + 1) return null;
+                const estado = subcolecoes[chave] ?? {
+                  status: 'loading',
+                  docs: [],
+                };
+                return (
+                  <Box key={chave}>
+                    {estado.status === 'loading' && (
+                      <Box
+                        sx={{
+                          display: 'flex',
+                          justifyContent: 'center',
+                          py: 3,
+                        }}
+                      >
+                        <CircularProgress
+                          size={22}
+                          sx={{ color: 'var(--color-accent)' }}
+                        />
+                      </Box>
+                    )}
+                    {estado.status === 'erro' && (
+                      <Typography
+                        variant="body2"
+                        sx={{ color: 'var(--text-muted)', fontStyle: 'italic' }}
+                      >
+                        Sem acesso a &quot;{label}&quot; — ficha pertence a
+                        outro usuário do Re-Dungeon.
+                      </Typography>
+                    )}
+                    {estado.status === 'ok' && estado.docs.length === 0 && (
+                      <Box
+                        sx={{
+                          p: 3,
+                          borderRadius: 3,
+                          background: 'rgba(10, 12, 17, 0.72)',
+                          border: '1px dashed rgba(255,255,255,0.08)',
+                          textAlign: 'center',
+                          display: 'grid',
+                          gap: 0.75,
                         }}
                       >
                         <Typography
-                          variant="overline"
                           sx={{
                             color: 'var(--color-accent)',
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.18em',
-                            fontSize: '0.64rem',
-                            mb: 0.8,
-                            display: 'block',
+                            fontSize: '1.35rem',
                           }}
                         >
-                          BACKGROUND
+                          ✦
                         </Typography>
-                        <Typography sx={textoScrollSx}>
-                          {infoJogador.background ?? 'Nenhuma informação cadastrada.'}
-                        </Typography>
-                      </Paper>
-
-                      <Paper
-                        elevation={0}
-                        sx={{
-                          ...painelInfoJogadorSx,
-                          p: 1.5,
-                          background:
-                            'linear-gradient(135deg, rgba(16, 20, 30, 0.96), rgba(10, 13, 21, 0.96))',
-                          boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.02)',
-                          '&::before': { display: 'none' },
-                        }}
-                      >
                         <Typography
-                          variant="overline"
+                          sx={{ color: 'var(--text-primary)', fontWeight: 700 }}
+                        >
+                          Nenhum {label.toLowerCase()} cadastrado
+                        </Typography>
+                        <Typography
                           sx={{
-                            color: 'var(--color-accent)',
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.18em',
-                            fontSize: '0.64rem',
-                            mb: 0.8,
-                            display: 'block',
+                            color: 'var(--text-muted)',
+                            fontSize: '0.95rem',
                           }}
                         >
-                          NOTAS ADICIONAIS
+                          Este NPC ainda não possui {label.toLowerCase()}{' '}
+                          registrados.
                         </Typography>
-                        <Typography sx={textoScrollSx}>
-                          {infoJogador.notasAdicionais ?? 'Nenhuma informação cadastrada.'}
-                        </Typography>
-                      </Paper>
-
+                      </Box>
+                    )}
+                    {estado.status === 'ok' && estado.docs.length > 0 && (
                       <Box
                         sx={{
                           display: 'grid',
-                          gap: 1.25,
-                          gridTemplateColumns: {
-                            xs: '1fr',
-                            md: 'repeat(3, minmax(0, 1fr))',
-                          },
+                          gridTemplateColumns:
+                            chave === 'arts' || chave === 'variantes'
+                              ? {
+                                  xs: '1fr',
+                                  sm: 'repeat(2, minmax(0, 1fr))',
+                                }
+                              : chave === 'nucleos'
+                                ? {
+                                    xs: '1fr',
+                                    md: 'repeat(2, minmax(0, 1fr))',
+                                  }
+                                : chave === 'itensInventario'
+                                  ? {
+                                      xs: '1fr',
+                                      sm: 'repeat(3, minmax(0, 1fr))',
+                                      md: 'repeat(4, minmax(0, 1fr))',
+                                    }
+                                  : {
+                                      xs: '1fr',
+                                      sm: 'repeat(2, minmax(0, 1fr))',
+                                      md: 'repeat(3, minmax(0, 1fr))',
+                                    },
+                          gap: '20px',
                         }}
                       >
-                        <Paper
-                          elevation={0}
-                          sx={{
-                            p: 1.35,
-                            background: 'linear-gradient(135deg, rgba(18, 23, 33, 0.96), rgba(10, 13, 21, 0.94))',
-                            border: '1px solid rgba(255,255,255,0.06)',
-                            borderRadius: 1.75,
-                            minHeight: 108,
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: 0.6,
-                            boxShadow: '0 8px 22px rgba(0, 0, 0, 0.12)',
-                          }}
-                        >
-                          <Typography
-                            variant="overline"
-                            sx={{
-                              color: 'var(--color-accent)',
-                              letterSpacing: '0.16em',
-                              fontSize: '0.62rem',
-                              textTransform: 'uppercase',
-                            }}
-                          >
-                            TÍTULO
-                          </Typography>
-                          <Typography sx={valorInfoJogadorSx}>
-                            {infoJogador.titulo ?? '—'}
-                          </Typography>
-                        </Paper>
-
-                        <Paper
-                          elevation={0}
-                          sx={{
-                            p: 1.35,
-                            background: 'linear-gradient(135deg, rgba(18, 23, 33, 0.96), rgba(10, 13, 21, 0.94))',
-                            border: '1px solid rgba(255,255,255,0.06)',
-                            borderRadius: 1.75,
-                            minHeight: 108,
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: 0.6,
-                            boxShadow: '0 8px 22px rgba(0, 0, 0, 0.12)',
-                          }}
-                        >
-                          <Typography
-                            variant="overline"
-                            sx={{
-                              color: 'var(--color-accent)',
-                              letterSpacing: '0.16em',
-                              fontSize: '0.62rem',
-                              textTransform: 'uppercase',
-                            }}
-                          >
-                            AFILIAÇÃO
-                          </Typography>
-                          <Typography sx={valorInfoJogadorSx}>
-                            {infoJogador.afiliacao ?? '—'}
-                          </Typography>
-                        </Paper>
-
-                        <Paper
-                          elevation={0}
-                          sx={{
-                            p: 1.35,
-                            background: 'linear-gradient(135deg, rgba(18, 23, 33, 0.96), rgba(10, 13, 21, 0.94))',
-                            border: '1px solid rgba(255,255,255,0.06)',
-                            borderRadius: 1.75,
-                            minHeight: 108,
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: 0.6,
-                            boxShadow: '0 8px 22px rgba(0, 0, 0, 0.12)',
-                          }}
-                        >
-                          <Typography
-                            variant="overline"
-                            sx={{
-                              color: 'var(--color-accent)',
-                              letterSpacing: '0.16em',
-                              fontSize: '0.62rem',
-                              textTransform: 'uppercase',
-                            }}
-                          >
-                            STATUS NARRATIVO
-                          </Typography>
-                          <Typography sx={valorInfoJogadorSx}>
-                            {infoJogador.statusNarrativo ?? '—'}
-                          </Typography>
-                        </Paper>
+                        {estado.docs.map(doc => {
+                          const aptidaoReferencia = aptidaoReferencias[doc.id];
+                          const titulo =
+                            chave === 'aptidoesAdquiridas'
+                              ? aptidaoReferencia === undefined
+                                ? doc.id
+                                : (aptidaoReferencia?.nome ??
+                                  'Aptidão não encontrada')
+                              : null;
+                          if (chave === 'arts' || chave === 'variantes') {
+                            return (
+                              <ArtCard
+                                key={doc.id}
+                                doc={doc}
+                                titulo={titulo}
+                                condicaoReferencias={condicaoReferencias}
+                              />
+                            );
+                          }
+                          if (chave === 'aptidoesAdquiridas') {
+                            return (
+                              <AptidaoItem
+                                key={doc.id}
+                                doc={doc}
+                                titulo={titulo}
+                                referencia={aptidaoReferencia}
+                              />
+                            );
+                          }
+                          if (chave === 'nucleos') {
+                            return <NucleoCard key={doc.id} doc={doc} />;
+                          }
+                          return (
+                            <CardSubcolecaoDoc
+                              key={doc.id}
+                              doc={doc}
+                              titulo={titulo}
+                              subcolecaoKey={chave}
+                            />
+                          );
+                        })}
                       </Box>
-                    </Box>
-                  </Paper>
-                </Box>
-              ) : (
-                <Box
-                  sx={{
-                    p: 2.25,
-                    background: 'rgba(10, 12, 17, 0.72)',
-                    border: '1px dashed rgba(255,255,255,0.08)',
-                    borderRadius: 2,
-                    color: 'var(--text-muted)',
-                  }}
-                >
-                  <Typography sx={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>
-                    Nenhuma informação disponível
-                  </Typography>
-                </Box>
-              )}
-            </PanelCard>
-
-            <PanelCard
-              title="Detalhes Adicionais"
-              collapsible
-              isOpen={collapseStates.detalhesAdicionais}
-              onToggle={() => toggleCollapse('detalhesAdicionais')}
-            >
-              {renderFichaPrincipal()}
-            </PanelCard>
-          </Box>
-        )}
-
-        {aba >= 1 && (
-          <Box sx={{ display: 'grid', gap: 2 }}>
-            {SUBCOLECOES.map(({ chave, label }, indice) => {
-              if (aba !== indice + 1) return null;
-              const estado = subcolecoes[chave] ?? {
-                status: 'loading',
-                docs: [],
-              };
-              return (
-                <Box key={chave}>
-                  {estado.status === 'loading' && (
-                    <Box
-                      sx={{ display: 'flex', justifyContent: 'center', py: 3 }}
-                    >
-                      <CircularProgress
-                        size={22}
-                        sx={{ color: 'var(--color-accent)' }}
-                      />
-                    </Box>
-                  )}
-                  {estado.status === 'erro' && (
-                    <Typography
-                      variant="body2"
-                      sx={{ color: 'var(--text-muted)', fontStyle: 'italic' }}
-                    >
-                      Sem acesso a &quot;{label}&quot; — ficha pertence a outro
-                      usuário do Re-Dungeon.
-                    </Typography>
-                  )}
-                  {estado.status === 'ok' && estado.docs.length === 0 && (
-                    <Box
-                      sx={{
-                        p: 3,
-                        borderRadius: 3,
-                        background: 'rgba(10, 12, 17, 0.72)',
-                        border: '1px dashed rgba(255,255,255,0.08)',
-                        textAlign: 'center',
-                        display: 'grid',
-                        gap: 0.75,
-                      }}
-                    >
-                      <Typography sx={{ color: 'var(--color-accent)', fontSize: '1.35rem' }}>✦</Typography>
-                      <Typography sx={{ color: 'var(--text-primary)', fontWeight: 700 }}>
-                        Nenhum {label.toLowerCase()} cadastrado
-                      </Typography>
-                      <Typography sx={{ color: 'var(--text-muted)', fontSize: '0.95rem' }}>
-                        Este NPC ainda não possui {label.toLowerCase()} registrados.
-                      </Typography>
-                    </Box>
-                  )}
-                  {estado.status === 'ok' && estado.docs.length > 0 && (
-                    <Box
-                      sx={{
-                        display: 'grid',
-                        gridTemplateColumns:
-                          (chave === 'arts' || chave === 'variantes')
-                            ? {
-                                xs: '1fr',
-                                sm: 'repeat(2, minmax(0, 1fr))',
-                              }
-                            : chave === 'nucleos'
-                            ? {
-                                xs: '1fr',
-                                md: 'repeat(2, minmax(0, 1fr))',
-                              }
-                            : chave === 'itensInventario'
-                            ? {
-                                xs: '1fr',
-                                sm: 'repeat(3, minmax(0, 1fr))',
-                                md: 'repeat(4, minmax(0, 1fr))',
-                              }
-                            : {
-                                xs: '1fr',
-                                sm: 'repeat(2, minmax(0, 1fr))',
-                                md: 'repeat(3, minmax(0, 1fr))',
-                              },
-                        gap: '20px',
-                      }}
-                    >
-                      {estado.docs.map(doc => {
-                        const aptidaoReferencia = aptidaoReferencias[doc.id];
-                        const titulo =
-                          chave === 'aptidoesAdquiridas'
-                            ? aptidaoReferencia === undefined
-                              ? doc.id
-                              : aptidaoReferencia?.nome ?? 'Aptidão não encontrada'
-                            : null;
-                        if (chave === 'arts' || chave === 'variantes') {
-                          return <ArtCard key={doc.id} doc={doc} titulo={titulo} condicaoReferencias={condicaoReferencias} />;
-                        }
-                        if (chave === 'aptidoesAdquiridas') {
-                          return <AptidaoItem key={doc.id} doc={doc} titulo={titulo} referencia={aptidaoReferencia} />;
-                        }
-                        if (chave === 'nucleos') {
-                          return <NucleoCard key={doc.id} doc={doc} />;
-                        }
-                        return <CardSubcolecaoDoc key={doc.id} doc={doc} titulo={titulo} subcolecaoKey={chave} />;
-                      })}
-                    </Box>
-                  )}
-                </Box>
-              );
-            })}
-          </Box>
-        )}
-      </Box>
+                    )}
+                  </Box>
+                );
+              })}
+            </Box>
+          )}
+        </Box>
       </DialogContent>
 
       <DialogActions
@@ -4260,7 +7231,8 @@ const PersonagemFichaDialog = ({
           px: { xs: 2, md: 2.75 },
           py: 1.75,
           borderTop: '1px solid rgba(255,255,255,0.06)',
-          background: 'linear-gradient(180deg, rgba(12, 14, 20, 0.98) 0%, rgba(8, 10, 15, 0.96) 100%)',
+          background:
+            'linear-gradient(180deg, rgba(12, 14, 20, 0.98) 0%, rgba(8, 10, 15, 0.96) 100%)',
           position: 'sticky',
           bottom: 0,
           zIndex: 10,

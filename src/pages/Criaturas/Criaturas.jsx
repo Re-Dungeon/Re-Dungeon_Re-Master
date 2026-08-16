@@ -170,6 +170,7 @@ const Criaturas = () => {
         open={Boolean(personagemVisualizado)}
         onClose={() => setPersonagemVisualizado(null)}
         personagem={personagemVisualizado}
+        clone={personagemVisualizado ? cloneDe(personagemVisualizado.id) : null}
       />
     </Box>
   );

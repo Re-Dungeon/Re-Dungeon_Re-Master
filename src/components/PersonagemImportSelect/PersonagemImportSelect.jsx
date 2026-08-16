@@ -18,7 +18,7 @@ const selectSx = {
 };
 
 const menuPropsSx = {
-  PaperProps: { sx: { background: 'var(--bg-card)', color: 'var(--text-primary)' } },
+  paper: { sx: { background: 'var(--bg-card)', color: 'var(--text-primary)' } },
 };
 
 /**
@@ -62,7 +62,7 @@ const PersonagemImportSelect = ({ personagens, tipo, onImport, idPrefix }) => {
           value={selecionadoId}
           onChange={e => setSelecionadoId(e.target.value)}
           sx={selectSx}
-          MenuProps={menuPropsSx}
+          slotProps={menuPropsSx}
         >
           {disponiveis.map(p => (
             <MenuItem key={p.id} value={p.id}>
