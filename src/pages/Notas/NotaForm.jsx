@@ -138,7 +138,7 @@ const NotaForm = ({
                           labelId={cenaLabelId}
                           label="Vincular a uma Cena (opcional)"
                           sx={selectSx}
-                          MenuProps={menuPropsSx}
+                          slotProps={menuPropsSx}
                         >
                           <MenuItem value="">Nenhuma</MenuItem>
                           {cenas.map(cena => (

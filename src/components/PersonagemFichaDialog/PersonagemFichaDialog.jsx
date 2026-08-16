@@ -640,14 +640,12 @@ const SecaoCampo = ({ campo, valor }) => {
               label={humanizarLabel(k)}
               value={(() => {
                 if (ehTimestamp(v)) return formatarTimestamp(v);
-                if (
-                  typeof v === 'object' &&
-                  v !== null &&
-                  (v.atual || v.valor || v.value)
-                ) {
-                  return v.atual ?? v.valor ?? v.value;
-                }
-                return Array.isArray(v) ? v.join(', ') : String(v);
+                // Prefer explicit simple normalizers to avoid [object Object]
+                const simples = normalizarValorSimples(v);
+                if (simples !== null && simples !== undefined) return simples;
+                const texto = normalizarTextoValor(v);
+                if (texto !== null && texto !== undefined) return texto;
+                return String(v);
               })()}
             />
           ))}
@@ -766,6 +764,110 @@ const resolverValorNucleo = (doc, aliases) => {
     }
   }
   return null;
+};
+
+const extrairNomeLocal = valor => {
+  if (!valor || typeof valor !== 'object') return null;
+  const candidates = [
+    'nome',
+    'titulo',
+    'name',
+    'label',
+    'lugar',
+    'nomeLugar',
+    'regiao',
+    'nomeRegiao',
+  ];
+  for (const c of candidates) {
+    const v = valor[c];
+    if (!ehVazio(v)) return normalizarTextoValor(v) ?? String(v);
+  }
+  // Heurística: busca recursiva por uma string que pareça um nome legível
+  const looksLikeName = s =>
+    typeof s === 'string' && /[a-zà-ú]/i.test(s) && !/^[A-Z0-9_-]{6,}$/.test(s);
+
+  const buscarRecursivo = (o, depth = 0) => {
+    if (depth > 3 || ehVazio(o)) return null;
+    if (typeof o === 'string' && looksLikeName(o)) return o;
+    if (typeof o === 'object') {
+      for (const k of Object.keys(o)) {
+        const v = o[k];
+        const found = buscarRecursivo(v, depth + 1);
+        if (found) return found;
+      }
+    }
+    return null;
+  };
+
+  const encontrado = buscarRecursivo(valor, 0);
+  return encontrado ? normalizarTextoValor(encontrado) ?? String(encontrado) : null;
+};
+
+const extrairImagemLocal = valor => {
+  if (!valor || typeof valor !== 'object') return null;
+  const candidates = ['imagem', 'imagemUrl', 'image', 'linkImagem', 'url', 'foto'];
+  for (const c of candidates) {
+    const v = valor[c];
+    if (!ehVazio(v)) return String(v);
+  }
+  // Heurística: busca recursiva por URL de imagem
+  const looksLikeUrl = s => typeof s === 'string' && /https?:\/\/.+\.(png|jpe?g|webp|gif|svg)/i.test(s);
+
+  const buscarUrl = (o, depth = 0) => {
+    if (depth > 3 || ehVazio(o)) return null;
+    if (typeof o === 'string' && looksLikeUrl(o)) return o;
+    if (typeof o === 'object') {
+      for (const k of Object.keys(o)) {
+        const v = o[k];
+        const found = buscarUrl(v, depth + 1);
+        if (found) return found;
+      }
+    }
+    return null;
+  };
+
+  return buscarUrl(valor, 0);
+};
+
+const extrairFamaTerror = valor => {
+  // Retorna { fama, terror } com fallback para 0 ou valores encontrados
+  let fama = null;
+  let terror = null;
+  if (valor === null || valor === undefined) return { fama: 0, terror: 0 };
+  if (typeof valor === 'object' && !Array.isArray(valor)) {
+    const possibleFama = [
+      'fama',
+      'valorFama',
+      'famaValor',
+      'fame',
+      'fama_atual',
+      'valor',
+    ];
+    const possibleTerror = ['terror', 'valorTerror', 'terrorValor', 'fear'];
+    for (const k of possibleFama) {
+      if (!ehVazio(valor[k])) {
+        fama = normalizarTextoValor(valor[k]) ?? String(valor[k]);
+        break;
+      }
+    }
+    for (const k of possibleTerror) {
+      if (!ehVazio(valor[k])) {
+        terror = normalizarTextoValor(valor[k]) ?? String(valor[k]);
+        break;
+      }
+    }
+    // Alguns casos: valor pode ser um número simples representando fama
+    if (fama === null) {
+      const simples = normalizarValorSimples(valor);
+      if (simples !== null) {
+        // assumir que simples representa fama
+        fama = simples;
+      }
+    }
+  }
+  if (fama === null) fama = 0;
+  if (terror === null) terror = 0;
+  return { fama, terror };
 };
 
 const resolverQuantidadeArtes = doc => {
@@ -3245,18 +3347,56 @@ const ArtCard = ({ doc, titulo = null, condicaoReferencias = {} }) => {
           v.nome ??
           v.name ??
           v.titulo ??
+          v.title ??
           v.label ??
           v.descricao ??
           v.description ??
+          v.codigo ??
+          v.code ??
           null;
         if (tryValue(candidate) != null) return candidate;
       }
     }
 
     for (const [, v] of Object.entries(obj)) {
-      // se a chave contém um dos aliases, já tentamos acima; aqui só
-      // verificamos valores primitivos que pareçam relevantes
       if (typeof v !== 'object' && tryValue(v) != null) return v;
+    }
+
+    return null;
+  };
+
+  const normalizarValorAcao = valor => {
+    if (valor == null || valor === '') return null;
+
+    if (typeof valor === 'string' || typeof valor === 'number') {
+      const texto = String(valor).trim();
+      return texto || null;
+    }
+
+    if (Array.isArray(valor)) {
+      for (const item of valor) {
+        const texto = normalizarValorAcao(item);
+        if (texto) return texto;
+      }
+      return null;
+    }
+
+    if (typeof valor === 'object') {
+      const preferidos = ['nome', 'name', 'titulo', 'title', 'label', 'tipo', 'type'];
+      for (const chave of preferidos) {
+        if (Object.prototype.hasOwnProperty.call(valor, chave)) {
+          const texto = normalizarValorAcao(valor[chave]);
+          if (texto) return texto;
+        }
+      }
+
+      const codigo = normalizarValorAcao(valor.codigo ?? valor.code ?? valor.sigla);
+      if (codigo) return codigo;
+
+      for (const item of Object.values(valor)) {
+        const texto = normalizarValorAcao(item);
+        if (texto) return texto;
+      }
     }
 
     return null;
@@ -3284,8 +3424,10 @@ const ArtCard = ({ doc, titulo = null, condicaoReferencias = {} }) => {
     }
     preferencias.push(raw);
 
-    const textFrom = v => (v == null ? '' : String(v).toLowerCase());
-    const texto = preferencias.map(textFrom).join(' ');
+    const textosLegiveis = preferencias
+      .map(item => normalizarValorAcao(item))
+      .filter(Boolean);
+    const texto = textosLegiveis.join(' ').toLowerCase();
 
     if (
       /imediat|instant|instantânea|instantanea|immediate|quick|rápida|rapida/.test(
@@ -3296,7 +3438,25 @@ const ArtCard = ({ doc, titulo = null, condicaoReferencias = {} }) => {
     if (/sustent|sustain|sustained/.test(texto)) return 'Sustentada';
     if (/durad|duration|long|longo|longa/.test(texto)) return 'Duradoura';
 
-    // fallback: se o raw for curto e reconhecível como chave (p.ex. 'I','D','S') mapear
+    const valorLegivel = textosLegiveis[0] ?? null;
+    if (valorLegivel) {
+      const short = String(valorLegivel).trim().toLowerCase();
+      if (['i', 'im', 'imediata', 'instantânea', 'instantanea'].includes(short))
+        return 'Imediata';
+      if (
+        ['d', 'dur', 'duradoura', 'duration', 'longa', 'longo'].includes(short)
+      )
+        return 'Duradoura';
+      if (
+        ['s', 'sus', 'sustentada', 'sustained', 'sustain'].includes(short)
+      )
+        return 'Sustentada';
+      if (['1', 'um', 'one'].includes(short)) return 'Imediata';
+      if (['2', 'dois', 'two'].includes(short)) return 'Duradoura';
+      if (['3', 'três', 'tres', 'three'].includes(short)) return 'Sustentada';
+      return String(valorLegivel);
+    }
+
     const short = String(raw ?? '')
       .trim()
       .toLowerCase();
@@ -3306,6 +3466,9 @@ const ArtCard = ({ doc, titulo = null, condicaoReferencias = {} }) => {
       return 'Duradoura';
     if (short === 's' || short === 'sustentada' || short === 'sus')
       return 'Sustentada';
+    if (short === '1') return 'Imediata';
+    if (short === '2') return 'Duradoura';
+    if (short === '3') return 'Sustentada';
 
     return raw == null ? 'N/D' : String(raw);
   };
@@ -5589,7 +5752,7 @@ const PersonagemFichaDialog = ({
         <Box
           sx={{
             display: 'grid',
-            gridTemplateColumns: { xs: '1fr', md: '1fr 1fr 1fr' },
+            gridTemplateColumns: { xs: '1fr', md: 'repeat(4, 1fr)' },
             gap: 2,
           }}
         >
@@ -5598,37 +5761,24 @@ const PersonagemFichaDialog = ({
               renderedKeys.add('raca');
               return (
                 <SmallPanel title="Raça / Habilidades Ativas">
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      gap: 0.5,
-                    }}
-                  >
-                    <Typography
-                      sx={{ color: 'var(--text-primary)', fontWeight: 800 }}
-                    >
-                      {personagemResolvido.raca}
-                    </Typography>
+                  <Box sx={{ display: 'grid', gap: 1 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Box sx={{ width: 20, height: 20, borderRadius: '50%', background: 'linear-gradient(180deg, rgba(196,58,47,0.12), rgba(196,58,47,0.04))', display: 'grid', placeItems: 'center', color: 'rgba(196,58,47,0.95)' }}>✦</Box>
+                      <Typography sx={{ color: 'rgba(196,58,47,0.95)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.8 }}>{'Raça'}</Typography>
+                    </Box>
+                    <Box sx={{ p: 1, background: 'rgba(255,255,255,0.02)', borderRadius: 1 }}>
+                      <Typography sx={{ color: 'var(--text-primary)', fontWeight: 800 }}>{personagemResolvido.raca}</Typography>
+                    </Box>
                     {personagemResolvido?.habilidadesAtivas ? (
-                      <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                        {personagemResolvido.habilidadesAtivas.map((h, i) => (
-                          <Paper
-                            key={`${h}-${i}`}
-                            elevation={0}
-                            sx={{
-                              px: 1,
-                              py: 0.5,
-                              background: 'rgba(255,255,255,0.02)',
-                              borderRadius: 1,
-                            }}
-                          >
-                            <Typography sx={{ color: 'var(--text-primary)' }}>
-                              {String(h)}
-                            </Typography>
-                          </Paper>
-                        ))}
+                      <Box sx={{ display: 'grid', gap: 0.5 }}>
+                        <Typography sx={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>Habilidades Ativas</Typography>
+                        <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                          {personagemResolvido.habilidadesAtivas.map((h, i) => (
+                            <Paper key={`${h}-${i}`} elevation={0} sx={{ px: 1, py: 0.5, background: 'rgba(18,22,32,0.6)', borderRadius: 1, border: '1px solid rgba(255,255,255,0.03)' }}>
+                              <Typography sx={{ color: 'var(--text-primary)', fontSize: '0.95rem' }}>{String(h)}</Typography>
+                            </Paper>
+                          ))}
+                        </Box>
                       </Box>
                     ) : null}
                   </Box>
@@ -5707,6 +5857,24 @@ const PersonagemFichaDialog = ({
                   )}
                 </Box>
               </SmallPanel>
+            );
+          })()}
+          {/* 4ª coluna: detectar campo extra de "Raça Habilidades Ativas" e renderizar ao lado */}
+          {(() => {
+            const extraKey = Object.keys(personagemResolvido || {}).find(
+              k =>
+                /raca.*habil/i.test(k) ||
+                /habil.*raca/i.test(k) ||
+                k.toLowerCase().includes('raca_habilidades') ||
+                k.toLowerCase().includes('racahabil'),
+            );
+            if (!extraKey) return null;
+            renderedKeys.add(extraKey);
+            // Renderizar sem título para evitar duplicação do header
+            return (
+              <Paper elevation={0} sx={{ p: 1.25, borderRadius: 1.5, background: 'rgba(18,22,32,0.85)', border: '1px solid rgba(255,255,255,0.04)' }}>
+                <SecaoCampo campo={extraKey} valor={personagemResolvido[extraKey]} />
+              </Paper>
             );
           })()}
         </Box>
@@ -5881,12 +6049,71 @@ const PersonagemFichaDialog = ({
           type: 'veias',
         })}
 
-        {/* Renderizar qualquer campo não mapeado com o SecaoCampo (fallback) */}
+        {/* Renderizar qualquer campo não mapeado com tratamento visual especial */}
         {campos
           .filter(([campo]) => !renderedKeys.has(campo))
-          .map(([campo, valor]) => (
-            <SecaoCampo key={campo} campo={campo} valor={valor} />
-          ))}
+          .map(([campo, valor]) => {
+            // Reputações: transformar em stat-cards refinados
+            if (campo === 'reputacoes' && valor && typeof valor === 'object') {
+              const reputs = Object.entries(valor).filter(([, v]) => !ehVazio(v));
+              if (reputs.length === 0) {
+                return (
+                  <SmallPanel key={campo} title="Reputações">
+                    <Typography sx={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>—</Typography>
+                  </SmallPanel>
+                );
+              }
+
+              return (
+                <SmallPanel key={campo} title="Reputações">
+                  <Box sx={{ display: 'grid', gap: 1, gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(3, 1fr)', md: 'repeat(4, 1fr)' } }}>
+                    {reputs.map(([k, v]) => {
+                      const nomeLugar = extrairNomeLocal(v) ?? humanizarLabel(k);
+                      const imagemLugar = extrairImagemLocal(v);
+                      const valores = extrairFamaTerror(v);
+                      return (
+                        <Paper
+                          key={k}
+                          elevation={0}
+                          sx={{
+                            p: 1.25,
+                            borderRadius: 2,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 0.5,
+                            transition: 'transform 180ms ease, box-shadow 180ms ease',
+                            overflow: 'hidden',
+                            position: 'relative',
+                            backgroundImage: imagemLugar
+                              ? `linear-gradient(to bottom, rgba(6,8,12,0.62), rgba(6,8,12,0.7)), url(${imagemLugar})`
+                              : 'linear-gradient(180deg, rgba(18,22,32,0.78), rgba(12,14,20,0.9))',
+                            backgroundSize: 'cover',
+                            backgroundPosition: 'center',
+                            border: '1px solid rgba(255,255,255,0.04)',
+                            '&:hover': {
+                              transform: 'translateY(-4px)',
+                              boxShadow: '0 10px 30px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.02)'
+                            }
+                          }}
+                        >
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Typography sx={{ color: 'rgba(255,255,255,0.88)', fontSize: '0.78rem', fontWeight: 700 }}>{nomeLugar}</Typography>
+                          </Box>
+                          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', pt: 1 }}>
+                            <Typography sx={{ color: 'var(--text-primary)', fontWeight: 900, fontSize: '1.25rem' }}>
+                              {`Fama: ${String(valores.fama)} • Terror: ${String(valores.terror)}`}
+                            </Typography>
+                          </Box>
+                        </Paper>
+                      );
+                    })}
+                  </Box>
+                </SmallPanel>
+              );
+            }
+
+            return <SecaoCampo key={campo} campo={campo} valor={valor} />;
+          })}
       </Box>
     );
   };

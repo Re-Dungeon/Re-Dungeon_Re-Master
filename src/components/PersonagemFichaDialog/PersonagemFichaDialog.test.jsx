@@ -666,6 +666,33 @@ describe('PersonagemFichaDialog', () => {
     expect(screen.getByText('Golpe Sombrio')).toBeInTheDocument();
   });
 
+  it('traduz códigos de ação em artes para nomes legíveis', async () => {
+    getPersonagemSubcolecao.mockImplementation((_id, subcolecao) =>
+      subcolecao === 'arts'
+        ? Promise.resolve([
+            {
+              id: 'a1',
+              nome: 'Golpe Sombrio',
+              tipoAcao: { codigo: 'I', nome: 'Imediata' },
+              custo: 3,
+            },
+          ])
+        : Promise.resolve([]),
+    );
+    const user = userEvent.setup();
+    render(
+      <PersonagemFichaDialog open onClose={() => {}} personagem={PERSONAGEM} />,
+    );
+
+    await waitFor(() =>
+      expect(screen.getByText('Artes (1)')).toBeInTheDocument(),
+    );
+    await user.click(screen.getByText('Artes (1)'));
+
+    expect(screen.getByText('Ação')).toBeInTheDocument();
+    expect(screen.getByText('Imediata')).toBeInTheDocument();
+  });
+
   it('renderiza núcleos em cards com cabeçalho, essência e badge de artes', async () => {
     getPersonagemSubcolecao.mockImplementation((_id, subcolecao) =>
       subcolecao === 'nucleos'

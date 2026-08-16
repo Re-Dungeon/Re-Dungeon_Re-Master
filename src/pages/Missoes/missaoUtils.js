@@ -9,6 +9,13 @@ export const STATUS_MISSAO_OPCOES = [
   { value: 'abandonada', label: 'Abandonada', cor: '#111827' },
 ];
 
+export const IMPORTANCIA_MISSAO_OPCOES = [
+  { value: 'primaria', label: 'Principal' },
+  { value: 'secundaria', label: 'Secundaria' },
+  { value: 'secreta', label: 'Oculta' },
+  { value: 'repetitiva', label: 'Repetitiva' },
+];
+
 export const OBJETIVO_INICIAL = { texto: '', concluido: false };
 
 export const MISSAO_SCHEMA = Yup.object({
@@ -17,6 +24,8 @@ export const MISSAO_SCHEMA = Yup.object({
   status: Yup.string()
     .oneOf(STATUS_MISSAO_OPCOES.map(o => o.value))
     .required(),
+  importancia: Yup.string().oneOf(IMPORTANCIA_MISSAO_OPCOES.map(o => o.value)),
+  exp: Yup.string(),
   objetivos: Yup.array().of(
     Yup.object({
       texto: Yup.string().trim().required('Descreva o objetivo'),
@@ -32,6 +41,8 @@ export const MISSAO_INITIAL_VALUES = {
   titulo: '',
   descricao: '',
   status: 'nao_iniciada',
+  importancia: 'primaria',
+  exp: '',
   objetivos: [],
   recompensas: [],
   npcsRelacionados: [],

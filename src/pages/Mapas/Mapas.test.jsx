@@ -37,12 +37,16 @@ const MAPAS_MOCK = [
     campanhaId: 'c1',
     nome: 'Mapa da Cidade',
     categoria: 'cidade',
+    descricao: 'Ruas antigas e mercados em um centro comercial movimentado.',
+    linkImagem: 'https://example.com/mapa-cidade.jpg',
   },
   {
     id: 'mapa2',
     campanhaId: 'c1',
     nome: 'Masmorra Antiga',
     categoria: 'masmorra',
+    descricao: 'Câmaras profundas, armadilhas e corredores sombrios.',
+    linkImagem: 'https://example.com/masmorra-antiga.jpg',
   },
 ];
 
@@ -61,15 +65,17 @@ describe('Mapas (lista da campanha ativa)', () => {
     getRmMapasPorCampanha.mockResolvedValue(MAPAS_MOCK);
   });
 
-  it('lista os mapas da campanha ativa com a categoria', async () => {
+  it('lista os mapas da campanha ativa com a categoria e metadado visual do card', async () => {
     renderMapas();
 
     await waitFor(() =>
       expect(screen.getByText('Mapa da Cidade')).toBeInTheDocument(),
     );
     expect(screen.getByText('Masmorra Antiga')).toBeInTheDocument();
-    expect(screen.getByText('Cidade')).toBeInTheDocument();
-    expect(screen.getByText('Masmorra')).toBeInTheDocument();
+    expect(screen.getAllByText(/Cidade/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Masmorra/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/MAPA/i).length).toBeGreaterThan(0);
+    expect(screen.getByAltText('Mapa da Cidade')).toBeInTheDocument();
   });
 
   it('mostra o estado vazio quando não há mapas', async () => {
@@ -77,7 +83,7 @@ describe('Mapas (lista da campanha ativa)', () => {
     renderMapas();
 
     await waitFor(() =>
-      expect(screen.getByText('Nenhum mapa cadastrado')).toBeInTheDocument(),
+      expect(screen.getByText('Nenhum mapa criado')).toBeInTheDocument(),
     );
   });
 

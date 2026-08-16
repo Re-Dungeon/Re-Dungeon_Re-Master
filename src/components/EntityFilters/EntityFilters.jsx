@@ -39,7 +39,7 @@ const selectSx = {
 };
 
 const selectMenuProps = {
-  PaperProps: {
+  paper: {
     sx: { background: 'var(--bg-card)', color: 'var(--text-primary)' },
   },
 };
@@ -63,8 +63,8 @@ const EntityFilters = ({
 }) => {
   const menuProps = menuMaxHeight
     ? {
-        PaperProps: {
-          sx: { ...selectMenuProps.PaperProps.sx, maxHeight: menuMaxHeight },
+        paper: {
+          sx: { ...selectMenuProps.paper.sx, maxHeight: menuMaxHeight },
         },
       }
     : selectMenuProps;
@@ -104,7 +104,7 @@ const EntityFilters = ({
               value={filtro.value}
               onChange={e => filtro.onChange(e.target.value)}
               sx={selectSx}
-              MenuProps={menuProps}
+              slotProps={menuProps}
             >
               <MenuItem value="">{filtro.allLabel || 'Todos'}</MenuItem>
               {filtro.options.map(opcao => (
@@ -126,7 +126,7 @@ const EntityFilters = ({
           value={universoValue}
           onChange={e => onUniversoChange(e.target.value)}
           sx={selectSx}
-          MenuProps={menuProps}
+          slotProps={menuProps}
         >
           <MenuItem value="">Todos</MenuItem>
           {universos.map(u => (
@@ -147,7 +147,7 @@ const EntityFilters = ({
             value={sortValue}
             onChange={e => onSortChange(e.target.value)}
             sx={selectSx}
-            MenuProps={menuProps}
+            slotProps={menuProps}
           >
             {OPCOES_ORDENACAO_NOME.map(opcao => (
               <MenuItem key={opcao.value} value={opcao.value}>

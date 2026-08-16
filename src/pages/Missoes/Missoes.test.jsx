@@ -72,6 +72,7 @@ describe('Missoes (lista da campanha ativa)', () => {
       expect(screen.getByText('Resgatar o Prefeito')).toBeInTheDocument(),
     );
     expect(screen.getByText('Investigar a Praça')).toBeInTheDocument();
+    expect(screen.getAllByText('MISSÃO').length).toBeGreaterThan(0);
     expect(screen.getByText('Em Andamento')).toBeInTheDocument();
     expect(screen.getByText('Objetivos: 1/2 concluídos')).toBeInTheDocument();
   });

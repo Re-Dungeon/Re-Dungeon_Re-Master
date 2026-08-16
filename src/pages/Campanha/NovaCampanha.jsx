@@ -55,7 +55,7 @@ const selectSx = {
 };
 
 const menuPropsSx = {
-  PaperProps: {
+  paper: {
     sx: {
       background: 'var(--bg-card)',
       color: 'var(--text-primary)',
@@ -228,7 +228,7 @@ const NovaCampanha = () => {
                               labelId="nova-campanha-universo-label"
                               label="Universo"
                               sx={selectSx}
-                              MenuProps={menuPropsSx}
+                              slotProps={menuPropsSx}
                             >
                               {universos.map(universo => (
                                 <MenuItem key={universo.id} value={universo.id}>

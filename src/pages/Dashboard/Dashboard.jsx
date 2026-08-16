@@ -196,7 +196,7 @@ const Dashboard = () => {
     );
   }
 
-  const MAX_LOGS_DISPLAY = 12;
+  const MAX_LOGS_DISPLAY = 6;
   const logsRecentes = logs.slice(0, MAX_LOGS_DISPLAY);
   const cenaAtual = cenas.find(c => c.id === campanhaAtiva.cenaAtualId) ?? null;
   const estadoCenaAtual =

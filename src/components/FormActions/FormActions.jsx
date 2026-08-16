@@ -9,16 +9,33 @@ import SaveIcon from '@mui/icons-material/Save';
  * botão "Cancelar" (volta pra listagem) + botão de submit do Formik.
  */
 const FormActions = ({ onCancelar, isSubmitting, labelSalvar }) => (
-  <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, pb: 2 }}>
+  <Box
+    sx={{
+      display: 'flex',
+      justifyContent: 'flex-end',
+      alignItems: 'center',
+      gap: 1.5,
+      pt: 2,
+      mt: 0.5,
+      borderTop: '1px solid var(--border-primary)',
+    }}
+  >
     <Button
       onClick={onCancelar}
       variant="outlined"
       sx={{
         color: 'var(--text-secondary)',
-        borderColor: 'rgba(255,255,255,0.06)',
+        borderColor: 'rgba(255,255,255,0.08)',
+        background: 'rgba(255,255,255,0.01)',
         borderRadius: '10px',
         px: 2,
-        '&:hover': { borderColor: 'rgba(255,255,255,0.12)' },
+        height: '42px',
+        transition: 'all 180ms ease',
+        '&:hover': {
+          borderColor: 'rgba(255,255,255,0.12)',
+          background: 'rgba(255,255,255,0.03)',
+          color: 'var(--text-primary)',
+        },
       }}
     >
       Cancelar
@@ -33,10 +50,15 @@ const FormActions = ({ onCancelar, isSubmitting, labelSalvar }) => (
         color: '#fff',
         borderRadius: '10px',
         px: 3,
+        height: '42px',
         boxShadow: '0 10px 30px rgba(196,58,47,0.18)',
         transform: 'translateY(0)',
         transition: 'transform 180ms ease, box-shadow 180ms ease',
-        '&:hover': { transform: 'translateY(-2px)', boxShadow: '0 18px 40px rgba(196,58,47,0.22)' },
+        '&:hover': {
+          transform: 'translateY(-1px)',
+          boxShadow: '0 18px 40px rgba(196,58,47,0.22)',
+          background: 'linear-gradient(135deg, rgba(204,67,58,1), rgba(160,39,31,1))',
+        },
       }}
     >
       {labelSalvar}
