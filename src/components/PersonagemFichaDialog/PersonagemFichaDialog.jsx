@@ -842,8 +842,15 @@ const extrairFamaTerror = valor => {
       'fame',
       'fama_atual',
       'valor',
+      'famaAtual',
     ];
-    const possibleTerror = ['terror', 'valorTerror', 'terrorValor', 'fear'];
+    const possibleTerror = [
+      'terror',
+      'valorTerror',
+      'terrorValor',
+      'fear',
+      'terrorAtual',
+    ];
     for (const k of possibleFama) {
       if (!ehVazio(valor[k])) {
         fama = normalizarTextoValor(valor[k]) ?? String(valor[k]);
@@ -4377,6 +4384,7 @@ const PersonagemFichaDialog = ({
   const [classeNomes, setClasseNomes] = useState({});
   const [noVeiaAstralNomes, setNoVeiaAstralNomes] = useState({});
   const [origemNome, setOrigemNome] = useState();
+  const [reputacaoOrigemNomes, setReputacaoOrigemNomes] = useState({});
   const [noVeiaAstralIcons, setNoVeiaAstralIcons] = useState({});
   const [condicaoReferencias, setCondicaoReferencias] = useState({});
   const [criadorNome, setCriadorNome] = useState();
@@ -4391,6 +4399,7 @@ const PersonagemFichaDialog = ({
       setRacaNome(undefined);
       setClasseNomes({});
       setNoVeiaAstralNomes({});
+      setReputacaoOrigemNomes({});
       setCriadorNome(undefined);
     });
     return () => {
@@ -4480,6 +4489,61 @@ const PersonagemFichaDialog = ({
           });
       }
     });
+    return () => {
+      active = false;
+    };
+  }, [open, personagem]);
+
+  useEffect(() => {
+    if (!open || !personagem?.reputacoes || typeof personagem.reputacoes !== 'object') {
+      return undefined;
+    }
+
+    let active = true;
+    Promise.resolve().then(() => {
+      if (!active) return;
+
+      const entradas = Object.entries(personagem.reputacoes).filter(([, v]) => !ehVazio(v));
+      if (entradas.length === 0) {
+        setReputacaoOrigemNomes({});
+        return;
+      }
+
+      Promise.all(
+        entradas.map(async ([chave, valor]) => {
+          const idsPossiveis = [
+            chave,
+            valor?.origemId,
+            valor?.origem,
+            valor?.id,
+            valor?.idOrigem,
+            valor?.origemReferencia,
+          ].filter(Boolean);
+
+          for (const id of idsPossiveis) {
+            try {
+              const origem = await getOrigem(id);
+              if (origem?.nome) {
+                return [chave, origem.nome];
+              }
+            } catch {
+              // tenta outro identificador
+            }
+          }
+
+          const nomeDireto =
+            typeof valor === 'string'
+              ? valor
+              : extrairNomeLocal(valor) ?? null;
+
+          return [chave, nomeDireto];
+        }),
+      ).then(resultados => {
+        if (!active) return;
+        setReputacaoOrigemNomes(Object.fromEntries(resultados));
+      });
+    });
+
     return () => {
       active = false;
     };
@@ -6068,7 +6132,7 @@ const PersonagemFichaDialog = ({
                 <SmallPanel key={campo} title="Reputações">
                   <Box sx={{ display: 'grid', gap: 1, gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(3, 1fr)', md: 'repeat(4, 1fr)' } }}>
                     {reputs.map(([k, v]) => {
-                      const nomeLugar = extrairNomeLocal(v) ?? humanizarLabel(k);
+                      const nomeLugar = reputacaoOrigemNomes[k] ?? extrairNomeLocal(v) ?? humanizarLabel(k);
                       const imagemLugar = extrairImagemLocal(v);
                       const valores = extrairFamaTerror(v);
                       return (
