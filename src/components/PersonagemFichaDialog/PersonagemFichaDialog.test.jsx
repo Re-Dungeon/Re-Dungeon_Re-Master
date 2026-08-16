@@ -7,12 +7,14 @@ const getAptidao = vi.fn();
 const getRaca = vi.fn();
 const getClasse = vi.fn();
 const getVeiaAstral = vi.fn();
+const getOrigem = vi.fn();
 vi.mock('service/storage', () => ({
   getPersonagemSubcolecao: (...args) => getPersonagemSubcolecao(...args),
   getAptidao: (...args) => getAptidao(...args),
   getRaca: (...args) => getRaca(...args),
   getClasse: (...args) => getClasse(...args),
   getVeiaAstral: (...args) => getVeiaAstral(...args),
+  getOrigem: (...args) => getOrigem(...args),
 }));
 
 import PersonagemFichaDialog from './PersonagemFichaDialog';
@@ -55,7 +57,38 @@ describe('PersonagemFichaDialog', () => {
     expect(getPersonagemSubcolecao).not.toHaveBeenCalled();
     expect(screen.queryByText('Secundarios Base')).not.toBeInTheDocument();
   });
+  it('mostra o nome da origem nas reputações em vez do código', async () => {
+    const user = userEvent.setup();
+    const personagemComReputacoes = {
+      ...PERSONAGEM,
+      reputacoes: {
+        'origem-123': {
+          fama: 4,
+          terror: 2,
+        },
+      },
+    };
+    getOrigem.mockResolvedValue({ id: 'origem-123', nome: 'Cidadelas do Norte' });
 
+    render(
+      <PersonagemFichaDialog
+        open
+        onClose={() => {}}
+        personagem={personagemComReputacoes}
+      />,
+    );
+
+    const botoesExpandir = screen.getAllByRole('button', { name: /Expandir/i });
+    for (const botao of botoesExpandir) {
+      await user.click(botao);
+    }
+
+    await waitFor(() => {
+      expect(screen.getByText('Cidadelas do Norte')).toBeInTheDocument();
+    });
+    expect(screen.queryByText('origem-123')).not.toBeInTheDocument();
+    expect(screen.getByText('Fama: 4 • Terror: 2')).toBeInTheDocument();
+  });
   it('mostra os campos do personagem na aba "Ficha" como grade de label/valor, não JSON cru', async () => {
     const user = userEvent.setup();
     render(
