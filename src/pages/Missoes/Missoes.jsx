@@ -27,6 +27,9 @@ const cardSx = {
   flexDirection: { xs: 'column', md: 'row' },
   height: '100%',
   width: '100%',
+  maxWidth: '100%',
+  minWidth: 0,
+  boxSizing: 'border-box',
   background:
     'linear-gradient(180deg, rgba(12,14,18,0.98), rgba(8,10,13,0.98))',
   border: '1px solid rgba(255,255,255,0.04)',
@@ -98,12 +101,17 @@ const contentSx = {
   gap: 0.5,
   p: 1,
   pl: { xs: 2, md: 3 },
+  width: '100%',
+  minWidth: 0,
+  boxSizing: 'border-box',
 };
 
 const mainRowSx = {
   display: 'flex',
   gap: 1.5,
   alignItems: 'stretch',
+  width: '100%',
+  minWidth: 0,
 };
 
 const rightColumnSx = {
@@ -112,6 +120,7 @@ const rightColumnSx = {
   gap: 0.5,
   flex: 1,
   minWidth: 0,
+  width: '100%',
 };
 
 // emblem removed; keep styles minimal if needed later
@@ -122,6 +131,8 @@ const infoSx = {
   gap: 0.5,
   flex: '1 1 45%',
   minWidth: 0,
+  maxWidth: '100%',
+  width: '100%',
 };
 
 const actionsAbsoluteSx = {
@@ -141,8 +152,9 @@ const footerHudSx = {
   alignItems: 'center',
   justifyContent: 'space-between',
   gap: { xs: 0.75, md: 1.5 },
-  flexWrap: 'nowrap',
+  flexWrap: 'wrap',
   width: '100%',
+  minWidth: 0,
   px: { xs: 0, md: 0.5 },
 };
 
@@ -353,7 +365,20 @@ const Missoes = () => {
           )}
         </Box>
       ) : (
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: 'repeat(3, 1fr)' }, gap: 3 }}>
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: {
+              xs: '1fr',
+              sm: 'repeat(2, minmax(0, 1fr))',
+              lg: 'repeat(3, minmax(0, 1fr))',
+            },
+            gap: 3,
+            width: '100%',
+            maxWidth: '100%',
+            minWidth: 0,
+          }}
+        >
           {missoes.map(missao => {
             const status = STATUS_MISSAO_OPCOES.find(
               o => o.value === missao.status,
@@ -468,15 +493,15 @@ const Missoes = () => {
                       </Box>
 
                       <Box sx={footerHudSx}>
-                          <Box sx={{ textAlign: 'center' }}>
-                            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
+                          <Box sx={{ textAlign: 'center', minWidth: 0, flex: '1 1 70px' }}>
+                            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5, mt: 0.5, minWidth: 0 }}>
                               {importancia.icon && (
-                                <Box component="img" src={importancia.icon} alt={importancia.label} sx={{ width: { xs: 96, md: 144 }, height: { xs: 64, md: 96 }, objectFit: 'contain', display: 'block', flexShrink: 0 }} />
+                                <Box component="img" src={importancia.icon} alt={importancia.label} sx={{ width: { xs: 72, md: 110 }, height: { xs: 48, md: 72 }, objectFit: 'contain', display: 'block', flexShrink: 0, maxWidth: '100%' }} />
                               )}
                             </Box>
                           </Box>
 
-                          <Box sx={{ textAlign: 'center' }}>
+                          <Box sx={{ textAlign: 'center', minWidth: 0, flex: '1 1 80px' }}>
                             <Typography variant="caption" sx={footerLabelSx}>STATUS</Typography>
                             <Typography
                               variant="body2"
@@ -485,35 +510,36 @@ const Missoes = () => {
                                 fontWeight: 700,
                                 fontSize: status && status.value === 'em_andamento' ? '0.78rem' : '0.95rem',
                                 lineHeight: 1.05,
+                                overflowWrap: 'anywhere',
                               }}
                             >
                               {status ? status.label : '—'}
                             </Typography>
                           </Box>
 
-                          <Box sx={{ textAlign: 'center' }}>
+                          <Box sx={{ textAlign: 'center', minWidth: 0, flex: '1 1 80px' }}>
                             <Typography variant="caption" sx={footerLabelSx}>RECOMPENSA</Typography>
-                            <Typography variant="body2" sx={footerValueSx}>{missao.exp ? `${missao.exp} XP` : '—'}</Typography>
+                            <Typography variant="body2" sx={{ ...footerValueSx, overflowWrap: 'anywhere' }}>{missao.exp ? `${missao.exp} XP` : '—'}</Typography>
                           </Box>
 
-                          <Box sx={{ textAlign: 'center' }}>
+                          <Box sx={{ textAlign: 'center', minWidth: 0, flex: '1 1 80px' }}>
                             <Typography variant="caption" sx={footerLabelSx}>OBJETIVOS</Typography>
-                            <Typography variant="body2" sx={footerValueSx}>{concluidos}/{objetivos.length}</Typography>
+                            <Typography variant="body2" sx={{ ...footerValueSx, overflowWrap: 'anywhere' }}>{concluidos}/{objetivos.length}</Typography>
                           </Box>
 
-                          <Box sx={{ textAlign: 'center' }}>
+                          <Box sx={{ textAlign: 'center', minWidth: 0, flex: '1 1 80px' }}>
                             <Typography variant="caption" sx={footerLabelSx}>NPCs</Typography>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, justifyContent: 'center' }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, justifyContent: 'center', minWidth: 0 }}>
                               <GroupOutlinedIcon sx={hudIconSx} />
-                              <Typography variant="body2" sx={footerValueSx}>{(missao.npcsRelacionados || []).length}</Typography>
+                              <Typography variant="body2" sx={{ ...footerValueSx, overflowWrap: 'anywhere' }}>{(missao.npcsRelacionados || []).length}</Typography>
                             </Box>
                           </Box>
 
-                          <Box sx={{ textAlign: 'center' }}>
+                          <Box sx={{ textAlign: 'center', minWidth: 0, flex: '1 1 80px' }}>
                             <Typography variant="caption" sx={footerLabelSx}>CENAS</Typography>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, justifyContent: 'center' }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, justifyContent: 'center', minWidth: 0 }}>
                               <MapOutlinedIcon sx={hudIconSx} />
-                              <Typography variant="body2" sx={footerValueSx}>{(missao.cenasVinculadas || []).length}</Typography>
+                              <Typography variant="body2" sx={{ ...footerValueSx, overflowWrap: 'anywhere' }}>{(missao.cenasVinculadas || []).length}</Typography>
                             </Box>
                           </Box>
                       </Box>

@@ -53,8 +53,10 @@ const cardSx = {
   border: '1px solid rgba(239, 68, 68, 0.18)',
   borderRadius: 3,
   boxShadow: '0 20px 50px rgba(0, 0, 0, 0.22)',
+  flex: '1 1 300px',
+  minWidth: 280,
   maxWidth: 340,
-  width: '100%',
+  width: 'auto',
   transition: 'transform 200ms ease, box-shadow 200ms ease, border-color 200ms ease',
   '&:hover': {
     transform: 'translateY(-2px)',
@@ -468,12 +470,10 @@ const Luta = () => {
       ) : (
         <Box
           sx={{
-            display: 'grid',
-            gridTemplateColumns: {
-              xs: '1fr',
-              sm: 'repeat(auto-fit, minmax(280px, 1fr))',
-            },
+            display: 'flex',
+            flexWrap: 'wrap',
             gap: 1.5,
+            alignItems: 'stretch',
           }}
         >
           {participantes.map(participante => (
