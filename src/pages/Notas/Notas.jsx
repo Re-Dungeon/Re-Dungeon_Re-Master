@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import './Notas.css';
 import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
@@ -132,35 +133,27 @@ const Notas = () => {
 
   return (
     <Box className="page-container">
-      <Box
-        sx={{
-          display: 'flex',
-          alignItems: 'flex-start',
-          justifyContent: 'space-between',
-          mb: 3,
-        }}
-      >
-        <Box>
-          <Typography
-            variant="h5"
-            sx={{ color: 'var(--text-primary)', fontWeight: 700, mb: 0.5 }}
-          >
-            Notas — {campanhaAtiva?.nome}
-          </Typography>
-          <Typography variant="body2" sx={{ color: 'var(--text-secondary)' }}>
-            Registre ideias, improvisos e lembretes rápidos desta campanha.
-          </Typography>
-        </Box>
+      <Box className="notas-header" sx={{ mb: 3 }}>
+        <div className="notas-header-left">
+          <div className="notas-deco">📜</div>
+          <div>
+            <h1 className="notas-title">Notas</h1>
+            <div className="notas-campanha">{campanhaAtiva?.nome}</div>
+            <div className="notas-count">{notas?.length ?? 0} Notas Registradas</div>
+            <div className="notas-ornament" aria-hidden="true">━━━━━━━━━━━━━━━━━━</div>
+          </div>
+        </div>
         {canCreate() && podeEscrever && (
           <Button
             variant="contained"
             onClick={() => navigate(ROUTE_PATHS.NOVA_NOTA)}
+            className="nova-nota-btn"
             sx={{
               background: 'var(--color-primary)',
               '&:hover': { background: 'var(--color-primary-dark)' },
             }}
           >
-            + Nova Nota
+            ➕ Nova Nota
           </Button>
         )}
       </Box>
@@ -182,21 +175,12 @@ const Notas = () => {
         </Box>
       ) : (
         <>
-          <Box
-            sx={{
-              display: 'grid',
-              gridTemplateColumns: {
-                xs: '1fr',
-                sm: 'repeat(auto-fill, minmax(280px, 1fr))',
-              },
-              gap: 2,
-            }}
-          >
+          <Box className="notas-grid">
             {notas.map(nota => {
             const cenaVinculada = cenas.find(c => c.id === nota.cenaId);
 
             return (
-              <Paper key={nota.id} elevation={0} sx={cardSx}>
+              <Paper key={nota.id} elevation={0} sx={cardSx} className="nota-card">
                 <Box
                   sx={{
                     display: 'flex',
@@ -204,42 +188,35 @@ const Notas = () => {
                     gap: 1.75,
                   }}
                 >
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'flex-start',
-                      gap: 2,
-                    }}
-                  >
-                    <Box>
-                      <Typography
-                        variant="h6"
-                        sx={{ color: 'var(--text-primary)', fontWeight: 700 }}
-                      >
-                        {nota.titulo}
-                      </Typography>
-                      {cenaVinculada && (
-                        <Chip
-                          label={`Cena: ${cenaVinculada.titulo}`}
-                          size="small"
-                          sx={{
-                            mt: 1,
-                            background: 'rgba(196,58,47,0.12)',
-                            color: 'var(--color-accent)',
-                            fontWeight: 700,
-                          }}
-                        />
-                      )}
-                    </Box>
+                  <Box className="nota-header">
+                    <div className="nota-header-left">
+                      <div className="nota-ic">📖</div>
+                      <div>
+                        <Typography
+                          variant="h6"
+                          sx={{ color: 'var(--text-primary)', fontWeight: 700 }}
+                          className="nota-titulo"
+                        >
+                          {nota.titulo}
+                        </Typography>
+                        {cenaVinculada && (
+                          <Chip
+                            label={`Cena: ${cenaVinculada.titulo}`}
+                            size="small"
+                            className="nota-badge"
+                          />
+                        )}
+                      </div>
+                    </div>
 
-                    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                    <div className="nota-actions-wrapper">
                       <Tooltip title="Visualizar" arrow>
                         <IconButton
                           size="small"
                           onClick={() => abrirNotaVisualizacao(nota)}
                           sx={actionButtonSx}
                           aria-label={`Visualizar nota ${nota.titulo}`}
+                          className="nota-action-btn"
                         >
                           <VisibilityOutlinedIcon fontSize="small" />
                         </IconButton>
@@ -253,6 +230,7 @@ const Notas = () => {
                             }
                             sx={actionButtonSx}
                             aria-label={`Editar nota ${nota.titulo}`}
+                            className="nota-action-btn edit"
                           >
                             <EditOutlinedIcon fontSize="small" />
                           </IconButton>
@@ -265,26 +243,20 @@ const Notas = () => {
                             onClick={() => handleRemoveNota(nota.id)}
                             sx={deleteButtonSx}
                             aria-label={`Remover nota ${nota.titulo}`}
+                            className="nota-action-btn delete"
                           >
                             <DeleteOutlineIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
                       )}
-                    </Box>
+                    </div>
                   </Box>
 
-                  <Box
-                    sx={{
-                      p: 2.5,
-                      background: 'rgba(255,255,255,0.02)',
-                      border: '1px solid rgba(255,255,255,0.06)',
-                      borderRadius: 3,
-                      minHeight: 108,
-                    }}
-                  >
+                  <Box className="nota-preview-panel">
                     <Typography
                       variant="body2"
                       sx={previewSx}
+                      className="nota-preview"
                     >
                       {nota.conteudo || 'Sem conteúdo de nota.'}
                     </Typography>
@@ -317,15 +289,11 @@ const Notas = () => {
                 },
               },
             }}
+            className="nota-dialog"
           >
             <DialogTitle
               component="div"
-              sx={{
-                background: 'linear-gradient(180deg, rgba(15,17,25,0.98), rgba(10,12,18,0.98))',
-                borderBottom: '1px solid rgba(255,255,255,0.08)',
-                py: 3,
-                px: 3.5,
-              }}
+              className="nota-dialog-title"
             >
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 2 }}>
                 <Box>
@@ -358,22 +326,11 @@ const Notas = () => {
                 </IconButton>
               </Box>
             </DialogTitle>
-            <DialogContent sx={{ background: 'rgba(12,14,20,0.96)', p: 4 }}>
-              <Box
-                sx={{
-                  background: 'rgba(255,255,255,0.04)',
-                  border: '1px solid rgba(255,255,255,0.06)',
-                  borderRadius: 4,
-                  p: 4,
-                }}
-              >
+            <DialogContent className="nota-dialog-content">
+              <Box className="nota-dialog-panel">
                 <Typography
                   variant="body2"
-                  sx={{
-                    color: 'var(--text-secondary)',
-                    whiteSpace: 'pre-line',
-                    lineHeight: 1.8,
-                  }}
+                  className="nota-dialog-body"
                 >
                   {notaVisualizada?.conteudo || 'Sem conteúdo para exibir.'}
                 </Typography>

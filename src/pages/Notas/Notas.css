@@ -1,0 +1,124 @@
+:root{
+  --bg-dark: #0B0B0D;
+  --panel: rgba(15,15,20,0.85);
+  --border: #4A1313;
+  --hover: #7A1F1F;
+  --accent: #C43A2F;
+  --text-primary: #F5F5F5;
+  --text-secondary: #9A9A9A;
+}
+
+.page-container { color: var(--text-primary); }
+
+/* Header */
+.notas-header{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:16px;
+}
+.notas-header-left{ display:flex; gap:16px; align-items:flex-start }
+.notas-deco{
+  font-size:34px;
+  line-height:1;
+  padding:8px 12px;
+  border-radius:10px;
+  background: linear-gradient(180deg, rgba(74,19,19,0.06), rgba(0,0,0,0.08));
+  box-shadow: 0 8px 30px rgba(196,58,47,0.05) inset, 0 14px 40px rgba(0,0,0,0.5);
+  color: var(--accent);
+  transform: translateY(2px);
+}
+.notas-title{ margin:0; font-size:20px; font-weight:800; color:var(--text-primary); text-shadow:0 2px 10px rgba(196,58,47,0.06); }
+.notas-campanha{ font-size:14px; color:var(--text-secondary); margin-top:6px; font-weight:700 }
+.notas-count{ font-size:13px; color:var(--accent); margin-top:6px; font-weight:700 }
+.notas-ornament{ color: rgba(154,154,154,0.06); margin-top:10px; font-family:monospace }
+
+.nova-nota-btn{ 
+  background: linear-gradient(180deg, #8b1b1b, #5a0f0f) !important;
+  color:var(--text-primary) !important;
+  padding:8px 14px !important;
+  border-radius:12px !important;
+  box-shadow:0 8px 30px rgba(196,58,47,0.12);
+  transition: transform 220ms ease, box-shadow 220ms ease !important;
+}
+.nova-nota-btn:hover{ transform:translateY(-3px) !important; box-shadow:0 18px 50px rgba(196,58,47,0.18) !important; }
+
+/* Grid */
+.notas-grid{
+  display:grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap:20px;
+}
+
+/* Card */
+.nota-card{
+  background: linear-gradient(180deg, rgba(8,8,10,0.72), rgba(10,10,14,0.68));
+  border-radius:14px;
+  padding:14px !important;
+  position:relative;
+  overflow:visible;
+  border:1px solid rgba(74,19,19,0.18) !important;
+  box-shadow: 0 30px 80px rgba(0,0,0,0.6);
+  transition: transform 250ms ease, box-shadow 250ms ease, border-color 250ms ease;
+  animation: cardFadeIn 300ms ease both;
+}
+.nota-card::before{
+  content: '';
+  position:absolute; inset:0; border-radius:14px; pointer-events:none;
+  background: linear-gradient(90deg, rgba(196,58,47,0.06), rgba(124,28,28,0.02));
+  mix-blend-mode: overlay; opacity:0.9;
+}
+.nota-card:hover{ transform: translateY(-8px) scale(1.005); box-shadow: 0 40px 100px rgba(196,58,47,0.12); border-color: var(--hover) !important; }
+
+@keyframes cardFadeIn{ from{ opacity:0; transform: translateY(6px) } to{ opacity:1; transform:none } }
+
+/* Header inside card */
+.nota-header{ display:flex; justify-content:space-between; align-items:flex-start; gap:12px }
+.nota-header-left{ display:flex; gap:12px; align-items:flex-start }
+.nota-ic{ font-size:22px; background: rgba(255,255,255,0.02); padding:8px; border-radius:8px; color:var(--accent); border:1px solid rgba(255,255,255,0.03) }
+.nota-titulo{ margin:0; font-size:16px }
+.nota-badge{ margin-top:8px; background: rgba(196,58,47,0.1) !important; color:var(--accent) !important; font-weight:700 }
+
+.nota-actions-wrapper{ display:flex; gap:8px; align-items:center }
+.nota-action-btn{ width:38px; height:38px; background: rgba(255,255,255,0.02); border-radius:10px }
+.nota-action-btn:hover{ transform:translateY(-3px) }
+.nota-action-btn.edit{ background: linear-gradient(180deg, rgba(200,160,80,0.06), rgba(200,160,80,0.02)); color:#FFD28A }
+.nota-action-btn.delete{ background: linear-gradient(180deg, rgba(196,58,47,0.06), rgba(196,58,47,0.02)); color:#FFB4B4 }
+
+/* Preview */
+.nota-preview-panel{ background: rgba(0,0,0,0.18); border-radius:10px; padding:12px 14px; min-height:108px; max-height:108px; position:relative; overflow:auto }
+.nota-preview{ display:block; color:var(--text-secondary); line-height:1.6; white-space:pre-line; word-break:break-word }
+
+/* Custom scrollbar for note preview when content overflows */
+.nota-preview-panel::-webkit-scrollbar{ width:10px }
+.nota-preview-panel::-webkit-scrollbar-track{ background: rgba(0,0,0,0.06); border-radius:10px }
+.nota-preview-panel::-webkit-scrollbar-thumb{ background: linear-gradient(180deg, rgba(74,19,19,0.35), rgba(196,58,47,0.25)); border-radius:10px; border:2px solid transparent; background-clip:content-box }
+.nota-preview-panel{ scrollbar-width: thin; scrollbar-color: rgba(196,58,47,0.35) rgba(0,0,0,0.06) }
+
+/* Empty state */
+.empty-state{ display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; padding:60px 20px; color:var(--text-secondary) }
+.empty-state-icon{ font-size:48px; filter:drop-shadow(0 8px 30px rgba(196,58,47,0.08)) }
+.empty-state p{ color:var(--text-primary); font-weight:700; margin:0 }
+.empty-state small{ color:var(--text-secondary) }
+
+/* Dialog / modal styles */
+.nota-dialog .MuiPaper-root{ background: linear-gradient(180deg, rgba(8,8,10,0.92), rgba(6,6,8,0.96)); border:1px solid rgba(74,19,19,0.18) }
+.nota-dialog-title{ padding:22px 28px; border-bottom:1px solid rgba(255,255,255,0.03) }
+.nota-dialog-title .MuiTypography-root{ color:var(--text-primary) }
+.nota-dialog-content{ padding:28px }
+.nota-dialog-panel{ background: rgba(255,255,255,0.02); border-radius:12px; padding:22px; border:1px solid rgba(255,255,255,0.04) }
+.nota-dialog-body{ color:var(--text-secondary); white-space:pre-line; line-height:1.9 }
+
+/* Scrollbar */
+.nota-dialog-panel::-webkit-scrollbar{ width:10px }
+.nota-dialog-panel::-webkit-scrollbar-track{ background: rgba(0,0,0,0.08); border-radius:10px }
+.nota-dialog-panel::-webkit-scrollbar-thumb{ background: linear-gradient(180deg, rgba(74,19,19,0.3), rgba(196,58,47,0.2)); border-radius:10px }
+
+/* Responsive tweaks */
+@media (min-width:1200px){ .notas-grid{ grid-template-columns: repeat(4, 1fr); } }
+
+/* For very wide screens keep sensible card max width */
+@media (min-width:1600px){ .notas-grid{ grid-template-columns: repeat(4, minmax(300px, 1fr)); } }
+
+/* Microinteractions */
+.nota-card, .nova-nota-btn, .nota-action-btn{ transition: all 220ms cubic-bezier(.2,.9,.2,1) }
