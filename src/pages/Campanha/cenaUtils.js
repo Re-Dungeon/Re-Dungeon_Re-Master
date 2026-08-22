@@ -45,7 +45,7 @@ export const CENA_SCHEMA = Yup.object({
   linkImagem: urlImagemSchema,
   objetivo: descricaoSchema,
   resumo: Yup.string().trim(),
-  descricaoNarracao: textoLongoSchema,
+  descricaoNarracao: Yup.string().trim(),
   pontosImportantes: Yup.array().of(Yup.string()),
   estado: Yup.string()
     .oneOf(ESTADO_CENA_OPCOES.map(o => o.value))
