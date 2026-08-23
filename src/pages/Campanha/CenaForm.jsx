@@ -32,6 +32,7 @@ import FormatAlignRightIcon from '@mui/icons-material/FormatAlignRight';
 import FormatAlignJustifyIcon from '@mui/icons-material/FormatAlignJustify';
 import HorizontalRuleIcon from '@mui/icons-material/HorizontalRule';
 import { Formik, Form, FastField, Field, FieldArray } from 'formik';
+import Popover from '@mui/material/Popover';
 import useStableListKeys from 'hooks/useStableListKeys';
 import ImagePreviewPanel from 'components/ImagePreviewPanel/ImagePreviewPanel';
 import FormActions from 'components/FormActions/FormActions';
@@ -44,7 +45,6 @@ import {
 import {
   CENA_SCHEMA,
   ESTADO_CENA_OPCOES,
-  TIPO_CONSEQUENCIA_OPCOES,
   CONSEQUENCIA_INICIAL,
 } from './cenaUtils';
 
@@ -221,6 +221,87 @@ const narrationEditorAreaSx = {
   flexDirection: 'column',
 };
 
+// Helpers visuais para Consequências
+const getConsequenciaVariant = tipo => {
+  if (!tipo) return 'other';
+  const t = tipo.toString().toLowerCase();
+  if (t.includes('sucesso') || t.includes('success') || t.includes('salvo')) return 'success';
+  if (t.includes('neutro') || t.includes('neutral')) return 'neutral';
+  if (t.includes('falha') || t.includes('morto') || t.includes('fail') || t.includes('perd')) return 'fail';
+  return 'other';
+};
+
+const consequenceBadgeSx = variant => {
+  const map = {
+    success: {
+      bg: 'rgba(34,197,94,0.08)',
+      border: 'rgba(34,197,94,0.16)',
+      color: '#22c55e',
+      glow: '0 6px 18px rgba(34,197,94,0.08)',
+    },
+    neutral: {
+      bg: 'rgba(234,179,8,0.06)',
+      border: 'rgba(234,179,8,0.16)',
+      color: '#f59e0b',
+      glow: '0 6px 18px rgba(234,179,8,0.06)',
+    },
+    fail: {
+      bg: 'rgba(220,38,38,0.06)',
+      border: 'rgba(220,38,38,0.16)',
+      color: '#dc2626',
+      glow: '0 6px 18px rgba(220,38,38,0.06)',
+    },
+    other: {
+      bg: 'rgba(255,255,255,0.02)',
+      border: 'rgba(255,255,255,0.06)',
+      color: '#e5e7eb',
+      glow: '0 6px 18px rgba(255,255,255,0.03)',
+    },
+  };
+  return map[variant] || map.other;
+};
+
+const ConsequenceIcon = ({ variant, customUrl }) => {
+  const v = variant || 'other';
+  const color = consequenceBadgeSx(v).color;
+  if (customUrl) {
+    return (
+      <Box component="img" src={customUrl} alt="icon" sx={{ width: 54, height: 54, objectFit: 'contain', filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.45))' }} />
+    );
+  }
+  if (v === 'success') {
+    return (
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" fill={color} />
+      </svg>
+    );
+  }
+  if (v === 'neutral') {
+    return (
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M3 10L12 3L21 10V20H3V10Z" fill={color} />
+      </svg>
+    );
+  }
+  if (v === 'fail') {
+    return (
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 2C8 2 5 5 5 9C5 14 12 22 12 22C12 22 19 14 19 9C19 5 16 2 12 2Z" fill={color} />
+      </svg>
+    );
+  }
+  return (
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="12" cy="12" r="10" fill={consequenceBadgeSx('other').color} />
+    </svg>
+  );
+};
+
+ConsequenceIcon.propTypes = {
+  variant: PropTypes.string,
+  customUrl: PropTypes.string,
+};
+
 const narrationTextareaWrapperSx = {
   flex: 1,
   overflowY: 'auto',
@@ -327,6 +408,12 @@ const CenaForm = ({
   const [npcs, setNpcs] = useState([]);
   const [criaturas, setCriaturas] = useState([]);
   const [missoes, setMissoes] = useState([]);
+  const [openTipoIndex, setOpenTipoIndex] = useState(null);
+  const [anchorTipoEl, setAnchorTipoEl] = useState(null);
+  const [openIconPickerIndex, setOpenIconPickerIndex] = useState(null);
+  const [anchorIconPickerEl, setAnchorIconPickerEl] = useState(null);
+  const [selectedIcons, setSelectedIcons] = useState({});
+  const [iconPickerCategory, setIconPickerCategory] = useState(null);
   const [editorAberto, setEditorAberto] = useState(false);
   const [editorConteudo, setEditorConteudo] = useState('');
   const [previewMode, setPreviewMode] = useState(false);
@@ -1122,13 +1209,74 @@ const CenaForm = ({
                     >
                       + Adicionar ponto importante
                     </Button>
+                    <Popover
+                      open={openIconPickerIndex !== null && Boolean(anchorIconPickerEl)}
+                      anchorEl={anchorIconPickerEl}
+                      onClose={() => {
+                        setOpenIconPickerIndex(null);
+                        setAnchorIconPickerEl(null);
+                      }}
+                      anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+                      transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+                      sx={{ zIndex: 1600 }}
+                    >
+                      <Box sx={{ p: 2, width: 420, background: 'rgba(7,10,17,0.98)', borderRadius: 2, border: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 30px 80px rgba(0,0,0,0.7)' }}>
+                        <Typography sx={{ color: 'var(--text-primary)', fontWeight: 800, mb: 0.5 }}>Escolha um ícone</Typography>
+                        <Typography sx={{ color: 'var(--text-secondary)', fontSize: '0.85rem', mb: 1.25 }}>Selecione um ícone visual para essa consequência (somente visual, não altera dados no backend).</Typography>
+                        <Box sx={{ maxHeight: 300, overflow: 'auto' }}>
+                          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 1 }}>
+                            {(
+                              iconPickerCategory === 'success'
+                                ? [
+                                    'https://i.imgur.com/BTi3kGm.png','https://i.imgur.com/rzFones.png','https://i.imgur.com/FtpIayF.png','https://i.imgur.com/6yNMP8h.png','https://i.imgur.com/uwQTa11.png','https://i.imgur.com/jES3ue7.png','https://i.imgur.com/OM8fW9O.png'
+                                  ]
+                                : iconPickerCategory === 'neutral'
+                                  ? [
+                                    'https://i.imgur.com/oKzjp6r.png','https://i.imgur.com/q3TtmwH.png','https://i.imgur.com/tom2l0b.png','https://i.imgur.com/lupJCIC.png','https://i.imgur.com/EO9TfsF.png','https://i.imgur.com/IYlqQfk.png','https://i.imgur.com/IePogoT.png'
+                                  ]
+                                  : iconPickerCategory === 'fail'
+                                    ? [
+                                      'https://i.imgur.com/YXPtoxx.png','https://i.imgur.com/I3Aawlq.png','https://i.imgur.com/0qu1421.png','https://i.imgur.com/10xOiVI.png','https://i.imgur.com/Azh2I6R.png','https://i.imgur.com/U6Thr45.png','https://i.imgur.com/ViQ63ra.png'
+                                    ]
+                                    : [
+                                      'https://i.imgur.com/75JqxFh.png','https://i.imgur.com/nM5A3Re.png','https://i.imgur.com/3NVTzJH.png','https://i.imgur.com/vWL7aV6.png','https://i.imgur.com/EDGnH5y.png','https://i.imgur.com/eiLQiq1.png','https://i.imgur.com/G1hxvG3.png'
+                                    ]
+                            ).map(url => (
+                              <Box
+                                key={url}
+                                component="button"
+                                onClick={() => {
+                                  setSelectedIcons(prev => ({ ...prev, [openIconPickerIndex]: url }));
+                                  if (typeof setFieldValue === 'function' && openIconPickerIndex !== null) {
+                                    setFieldValue(`consequencias.${openIconPickerIndex}.icone`, url);
+                                  }
+                                  setOpenIconPickerIndex(null);
+                                  setAnchorIconPickerEl(null);
+                                }}
+                                sx={{ p: 0.5, borderRadius: 1, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)', cursor: 'pointer' }}
+                              >
+                                <Box component="img" src={url} alt="icon" sx={{ width: 44, height: 44, objectFit: 'contain' }} />
+                              </Box>
+                            ))}
+                          </Box>
+                        </Box>
+                      </Box>
+                    </Popover>
                   </Box>
                 )}
               </FieldArray>
             </Paper>
 
             <Paper elevation={0} sx={sectionSx}>
-              <SectionTitle>Consequências</SectionTitle>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Box sx={{ width: 12, height: 12, borderRadius: 2, background: 'rgba(196,58,47,0.95)', boxShadow: '0 6px 18px rgba(196,58,47,0.12)' }} />
+                  <SectionTitle sx={{ color: 'rgba(196,58,47,0.98)' }}>Consequências</SectionTitle>
+                </Box>
+                <Typography sx={{ color: 'var(--text-secondary)', fontSize: '0.94rem' }}>
+                  Defina as consequências narrativas das escolhas feitas pelos jogadores neste nó.
+                </Typography>
+              </Box>
               <FieldArray name="consequencias">
                 {({ push, remove }) => (
                   <Box
@@ -1139,73 +1287,157 @@ const CenaForm = ({
                       mt: 1.5,
                     }}
                   >
-                    {values.consequencias.map((_, idx) => (
-                      <Box
-                        key={consequenciasKeys.keys[idx] ?? idx}
-                        sx={{
-                          display: 'grid',
-                          gridTemplateColumns: {
-                            xs: '1fr',
-                            sm: '220px 1fr auto',
-                          },
-                          gap: 1,
-                          alignItems: 'flex-start',
-                        }}
-                      >
-                        <Field name={`consequencias.${idx}.tipo`}>
-                          {({ field }) => (
-                            <FormControl size="small" fullWidth>
-                              <Select
-                                {...field}
-                                sx={selectSx}
-                              >
-                                {TIPO_CONSEQUENCIA_OPCOES.map(opcao => (
-                                  <MenuItem
-                                    key={opcao.value}
-                                    value={opcao.value}
-                                  >
-                                    {opcao.label}
-                                  </MenuItem>
-                                ))}
-                              </Select>
-                            </FormControl>
-                          )}
-                        </Field>
-                        <FastField name={`consequencias.${idx}.texto`}>
-                          {({ field }) => (
-                            <TextField
-                              {...field}
-                              fullWidth
-                              size="small"
-                              placeholder="Descreva a consequência"
-                              error={Boolean(
-                                touched.consequencias?.[idx]?.texto &&
-                                errors.consequencias?.[idx]?.texto,
-                              )}
-                              helperText={
-                                touched.consequencias?.[idx]?.texto &&
-                                errors.consequencias?.[idx]?.texto
-                              }
-                              sx={inputSx}
-                            />
-                          )}
-                        </FastField>
-                        <IconButton
-                          size="small"
-                          onClick={() => {
-                            consequenciasKeys.removeKey(idx);
-                            remove(idx);
-                          }}
+                    {values.consequencias.map((_, idx) => {
+                      const tipoPath = `consequencias.${idx}.tipo`;
+                      const textoPath = `consequencias.${idx}.texto`;
+                      const tipoVal = values.consequencias?.[idx]?.tipo;
+                      const variant = getConsequenciaVariant(tipoVal);
+                      const badge = consequenceBadgeSx(variant);
+
+                      return (
+                        <Box
+                          key={consequenciasKeys.keys[idx] ?? idx}
                           sx={{
-                            color: 'var(--text-muted)',
-                            '&:hover': { color: '#ef4444' },
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 2,
+                            p: { xs: 1.25, md: 1.75 },
+                            background: 'rgba(6,8,12,0.6)',
+                            border: '1px solid rgba(255,255,255,0.03)',
+                            borderRadius: '12px',
                           }}
-                          aria-label="Remover consequência"
                         >
-                          ✕
-                        </IconButton>
-                      </Box>
-                    ))}
+                          <Box
+                            sx={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              width: 48,
+                              height: 48,
+                              borderRadius: 1.5,
+                              background: badge.bg,
+                              border: `1px solid ${badge.border}`,
+                              boxShadow: badge.glow,
+                            }}
+                          >
+                            <ConsequenceIcon variant={variant} customUrl={values.consequencias?.[idx]?.icone || selectedIcons[idx]} />
+                          </Box>
+
+                          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, minWidth: 0, flex: 1 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <FastField name={tipoPath}>
+                                {({ field }) => (
+                                  <Box
+                                        component="span"
+                                        role="button"
+                                        tabIndex={0}
+                                        onClick={e => {
+                                          setOpenTipoIndex(idx);
+                                          setAnchorTipoEl(e.currentTarget);
+                                        }}
+                                        onKeyDown={e => {
+                                          if (e.key === 'Enter' || e.key === ' ') {
+                                            setOpenTipoIndex(idx);
+                                            setAnchorTipoEl(e.currentTarget);
+                                          }
+                                        }}
+                                        sx={{
+                                          display: 'inline-flex',
+                                          alignItems: 'center',
+                                          px: 1.2,
+                                          py: 0.5,
+                                          borderRadius: '10px',
+                                          fontWeight: 800,
+                                          fontSize: '0.78rem',
+                                          letterSpacing: '0.06em',
+                                          color: badge.color,
+                                          background: 'rgba(255,255,255,0.02)',
+                                          border: `1px solid ${badge.border}`,
+                                          cursor: 'pointer',
+                                          transition: 'all 160ms ease',
+                                          '&:hover': {
+                                            transform: 'translateY(-2px)',
+                                            boxShadow: '0 6px 20px rgba(0,0,0,0.45)',
+                                          },
+                                        }}
+                                      >
+                                        {String(field.value || 'OUTRO').toUpperCase()}
+                                      </Box>
+                                )}
+                              </FastField>
+                              <Box sx={{ color: 'var(--text-secondary)', ml: 0.5 }}>{'›'}</Box>
+                            </Box>
+
+                            <FastField name={textoPath}>
+                              {({ field }) => (
+                                <TextField
+                                  {...field}
+                                  fullWidth
+                                  size="small"
+                                  placeholder="Descreva a consequência"
+                                  multiline
+                                  minRows={1}
+                                  maxRows={4}
+                                  error={Boolean(
+                                    touched.consequencias?.[idx]?.texto &&
+                                    errors.consequencias?.[idx]?.texto,
+                                  )}
+                                  helperText={
+                                    touched.consequencias?.[idx]?.texto &&
+                                    errors.consequencias?.[idx]?.texto
+                                  }
+                                  sx={{
+                                    ...inputSx,
+                                    '& .MuiOutlinedInput-input': {
+                                      lineHeight: '1.4rem',
+                                      maxHeight: '5.6rem',
+                                      overflowY: 'auto',
+                                    },
+                                    '& .MuiOutlinedInput-input::-webkit-scrollbar': {
+                                      width: 8,
+                                    },
+                                    '& .MuiOutlinedInput-input::-webkit-scrollbar-track': {
+                                      background: 'rgba(255,255,255,0.04)',
+                                    },
+                                    '& .MuiOutlinedInput-input::-webkit-scrollbar-thumb': {
+                                      background: 'rgba(196,58,47,0.4)',
+                                      borderRadius: 999,
+                                    },
+                                    '& .MuiOutlinedInput-input::-webkit-scrollbar-thumb:hover': {
+                                      background: 'rgba(196,58,47,0.65)',
+                                    },
+                                    scrollbarWidth: 'thin',
+                                    scrollbarColor: 'rgba(196,58,47,0.4) rgba(255,255,255,0.04)',
+                                  }}
+                                />
+                              )}
+                            </FastField>
+                          </Box>
+
+                          <IconButton
+                            size="small"
+                            onClick={() => {
+                              consequenciasKeys.removeKey(idx);
+                              remove(idx);
+                            }}
+                            sx={{
+                              width: 40,
+                              height: 40,
+                              borderRadius: '50%',
+                              background: 'rgba(196,58,47,0.04)',
+                              border: '1px solid rgba(196,58,47,0.08)',
+                              '&:hover': {
+                                background: 'rgba(196,58,47,0.12)',
+                                boxShadow: '0 6px 20px rgba(196,58,47,0.14)',
+                              },
+                            }}
+                            aria-label="Remover consequência"
+                          >
+                            <Box sx={{ color: '#ef4444', fontWeight: 800 }}>✕</Box>
+                          </IconButton>
+                        </Box>
+                      );
+                    })}
                     <Button
                       onClick={() => {
                         consequenciasKeys.addKey();
@@ -1214,10 +1446,55 @@ const CenaForm = ({
                       sx={{
                         alignSelf: 'flex-start',
                         color: 'var(--color-accent)',
+                        px: 2.5,
+                        py: 1,
+                        border: '1px dashed rgba(196,58,47,0.6)',
+                        borderRadius: '12px',
+                        background: 'transparent',
+                        '&:hover': {
+                          boxShadow: '0 8px 30px rgba(196,58,47,0.12)',
+                          background: 'rgba(196,58,47,0.04)',
+                        },
+                        fontWeight: 700,
+                        letterSpacing: '0.04em',
                       }}
                     >
                       + Adicionar consequência
                     </Button>
+                    <Popover
+                      open={openTipoIndex !== null && Boolean(anchorTipoEl)}
+                      anchorEl={anchorTipoEl}
+                      onClose={() => {
+                        setOpenTipoIndex(null);
+                        setAnchorTipoEl(null);
+                      }}
+                      anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+                      transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+                      sx={{ zIndex: 1500 }}
+                    >
+                      <Box sx={{ p: 2, width: 320, background: 'rgba(7,10,17,0.98)', borderRadius: 2, border: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 20px 60px rgba(0,0,0,0.6)' }}>
+                        <Typography sx={{ color: 'rgba(196,58,47,0.98)', fontWeight: 800, mb: 0.5 }}>TIPO DE CONSEQUÊNCIA</Typography>
+                        <Typography sx={{ color: 'var(--text-secondary)', fontSize: '0.85rem', mb: 1.25 }}>Escolha como essa consequência afeta a narrativa.</Typography>
+                        <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1 }}>
+                            <Box component="button" onClick={() => { setFieldValue(`consequencias.${openTipoIndex}.tipo`, 'sucesso'); setOpenTipoIndex(null); setAnchorTipoEl(null); setIconPickerCategory('success'); setOpenIconPickerIndex(openTipoIndex); setAnchorIconPickerEl(anchorTipoEl); }} sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, p: 1, background: 'rgba(34,197,94,0.04)', border: '1px solid rgba(34,197,94,0.12)', borderRadius: 1.2, cursor: 'pointer' }}>
+                            <Box sx={{ display: 'flex', justifyContent: 'center' }}><ConsequenceIcon variant="success" /></Box>
+                            <Typography sx={{ fontSize: '0.78rem', fontWeight: 800, color: '#22c55e', textAlign: 'center' }}>SUCESSO</Typography>
+                          </Box>
+                          <Box component="button" onClick={() => { setFieldValue(`consequencias.${openTipoIndex}.tipo`, 'neutro'); setOpenTipoIndex(null); setAnchorTipoEl(null); setIconPickerCategory('neutral'); setOpenIconPickerIndex(openTipoIndex); setAnchorIconPickerEl(anchorTipoEl); }} sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, p: 1, background: 'rgba(234,179,8,0.03)', border: '1px solid rgba(234,179,8,0.12)', borderRadius: 1.2, cursor: 'pointer' }}>
+                            <Box sx={{ display: 'flex', justifyContent: 'center' }}><ConsequenceIcon variant="neutral" /></Box>
+                            <Typography sx={{ fontSize: '0.78rem', fontWeight: 800, color: '#f59e0b', textAlign: 'center' }}>NEUTRO</Typography>
+                          </Box>
+                          <Box component="button" onClick={() => { setFieldValue(`consequencias.${openTipoIndex}.tipo`, 'falha'); setOpenTipoIndex(null); setAnchorTipoEl(null); setIconPickerCategory('fail'); setOpenIconPickerIndex(openTipoIndex); setAnchorIconPickerEl(anchorTipoEl); }} sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, p: 1, background: 'rgba(220,38,38,0.04)', border: '1px solid rgba(220,38,38,0.12)', borderRadius: 1.2, cursor: 'pointer' }}>
+                            <Box sx={{ display: 'flex', justifyContent: 'center' }}><ConsequenceIcon variant="fail" /></Box>
+                            <Typography sx={{ fontSize: '0.78rem', fontWeight: 800, color: '#dc2626', textAlign: 'center' }}>FALHA</Typography>
+                          </Box>
+                          <Box component="button" onClick={() => { setFieldValue(`consequencias.${openTipoIndex}.tipo`, 'outro'); setOpenTipoIndex(null); setAnchorTipoEl(null); setIconPickerCategory('other'); setOpenIconPickerIndex(openTipoIndex); setAnchorIconPickerEl(anchorTipoEl); }} sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, p: 1, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)', borderRadius: 1.2, cursor: 'pointer' }}>
+                            <Box sx={{ display: 'flex', justifyContent: 'center' }}><ConsequenceIcon variant="other" /></Box>
+                            <Typography sx={{ fontSize: '0.78rem', fontWeight: 800, color: 'rgba(200,200,200,0.95)', textAlign: 'center' }}>OUTRO</Typography>
+                          </Box>
+                        </Box>
+                      </Box>
+                    </Popover>
                   </Box>
                 )}
               </FieldArray>

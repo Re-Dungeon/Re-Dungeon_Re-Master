@@ -27,7 +27,7 @@ export const TIPO_CONSEQUENCIA_OPCOES = [
   { value: 'outro', label: 'Outro' },
 ];
 
-export const CONSEQUENCIA_INICIAL = { tipo: 'outro', texto: '' };
+export const CONSEQUENCIA_INICIAL = { tipo: 'outro', texto: '', icone: '' };
 
 // Cor placeholder por lado do handle de onde a conexão entre Cenas parte
 // (fluxograma da Campanha) — troque os valores livremente.
@@ -54,6 +54,7 @@ export const CENA_SCHEMA = Yup.object({
     Yup.object({
       tipo: Yup.string().required(),
       texto: Yup.string().trim().required('Descreva a consequência'),
+      icone: urlImagemSchema,
     }),
   ),
   improvisacaoNotas: textoLongoSchema,

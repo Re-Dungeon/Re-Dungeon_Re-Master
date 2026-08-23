@@ -48,7 +48,7 @@ const Sidebar = () => {
             sx={{
               position: 'absolute',
               right: 10,
-              bottom: 10,
+              bottom: 6,
               color: '#FFF',
               fontWeight: 700,
               letterSpacing: '0.08em',
@@ -61,7 +61,7 @@ const Sidebar = () => {
               borderRadius: '8px',
             }}
           >
-            V0.1
+            V1.0
           </Typography>
         </Box>
       </LogoSection>
