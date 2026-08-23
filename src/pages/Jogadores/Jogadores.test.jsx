@@ -22,20 +22,22 @@ vi.mock('service/storage', () => ({
   getCondicoes: (...args) => getCondicoes(...args),
 }));
 
-const canWrite = vi.fn(() => true);
+const CURRENT_USER_UID = 'm1';
+let authState;
 vi.mock('context/AuthContext', () => ({
-  useAuth: () => ({ canWrite }),
+  useAuth: () => authState,
 }));
 
 const CAMPANHA_ATIVA = {
   id: 'c1',
   nome: 'Ascensão Carmesim',
   universoId: 'u1',
-  mestreId: 'm1',
+  mestreId: CURRENT_USER_UID,
 };
+let campanhaAtiva = CAMPANHA_ATIVA;
 vi.mock('context/CampanhaContext', () => ({
   useCampanha: () => ({
-    campanhaAtiva: CAMPANHA_ATIVA,
+    campanhaAtiva,
     loadingCampanhas: false,
   }),
 }));
@@ -91,7 +93,8 @@ const renderJogadores = () =>
 describe('Jogadores (personagens jogáveis do Universo vinculados à campanha ativa)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    canWrite.mockReturnValue(true);
+    authState = { currentUser: { uid: CURRENT_USER_UID }, isAdmin: false };
+    campanhaAtiva = CAMPANHA_ATIVA;
     getPersonagensJogaveis.mockResolvedValue(PERSONAGENS_MOCK);
     getRmCampanhaJogadores.mockResolvedValue([]);
     getPersonagemSubcolecao.mockResolvedValue([]);
@@ -176,8 +179,8 @@ describe('Jogadores (personagens jogáveis do Universo vinculados à campanha at
     );
   });
 
-  it('não mostra ações de clonar/editar/remover quando canWrite retorna false', async () => {
-    canWrite.mockReturnValue(false);
+  it('não mostra ações de clonar/editar/remover quando a campanha ativa não é do usuário logado', async () => {
+    campanhaAtiva = { ...CAMPANHA_ATIVA, mestreId: 'outro-uid' };
     getRmCampanhaJogadores.mockResolvedValue([
       { id: 'clone1', origemPersonagemId: 'p1', nome: 'Kaelen' },
     ]);

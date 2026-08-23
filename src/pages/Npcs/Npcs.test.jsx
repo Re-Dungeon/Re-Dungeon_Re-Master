@@ -22,20 +22,22 @@ vi.mock('service/storage', () => ({
   getCondicoes: (...args) => getCondicoes(...args),
 }));
 
-const canWrite = vi.fn(() => true);
+const CURRENT_USER_UID = 'm1';
+let authState;
 vi.mock('context/AuthContext', () => ({
-  useAuth: () => ({ canWrite }),
+  useAuth: () => authState,
 }));
 
 const CAMPANHA_ATIVA = {
   id: 'c1',
   nome: 'Ascensão Carmesim',
   universoId: 'u1',
-  mestreId: 'm1',
+  mestreId: CURRENT_USER_UID,
 };
+let campanhaAtiva = CAMPANHA_ATIVA;
 vi.mock('context/CampanhaContext', () => ({
   useCampanha: () => ({
-    campanhaAtiva: CAMPANHA_ATIVA,
+    campanhaAtiva,
     loadingCampanhas: false,
   }),
 }));
@@ -99,7 +101,8 @@ const renderNpcs = () =>
 describe('Npcs (personagens do Universo vinculados à campanha ativa)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    canWrite.mockReturnValue(true);
+    authState = { currentUser: { uid: CURRENT_USER_UID }, isAdmin: false };
+    campanhaAtiva = CAMPANHA_ATIVA;
     getPersonagens.mockResolvedValue(PERSONAGENS_MOCK);
     getRmCampanhaNpcs.mockResolvedValue([]);
     getPersonagemSubcolecao.mockResolvedValue([]);
@@ -146,7 +149,9 @@ describe('Npcs (personagens do Universo vinculados à campanha ativa)', () => {
     expect(
       screen.getByLabelText('Ver ficha de Grumnak, o Orc'),
     ).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Clonar' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Clonar' }),
+    ).not.toBeInTheDocument();
   });
 
   it('mostra valores totais de atributos no card de NPC quando disponíveis', async () => {
@@ -185,7 +190,9 @@ describe('Npcs (personagens do Universo vinculados à campanha ativa)', () => {
       expect(screen.getByText('Grumnak, o Orc')).toBeInTheDocument(),
     );
 
-    expect(screen.queryByRole('button', { name: 'Clonar' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Clonar' }),
+    ).not.toBeInTheDocument();
   });
 
   it('mostra "Clonado nesta campanha" e ações de editar/remover quando já existe um clone', async () => {
@@ -223,8 +230,8 @@ describe('Npcs (personagens do Universo vinculados à campanha ativa)', () => {
     );
   });
 
-  it('não mostra ações de editar/remover quando canWrite retorna false', async () => {
-    canWrite.mockReturnValue(false);
+  it('não mostra ações de editar/remover quando a campanha ativa não é do usuário logado', async () => {
+    campanhaAtiva = { ...CAMPANHA_ATIVA, mestreId: 'outro-uid' };
     getRmCampanhaNpcs.mockResolvedValue([
       { id: 'clone1', origemPersonagemId: 'p1', nome: 'Grumnak, o Orc' },
     ]);

@@ -115,7 +115,7 @@ const actionButtonSx = {
 
 const Mapas = () => {
   const navigate = useNavigate();
-  const { canCreate, canWrite } = useAuth();
+  const { currentUser, isAdmin } = useAuth();
   const { campanhaAtiva, loadingCampanhas } = useCampanha();
 
   const getMapasDaCampanha = useCallback(() => {
@@ -143,7 +143,7 @@ const Mapas = () => {
 
   const loading = loadingCampanhas || loadingMapas;
   const podeEscrever = campanhaAtiva
-    ? canWrite(campanhaAtiva.universoId)
+    ? isAdmin || campanhaAtiva.mestreId === currentUser.uid
     : false;
 
   return (
@@ -168,7 +168,7 @@ const Mapas = () => {
             sessão.
           </Typography>
         </Box>
-        {canCreate() && podeEscrever && (
+        {podeEscrever && (
           <Button
             variant="contained"
             onClick={() => navigate(ROUTE_PATHS.NOVO_MAPA)}
@@ -196,7 +196,7 @@ const Mapas = () => {
           <span className="empty-state-icon">�️</span>
           <p>Nenhum mapa criado</p>
           <small>Crie seu primeiro mapa para começar</small>
-          {canCreate() && podeEscrever && (
+          {podeEscrever && (
             <Button
               variant="contained"
               onClick={() => navigate(ROUTE_PATHS.NOVO_MAPA)}

@@ -26,7 +26,7 @@ import { ehJogadorDaCampanha } from './jogadoresUtils';
 // preencheu para esta campanha, indexados por origemPersonagemId.
 const Jogadores = () => {
   const navigate = useNavigate();
-  const { canWrite } = useAuth();
+  const { currentUser, isAdmin } = useAuth();
   const { campanhaAtiva, loadingCampanhas } = useCampanha();
 
   const [jogadoresDoUniverso, setJogadoresDoUniverso] = useState([]);
@@ -82,7 +82,7 @@ const Jogadores = () => {
 
   const loading = loadingCampanhas || loadingJogadores;
   const podeEscrever = campanhaAtiva
-    ? canWrite(campanhaAtiva.universoId)
+    ? isAdmin || campanhaAtiva.mestreId === currentUser.uid
     : false;
 
   const cloneDe = personagemId =>

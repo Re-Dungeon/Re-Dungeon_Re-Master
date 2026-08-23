@@ -17,7 +17,7 @@ import { CampanhaCard, CampanhaCardAtiva } from './styles';
 
 const Campanha = () => {
   const navigate = useNavigate();
-  const { canCreate, canWrite } = useAuth();
+  const { currentUser, isAdmin } = useAuth();
   const {
     campanhas,
     loadingCampanhas,
@@ -56,19 +56,17 @@ const Campanha = () => {
             Crie e selecione a campanha ativa para rodar sua sessão.
           </Typography>
         </Box>
-        {canCreate() && (
-          <Button
-            variant="contained"
-            onClick={() => navigate(ROUTE_PATHS.NOVA_CAMPANHA)}
-            sx={{
-              background: 'var(--color-primary)',
-              '&:hover': { background: 'var(--color-primary-dark)' },
-            }}
-            aria-label="+ Nova Campanha"
-          >
-            + Nova Campanha
-          </Button>
-        )}
+        <Button
+          variant="contained"
+          onClick={() => navigate(ROUTE_PATHS.NOVA_CAMPANHA)}
+          sx={{
+            background: 'var(--color-primary)',
+            '&:hover': { background: 'var(--color-primary-dark)' },
+          }}
+          aria-label="+ Nova Campanha"
+        >
+          + Nova Campanha
+        </Button>
       </Box>
 
       {loading ? (
@@ -103,7 +101,8 @@ const Campanha = () => {
           {campanhas.map(campanha => {
             const ativa = campanha.id === campanhaAtivaId;
             const Card = ativa ? CampanhaCardAtiva : CampanhaCard;
-            const podeEscrever = canWrite(campanha.universoId);
+            const podeEscrever =
+              isAdmin || campanha.mestreId === currentUser.uid;
 
             return (
               <Card key={campanha.id} elevation={0}>
@@ -175,7 +174,9 @@ const Campanha = () => {
                           sx={{
                             color: '#ef4444',
                             background: 'rgba(239, 68, 68, 0.08)',
-                            '&:hover': { background: 'rgba(239, 68, 68, 0.16)' },
+                            '&:hover': {
+                              background: 'rgba(239, 68, 68, 0.16)',
+                            },
                           }}
                           aria-label={`Remover campanha ${campanha.nome}`}
                         >
@@ -262,13 +263,19 @@ const Campanha = () => {
                     onClick={() => setCampanhaAtiva(campanha.id)}
                     sx={{
                       color: '#FFFFFF',
-                      background: ativa ? 'rgba(196, 58, 47, 0.16)' : 'var(--color-primary)',
-                      border: ativa ? '1px solid rgba(196, 58, 47, 0.32)' : '1px solid rgba(143, 35, 28, 0.36)',
+                      background: ativa
+                        ? 'rgba(196, 58, 47, 0.16)'
+                        : 'var(--color-primary)',
+                      border: ativa
+                        ? '1px solid rgba(196, 58, 47, 0.32)'
+                        : '1px solid rgba(143, 35, 28, 0.36)',
                       py: 1.25,
                       fontWeight: 700,
                       textTransform: 'none',
                       '&:hover': {
-                        background: ativa ? 'rgba(196, 58, 47, 0.24)' : 'var(--color-primary-dark)',
+                        background: ativa
+                          ? 'rgba(196, 58, 47, 0.24)'
+                          : 'var(--color-primary-dark)',
                       },
                     }}
                   >

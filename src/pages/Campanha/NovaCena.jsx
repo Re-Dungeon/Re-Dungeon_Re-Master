@@ -12,13 +12,15 @@ import { CENA_INITIAL_VALUES } from './cenaUtils';
 const NovaCena = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { canWrite, loadingPermissions } = useAuth();
+  const { currentUser, isAdmin, loadingPermissions } = useAuth();
   const { campanhaAtiva, loadingCampanhas } = useCampanha();
   const cenaParaEditar = location.state?.cena ?? null;
   const isEditing = Boolean(cenaParaEditar);
 
   const podeEscrever =
-    !loadingCampanhas && campanhaAtiva && canWrite(campanhaAtiva.universoId);
+    !loadingCampanhas &&
+    campanhaAtiva &&
+    (isAdmin || campanhaAtiva.mestreId === currentUser.uid);
 
   useEffect(() => {
     if (loadingPermissions || loadingCampanhas) return;

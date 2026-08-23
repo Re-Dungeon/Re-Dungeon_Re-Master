@@ -12,13 +12,15 @@ import { NOTA_INITIAL_VALUES } from './notaUtils';
 const NovaNota = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { canWrite, loadingPermissions } = useAuth();
+  const { currentUser, isAdmin, loadingPermissions } = useAuth();
   const { campanhaAtiva, loadingCampanhas } = useCampanha();
   const notaParaEditar = location.state?.nota ?? null;
   const isEditing = Boolean(notaParaEditar);
 
   const podeEscrever =
-    !loadingCampanhas && campanhaAtiva && canWrite(campanhaAtiva.universoId);
+    !loadingCampanhas &&
+    campanhaAtiva &&
+    (isAdmin || campanhaAtiva.mestreId === currentUser.uid);
 
   useEffect(() => {
     if (loadingPermissions || loadingCampanhas) return;

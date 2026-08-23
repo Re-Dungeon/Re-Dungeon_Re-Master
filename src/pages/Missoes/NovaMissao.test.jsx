@@ -14,20 +14,22 @@ vi.mock('service/storage', () => ({
   getRmCenas: (...args) => getRmCenas(...args),
 }));
 
-const canWrite = vi.fn(() => true);
+const CURRENT_USER_UID = 'mestre-1';
+let authState;
 vi.mock('context/AuthContext', () => ({
-  useAuth: () => ({ canWrite, loadingPermissions: false }),
+  useAuth: () => authState,
 }));
 
 const CAMPANHA_ATIVA = {
   id: 'c1',
   nome: 'Ascensão Carmesim',
   universoId: 'u1',
-  mestreId: 'mestre-1',
+  mestreId: CURRENT_USER_UID,
 };
+let campanhaAtiva = CAMPANHA_ATIVA;
 vi.mock('context/CampanhaContext', () => ({
   useCampanha: () => ({
-    campanhaAtiva: CAMPANHA_ATIVA,
+    campanhaAtiva,
     loadingCampanhas: false,
   }),
 }));
@@ -44,7 +46,12 @@ const renderNova = state =>
 describe('NovaMissao', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    canWrite.mockReturnValue(true);
+    authState = {
+      currentUser: { uid: CURRENT_USER_UID },
+      isAdmin: false,
+      loadingPermissions: false,
+    };
+    campanhaAtiva = CAMPANHA_ATIVA;
     getRmCampanhaNpcs.mockResolvedValue([]);
     getRmCenas.mockResolvedValue([]);
   });
@@ -152,8 +159,8 @@ describe('NovaMissao', () => {
     expect(addRmMissao).not.toHaveBeenCalled();
   });
 
-  it('redireciona para a lista de missões quando canWrite retorna false', async () => {
-    canWrite.mockReturnValue(false);
+  it('redireciona para a lista de missões quando a campanha ativa não é do usuário logado', async () => {
+    campanhaAtiva = { ...CAMPANHA_ATIVA, mestreId: 'outro-uid' };
     renderNova(undefined);
 
     await waitFor(() =>

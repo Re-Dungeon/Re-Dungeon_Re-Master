@@ -174,7 +174,7 @@ const secondaryButtonSx = {
 const Cartas = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { canWrite } = useAuth();
+  const { currentUser, isAdmin } = useAuth();
   const { campanhaAtiva, loadingCampanhas } = useCampanha();
   const baralho = location.state?.baralho ?? null;
 
@@ -223,7 +223,7 @@ const Cartas = () => {
 
   const loading = loadingCampanhas || loadingCartas;
   const podeEscrever = campanhaAtiva
-    ? canWrite(campanhaAtiva.universoId)
+    ? isAdmin || campanhaAtiva.mestreId === currentUser.uid
     : false;
   const cartasDisponiveis = cartas.filter(
     carta => carta.estadoNoBaralho === 'no_baralho',

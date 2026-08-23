@@ -9,10 +9,10 @@ vi.mock('service/storage', () => ({
   getUniversos: vi.fn().mockResolvedValue([{ id: 'u1', Nome: 'Prime' }]),
 }));
 
-const canCreate = vi.fn(() => true);
-const canWrite = vi.fn(() => true);
+const CURRENT_USER_UID = 'user-1';
+let authState;
 vi.mock('context/AuthContext', () => ({
-  useAuth: () => ({ canCreate, canWrite }),
+  useAuth: () => authState,
 }));
 
 const setCampanhaAtiva = vi.fn();
@@ -31,8 +31,18 @@ vi.mock('context/CampanhaContext', () => ({
 import Campanha from './Campanha';
 
 const CAMPANHAS_MOCK = [
-  { id: 'c1', nome: 'Ascensão Carmesim', universoId: 'u1' },
-  { id: 'c2', nome: 'Ruínas do Norte', universoId: 'u1' },
+  {
+    id: 'c1',
+    nome: 'Ascensão Carmesim',
+    universoId: 'u1',
+    mestreId: CURRENT_USER_UID,
+  },
+  {
+    id: 'c2',
+    nome: 'Ruínas do Norte',
+    universoId: 'u1',
+    mestreId: CURRENT_USER_UID,
+  },
 ];
 
 const renderCampanha = () =>
@@ -45,8 +55,7 @@ const renderCampanha = () =>
 describe('Campanha (lista + seletor de campanha ativa)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    canCreate.mockReturnValue(true);
-    canWrite.mockReturnValue(true);
+    authState = { currentUser: { uid: CURRENT_USER_UID }, isAdmin: false };
     recarregarCampanhas.mockResolvedValue(undefined);
     mockCampanhaState = {
       campanhas: CAMPANHAS_MOCK,
@@ -112,15 +121,19 @@ describe('Campanha (lista + seletor de campanha ativa)', () => {
       screen.getByLabelText('Remover campanha Ascensão Carmesim'),
     );
 
-    await waitFor(() =>
-      expect(removeRmCampanha).toHaveBeenCalledWith('c1'),
-    );
+    await waitFor(() => expect(removeRmCampanha).toHaveBeenCalledWith('c1'));
     expect(setCampanhaAtiva).toHaveBeenCalledWith(null);
     expect(recarregarCampanhas).toHaveBeenCalledTimes(1);
   });
 
-  it('não mostra ações de editar/remover quando canWrite retorna false', async () => {
-    canWrite.mockReturnValue(false);
+  it('não mostra ações de editar/remover quando a campanha não é do usuário logado', async () => {
+    mockCampanhaState = {
+      ...mockCampanhaState,
+      campanhas: [
+        { ...CAMPANHAS_MOCK[0], mestreId: 'outro-uid' },
+        CAMPANHAS_MOCK[1],
+      ],
+    };
     renderCampanha();
 
     await waitFor(() =>
@@ -131,13 +144,12 @@ describe('Campanha (lista + seletor de campanha ativa)', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('não mostra o botão de nova campanha quando canCreate retorna false', () => {
-    canCreate.mockReturnValue(false);
+  it('mostra o botão de nova campanha mesmo sem permissão de escrita em nenhum universo', () => {
     renderCampanha();
 
     expect(
-      screen.queryByRole('button', { name: '+ Nova Campanha' }),
-    ).not.toBeInTheDocument();
+      screen.getByRole('button', { name: '+ Nova Campanha' }),
+    ).toBeInTheDocument();
   });
 
   it('mostra o erro de carregamento e permite tentar de novo via recarregarCampanhas', async () => {
@@ -149,7 +161,9 @@ describe('Campanha (lista + seletor de campanha ativa)', () => {
     const user = userEvent.setup();
     renderCampanha();
 
-    expect(screen.getByText('Erro ao carregar as campanhas.')).toBeInTheDocument();
+    expect(
+      screen.getByText('Erro ao carregar as campanhas.'),
+    ).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Tentar novamente' }));
 
     expect(recarregarCampanhas).toHaveBeenCalled();

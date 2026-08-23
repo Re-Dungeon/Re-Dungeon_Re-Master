@@ -10,19 +10,21 @@ vi.mock('service/storage', () => ({
   updateRmMapa: (...args) => updateRmMapa(...args),
 }));
 
-const canWrite = vi.fn(() => true);
+const CURRENT_USER_UID = 'mestre-1';
+let authState;
 vi.mock('context/AuthContext', () => ({
-  useAuth: () => ({ canWrite, loadingPermissions: false }),
+  useAuth: () => authState,
 }));
 
 const CAMPANHA_ATIVA = {
   id: 'c1',
   nome: 'Ascensão Carmesim',
   universoId: 'u1',
-  mestreId: 'mestre-1',
+  mestreId: CURRENT_USER_UID,
 };
+let campanhaAtiva = CAMPANHA_ATIVA;
 vi.mock('context/CampanhaContext', () => ({
-  useCampanha: () => ({ campanhaAtiva: CAMPANHA_ATIVA, loadingCampanhas: false }),
+  useCampanha: () => ({ campanhaAtiva, loadingCampanhas: false }),
 }));
 
 import NovoMapa from './NovoMapa';
@@ -37,14 +39,23 @@ const renderNovo = state =>
 describe('NovoMapa', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    canWrite.mockReturnValue(true);
+    authState = {
+      currentUser: { uid: CURRENT_USER_UID },
+      isAdmin: false,
+      loadingPermissions: false,
+    };
+    campanhaAtiva = CAMPANHA_ATIVA;
   });
 
   it('mostra "Novo Mapa" com o nome da campanha ativa', async () => {
     renderNovo(undefined);
 
-    await waitFor(() => expect(screen.getByText('Novo Mapa')).toBeInTheDocument());
-    expect(screen.getByText('Novo mapa em Ascensão Carmesim')).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByText('Novo Mapa')).toBeInTheDocument(),
+    );
+    expect(
+      screen.getByText('Novo mapa em Ascensão Carmesim'),
+    ).toBeInTheDocument();
   });
 
   it('cria um mapa com campanhaId/universoId/mestreId derivados da campanha ativa', async () => {
@@ -72,9 +83,13 @@ describe('NovoMapa', () => {
   it('mostra "Editar Mapa" preenchido e salva via updateRmMapa', async () => {
     updateRmMapa.mockResolvedValue(undefined);
     const user = userEvent.setup();
-    renderNovo({ mapa: { id: 'mapa1', nome: 'Mapa da Cidade', categoria: 'cidade' } });
+    renderNovo({
+      mapa: { id: 'mapa1', nome: 'Mapa da Cidade', categoria: 'cidade' },
+    });
 
-    await waitFor(() => expect(screen.getByText('Editar Mapa')).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText('Editar Mapa')).toBeInTheDocument(),
+    );
     expect(screen.getByDisplayValue('Mapa da Cidade')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Salvar Alterações' }));
@@ -88,10 +103,12 @@ describe('NovoMapa', () => {
     expect(addRmMapa).not.toHaveBeenCalled();
   });
 
-  it('redireciona para a lista de mapas quando canWrite retorna false', async () => {
-    canWrite.mockReturnValue(false);
+  it('redireciona para a lista de mapas quando a campanha ativa não é do usuário logado', async () => {
+    campanhaAtiva = { ...CAMPANHA_ATIVA, mestreId: 'outro-uid' };
     renderNovo(undefined);
 
-    await waitFor(() => expect(screen.queryByText('Novo Mapa')).not.toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.queryByText('Novo Mapa')).not.toBeInTheDocument(),
+    );
   });
 });

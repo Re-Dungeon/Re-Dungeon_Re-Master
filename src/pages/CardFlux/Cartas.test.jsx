@@ -20,20 +20,22 @@ vi.mock('service/storage', () => ({
   updateRmCardfluxEstado: (...args) => updateRmCardfluxEstado(...args),
 }));
 
-const canWrite = vi.fn(() => true);
+const CURRENT_USER_UID = 'm1';
+let authState;
 vi.mock('context/AuthContext', () => ({
-  useAuth: () => ({ canWrite }),
+  useAuth: () => authState,
 }));
 
 const CAMPANHA_ATIVA = {
   id: 'c1',
   nome: 'Ascensão Carmesim',
   universoId: 'u1',
-  mestreId: 'm1',
+  mestreId: CURRENT_USER_UID,
 };
+let campanhaAtiva = CAMPANHA_ATIVA;
 vi.mock('context/CampanhaContext', () => ({
   useCampanha: () => ({
-    campanhaAtiva: CAMPANHA_ATIVA,
+    campanhaAtiva,
     loadingCampanhas: false,
   }),
 }));
@@ -76,7 +78,8 @@ const renderCartas = (state = { baralho: BARALHO }) =>
 describe('Cartas (cartas do cardflux filtradas pelo deck do baralho)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    canWrite.mockReturnValue(true);
+    authState = { currentUser: { uid: CURRENT_USER_UID }, isAdmin: false };
+    campanhaAtiva = CAMPANHA_ATIVA;
     getCardfluxCartas.mockResolvedValue(CARTAS_MOCK);
     getRmCardfluxEstadosPorCampanha.mockResolvedValue(ESTADOS_MOCK);
   });
@@ -143,8 +146,8 @@ describe('Cartas (cartas do cardflux filtradas pelo deck do baralho)', () => {
     );
   });
 
-  it('desabilita o select de estado quando o usuário não pode escrever no universo', async () => {
-    canWrite.mockReturnValue(false);
+  it('desabilita o select de estado quando a campanha ativa não é do usuário logado', async () => {
+    campanhaAtiva = { ...CAMPANHA_ATIVA, mestreId: 'outro-uid' };
     renderCartas();
 
     await waitFor(() =>
@@ -208,8 +211,8 @@ describe('Cartas (cartas do cardflux filtradas pelo deck do baralho)', () => {
     );
   });
 
-  it('não mostra os botões de alterar todas quando o usuário não pode escrever no universo', async () => {
-    canWrite.mockReturnValue(false);
+  it('não mostra os botões de alterar todas quando a campanha ativa não é do usuário logado', async () => {
+    campanhaAtiva = { ...CAMPANHA_ATIVA, mestreId: 'outro-uid' };
     renderCartas();
 
     await waitFor(() =>

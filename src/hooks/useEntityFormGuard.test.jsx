@@ -15,6 +15,8 @@ vi.mock('context/AuthContext', () => ({
   useAuth: () => authState,
 }));
 
+const CURRENT_USER_UID = 'user-1';
+
 const mockUniversosHook = vi.fn();
 vi.mock('./useUniversos', () => ({
   default: (...args) => mockUniversosHook(...args),
@@ -30,6 +32,7 @@ describe('useEntityFormGuard', () => {
     canCreate.mockReset().mockReturnValue(true);
     canWrite.mockReset().mockReturnValue(true);
     authState = {
+      currentUser: { uid: CURRENT_USER_UID },
       canCreate,
       canWrite,
       isAdmin: false,
@@ -149,5 +152,85 @@ describe('useEntityFormGuard', () => {
     );
 
     expect(result.current.loadingUniversos).toBe(true);
+  });
+
+  describe('bypassUniversoPermission', () => {
+    it('mostra todos os universos, ignorando allowedUniversos', () => {
+      const { result } = renderHook(
+        () =>
+          useEntityFormGuard({
+            itemParaEditar: null,
+            routeOnDeny: '/rota',
+            bypassUniversoPermission: true,
+          }),
+        { wrapper },
+      );
+
+      expect(result.current.universos).toHaveLength(2);
+    });
+
+    it('não redireciona ao criar, mesmo com canCreate() retornando false', async () => {
+      canCreate.mockReturnValue(false);
+      renderHook(
+        () =>
+          useEntityFormGuard({
+            itemParaEditar: null,
+            routeOnDeny: '/rota',
+            bypassUniversoPermission: true,
+          }),
+        { wrapper },
+      );
+
+      await waitFor(() => expect(mockUniversosHook).toHaveBeenCalled());
+      expect(navigate).not.toHaveBeenCalled();
+      expect(canCreate).not.toHaveBeenCalled();
+      expect(canWrite).not.toHaveBeenCalled();
+    });
+
+    it('não redireciona ao editar item do próprio usuário (mestreId === uid)', async () => {
+      canWrite.mockReturnValue(false);
+      renderHook(
+        () =>
+          useEntityFormGuard({
+            itemParaEditar: { id: '1', mestreId: CURRENT_USER_UID },
+            routeOnDeny: '/rota',
+            bypassUniversoPermission: true,
+          }),
+        { wrapper },
+      );
+
+      await waitFor(() => expect(mockUniversosHook).toHaveBeenCalled());
+      expect(navigate).not.toHaveBeenCalled();
+    });
+
+    it('redireciona ao editar item de outro usuário (mestreId !== uid) e não é admin', async () => {
+      renderHook(
+        () =>
+          useEntityFormGuard({
+            itemParaEditar: { id: '1', mestreId: 'outro-uid' },
+            routeOnDeny: '/rota',
+            bypassUniversoPermission: true,
+          }),
+        { wrapper },
+      );
+
+      await waitFor(() => expect(navigate).toHaveBeenCalledWith('/rota'));
+    });
+
+    it('não redireciona ao editar item de outro usuário quando isAdmin é true', async () => {
+      authState.isAdmin = true;
+      renderHook(
+        () =>
+          useEntityFormGuard({
+            itemParaEditar: { id: '1', mestreId: 'outro-uid' },
+            routeOnDeny: '/rota',
+            bypassUniversoPermission: true,
+          }),
+        { wrapper },
+      );
+
+      await waitFor(() => expect(mockUniversosHook).toHaveBeenCalled());
+      expect(navigate).not.toHaveBeenCalled();
+    });
   });
 });

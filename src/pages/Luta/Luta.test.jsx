@@ -28,10 +28,10 @@ vi.mock('service/storage', () => ({
     updateRmCampanhaLutaParticipante(...args),
 }));
 
-const canCreate = vi.fn(() => true);
-const canWrite = vi.fn(() => true);
+const CURRENT_USER_UID = 'm1';
+let authState;
 vi.mock('context/AuthContext', () => ({
-  useAuth: () => ({ canCreate, canWrite }),
+  useAuth: () => authState,
 }));
 
 const notifyError = vi.fn();
@@ -49,11 +49,12 @@ const CAMPANHA_ATIVA = {
   id: 'c1',
   nome: 'Ascensão Carmesim',
   universoId: 'u1',
-  mestreId: 'm1',
+  mestreId: CURRENT_USER_UID,
 };
+let campanhaAtiva = CAMPANHA_ATIVA;
 vi.mock('context/CampanhaContext', () => ({
   useCampanha: () => ({
-    campanhaAtiva: CAMPANHA_ATIVA,
+    campanhaAtiva,
     loadingCampanhas: false,
   }),
 }));
@@ -105,8 +106,8 @@ const renderLuta = () =>
 describe('Luta (participantes de combate da campanha ativa)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    canCreate.mockReturnValue(true);
-    canWrite.mockReturnValue(true);
+    authState = { currentUser: { uid: CURRENT_USER_UID }, isAdmin: false };
+    campanhaAtiva = CAMPANHA_ATIVA;
     getPersonagens.mockResolvedValue(PERSONAGENS_MOCK);
     getCondicoes.mockResolvedValue([]);
     getRmCampanhaLutaParticipantes.mockResolvedValue([PARTICIPANTE_MOCK]);
@@ -349,8 +350,8 @@ describe('Luta (participantes de combate da campanha ativa)', () => {
     expect(screen.queryByText('Atordoado')).not.toBeInTheDocument();
   });
 
-  it('não mostra ações de adicionar/duplicar/remover e desabilita os campos quando canWrite retorna false', async () => {
-    canWrite.mockReturnValue(false);
+  it('não mostra ações de adicionar/duplicar/remover e desabilita os campos quando a campanha ativa não é do usuário logado', async () => {
+    campanhaAtiva = { ...CAMPANHA_ATIVA, mestreId: 'outro-uid' };
     renderLuta();
 
     await waitFor(() =>

@@ -31,7 +31,10 @@ const inputSx = {
     padding: '4px',
     '& fieldset': { borderColor: 'rgba(255,255,255,0.08)' },
     '&:hover fieldset': { borderColor: 'rgba(255,255,255,0.14)' },
-    '&.Mui-focused fieldset': { borderColor: 'var(--color-accent)', boxShadow: '0 0 0 4px rgba(196,58,47,0.08)' },
+    '&.Mui-focused fieldset': {
+      borderColor: 'var(--color-accent)',
+      boxShadow: '0 0 0 4px rgba(196,58,47,0.08)',
+    },
   },
   '& .MuiInputLabel-root': { color: 'var(--text-secondary)', fontWeight: 600 },
   '& .MuiInputLabel-root.Mui-focused': { color: 'var(--color-accent)' },
@@ -43,7 +46,9 @@ const selectSx = {
   color: 'var(--text-primary)',
   background: 'rgba(255,255,255,0.03)',
   borderRadius: '18px',
-  '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.08)' },
+  '& .MuiOutlinedInput-notchedOutline': {
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
   '&:hover .MuiOutlinedInput-notchedOutline': {
     borderColor: 'rgba(255,255,255,0.14)',
   },
@@ -75,6 +80,7 @@ const NovaCampanha = () => {
     itemParaEditar: campanhaParaEditar,
     universoDoItem: campanhaParaEditar?.universoId,
     routeOnDeny: ROUTE_PATHS.CAMPANHA,
+    bypassUniversoPermission: true,
   });
 
   const editInitialValues = campanhaParaEditar
@@ -212,13 +218,17 @@ const NovaCampanha = () => {
                         {({ field }) => (
                           <FormControl
                             fullWidth
-                            error={touched.universoId && Boolean(errors.universoId)}
+                            error={
+                              touched.universoId && Boolean(errors.universoId)
+                            }
                           >
                             <InputLabel
                               id="nova-campanha-universo-label"
                               sx={{
                                 color: 'var(--text-secondary)',
-                                '&.Mui-focused': { color: 'var(--color-accent)' },
+                                '&.Mui-focused': {
+                                  color: 'var(--color-accent)',
+                                },
                               }}
                             >
                               Universo
@@ -237,7 +247,9 @@ const NovaCampanha = () => {
                               ))}
                             </Select>
                             {touched.universoId && errors.universoId && (
-                              <FormHelperText>{errors.universoId}</FormHelperText>
+                              <FormHelperText>
+                                {errors.universoId}
+                              </FormHelperText>
                             )}
                           </FormControl>
                         )}
@@ -250,7 +262,9 @@ const NovaCampanha = () => {
                             label="Link da Imagem"
                             fullWidth
                             placeholder="https://..."
-                            error={touched.linkImagem && Boolean(errors.linkImagem)}
+                            error={
+                              touched.linkImagem && Boolean(errors.linkImagem)
+                            }
                             helperText={touched.linkImagem && errors.linkImagem}
                             sx={inputSx}
                           />
@@ -265,7 +279,9 @@ const NovaCampanha = () => {
                             fullWidth
                             multiline
                             rows={6}
-                            error={touched.descricao && Boolean(errors.descricao)}
+                            error={
+                              touched.descricao && Boolean(errors.descricao)
+                            }
                             helperText={touched.descricao && errors.descricao}
                             sx={inputSx}
                           />
@@ -314,10 +330,14 @@ const NovaCampanha = () => {
                       mt: 1,
                     }}
                   >
-                    <Typography sx={{ color: 'var(--text-secondary)', fontSize: 13 }}>
+                    <Typography
+                      sx={{ color: 'var(--text-secondary)', fontSize: 13 }}
+                    >
                       Visualização responsiva em tempo real.
                     </Typography>
-                    <Typography sx={{ color: 'var(--text-primary)', fontWeight: 600 }}>
+                    <Typography
+                      sx={{ color: 'var(--text-primary)', fontWeight: 600 }}
+                    >
                       Mantenha o link válido para ver a imagem.
                     </Typography>
                   </Box>
@@ -325,7 +345,15 @@ const NovaCampanha = () => {
               </Box>
             </Paper>
 
-            <Box sx={{ mt: 4, display: 'flex', justifyContent: 'flex-end', gap: 2, flexWrap: 'wrap' }}>
+            <Box
+              sx={{
+                mt: 4,
+                display: 'flex',
+                justifyContent: 'flex-end',
+                gap: 2,
+                flexWrap: 'wrap',
+              }}
+            >
               <Button
                 onClick={() => navigate(ROUTE_PATHS.CAMPANHA)}
                 startIcon={<CancelOutlinedIcon />}
@@ -350,7 +378,8 @@ const NovaCampanha = () => {
                 startIcon={<SaveAsOutlinedIcon />}
                 sx={{
                   color: 'var(--bg-primary)',
-                  background: 'linear-gradient(135deg, var(--color-primary), var(--color-primary-light))',
+                  background:
+                    'linear-gradient(135deg, var(--color-primary), var(--color-primary-light))',
                   px: 3,
                   py: 1.2,
                   borderRadius: '14px',
@@ -358,7 +387,8 @@ const NovaCampanha = () => {
                   fontWeight: 700,
                   boxShadow: '0 14px 30px rgba(143, 35, 28, 0.22)',
                   '&:hover': {
-                    background: 'linear-gradient(135deg, var(--color-primary-dark), var(--color-primary))',
+                    background:
+                      'linear-gradient(135deg, var(--color-primary-dark), var(--color-primary))',
                   },
                 }}
               >

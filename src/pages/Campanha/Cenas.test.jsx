@@ -10,10 +10,10 @@ vi.mock('react-router-dom', async () => {
   return { ...actual, useNavigate: () => navigate };
 });
 
-const canCreate = vi.fn(() => true);
-const canWrite = vi.fn(() => true);
+const CURRENT_USER_UID = 'm1';
+let authState;
 vi.mock('context/AuthContext', () => ({
-  useAuth: () => ({ canCreate, canWrite }),
+  useAuth: () => authState,
 }));
 
 const updateRmCampanha = vi.fn();
@@ -31,7 +31,7 @@ const CAMPANHA_ATIVA = {
   id: 'c1',
   nome: 'Ascensão Carmesim',
   universoId: 'u1',
-  mestreId: 'm1',
+  mestreId: CURRENT_USER_UID,
 };
 let campanhaAtiva = CAMPANHA_ATIVA;
 let loadingCampanhas = false;
@@ -127,8 +127,7 @@ const renderCenas = (state = undefined) =>
 describe('Cenas (grafo da campanha ativa)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    canCreate.mockReturnValue(true);
-    canWrite.mockReturnValue(true);
+    authState = { currentUser: { uid: CURRENT_USER_UID }, isAdmin: false };
     campanhaAtiva = CAMPANHA_ATIVA;
     loadingCampanhas = false;
     grafoState = {
@@ -211,8 +210,8 @@ describe('Cenas (grafo da campanha ativa)', () => {
     expect(setSelectedCenaId).toHaveBeenCalledWith(null);
   });
 
-  it('não mostra o botão de edição do canvas quando canWrite retorna false', () => {
-    canWrite.mockReturnValue(false);
+  it('não mostra o botão de edição do canvas quando a campanha não é do usuário logado', () => {
+    campanhaAtiva = { ...CAMPANHA_ATIVA, mestreId: 'outro-uid' };
     renderCenas();
 
     expect(screen.queryByText('modo-edicao')).not.toBeInTheDocument();

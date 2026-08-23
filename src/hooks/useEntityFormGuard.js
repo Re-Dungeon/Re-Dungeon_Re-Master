@@ -9,22 +9,37 @@ import useUniversos from './useUniversos';
  * `allowedUniversos`/`isAdmin` e redirecionar para `routeOnDeny` caso o
  * usuário não tenha permissão de criar (item novo) ou editar (item
  * existente, avaliado contra `universoDoItem`).
- * @param {{ itemParaEditar: object|null, universoDoItem?: string|string[], routeOnDeny: string }} params
+ * `bypassUniversoPermission` (usado só pela Campanha) troca a checagem de
+ * `allowedUniversos` por posse (`mestreId` do item === uid do usuário) e
+ * mostra todos os universos no lugar de filtrar — qualquer usuário
+ * autenticado pode criar/editar uma Campanha em qualquer universo.
+ * @param {{ itemParaEditar: object|null, universoDoItem?: string|string[], routeOnDeny: string, bypassUniversoPermission?: boolean }} params
  */
 const useEntityFormGuard = ({
   itemParaEditar,
   universoDoItem,
   routeOnDeny,
+  bypassUniversoPermission = false,
 }) => {
   const navigate = useNavigate();
-  const { canCreate, canWrite, isAdmin, allowedUniversos, loadingPermissions } =
-    useAuth();
+  const {
+    currentUser,
+    canCreate,
+    canWrite,
+    isAdmin,
+    allowedUniversos,
+    loadingPermissions,
+  } = useAuth();
   const { universos, loadingUniversos } = useUniversos();
   const isEditing = Boolean(itemParaEditar);
 
   useEffect(() => {
     if (loadingPermissions) return;
-    const allowed = isEditing ? canWrite(universoDoItem) : canCreate();
+    const allowed = bypassUniversoPermission
+      ? isAdmin || !isEditing || itemParaEditar?.mestreId === currentUser?.uid
+      : isEditing
+        ? canWrite(universoDoItem)
+        : canCreate();
     if (!allowed) navigate(routeOnDeny);
   }, [
     loadingPermissions,
@@ -34,11 +49,16 @@ const useEntityFormGuard = ({
     universoDoItem,
     navigate,
     routeOnDeny,
+    bypassUniversoPermission,
+    isAdmin,
+    itemParaEditar,
+    currentUser,
   ]);
 
-  const universosFiltrados = isAdmin
-    ? universos
-    : universos.filter(u => allowedUniversos.includes(u.id));
+  const universosFiltrados =
+    bypassUniversoPermission || isAdmin
+      ? universos
+      : universos.filter(u => allowedUniversos.includes(u.id));
 
   return { universos: universosFiltrados, loadingUniversos, isEditing };
 };

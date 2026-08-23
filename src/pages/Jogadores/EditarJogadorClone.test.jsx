@@ -16,20 +16,22 @@ vi.mock('service/storage', () => ({
   updateRmCampanhaJogador: (...args) => updateRmCampanhaJogador(...args),
 }));
 
-const canWrite = vi.fn(() => true);
+const CURRENT_USER_UID = 'mestre-1';
+let authState;
 vi.mock('context/AuthContext', () => ({
-  useAuth: () => ({ canWrite, loadingPermissions: false }),
+  useAuth: () => authState,
 }));
 
 const CAMPANHA_ATIVA = {
   id: 'c1',
   nome: 'Ascensão Carmesim',
   universoId: 'u1',
-  mestreId: 'mestre-1',
+  mestreId: CURRENT_USER_UID,
 };
+let campanhaAtiva = CAMPANHA_ATIVA;
 vi.mock('context/CampanhaContext', () => ({
   useCampanha: () => ({
-    campanhaAtiva: CAMPANHA_ATIVA,
+    campanhaAtiva,
     loadingCampanhas: false,
   }),
 }));
@@ -53,7 +55,12 @@ const renderTela = state =>
 describe('EditarJogadorClone', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    canWrite.mockReturnValue(true);
+    authState = {
+      currentUser: { uid: CURRENT_USER_UID },
+      isAdmin: false,
+      loadingPermissions: false,
+    };
+    campanhaAtiva = CAMPANHA_ATIVA;
   });
 
   it('mostra "Clonar {nome}" e pré-preenche nome/imagem/descrição a partir do personagem', async () => {
@@ -131,8 +138,8 @@ describe('EditarJogadorClone', () => {
     await waitFor(() => expect(navigate).toHaveBeenCalledWith('/jogadores'));
   });
 
-  it('redireciona para a lista de Jogadores quando canWrite retorna false', async () => {
-    canWrite.mockReturnValue(false);
+  it('redireciona para a lista de Jogadores quando a campanha ativa não é do usuário logado', async () => {
+    campanhaAtiva = { ...CAMPANHA_ATIVA, mestreId: 'outro-uid' };
     renderTela({ personagem: PERSONAGEM });
 
     await waitFor(() => expect(navigate).toHaveBeenCalledWith('/jogadores'));

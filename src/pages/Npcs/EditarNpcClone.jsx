@@ -16,14 +16,16 @@ import { NPC_INITIAL_VALUES } from './npcUtils';
 const EditarNpcClone = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { canWrite, loadingPermissions } = useAuth();
+  const { currentUser, isAdmin, loadingPermissions } = useAuth();
   const { campanhaAtiva, loadingCampanhas } = useCampanha();
   const personagem = location.state?.personagem ?? null;
   const cloneParaEditar = location.state?.clone ?? null;
   const isEditing = Boolean(cloneParaEditar);
 
   const podeEscrever =
-    !loadingCampanhas && campanhaAtiva && canWrite(campanhaAtiva.universoId);
+    !loadingCampanhas &&
+    campanhaAtiva &&
+    (isAdmin || campanhaAtiva.mestreId === currentUser.uid);
 
   useEffect(() => {
     if (loadingPermissions || loadingCampanhas) return;

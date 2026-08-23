@@ -12,18 +12,26 @@ import { MAPA_INITIAL_VALUES } from './mapaUtils';
 const NovoMapa = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { canWrite, loadingPermissions } = useAuth();
+  const { currentUser, isAdmin, loadingPermissions } = useAuth();
   const { campanhaAtiva, loadingCampanhas } = useCampanha();
   const mapaParaEditar = location.state?.mapa ?? null;
   const isEditing = Boolean(mapaParaEditar);
 
   const podeEscrever =
-    !loadingCampanhas && campanhaAtiva && canWrite(campanhaAtiva.universoId);
+    !loadingCampanhas &&
+    campanhaAtiva &&
+    (isAdmin || campanhaAtiva.mestreId === currentUser.uid);
 
   useEffect(() => {
     if (loadingPermissions || loadingCampanhas) return;
     if (!campanhaAtiva || !podeEscrever) navigate(ROUTE_PATHS.MAPAS);
-  }, [loadingPermissions, loadingCampanhas, campanhaAtiva, podeEscrever, navigate]);
+  }, [
+    loadingPermissions,
+    loadingCampanhas,
+    campanhaAtiva,
+    podeEscrever,
+    navigate,
+  ]);
 
   const editInitialValues = mapaParaEditar
     ? { ...MAPA_INITIAL_VALUES, ...mapaParaEditar }
@@ -44,7 +52,12 @@ const NovoMapa = () => {
     navigate(ROUTE_PATHS.MAPAS);
   };
 
-  if (loadingCampanhas || loadingPermissions || !campanhaAtiva || !podeEscrever) {
+  if (
+    loadingCampanhas ||
+    loadingPermissions ||
+    !campanhaAtiva ||
+    !podeEscrever
+  ) {
     return null;
   }
 

@@ -12,13 +12,15 @@ import { MISSAO_INITIAL_VALUES } from './missaoUtils';
 const NovaMissao = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { canWrite, loadingPermissions } = useAuth();
+  const { currentUser, isAdmin, loadingPermissions } = useAuth();
   const { campanhaAtiva, loadingCampanhas } = useCampanha();
   const missaoParaEditar = location.state?.missao ?? null;
   const isEditing = Boolean(missaoParaEditar);
 
   const podeEscrever =
-    !loadingCampanhas && campanhaAtiva && canWrite(campanhaAtiva.universoId);
+    !loadingCampanhas &&
+    campanhaAtiva &&
+    (isAdmin || campanhaAtiva.mestreId === currentUser.uid);
 
   useEffect(() => {
     if (loadingPermissions || loadingCampanhas) return;

@@ -27,7 +27,7 @@ import { ehCriaturaDaCampanha } from './criaturaUtils';
 // indexados por origemPersonagemId.
 const Criaturas = () => {
   const navigate = useNavigate();
-  const { canWrite } = useAuth();
+  const { currentUser, isAdmin } = useAuth();
   const { campanhaAtiva, loadingCampanhas } = useCampanha();
 
   const [criaturasDoUniverso, setCriaturasDoUniverso] = useState([]);
@@ -83,7 +83,7 @@ const Criaturas = () => {
 
   const loading = loadingCampanhas || loadingCriaturas;
   const podeEscrever = campanhaAtiva
-    ? canWrite(campanhaAtiva.universoId)
+    ? isAdmin || campanhaAtiva.mestreId === currentUser.uid
     : false;
 
   const cloneDe = personagemId =>

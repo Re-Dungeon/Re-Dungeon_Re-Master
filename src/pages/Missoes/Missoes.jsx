@@ -270,7 +270,7 @@ const hudIconSx = {
 
 const Missoes = () => {
   const navigate = useNavigate();
-  const { canCreate, canWrite } = useAuth();
+  const { currentUser, isAdmin } = useAuth();
   const { campanhaAtiva, loadingCampanhas } = useCampanha();
 
   const getMissoesDaCampanha = useCallback(() => {
@@ -298,7 +298,7 @@ const Missoes = () => {
 
   const loading = loadingCampanhas || loadingMissoes;
   const podeEscrever = campanhaAtiva
-    ? canWrite(campanhaAtiva.universoId)
+    ? isAdmin || campanhaAtiva.mestreId === currentUser.uid
     : false;
 
   return (
@@ -322,7 +322,7 @@ const Missoes = () => {
             Acompanhamento de objetivos e recompensas desta campanha.
           </Typography>
         </Box>
-        {canCreate() && podeEscrever && (
+        {podeEscrever && (
           <Button
             variant="contained"
             onClick={() => navigate(ROUTE_PATHS.NOVA_MISSAO)}
@@ -350,7 +350,7 @@ const Missoes = () => {
           <span className="empty-state-icon">📜</span>
           <p>Nenhuma missão cadastrada</p>
           <small>Crie uma missão para começar</small>
-          {canCreate() && podeEscrever && (
+          {podeEscrever && (
             <Button
               variant="contained"
               onClick={() => navigate(ROUTE_PATHS.NOVA_MISSAO)}

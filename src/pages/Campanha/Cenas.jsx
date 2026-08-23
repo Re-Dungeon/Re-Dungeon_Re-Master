@@ -20,7 +20,7 @@ import CenaDetailPanel from './CenaDetailPanel';
 const Cenas = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { canCreate, canWrite } = useAuth();
+  const { currentUser, isAdmin } = useAuth();
   const { campanhaAtiva, loadingCampanhas, recarregarCampanhas } =
     useCampanha();
 
@@ -60,7 +60,7 @@ const Cenas = () => {
 
   const loading = loadingCampanhas || loadingGrafo;
   const podeEscrever = campanhaAtiva
-    ? canWrite(campanhaAtiva.universoId)
+    ? isAdmin || campanhaAtiva.mestreId === currentUser.uid
     : false;
   const cenaSelecionada = cenas.find(c => c.id === selectedCenaId) ?? null;
 
@@ -100,7 +100,12 @@ const Cenas = () => {
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
           <Button
             onClick={() => navigate(ROUTE_PATHS.CAMPANHA)}
-            sx={{ color: 'var(--text-muted)', px: 0, mb: 1, alignSelf: 'flex-start' }}
+            sx={{
+              color: 'var(--text-muted)',
+              px: 0,
+              mb: 1,
+              alignSelf: 'flex-start',
+            }}
           >
             ← Voltar para Campanhas
           </Button>
@@ -122,16 +127,17 @@ const Cenas = () => {
               lineHeight: 1.7,
             }}
           >
-            Organize o fluxo das cenas, conecte-as de forma intuitiva e visualize
-            sua campanha com um estilo mais limpo e profissional.
+            Organize o fluxo das cenas, conecte-as de forma intuitiva e
+            visualize sua campanha com um estilo mais limpo e profissional.
           </Typography>
         </Box>
-        {canCreate() && podeEscrever && cenas.length > 0 && (
+        {podeEscrever && cenas.length > 0 && (
           <Button
             variant="contained"
             onClick={() => navigate(ROUTE_PATHS.NOVA_CENA)}
             sx={{
-              background: 'linear-gradient(135deg, rgba(143,35,28,1), rgba(196,58,47,1))',
+              background:
+                'linear-gradient(135deg, rgba(143,35,28,1), rgba(196,58,47,1))',
               color: '#FFFFFF',
               boxShadow: '0 16px 34px rgba(196,58,47,0.24)',
               textTransform: 'none',
@@ -140,7 +146,8 @@ const Cenas = () => {
               py: 1.25,
               alignSelf: { xs: 'flex-start', md: 'auto' },
               '&:hover': {
-                background: 'linear-gradient(135deg, rgba(196,58,47,1), rgba(143,35,28,1))',
+                background:
+                  'linear-gradient(135deg, rgba(196,58,47,1), rgba(143,35,28,1))',
               },
             }}
           >
@@ -163,7 +170,7 @@ const Cenas = () => {
           <span className="empty-state-icon">🎬</span>
           <p>Nenhuma cena cadastrada</p>
           <small>Crie a primeira cena desta campanha.</small>
-          {canCreate() && podeEscrever && (
+          {podeEscrever && (
             <Button
               variant="contained"
               onClick={() => navigate(ROUTE_PATHS.NOVA_CENA)}

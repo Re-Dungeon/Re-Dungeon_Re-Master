@@ -16,22 +16,21 @@ vi.mock('service/storage', () => ({
   getRmMissoesPorCampanha: (...args) => getRmMissoesPorCampanha(...args),
 }));
 
-const canWrite = vi.fn(() => true);
+const CURRENT_USER_UID = 'mestre-1';
+let authState;
 vi.mock('context/AuthContext', () => ({
-  useAuth: () => ({ canWrite, loadingPermissions: false }),
+  useAuth: () => authState,
 }));
 
+let campanhaAtivaState;
 const CAMPANHA_ATIVA = {
   id: 'c1',
   nome: 'Ascensão Carmesim',
   universoId: 'u1',
-  mestreId: 'mestre-1',
+  mestreId: CURRENT_USER_UID,
 };
 vi.mock('context/CampanhaContext', () => ({
-  useCampanha: () => ({
-    campanhaAtiva: CAMPANHA_ATIVA,
-    loadingCampanhas: false,
-  }),
+  useCampanha: () => campanhaAtivaState,
 }));
 
 import NovaCena from './NovaCena';
@@ -48,7 +47,15 @@ const renderNova = state =>
 describe('NovaCena', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    canWrite.mockReturnValue(true);
+    authState = {
+      currentUser: { uid: CURRENT_USER_UID },
+      isAdmin: false,
+      loadingPermissions: false,
+    };
+    campanhaAtivaState = {
+      campanhaAtiva: CAMPANHA_ATIVA,
+      loadingCampanhas: false,
+    };
   });
 
   it('mostra "Nova Cena" com o nome da campanha ativa', async () => {
@@ -170,8 +177,11 @@ describe('NovaCena', () => {
     );
   });
 
-  it('redireciona para a lista de cenas quando canWrite retorna false', async () => {
-    canWrite.mockReturnValue(false);
+  it('redireciona para a lista de cenas quando a campanha ativa não é do usuário logado', async () => {
+    campanhaAtivaState = {
+      campanhaAtiva: { ...CAMPANHA_ATIVA, mestreId: 'outro-uid' },
+      loadingCampanhas: false,
+    };
     renderNova(undefined);
 
     await waitFor(() =>

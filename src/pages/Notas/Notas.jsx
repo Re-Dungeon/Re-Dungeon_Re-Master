@@ -30,11 +30,13 @@ import { ROUTE_PATHS } from 'common/constants/routes';
 
 const cardSx = {
   p: 3,
-  background: 'linear-gradient(180deg, rgba(11, 14, 22, 0.98), rgba(8, 10, 16, 0.98))',
+  background:
+    'linear-gradient(180deg, rgba(11, 14, 22, 0.98), rgba(8, 10, 16, 0.98))',
   border: '1px solid rgba(255,255,255,0.08)',
   borderRadius: 4,
   boxShadow: '0 22px 56px rgba(0,0,0,0.32)',
-  transition: 'transform 220ms ease, box-shadow 220ms ease, border-color 220ms ease',
+  transition:
+    'transform 220ms ease, box-shadow 220ms ease, border-color 220ms ease',
   '&:hover': {
     transform: 'translateY(-2px)',
     borderColor: 'rgba(196,58,47,0.35)',
@@ -42,14 +44,14 @@ const cardSx = {
   },
 };
 
-
 const actionButtonSx = {
   width: 38,
   height: 38,
   color: 'var(--text-primary)',
   background: 'rgba(255,255,255,0.04)',
   border: '1px solid rgba(255,255,255,0.08)',
-  transition: 'background 180ms ease, transform 180ms ease, border-color 180ms ease',
+  transition:
+    'background 180ms ease, transform 180ms ease, border-color 180ms ease',
   '&:hover': {
     background: 'rgba(255,255,255,0.08)',
     transform: 'translateY(-1px)',
@@ -77,11 +79,9 @@ const previewSx = {
   wordBreak: 'break-word',
 };
 
-
-
 const Notas = () => {
   const navigate = useNavigate();
-  const { canCreate, canWrite } = useAuth();
+  const { currentUser, isAdmin } = useAuth();
   const { campanhaAtiva, loadingCampanhas } = useCampanha();
 
   const getNotasDaCampanha = useCallback(() => {
@@ -125,7 +125,7 @@ const Notas = () => {
 
   const loading = loadingCampanhas || loadingNotas;
   const podeEscrever = campanhaAtiva
-    ? canWrite(campanhaAtiva.universoId)
+    ? isAdmin || campanhaAtiva.mestreId === currentUser.uid
     : false;
 
   const abrirNotaVisualizacao = nota => setNotaVisualizada(nota);
@@ -139,11 +139,15 @@ const Notas = () => {
           <div>
             <h1 className="notas-title">Notas</h1>
             <div className="notas-campanha">{campanhaAtiva?.nome}</div>
-            <div className="notas-count">{notas?.length ?? 0} Notas Registradas</div>
-            <div className="notas-ornament" aria-hidden="true">━━━━━━━━━━━━━━━━━━</div>
+            <div className="notas-count">
+              {notas?.length ?? 0} Notas Registradas
+            </div>
+            <div className="notas-ornament" aria-hidden="true">
+              ━━━━━━━━━━━━━━━━━━
+            </div>
           </div>
         </div>
-        {canCreate() && podeEscrever && (
+        {podeEscrever && (
           <Button
             variant="contained"
             onClick={() => navigate(ROUTE_PATHS.NOVA_NOTA)}
@@ -177,95 +181,105 @@ const Notas = () => {
         <>
           <Box className="notas-grid">
             {notas.map(nota => {
-            const cenaVinculada = cenas.find(c => c.id === nota.cenaId);
+              const cenaVinculada = cenas.find(c => c.id === nota.cenaId);
 
-            return (
-              <Paper key={nota.id} elevation={0} sx={cardSx} className="nota-card">
-                <Box
-                  sx={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 1.75,
-                  }}
+              return (
+                <Paper
+                  key={nota.id}
+                  elevation={0}
+                  sx={cardSx}
+                  className="nota-card"
                 >
-                  <Box className="nota-header">
-                    <div className="nota-header-left">
-                      <div className="nota-ic">📖</div>
-                      <div>
-                        <Typography
-                          variant="h6"
-                          sx={{ color: 'var(--text-primary)', fontWeight: 700 }}
-                          className="nota-titulo"
-                        >
-                          {nota.titulo}
-                        </Typography>
-                        {cenaVinculada && (
-                          <Chip
-                            label={`Cena: ${cenaVinculada.titulo}`}
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 1.75,
+                    }}
+                  >
+                    <Box className="nota-header">
+                      <div className="nota-header-left">
+                        <div className="nota-ic">📖</div>
+                        <div>
+                          <Typography
+                            variant="h6"
+                            sx={{
+                              color: 'var(--text-primary)',
+                              fontWeight: 700,
+                            }}
+                            className="nota-titulo"
+                          >
+                            {nota.titulo}
+                          </Typography>
+                          {cenaVinculada && (
+                            <Chip
+                              label={`Cena: ${cenaVinculada.titulo}`}
+                              size="small"
+                              className="nota-badge"
+                            />
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="nota-actions-wrapper">
+                        <Tooltip title="Visualizar" arrow>
+                          <IconButton
                             size="small"
-                            className="nota-badge"
-                          />
+                            onClick={() => abrirNotaVisualizacao(nota)}
+                            sx={actionButtonSx}
+                            aria-label={`Visualizar nota ${nota.titulo}`}
+                            className="nota-action-btn"
+                          >
+                            <VisibilityOutlinedIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        {podeEscrever && (
+                          <Tooltip title="Editar" arrow>
+                            <IconButton
+                              size="small"
+                              onClick={() =>
+                                navigate(ROUTE_PATHS.NOVA_NOTA, {
+                                  state: { nota },
+                                })
+                              }
+                              sx={actionButtonSx}
+                              aria-label={`Editar nota ${nota.titulo}`}
+                              className="nota-action-btn edit"
+                            >
+                              <EditOutlinedIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                        {podeEscrever && (
+                          <Tooltip title="Excluir" arrow>
+                            <IconButton
+                              size="small"
+                              onClick={() => handleRemoveNota(nota.id)}
+                              sx={deleteButtonSx}
+                              aria-label={`Remover nota ${nota.titulo}`}
+                              className="nota-action-btn delete"
+                            >
+                              <DeleteOutlineIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
                         )}
                       </div>
-                    </div>
+                    </Box>
 
-                    <div className="nota-actions-wrapper">
-                      <Tooltip title="Visualizar" arrow>
-                        <IconButton
-                          size="small"
-                          onClick={() => abrirNotaVisualizacao(nota)}
-                          sx={actionButtonSx}
-                          aria-label={`Visualizar nota ${nota.titulo}`}
-                          className="nota-action-btn"
-                        >
-                          <VisibilityOutlinedIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                      {podeEscrever && (
-                        <Tooltip title="Editar" arrow>
-                          <IconButton
-                            size="small"
-                            onClick={() =>
-                              navigate(ROUTE_PATHS.NOVA_NOTA, { state: { nota } })
-                            }
-                            sx={actionButtonSx}
-                            aria-label={`Editar nota ${nota.titulo}`}
-                            className="nota-action-btn edit"
-                          >
-                            <EditOutlinedIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                      {podeEscrever && (
-                        <Tooltip title="Excluir" arrow>
-                          <IconButton
-                            size="small"
-                            onClick={() => handleRemoveNota(nota.id)}
-                            sx={deleteButtonSx}
-                            aria-label={`Remover nota ${nota.titulo}`}
-                            className="nota-action-btn delete"
-                          >
-                            <DeleteOutlineIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                    </div>
+                    <Box className="nota-preview-panel">
+                      <Typography
+                        variant="body2"
+                        sx={previewSx}
+                        className="nota-preview"
+                      >
+                        {nota.conteudo || 'Sem conteúdo de nota.'}
+                      </Typography>
+                    </Box>
                   </Box>
-
-                  <Box className="nota-preview-panel">
-                    <Typography
-                      variant="body2"
-                      sx={previewSx}
-                      className="nota-preview"
-                    >
-                      {nota.conteudo || 'Sem conteúdo de nota.'}
-                    </Typography>
-                  </Box>
-                </Box>
-              </Paper>
-            );
-          })}
-        </Box>
+                </Paper>
+              );
+            })}
+          </Box>
 
           <Dialog
             open={Boolean(notaVisualizada)}
@@ -291,23 +305,37 @@ const Notas = () => {
             }}
             className="nota-dialog"
           >
-            <DialogTitle
-              component="div"
-              className="nota-dialog-title"
-            >
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 2 }}>
+            <DialogTitle component="div" className="nota-dialog-title">
+              <Box
+                sx={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'flex-start',
+                  gap: 2,
+                }}
+              >
                 <Box>
                   <Typography
                     variant="h6"
-                    sx={{ color: 'var(--text-primary)', fontWeight: 800, mb: 0.5 }}
+                    sx={{
+                      color: 'var(--text-primary)',
+                      fontWeight: 800,
+                      mb: 0.5,
+                    }}
                   >
                     {notaVisualizada?.titulo}
                   </Typography>
                   <Typography
                     variant="caption"
-                    sx={{ color: 'var(--text-secondary)', display: 'block', mt: 0.5 }}
+                    sx={{
+                      color: 'var(--text-secondary)',
+                      display: 'block',
+                      mt: 0.5,
+                    }}
                   >
-                    {notaVisualizada?.cenaId ? `Cena vinculada: ${cenas.find(c => c.id === notaVisualizada.cenaId)?.titulo ?? 'Desconhecida'}` : 'Nota rápida'}
+                    {notaVisualizada?.cenaId
+                      ? `Cena vinculada: ${cenas.find(c => c.id === notaVisualizada.cenaId)?.titulo ?? 'Desconhecida'}`
+                      : 'Nota rápida'}
                   </Typography>
                 </Box>
                 <IconButton
@@ -328,15 +356,14 @@ const Notas = () => {
             </DialogTitle>
             <DialogContent className="nota-dialog-content">
               <Box className="nota-dialog-panel">
-                <Typography
-                  variant="body2"
-                  className="nota-dialog-body"
-                >
+                <Typography variant="body2" className="nota-dialog-body">
                   {notaVisualizada?.conteudo || 'Sem conteúdo para exibir.'}
                 </Typography>
               </Box>
             </DialogContent>
-            <DialogActions sx={{ background: 'rgba(15,17,25,0.98)', px: 3, py: 2 }}>
+            <DialogActions
+              sx={{ background: 'rgba(15,17,25,0.98)', px: 3, py: 2 }}
+            >
               <Button
                 onClick={fecharNotaVisualizacao}
                 sx={{

@@ -57,7 +57,8 @@ const cardSx = {
   minWidth: 280,
   maxWidth: 340,
   width: 'auto',
-  transition: 'transform 200ms ease, box-shadow 200ms ease, border-color 200ms ease',
+  transition:
+    'transform 200ms ease, box-shadow 200ms ease, border-color 200ms ease',
   '&:hover': {
     transform: 'translateY(-2px)',
     borderColor: 'rgba(239, 68, 68, 0.35)',
@@ -126,7 +127,6 @@ const badgeTextColors = {
   Companheiro: '#c4b5fd',
 };
 
-
 // Tela para o mestre conduzir um combate: adiciona NPCs/Criaturas já
 // vinculados a esta campanha como participantes (cada um com seu próprio
 // estado de vida/fadiga/mana) e ajusta esses status ao vivo durante a luta.
@@ -135,7 +135,7 @@ const badgeTextColors = {
 // personagem de origem várias vezes (ex.: 5 "Rato Gigante" na mesma luta).
 const Luta = () => {
   const navigate = useNavigate();
-  const { canCreate, canWrite } = useAuth();
+  const { currentUser, isAdmin } = useAuth();
   const { campanhaAtiva, loadingCampanhas } = useCampanha();
   const { notifyError } = useSnackbar();
 
@@ -196,7 +196,7 @@ const Luta = () => {
 
   const loading = loadingCampanhas || loadingDados;
   const podeEscrever = campanhaAtiva
-    ? canWrite(campanhaAtiva.universoId)
+    ? isAdmin || campanhaAtiva.mestreId === currentUser.uid
     : false;
 
   // A ficha completa (habilidades, atributos etc.) não é copiada para o
@@ -331,9 +331,7 @@ const Luta = () => {
 
   const handleMenuVerFicha = () => {
     if (menuAlvo) {
-      setPersonagemVisualizado(
-        personagemDe(menuAlvo.origemPersonagemId),
-      );
+      setPersonagemVisualizado(personagemDe(menuAlvo.origemPersonagemId));
     }
     handleMenuClose();
   };
@@ -435,7 +433,7 @@ const Luta = () => {
             Controle a vida, fadiga e mana dos NPCs e Criaturas em combate.
           </Typography>
         </Box>
-        {canCreate() && podeEscrever && (
+        {podeEscrever && (
           <Button
             variant="contained"
             onClick={() => setDialogoAberto(true)}
@@ -484,8 +482,17 @@ const Luta = () => {
               role="group"
               aria-label={`Participante ${participante.nome}`}
             >
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', minWidth: 0 }}>
+              <Box
+                sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}
+              >
+                <Box
+                  sx={{
+                    display: 'flex',
+                    gap: 1,
+                    alignItems: 'center',
+                    minWidth: 0,
+                  }}
+                >
                   {participante.linkImagem ? (
                     <Box
                       component="img"
@@ -579,13 +586,23 @@ const Luta = () => {
                 </Box>
               </Box>
 
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 1.25 }}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 1,
+                  mb: 1.25,
+                }}
+              >
                 {STATS_LUTA.map(stat => {
                   const campoAtual = `${stat.chave}Atual`;
                   const campoMaximo = `${stat.chave}Maxima`;
                   const atual = Number(participante[campoAtual] ?? 0);
                   const maximo = Number(participante[campoMaximo] ?? 0);
-                  const porcentagem = maximo > 0 ? Math.min(100, Math.max(0, (atual / maximo) * 100)) : 0;
+                  const porcentagem =
+                    maximo > 0
+                      ? Math.min(100, Math.max(0, (atual / maximo) * 100))
+                      : 0;
                   return (
                     <Box key={stat.chave}>
                       <Box
@@ -723,7 +740,8 @@ const Luta = () => {
                       size="small"
                       onDelete={
                         podeEscrever
-                          ? () => handleRemoverCondicao(participante, condicao.id)
+                          ? () =>
+                              handleRemoverCondicao(participante, condicao.id)
                           : undefined
                       }
                       sx={{

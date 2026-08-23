@@ -26,7 +26,7 @@ import { ehNpcDaCampanha } from './npcUtils';
 // o mestre preencheu para esta campanha, indexados por origemPersonagemId.
 const Npcs = () => {
   const navigate = useNavigate();
-  const { canWrite } = useAuth();
+  const { currentUser, isAdmin } = useAuth();
   const { campanhaAtiva, loadingCampanhas } = useCampanha();
 
   const [npcsDoUniverso, setNpcsDoUniverso] = useState([]);
@@ -82,7 +82,7 @@ const Npcs = () => {
 
   const loading = loadingCampanhas || loadingNpcs;
   const podeEscrever = campanhaAtiva
-    ? canWrite(campanhaAtiva.universoId)
+    ? isAdmin || campanhaAtiva.mestreId === currentUser.uid
     : false;
 
   const cloneDe = personagemId =>
@@ -97,7 +97,9 @@ const Npcs = () => {
 
   const handleVisualizar = personagem => {
     const clone = cloneDe(personagem.id);
-    setPersonagemVisualizado(clone ? mergeVisualizacao(personagem, clone) : personagem);
+    setPersonagemVisualizado(
+      clone ? mergeVisualizacao(personagem, clone) : personagem,
+    );
   };
 
   const handleEditarClone = (personagem, clone) => {
