@@ -1169,15 +1169,50 @@ const CenaForm = ({
                     {values.pontosImportantes.map((_, idx) => (
                       <Box
                         key={pontosKeys.keys[idx] ?? idx}
-                        sx={{ display: 'flex', gap: 1, alignItems: 'center' }}
+                        sx={{ display: 'flex', gap: 1.25, alignItems: 'flex-start' }}
                       >
+                        <Box sx={{ width: 6, borderRadius: 1, alignSelf: 'stretch', background: 'linear-gradient(180deg, var(--color-primary), rgba(255,215,130,0.06))' }} />
                         <FastField name={`pontosImportantes.${idx}`}>
                           {({ field }) => (
                             <TextField
-                              {...field}
+                              name={field.name}
+                              value={field.value}
+                              onChange={field.onChange}
+                              onBlur={field.onBlur}
                               fullWidth
                               size="small"
-                              sx={inputSx}
+                              multiline
+                              rows={4}
+                              sx={{
+                                ...inputSx,
+                                minWidth: 0,
+                                flexGrow: 1,
+                                '& .MuiOutlinedInput-root': {
+                                  borderRadius: 2,
+                                  background: 'var(--bg-card)',
+                                  border: '1px solid rgba(255,215,130,0.03)',
+                                  padding: '2px',
+                                  boxShadow: 'inset 0 -6px 18px rgba(0,0,0,0.45)',
+                                },
+                                '& .MuiOutlinedInput-inputMultiline': {
+                                  maxHeight: '5.2rem',
+                                  overflowY: 'auto',
+                                  whiteSpace: 'normal',
+                                  padding: '10px 12px',
+                                  lineHeight: '1.2rem',
+                                  color: 'var(--text-primary)',
+                                  fontWeight: 500,
+                                  fontSize: '0.95rem',
+                                },
+                                '& .MuiOutlinedInput-root.Mui-focused': {
+                                  borderColor: 'rgba(255,183,77,0.14)',
+                                  boxShadow: '0 8px 26px rgba(11,14,22,0.6), 0 0 0 3px rgba(196,58,47,0.02) inset',
+                                },
+                                '& .MuiOutlinedInput-inputMultiline::-webkit-scrollbar': { width: '8px' },
+                                '& .MuiOutlinedInput-inputMultiline::-webkit-scrollbar-track': { background: 'transparent', borderRadius: '8px' },
+                                '& .MuiOutlinedInput-inputMultiline::-webkit-scrollbar-thumb': { background: 'linear-gradient(180deg, rgba(196,58,47,0.14), rgba(255,183,77,0.12))', borderRadius: '8px' },
+                                '& .MuiOutlinedInput-inputMultiline::-webkit-scrollbar-thumb:hover': { background: 'linear-gradient(180deg, rgba(196,58,47,0.24), rgba(255,183,77,0.18))' },
+                              }}
                             />
                           )}
                         </FastField>
@@ -1189,7 +1224,14 @@ const CenaForm = ({
                           }}
                           sx={{
                             color: 'var(--text-muted)',
-                            '&:hover': { color: '#ef4444' },
+                            flexShrink: 0,
+                            width: 36,
+                            height: 36,
+                            borderRadius: 1,
+                            background: 'transparent',
+                            border: '1px solid rgba(255,255,255,0.02)',
+                            transition: 'all 160ms ease',
+                            '&:hover': { background: 'rgba(255,255,255,0.04)', color: '#ef4444', transform: 'translateY(-2px)' },
                           }}
                           aria-label="Remover ponto importante"
                         >
@@ -1205,6 +1247,11 @@ const CenaForm = ({
                       sx={{
                         alignSelf: 'flex-start',
                         color: 'var(--color-accent)',
+                        background: 'transparent',
+                        padding: '6px 10px',
+                        borderRadius: 1,
+                        transition: 'all 160ms ease',
+                        '&:hover': { background: 'rgba(255,255,255,0.03)', transform: 'translateY(-1px)' },
                       }}
                     >
                       + Adicionar ponto importante
