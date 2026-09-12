@@ -139,12 +139,12 @@ describe('Npcs (personagens do Universo vinculados à campanha ativa)', () => {
       expect(screen.getByText('Grumnak, o Orc')).toBeInTheDocument(),
     );
 
-    expect(screen.getAllByText('FOR').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('VIT').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('AGI').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('INT').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('PER').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('SOR').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Força').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Vitalidade').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Agilidade').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Inteligência').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Percepção').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Sorte').length).toBeGreaterThan(0);
 
     expect(
       screen.getByLabelText('Ver ficha de Grumnak, o Orc'),

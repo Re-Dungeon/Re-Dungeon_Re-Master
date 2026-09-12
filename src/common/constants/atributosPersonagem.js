@@ -10,42 +10,42 @@ import AutoAwesomeOutlinedIcon from '@mui/icons-material/AutoAwesomeOutlined';
 // apareceram em docs de `personagens` (Re-Dungeon).
 export const ATRIBUTOS_PRIMARIOS_PERSONAGEM = [
   {
-    label: 'FOR',
+    label: 'Força',
     aliases: ['forca', 'for', 'forcaBase'],
     icon: FitnessCenterOutlinedIcon,
   },
   {
-    label: 'VIT',
+    label: 'Vitalidade',
     aliases: ['vitalidade', 'vit', 'vitalidadeBase'],
     icon: FavoriteBorderOutlinedIcon,
   },
   {
-    label: 'AGI',
+    label: 'Agilidade',
     aliases: ['agilidade', 'agi', 'agilidadeBase'],
     icon: DirectionsRunOutlinedIcon,
   },
   {
-    label: 'INT',
+    label: 'Inteligência',
     aliases: ['inteligencia', 'int', 'inteligenciaBase'],
     icon: PsychologyOutlinedIcon,
   },
   {
-    label: 'PER',
+    label: 'Percepção',
     aliases: ['percepcao', 'per', 'percepcaoBase'],
     icon: VisibilityOutlinedIcon,
   },
   {
-    label: 'SOR',
+    label: 'Sorte',
     aliases: ['sorte', 'sor', 'sorteBase'],
     icon: AutoAwesomeOutlinedIcon,
   },
 ];
 
 export const ATRIBUTOS_SECUNDARIOS_PERSONAGEM = [
-  { label: 'PronT', aliases: ['prontidao', 'prontidaoBase', 'prontidaoBonus'] },
-  { label: 'AtK', aliases: ['ataque', 'ataqueBase', 'ataqueBonus'] },
-  { label: 'DeF', aliases: ['defesa', 'defesaBase', 'defesaBonus'] },
-  { label: 'PreC', aliases: ['precisao', 'precisaoBase', 'precisaoBonus'] },
-  { label: 'ReA', aliases: ['reacao', 'reacaoBase', 'reacaoBonus'] },
-  { label: 'EvA', aliases: ['evasao', 'evasaoBase', 'evasaoBonus'] },
+  { label: 'Prontidão', aliases: ['prontidao', 'prontidaoBase', 'prontidaoBonus'] },
+  { label: 'Ataque', aliases: ['ataque', 'ataqueBase', 'ataqueBonus'] },
+  { label: 'Defesa', aliases: ['defesa', 'defesaBase', 'defesaBonus'] },
+  { label: 'Precisão', aliases: ['precisao', 'precisaoBase', 'precisaoBonus'] },
+  { label: 'Reação', aliases: ['reacao', 'reacaoBase', 'reacaoBonus'] },
+  { label: 'Evasão', aliases: ['evasao', 'evasaoBase', 'evasaoBonus'] },
 ];

@@ -161,6 +161,7 @@ const Jogadores = () => {
               exibirDescricao
               seloCloneBadge
               seloCloneRodape
+              visualVariant="jogadores"
             />
           ))}
         </Box>

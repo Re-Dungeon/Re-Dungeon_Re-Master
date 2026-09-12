@@ -165,6 +165,7 @@ const Npcs = () => {
               onEditarClone={handleEditarClone}
               onRemoverClone={handleRemoverClone}
               seloCloneTopo
+              visualVariant="npcs"
             />
           ))}
         </Box>
