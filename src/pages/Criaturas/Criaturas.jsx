@@ -161,6 +161,7 @@ const Criaturas = () => {
               onRemoverClone={handleRemoverClone}
               exibirDescricao
               seloCloneBadge
+              visualVariant="criaturas"
             />
           ))}
         </Box>

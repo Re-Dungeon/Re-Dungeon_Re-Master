@@ -26,7 +26,7 @@ const renderCard = props =>
   );
 
 describe('PersonagemCard', () => {
-  it('chama onVisualizar ao clicar em "Ver ficha"', async () => {
+  it('chama onVisualizar ao clicar no botão de ver ficha do card padrão', async () => {
     const onVisualizar = vi.fn();
     const user = userEvent.setup();
     renderCard({ onVisualizar });
@@ -150,5 +150,56 @@ describe('PersonagemCard', () => {
 
     expect(screen.getByText('31')).toBeInTheDocument();
     expect(screen.queryByText('8')).not.toBeInTheDocument();
+  });
+
+  it('apresenta o visual premium sem token de categoria e mantém a ação no botão inferior', () => {
+    renderCard({ visualVariant: 'npcs' });
+
+    expect(screen.queryByText('NPC')).not.toBeInTheDocument();
+    expect(screen.getByText('VER FICHA')).toBeInTheDocument();
+    expect(screen.getByLabelText('Ver ficha de Grumnak')).toBeInTheDocument();
+  });
+
+  it('mantém o visual premium em jogadores e criaturas sem perder a ação de clonar', async () => {
+    const onClonar = vi.fn();
+    const user = userEvent.setup();
+    renderCard({ visualVariant: 'jogadores', podeEscrever: true, onClonar });
+
+    expect(screen.getByText('VER FICHA')).toBeInTheDocument();
+    await user.click(screen.getByLabelText('Clonar Grumnak'));
+    expect(onClonar).toHaveBeenCalledWith(PERSONAGEM);
+  });
+
+  it('mostra tooltip com nome completo e valor ao passar o mouse sobre atributos e derivados', async () => {
+    const user = userEvent.setup();
+    renderCard({ visualVariant: 'npcs' });
+
+    await user.hover(screen.getByLabelText('Força: —'));
+    expect(await screen.findByText('Força: —')).toBeInTheDocument();
+
+    await user.hover(screen.getByLabelText('Ataque: —'));
+    expect(await screen.findByText('Ataque: —')).toBeInTheDocument();
+  });
+
+  it('mostra o valor atual sobre o máximo do atributo quando o limite da raça existe', () => {
+    const personagemComLimite = {
+      ...PERSONAGEM,
+      forca: 18,
+      maximosAtributos: { forca: 22 },
+    };
+
+    render(
+      <PersonagemCard
+        personagem={personagemComLimite}
+        atributosPrimarios={ATRIBUTOS_PRIMARIOS}
+        atributosSecundarios={ATRIBUTOS_SECUNDARIOS}
+        onVisualizar={vi.fn()}
+        onEditarClone={vi.fn()}
+        onRemoverClone={vi.fn()}
+        visualVariant="npcs"
+      />,
+    );
+
+    expect(screen.getByText(/18\s*\/\s*22/i)).toBeInTheDocument();
   });
 });
