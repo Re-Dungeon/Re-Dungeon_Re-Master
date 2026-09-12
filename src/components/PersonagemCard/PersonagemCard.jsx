@@ -105,14 +105,41 @@ const resolverNomeAtributo = label => {
     SOR: 'Sorte',
     PronT: 'Prontidão',
     Pront: 'Prontidão',
+    Prontidão: 'Prontidão',
     AtK: 'Ataque',
+    Ataque: 'Ataque',
     DeF: 'Defesa',
+    Defesa: 'Defesa',
     PreC: 'Precisão',
+    Precisão: 'Precisão',
     ReA: 'Reação',
+    Reação: 'Reação',
     EvA: 'Evasão',
+    Evasão: 'Evasão',
   };
 
   return (mapa[nomeNormalizado] ?? nomeNormalizado) || 'Atributo';
+};
+
+const resolverIconeAtributoSecundario = label => {
+  const nomeNormalizado = String(label ?? '').trim();
+  const mapa = {
+    PronT: '⚡',
+    Pront: '⚡',
+    Prontidão: '⚡',
+    AtK: '⚔',
+    Ataque: '⚔',
+    DeF: '🛡',
+    Defesa: '🛡',
+    PreC: '🎯',
+    Precisão: '🎯',
+    ReA: '👁',
+    Reação: '👁',
+    EvA: '✦',
+    Evasão: '✦',
+  };
+
+  return mapa[nomeNormalizado] ?? '✦';
 };
 
 // Card compartilhado por NPCs, Criaturas e Jogadores (páginas que listam
@@ -687,6 +714,7 @@ const PersonagemCard = ({
           {atributosSecundarios.map(({ label, aliases }) => {
             const valor = resolverValorAtributoSecundario(personagem, aliases);
             const labelCompleto = resolverNomeAtributo(label);
+            const icone = resolverIconeAtributoSecundario(label);
             return (
               <Tooltip key={label} title={formatarTooltipAtributo(labelCompleto, valor)} arrow>
                 <Box
@@ -705,17 +733,7 @@ const PersonagemCard = ({
                   }}
                 >
                   <Typography variant="caption" sx={{ color: '#e7c77c', fontWeight: 700 }}>
-                    {label === 'DeF'
-                      ? '🛡'
-                      : label === 'PreC'
-                        ? '🎯'
-                        : label === 'ReA'
-                          ? '👁'
-                          : label === 'PronT'
-                            ? '⚡'
-                            : label === 'AtK'
-                              ? '⚔'
-                              : '✦'}
+                    {icone}
                   </Typography>
                   <Typography variant="caption" sx={{ color: 'var(--text-primary)', fontWeight: 700 }}>
                     {valor}
