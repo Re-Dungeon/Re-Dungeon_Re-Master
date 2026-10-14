@@ -23,7 +23,7 @@
     "firebase": "^12.15.0",
     "formik": "^2.4.9",
     "prop-types": "^15.8.1",
-    "react": "^19.2.7",
+    "react": "^19.2.8",
     "react-dom": "^19.2.7",
     "react-router-dom": "^7.18.0",
     "styled-components": "^6.4.3",
