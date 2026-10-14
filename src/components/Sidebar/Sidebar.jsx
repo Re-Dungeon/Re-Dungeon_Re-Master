@@ -61,7 +61,7 @@ const Sidebar = () => {
               borderRadius: '8px',
             }}
           >
-            V1.0
+            V1.5
           </Typography>
         </Box>
       </LogoSection>

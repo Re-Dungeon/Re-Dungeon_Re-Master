@@ -8,11 +8,11 @@ import {
 
 // Estado da Campanha (acompanhamento de progresso de cada Cena no fluxograma).
 export const ESTADO_CENA_OPCOES = [
-  { value: 'nao_iniciado', label: 'Não Iniciado', cor: '#22c55e' },
-  { value: 'em_andamento', label: 'Em Andamento', cor: '#eab308' },
-  { value: 'concluido', label: 'Concluído', cor: '#facc15' },
-  { value: 'ignorado', label: 'Ignorado pelos Jogadores', cor: '#111827' },
-  { value: 'cancelado', label: 'Cancelado', cor: '#6b7280' },
+  { value: 'nao_iniciado', label: 'Não Iniciado', cor: '#22c55e', icone: '⏳' },
+  { value: 'em_andamento', label: 'Em Andamento', cor: '#f59e0b', icone: '⚔️' },
+  { value: 'concluido', label: 'Concluído', cor: '#facc15', icone: '✅' },
+  { value: 'ignorado', label: 'Ignorado pelos Jogadores', cor: '#7c3aed', icone: '🕶️' },
+  { value: 'cancelado', label: 'Cancelado', cor: '#ef4444', icone: '⛔' },
 ];
 
 export const TIPO_CONSEQUENCIA_OPCOES = [
@@ -42,10 +42,23 @@ export const HANDLE_SIDE_COLOR_FALLBACK = 'var(--color-accent)';
 
 export const CENA_SCHEMA = Yup.object({
   titulo: nomeSchema,
+  numeroCena: Yup.number()
+    .nullable()
+    .transform((value, originalValue) =>
+      String(originalValue).trim() === '' ? null : value,
+    )
+    .integer('Número da cena deve ser um inteiro')
+    .min(1, 'Número da cena deve ser maior que 0')
+    .max(9999, 'Número da cena é muito alto'),
   linkImagem: urlImagemSchema,
   objetivo: descricaoSchema,
   resumo: Yup.string().trim(),
   descricaoNarracao: Yup.string().trim(),
+  localCena: Yup.string().trim(),
+  horarioCena: Yup.string().trim(),
+  climaCena: Yup.string().trim(),
+  situacaoCena: Yup.string().trim(),
+  informacaoJogadores: Yup.string().trim(),
   pontosImportantes: Yup.array().of(Yup.string()),
   estado: Yup.string()
     .oneOf(ESTADO_CENA_OPCOES.map(o => o.value))
@@ -65,10 +78,16 @@ export const CENA_SCHEMA = Yup.object({
 
 export const CENA_INITIAL_VALUES = {
   titulo: '',
+  numeroCena: 1,
   linkImagem: '',
   objetivo: '',
   resumo: '',
   descricaoNarracao: '',
+  localCena: '',
+  horarioCena: '',
+  climaCena: '',
+  situacaoCena: '',
+  informacaoJogadores: '',
   pontosImportantes: [],
   estado: 'nao_iniciado',
   consequencias: [],

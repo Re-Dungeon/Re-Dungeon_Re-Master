@@ -378,18 +378,43 @@ const CardFlux = () => {
                 </Select>
               </FormControl>
 
-              <Button
-                variant="contained"
-                disabled={baralhosSelecionados.length === 0}
-                onClick={() =>
-                  navigate(ROUTE_PATHS.CARDFLUX_SORTEIO, {
-                    state: { baralhos: baralhosSelecionados },
-                  })
-                }
-                sx={primaryButtonSx}
-              >
-                🎲 Sortear
-              </Button>
+              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                <Button
+                  variant="contained"
+                  disabled={baralhosSelecionados.length === 0}
+                  onClick={() =>
+                    navigate(ROUTE_PATHS.CARDFLUX_SORTEIO, {
+                      state: { baralhos: baralhosSelecionados },
+                    })
+                  }
+                  sx={primaryButtonSx}
+                >
+                  🎲 Sortear
+                </Button>
+                <Button
+                  variant="outlined"
+                  disabled={baralhosSelecionados.length === 0}
+                  onClick={() =>
+                    navigate(ROUTE_PATHS.CARDFLUX_EXPLORACAO_CONFIG, {
+                      state: { baralhos: baralhosSelecionados },
+                    })
+                  }
+                  sx={secondaryButtonSx}
+                >
+                  Gerar Grid
+                </Button>
+                <Button
+                  variant="text"
+                  onClick={() => navigate(ROUTE_PATHS.CARDFLUX_EXPLORACOES)}
+                  sx={{
+                    ...secondaryButtonSx,
+                    border: '1px solid rgba(196,58,47,0.18)',
+                    background: 'rgba(196,58,47,0.04)',
+                  }}
+                >
+                  Gerenciar Explorações
+                </Button>
+              </Box>
             </Box>
 
             {baralhosSelecionados.length > 0 && (
@@ -560,9 +585,16 @@ const CardFlux = () => {
                       disponíveis
                     </Typography>
 
-                    <Box sx={{ display: 'flex', gap: 1, mt: 'auto' }}>
+                    <Box
+                      sx={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+                        gap: 1,
+                        mt: 'auto',
+                        width: '100%',
+                      }}
+                    >
                       <Button
-                        fullWidth
                         variant="contained"
                         onClick={() =>
                           navigate(ROUTE_PATHS.CARDFLUX_SORTEIO, {
@@ -574,7 +606,6 @@ const CardFlux = () => {
                         Sortear
                       </Button>
                       <Button
-                        fullWidth
                         variant="outlined"
                         onClick={() =>
                           navigate(ROUTE_PATHS.CARDFLUX_CARTAS, {
@@ -584,6 +615,17 @@ const CardFlux = () => {
                         sx={secondaryButtonSx}
                       >
                         Ver Cartas
+                      </Button>
+                      <Button
+                        variant="outlined"
+                        onClick={() =>
+                          navigate(ROUTE_PATHS.CARDFLUX_EXPLORACAO_CONFIG, {
+                            state: { baralhos: [baralho.nome] },
+                          })
+                        }
+                        sx={secondaryButtonSx}
+                      >
+                        Grid
                       </Button>
                     </Box>
                   </Paper>

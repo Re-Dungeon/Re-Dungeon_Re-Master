@@ -25,12 +25,16 @@ export const SnackbarProvider = ({ children }) => {
     setSnackbar({ mensagem, severity: 'error' });
   }, []);
 
+  const notifySuccess = useCallback(mensagem => {
+    setSnackbar({ mensagem, severity: 'success' });
+  }, []);
+
   const handleClose = useCallback((_event, reason) => {
     if (reason === 'clickaway') return;
     setSnackbar(null);
   }, []);
 
-  const value = useMemo(() => ({ notifyError }), [notifyError]);
+  const value = useMemo(() => ({ notifyError, notifySuccess }), [notifyError, notifySuccess]);
 
   return (
     <SnackbarContext.Provider value={value}>

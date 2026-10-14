@@ -8,9 +8,13 @@ import React, {
 } from 'react';
 import PropTypes from 'prop-types';
 import {
-  onAuthStateChanged,
-  signInWithEmailAndPassword,
+  browserLocalPersistence,
+  browserSessionPersistence,
   createUserWithEmailAndPassword,
+  onAuthStateChanged,
+  setPersistence,
+  sendPasswordResetEmail,
+  signInWithEmailAndPassword,
   signInWithPopup,
   signOut,
 } from 'firebase/auth';
@@ -24,25 +28,33 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const timeout = setTimeout(() => setLoading(false), 5000);
     const unsubscribe = onAuthStateChanged(auth, user => {
-      clearTimeout(timeout);
       setCurrentUser(user);
       setLoading(false);
     });
-    return () => {
-      clearTimeout(timeout);
-      unsubscribe();
-    };
+
+    return () => unsubscribe();
   }, []);
 
   const login = useCallback(
-    (email, password) => signInWithEmailAndPassword(auth, email, password),
+    async (email, password, keepConnected = true) => {
+      const persistence = keepConnected
+        ? browserLocalPersistence
+        : browserSessionPersistence;
+
+      await setPersistence(auth, persistence);
+      return signInWithEmailAndPassword(auth, email, password);
+    },
     [],
   );
 
   const signup = useCallback(
     (email, password) => createUserWithEmailAndPassword(auth, email, password),
+    [],
+  );
+
+  const resetPassword = useCallback(
+    email => sendPasswordResetEmail(auth, email),
     [],
   );
 
@@ -62,6 +74,7 @@ export const AuthProvider = ({ children }) => {
       loading,
       login,
       signup,
+      resetPassword,
       loginWithGoogle,
       logout,
       isAdmin,
@@ -75,6 +88,7 @@ export const AuthProvider = ({ children }) => {
       loading,
       login,
       signup,
+      resetPassword,
       loginWithGoogle,
       logout,
       isAdmin,

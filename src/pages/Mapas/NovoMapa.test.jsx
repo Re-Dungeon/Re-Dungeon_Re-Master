@@ -103,6 +103,17 @@ describe('NovoMapa', () => {
     expect(addRmMapa).not.toHaveBeenCalled();
   });
 
+  it('exibe o controle de favorito em um layout claro e acessível', async () => {
+    renderNovo(undefined);
+
+    await waitFor(() =>
+      expect(screen.getByText('Novo Mapa')).toBeInTheDocument(),
+    );
+
+    expect(screen.getByText('Adicionar aos favoritos')).toBeInTheDocument();
+    expect(screen.getByRole('switch')).toBeInTheDocument();
+  });
+
   it('redireciona para a lista de mapas quando a campanha ativa não é do usuário logado', async () => {
     campanhaAtiva = { ...CAMPANHA_ATIVA, mestreId: 'outro-uid' };
     renderNovo(undefined);

@@ -178,6 +178,18 @@ const InfoCard = ({ titulo, valor, tone = 'default', icon = '✦' }) => {
           whiteSpace: 'pre-line',
           lineHeight: 1.75,
           fontSize: '0.96rem',
+          maxHeight: 176,
+          overflowY: 'auto',
+          overflowX: 'hidden',
+          pr: 1,
+          scrollbarGutter: 'stable',
+          '&::-webkit-scrollbar': {
+            width: 8,
+          },
+          '&::-webkit-scrollbar-thumb': {
+            background: 'rgba(148, 163, 184, 0.38)',
+            borderRadius: 999,
+          },
         }}
       >
         {valor}
