@@ -5,6 +5,7 @@ const Dashboard = lazy(() => import('pages/Dashboard/Dashboard'));
 const Campanha = lazy(() => import('pages/Campanha/Campanha'));
 const NovaCampanha = lazy(() => import('pages/Campanha/NovaCampanha'));
 const Cenas = lazy(() => import('pages/Campanha/Cenas'));
+const CenaDetalhes = lazy(() => import('pages/Campanha/CenaDetalhes'));
 const NovaCena = lazy(() => import('pages/Campanha/NovaCena'));
 const Npcs = lazy(() => import('pages/Npcs/Npcs'));
 const EditarNpcClone = lazy(() => import('pages/Npcs/EditarNpcClone'));
@@ -23,6 +24,15 @@ const NovaMissao = lazy(() => import('pages/Missoes/NovaMissao'));
 const CardFlux = lazy(() => import('pages/CardFlux/CardFlux'));
 const Cartas = lazy(() => import('pages/CardFlux/Cartas'));
 const Sorteio = lazy(() => import('pages/CardFlux/Sorteio'));
+const CardFluxExploracaoConfig = lazy(
+  () => import('pages/CardFlux/CardFluxExploracaoConfig'),
+);
+const CardFluxExploracaoManager = lazy(
+  () => import('pages/CardFlux/CardFluxExploracaoManager'),
+);
+const CardFluxExploracaoPage = lazy(
+  () => import('pages/CardFlux/CardFluxExploracaoPage'),
+);
 const Luta = lazy(() => import('pages/Luta/Luta'));
 const Notas = lazy(() => import('pages/Notas/Notas'));
 const NovaNota = lazy(() => import('pages/Notas/NovaNota'));
@@ -32,6 +42,7 @@ export const ROUTES = [
   { path: ROUTE_PATHS.CAMPANHA.slice(1), element: <Campanha /> },
   { path: ROUTE_PATHS.NOVA_CAMPANHA.slice(1), element: <NovaCampanha /> },
   { path: ROUTE_PATHS.CENAS.slice(1), element: <Cenas /> },
+  { path: ROUTE_PATHS.CENA_DETALHES.slice(1), element: <CenaDetalhes /> },
   { path: ROUTE_PATHS.NOVA_CENA.slice(1), element: <NovaCena /> },
   { path: ROUTE_PATHS.NPCS.slice(1), element: <Npcs /> },
   { path: ROUTE_PATHS.NPC_CLONE.slice(1), element: <EditarNpcClone /> },
@@ -52,6 +63,18 @@ export const ROUTES = [
   { path: ROUTE_PATHS.CARDFLUX.slice(1), element: <CardFlux /> },
   { path: ROUTE_PATHS.CARDFLUX_CARTAS.slice(1), element: <Cartas /> },
   { path: ROUTE_PATHS.CARDFLUX_SORTEIO.slice(1), element: <Sorteio /> },
+  {
+    path: ROUTE_PATHS.CARDFLUX_EXPLORACAO_CONFIG.slice(1),
+    element: <CardFluxExploracaoConfig />,
+  },
+  {
+    path: ROUTE_PATHS.CARDFLUX_EXPLORACOES.slice(1),
+    element: <CardFluxExploracaoManager />,
+  },
+  {
+    path: ROUTE_PATHS.CARDFLUX_EXPLORACAO.slice(1),
+    element: <CardFluxExploracaoPage />,
+  },
   { path: ROUTE_PATHS.LUTA.slice(1), element: <Luta /> },
   { path: ROUTE_PATHS.NOTAS.slice(1), element: <Notas /> },
   { path: ROUTE_PATHS.NOVA_NOTA.slice(1), element: <NovaNota /> },

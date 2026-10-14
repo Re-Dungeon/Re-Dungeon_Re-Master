@@ -68,37 +68,6 @@ vi.mock('./CenaFlowCanvas', () => ({
   ),
 }));
 
-vi.mock('./CenaDetailPanel', () => ({
-  default: ({
-    cena,
-    ehCenaAtual,
-    onClose,
-    onSave,
-    onDelete,
-    onMarcarCenaAtual,
-  }) =>
-    cena ? (
-      <div>
-        <span>painel-{cena.titulo}</span>
-        {ehCenaAtual && <span>e-cena-atual</span>}
-        <button
-          type="button"
-          onClick={() => onSave(cena.id, { titulo: 'Editado' })}
-        >
-          salvar-painel
-        </button>
-        <button type="button" onClick={() => onDelete(cena.id)}>
-          remover-painel
-        </button>
-        <button type="button" onClick={onClose}>
-          fechar-painel
-        </button>
-        <button type="button" onClick={() => onMarcarCenaAtual(cena.id)}>
-          marcar-atual-painel
-        </button>
-      </div>
-    ) : null,
-}));
 
 import Cenas from './Cenas';
 
@@ -170,44 +139,20 @@ describe('Cenas (grafo da campanha ativa)', () => {
     expect(navigate).toHaveBeenCalledWith('/campanha/cenas/nova');
   });
 
-  it('seleciona uma cena ao clicar no nó e abre o painel de detalhes', async () => {
-    grafoState = { ...grafoState, selectedCenaId: 'cena1' };
+  it('seleciona uma cena ao clicar no nó e abre diretamente em modo de edição', async () => {
     const user = userEvent.setup();
     renderCenas();
-
-    expect(screen.getByText('painel-Chegada na Cidade')).toBeInTheDocument();
 
     await user.click(screen.getByText('Encontro com o Prefeito'));
     expect(setSelectedCenaId).toHaveBeenCalledWith('cena2');
-  });
-
-  it('salva as alterações do painel via updateCena', async () => {
-    grafoState = { ...grafoState, selectedCenaId: 'cena1' };
-    updateCena.mockResolvedValue(undefined);
-    const user = userEvent.setup();
-    renderCenas();
-
-    await user.click(screen.getByText('salvar-painel'));
-    expect(updateCena).toHaveBeenCalledWith('cena1', { titulo: 'Editado' });
-  });
-
-  it('remove a cena selecionada via removeCena', async () => {
-    grafoState = { ...grafoState, selectedCenaId: 'cena1' };
-    removeCena.mockResolvedValue(undefined);
-    const user = userEvent.setup();
-    renderCenas();
-
-    await user.click(screen.getByText('remover-painel'));
-    expect(removeCena).toHaveBeenCalledWith('cena1');
-  });
-
-  it('fecha o painel chamando setSelectedCenaId(null)', async () => {
-    grafoState = { ...grafoState, selectedCenaId: 'cena1' };
-    const user = userEvent.setup();
-    renderCenas();
-
-    await user.click(screen.getByText('fechar-painel'));
-    expect(setSelectedCenaId).toHaveBeenCalledWith(null);
+    expect(navigate).toHaveBeenCalledWith('/campanha/cenas/nova', {
+      state: {
+        cena: expect.objectContaining({
+          id: 'cena2',
+          titulo: 'Encontro com o Prefeito',
+        }),
+      },
+    });
   });
 
   it('não mostra o botão de edição do canvas quando a campanha não é do usuário logado', () => {
@@ -227,31 +172,11 @@ describe('Cenas (grafo da campanha ativa)', () => {
     expect(navigate).toHaveBeenCalledWith('/campanha');
   });
 
-  it('marca a cena selecionada como Cena Atual via updateRmCampanha', async () => {
-    grafoState = { ...grafoState, selectedCenaId: 'cena1' };
-    updateRmCampanha.mockResolvedValue(undefined);
-    const user = userEvent.setup();
+  it('não renderiza ações de cena atual sobre o grafo, porque a edição acontece na tela completa da cena', () => {
     renderCenas();
 
-    await user.click(screen.getByText('marcar-atual-painel'));
-
-    expect(updateRmCampanha).toHaveBeenCalledWith('c1', {
-      cenaAtualId: 'cena1',
-    });
-    expect(recarregarCampanhas).toHaveBeenCalled();
-    expect(registrarEventoSessao).toHaveBeenCalledWith(
-      CAMPANHA_ATIVA,
-      'cena_atual',
-      'Cena atual: "Chegada na Cidade"',
-    );
-  });
-
-  it('indica ao painel quando a cena selecionada já é a Cena Atual', () => {
-    campanhaAtiva = { ...CAMPANHA_ATIVA, cenaAtualId: 'cena1' };
-    grafoState = { ...grafoState, selectedCenaId: 'cena1' };
-    renderCenas();
-
-    expect(screen.getByText('e-cena-atual')).toBeInTheDocument();
+    expect(screen.queryByText(/Marcar como Cena Atual/i)).not.toBeInTheDocument();
+    expect(screen.queryByText('Cena Atual')).not.toBeInTheDocument();
   });
 
   it('pré-seleciona a cena vinda do state de navegação (ex.: link do Dashboard)', () => {

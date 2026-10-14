@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import PropTypes from 'prop-types';
 import Box from '@mui/material/Box';
 import TextField from '@mui/material/TextField';
@@ -8,10 +8,13 @@ import FormControl from '@mui/material/FormControl';
 import InputLabel from '@mui/material/InputLabel';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
+import Chip from '@mui/material/Chip';
+import Switch from '@mui/material/Switch';
+import FormControlLabel from '@mui/material/FormControlLabel';
 import { Formik, Form, FastField, Field } from 'formik';
 import ImagePreviewPanel from 'components/ImagePreviewPanel/ImagePreviewPanel';
 import FormActions from 'components/FormActions/FormActions';
-import { MAPA_SCHEMA, MAPA_CATEGORIA_OPCOES } from './mapaUtils';
+import { MAPA_SCHEMA, MAPA_CATEGORIA_OPCOES, normalizeMapaTags } from './mapaUtils';
 
 const inputSx = {
   '& .MuiOutlinedInput-root': {
@@ -78,10 +81,19 @@ const sectionSx = {
 
 const MapaForm = ({ initialValues, onSubmit, onCancelar, labelSalvar, idPrefix }) => {
   const categoriaLabelId = `${idPrefix}-categoria-label`;
+  const [novaTag, setNovaTag] = useState('');
 
   return (
-    <Formik initialValues={initialValues} validationSchema={MAPA_SCHEMA} onSubmit={onSubmit}>
-      {({ values, errors, touched, isSubmitting }) => (
+    <Formik
+      initialValues={{
+        ...initialValues,
+        tags: Array.isArray(initialValues.tags) ? initialValues.tags : [],
+        favorito: Boolean(initialValues.favorito),
+      }}
+      validationSchema={MAPA_SCHEMA}
+      onSubmit={onSubmit}
+    >
+      {({ values, errors, touched, isSubmitting, setFieldValue }) => (
         <Form>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
             <Paper elevation={0} sx={sectionSx}>
@@ -189,6 +201,63 @@ const MapaForm = ({ initialValues, onSubmit, onCancelar, labelSalvar, idPrefix }
                       />
                     )}
                   </FastField>
+
+                  <Box sx={{ display: 'grid', gap: 1.5 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
+                      <Typography sx={{ color: 'var(--text-primary)', fontWeight: 700 }}>
+                        Favorito
+                      </Typography>
+                      <FormControlLabel
+                        control={
+                          <Switch
+                            checked={Boolean(values.favorito)}
+                            onChange={event => setFieldValue('favorito', event.target.checked)}
+                            color="warning"
+                          />
+                        }
+                        label=""
+                        aria-label="Favoritar mapa"
+                      />
+                    </Box>
+
+                    <Box sx={{ display: 'grid', gap: 1 }}>
+                      <Typography sx={{ color: 'var(--text-primary)', fontWeight: 700 }}>
+                        Tags
+                      </Typography>
+                      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                        {normalizeMapaTags(values.tags).map(tag => (
+                          <Chip
+                            key={tag}
+                            label={tag}
+                            onDelete={() => {
+                              const proxima = normalizeMapaTags(values.tags).filter(item => item !== tag);
+                              setFieldValue('tags', proxima);
+                            }}
+                            sx={{
+                              background: 'rgba(196,58,47,0.14)',
+                              color: 'var(--text-primary)',
+                              border: '1px solid rgba(196,58,47,0.32)',
+                            }}
+                          />
+                        ))}
+                      </Box>
+                      <TextField
+                        label="Adicionar tag"
+                        value={novaTag}
+                        onChange={event => setNovaTag(event.target.value)}
+                        onKeyDown={event => {
+                          if (event.key !== 'Enter') return;
+                          event.preventDefault();
+                          const tag = String(novaTag).trim();
+                          if (!tag) return;
+                          const proxima = normalizeMapaTags([...normalizeMapaTags(values.tags), tag]);
+                          setFieldValue('tags', proxima);
+                          setNovaTag('');
+                        }}
+                        sx={inputSx}
+                      />
+                    </Box>
+                  </Box>
                 </Box>
 
                 <Box sx={{ width: '100%' }}>

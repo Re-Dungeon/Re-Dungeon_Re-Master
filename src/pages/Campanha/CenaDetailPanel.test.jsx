@@ -20,6 +20,26 @@ describe('CenaDetailPanel', () => {
     vi.clearAllMocks();
   });
 
+  it('renderiza a nova Central de Narração da Cena com cabeçalho e navegação interna', () => {
+    render(
+      <CenaDetailPanel
+        cena={{ ...CENA, linkImagem: 'https://example.com/cena.jpg', resumo: 'O grupo entra na cidade.', objetivo: 'Descobrir a verdade.', descricaoNarracao: 'A cidade está em silêncio.', estado: 'em_andamento', npcsParticipantes: [], criaturasEnvolvidas: [], pontosImportantes: ['Segredo da torre'] }}
+        podeEscrever
+        ehCenaAtual={false}
+        onClose={vi.fn()}
+        onSave={vi.fn()}
+        onDelete={vi.fn()}
+        onMarcarCenaAtual={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText('Central de Narração')).toBeInTheDocument();
+    expect(screen.getByText('CENA 01')).toBeInTheDocument();
+    expect(screen.getByText('Chegada na Cidade')).toBeInTheDocument();
+    expect(screen.getByText('NARRAÇÃO')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Narrar Cena' })).toBeInTheDocument();
+  });
+
   it('não renderiza nada quando cena é null', () => {
     render(
       <CenaDetailPanel

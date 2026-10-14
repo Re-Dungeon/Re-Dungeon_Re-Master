@@ -364,6 +364,14 @@ service cloud.firestore {
       allow delete: if isAdmin() || isCampanhaOwner(resource.data.mestreId);
     }
 
+    match /rmMapasPastas/{docId} {
+      allow read: if isAdmin() || isCampanhaOwner(resource.data.mestreId);
+      allow create: if isAuth() && isCampanhaOwner(request.resource.data.mestreId);
+      allow update: if isAdmin() ||
+        (isCampanhaOwner(resource.data.mestreId) && isCampanhaOwner(request.resource.data.mestreId));
+      allow delete: if isAdmin() || isCampanhaOwner(resource.data.mestreId);
+    }
+
     match /rmMissoes/{docId} {
       allow read: if isAdmin() || isCampanhaOwner(resource.data.mestreId);
       allow create: if isAuth() && isCampanhaOwner(request.resource.data.mestreId);
@@ -373,6 +381,14 @@ service cloud.firestore {
     }
 
     match /rmCardfluxEstados/{docId} {
+      allow read: if isAdmin() || isCampanhaOwner(resource.data.mestreId);
+      allow create: if isAuth() && isCampanhaOwner(request.resource.data.mestreId);
+      allow update: if isAdmin() ||
+        (isCampanhaOwner(resource.data.mestreId) && isCampanhaOwner(request.resource.data.mestreId));
+      allow delete: if isAdmin() || isCampanhaOwner(resource.data.mestreId);
+    }
+
+    match /rmCardfluxExploracoes/{docId} {
       allow read: if isAdmin() || isCampanhaOwner(resource.data.mestreId);
       allow create: if isAuth() && isCampanhaOwner(request.resource.data.mestreId);
       allow update: if isAdmin() ||

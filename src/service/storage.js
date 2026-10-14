@@ -10,6 +10,10 @@ import {
   query,
   where,
 } from 'firebase/firestore';
+import {
+  recuperarExploracaoGrid,
+  sanitizarExploracaoParaPersistencia,
+} from '../pages/CardFlux/exploracaoGrid';
 import { db } from './firebase';
 
 // ── Helpers genéricos de CRUD Firestore ─────────────────────────────────────
@@ -26,7 +30,7 @@ const getFirestoreItems = async collectionName => {
   const path = collectionPath(collectionName);
   try {
     const snapshot = await getDocs(collection(db, ...path));
-    return snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+    return snapshot.docs.map(d => ({ ...d.data(), id: d.id }));
   } catch (error) {
     // eslint-disable-next-line no-console
     console.error(`Erro ao buscar itens de "${path.join('/')}":`, error);
@@ -37,11 +41,14 @@ const getFirestoreItems = async collectionName => {
 const addFirestoreItem = async (collectionName, item) => {
   const path = collectionPath(collectionName);
   try {
+    const dadosPersistidos = item ? { ...item } : {};
+    delete dadosPersistidos.id;
+
     const docRef = await addDoc(collection(db, ...path), {
-      ...item,
+      ...dadosPersistidos,
       createdAt: serverTimestamp(),
     });
-    return { id: docRef.id, ...item };
+    return { ...dadosPersistidos, id: docRef.id };
   } catch (error) {
     // eslint-disable-next-line no-console
     console.error(`Erro ao adicionar item em "${path.join('/')}":`, error);
@@ -87,7 +94,7 @@ const getFirestoreItemsWhereAll = async (collectionName, filters) => {
         ...filters.map(([field, value]) => where(field, '==', value)),
       ),
     );
-    return snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+    return snapshot.docs.map(d => ({ ...d.data(), id: d.id }));
   } catch (error) {
     // eslint-disable-next-line no-console
     console.error(
@@ -431,6 +438,22 @@ export const removeRmMapa = id => removeFirestoreItem(RM_MAPAS_COLLECTION, id);
 export const updateRmMapa = (id, updates) =>
   updateFirestoreItem(RM_MAPAS_COLLECTION, id, updates);
 
+// ── rmMapasPastas (Firestore) ─────────────────────────────────────────────────
+const RM_MAPAS_PASTAS_COLLECTION = 'rmMapasPastas';
+
+export const getRmMapasPastasPorCampanha = (campanhaId, universoId, mestreId) =>
+  getFirestoreItemsWhereAll(RM_MAPAS_PASTAS_COLLECTION, [
+    ['campanhaId', campanhaId],
+    ['universoId', universoId],
+    ['mestreId', mestreId],
+  ]);
+export const addRmMapaPasta = pasta =>
+  addFirestoreItem(RM_MAPAS_PASTAS_COLLECTION, pasta);
+export const removeRmMapaPasta = id =>
+  removeFirestoreItem(RM_MAPAS_PASTAS_COLLECTION, id);
+export const updateRmMapaPasta = (id, updates) =>
+  updateFirestoreItem(RM_MAPAS_PASTAS_COLLECTION, id, updates);
+
 // ── rmMissoes (Firestore) ─────────────────────────────────────────────────────
 const RM_MISSOES_COLLECTION = 'rmMissoes';
 
@@ -469,6 +492,55 @@ export const addRmCardfluxEstado = estado =>
   addFirestoreItem(RM_CARDFLUX_ESTADOS_COLLECTION, estado);
 export const updateRmCardfluxEstado = (id, updates) =>
   updateFirestoreItem(RM_CARDFLUX_ESTADOS_COLLECTION, id, updates);
+
+// ── rmCardfluxExploracoes (Firestore) ───────────────────────────────────────
+// Instâncias independentes de exploração por grid, com dados do mestre,
+// campanha, universo, configuração e quadrantes. Esta coleção é isolada do
+// sorteio tradicional de `cardflux`/`rmCardfluxEstados` e nunca atualiza as
+// cartas-base do projeto irmão.
+const RM_CARDFLUX_EXPLORACOES_COLLECTION = 'rmCardfluxExploracoes';
+
+export const getRmCardfluxExploracoes = async (universoId, mestreId) => {
+  const itens = await getFirestoreItemsWhereAll(
+    RM_CARDFLUX_EXPLORACOES_COLLECTION,
+    [
+      ['universoId', universoId],
+      ['mestreId', mestreId],
+    ],
+  );
+  return itens.map(item => recuperarExploracaoGrid(item));
+};
+
+export const getRmCardfluxExploracoesPorCampanha = async (
+  campanhaId,
+  universoId,
+  mestreId,
+) => {
+  const itens = await getFirestoreItemsWhereAll(
+    RM_CARDFLUX_EXPLORACOES_COLLECTION,
+    [
+      ['campanhaId', campanhaId],
+      ['universoId', universoId],
+      ['mestreId', mestreId],
+    ],
+  );
+  return itens.map(item => recuperarExploracaoGrid(item));
+};
+
+export const addRmCardfluxExploracao = exploracao => {
+  const payload = sanitizarExploracaoParaPersistencia(exploracao, {
+    exigirCamposObrigatorios: true,
+  });
+  return addFirestoreItem(RM_CARDFLUX_EXPLORACOES_COLLECTION, payload);
+};
+export const removeRmCardfluxExploracao = id =>
+  removeFirestoreItem(RM_CARDFLUX_EXPLORACOES_COLLECTION, id);
+export const updateRmCardfluxExploracao = (id, updates) => {
+  const payload = sanitizarExploracaoParaPersistencia(updates, {
+    exigirCamposObrigatorios: false,
+  });
+  return updateFirestoreItem(RM_CARDFLUX_EXPLORACOES_COLLECTION, id, payload);
+};
 
 // ── rmNotas (Firestore) ───────────────────────────────────────────────────────
 const RM_NOTAS_COLLECTION = 'rmNotas';

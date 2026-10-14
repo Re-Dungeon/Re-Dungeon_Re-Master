@@ -1,12 +1,12 @@
 import React, { useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Box from '@mui/material/Box';
+import Typography from '@mui/material/Typography';
 import { useAuth } from 'context/AuthContext';
 import { useCampanha } from 'context/CampanhaContext';
 import { addRmMapa, updateRmMapa } from 'service/storage';
 import { ROUTE_PATHS } from 'common/constants/routes';
-import FormPageHeader from 'components/FormPageHeader/FormPageHeader';
-import MapaForm from './MapaForm';
+import MapaFormDialog from './MapaFormDialog';
 import { MAPA_INITIAL_VALUES } from './mapaUtils';
 
 const NovoMapa = () => {
@@ -35,7 +35,11 @@ const NovoMapa = () => {
 
   const editInitialValues = mapaParaEditar
     ? { ...MAPA_INITIAL_VALUES, ...mapaParaEditar }
-    : MAPA_INITIAL_VALUES;
+    : {
+        ...MAPA_INITIAL_VALUES,
+        tags: [...MAPA_INITIAL_VALUES.tags],
+        favorito: false,
+      };
 
   const handleSubmit = async (values, { setSubmitting }) => {
     if (isEditing) {
@@ -63,22 +67,17 @@ const NovoMapa = () => {
 
   return (
     <Box className="page-container">
-      <FormPageHeader
-        titulo={isEditing ? 'Editar Mapa' : 'Novo Mapa'}
-        subtitulo={
-          isEditing
-            ? `Editando "${mapaParaEditar.nome}" em ${campanhaAtiva.nome}`
-            : `Novo mapa em ${campanhaAtiva.nome}`
-        }
-        onVoltar={() => navigate(ROUTE_PATHS.MAPAS)}
-      />
-
-      <MapaForm
+      <Typography variant="body2" sx={{ color: 'var(--text-secondary)', mb: 1.5 }}>
+        {isEditing ? `Editar mapa em ${campanhaAtiva.nome}` : `Novo mapa em ${campanhaAtiva.nome}`}
+      </Typography>
+      <MapaFormDialog
+        open
+        mode={isEditing ? 'edit' : 'create'}
         initialValues={editInitialValues}
+        onClose={() => navigate(ROUTE_PATHS.MAPAS)}
         onSubmit={handleSubmit}
-        onCancelar={() => navigate(ROUTE_PATHS.MAPAS)}
-        labelSalvar={isEditing ? 'Salvar Alterações' : 'Salvar Mapa'}
-        idPrefix="novo-mapa"
+        submitLabel={isEditing ? 'Salvar Alterações' : 'Salvar Mapa'}
+        title={isEditing ? 'Editar Mapa' : 'Novo Mapa'}
       />
     </Box>
   );

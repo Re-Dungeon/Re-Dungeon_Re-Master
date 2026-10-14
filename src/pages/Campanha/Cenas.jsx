@@ -6,23 +6,16 @@ import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
 import { useAuth } from 'context/AuthContext';
 import { useCampanha } from 'context/CampanhaContext';
-import { updateRmCampanha } from 'service/storage';
 import ListLoadError from 'components/ListLoadError/ListLoadError';
 import { ROUTE_PATHS } from 'common/constants/routes';
-import {
-  TIPO_EVENTO_SESSAO,
-  registrarEventoSessao,
-} from 'common/utils/sessaoLog';
 import useCampanhaGrafo from './useCampanhaGrafo';
 import CenaFlowCanvas from './CenaFlowCanvas';
-import CenaDetailPanel from './CenaDetailPanel';
 
 const Cenas = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { currentUser, isAdmin } = useAuth();
-  const { campanhaAtiva, loadingCampanhas, recarregarCampanhas } =
-    useCampanha();
+  const { campanhaAtiva, loadingCampanhas } = useCampanha();
 
   const {
     cenas,
@@ -31,14 +24,11 @@ const Cenas = () => {
     loading: loadingGrafo,
     error: errorGrafo,
     recarregar: recarregarGrafo,
-    selectedCenaId,
     setSelectedCenaId,
     moveCenaLocal,
     persistirPosicaoCena,
     createConexao,
     removeConexao,
-    updateCena,
-    removeCena,
   } = useCampanhaGrafo(campanhaAtiva);
 
   useEffect(() => {
@@ -62,27 +52,12 @@ const Cenas = () => {
   const podeEscrever = campanhaAtiva
     ? isAdmin || campanhaAtiva.mestreId === currentUser.uid
     : false;
-  const cenaSelecionada = cenas.find(c => c.id === selectedCenaId) ?? null;
-
-  const handleSalvarCena = async (cenaId, values) => {
-    await updateCena(cenaId, values);
-  };
-
-  const handleRemoverCena = async cenaId => {
-    await removeCena(cenaId);
-  };
-
-  const handleMarcarCenaAtual = async cenaId => {
-    await updateRmCampanha(campanhaAtiva.id, { cenaAtualId: cenaId });
-    await recarregarCampanhas();
-    const cena = cenas.find(c => c.id === cenaId);
-    if (cena) {
-      registrarEventoSessao(
-        campanhaAtiva,
-        TIPO_EVENTO_SESSAO.CENA_ATUAL,
-        `Cena atual: "${cena.titulo}"`,
-      );
-    }
+  const handleAbrirCena = cenaId => {
+    const cenaSelecionada = cenas.find(cena => cena.id === cenaId) ?? null;
+    setSelectedCenaId(cenaId);
+    navigate(ROUTE_PATHS.NOVA_CENA, {
+      state: { cena: cenaSelecionada },
+    });
   };
 
   return (
@@ -191,25 +166,12 @@ const Cenas = () => {
           podeEscrever={podeEscrever}
           onNodePositionChange={moveCenaLocal}
           onNodeDragStop={persistirPosicaoCena}
-          onNodeClick={setSelectedCenaId}
+          onNodeClick={handleAbrirCena}
           onConnect={createConexao}
           onRemoveConexao={removeConexao}
           onNovaCena={() => navigate(ROUTE_PATHS.NOVA_CENA)}
         />
       )}
-
-      <CenaDetailPanel
-        cena={cenaSelecionada}
-        podeEscrever={podeEscrever}
-        ehCenaAtual={
-          Boolean(cenaSelecionada) &&
-          cenaSelecionada.id === campanhaAtiva?.cenaAtualId
-        }
-        onClose={() => setSelectedCenaId(null)}
-        onSave={handleSalvarCena}
-        onDelete={handleRemoverCena}
-        onMarcarCenaAtual={handleMarcarCenaAtual}
-      />
     </Box>
   );
 };

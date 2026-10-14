@@ -121,10 +121,29 @@ describe('CenaForm — seletores de NPCs/Criaturas/Missões', () => {
     );
   });
 
+  it('entra em modo de foco ao abrir a narração da cena', async () => {
+    const user = userEvent.setup();
+    renderForm();
+
+    await user.click(screen.getByRole('button', { name: 'Narrar Cena' }));
+
+    expect(screen.getByText('Modo de foco')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Voltar à cena' })).toBeInTheDocument();
+  });
+
+  it('renderiza os campos refinados de contexto e objetivo em edição detalhada', () => {
+    renderForm();
+
+    expect(screen.getByLabelText('O que aconteceu antes?')).toBeInTheDocument();
+    expect(
+      screen.getByLabelText('O que esta cena precisa cumprir?'),
+    ).toBeInTheDocument();
+  });
+
   it('permite mais de 900 caracteres no resumo do input', async () => {
     renderForm();
 
-    const input = screen.getByLabelText('Resumo');
+    const input = screen.getByLabelText('O que aconteceu antes?');
     const value = 'a'.repeat(1200);
     fireEvent.change(input, { target: { value } });
 

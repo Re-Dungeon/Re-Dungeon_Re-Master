@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import React, { useEffect, useRef, useState } from 'react';
 import PropTypes from 'prop-types';
 import Box from '@mui/material/Box';
@@ -348,6 +349,69 @@ const narrationEditorFooterSx = {
   borderTop: '1px solid rgba(255,255,255,0.08)',
 };
 
+const cardTextAreaSx = {
+  ...inputSx,
+  display: 'flex',
+  flexDirection: 'column',
+  height: '100%',
+  '& .MuiFormControl-root': {
+    height: '100%',
+    display: 'flex',
+    flexDirection: 'column',
+    flex: 1,
+  },
+  '& .MuiInputBase-root': {
+    flex: 1,
+    minHeight: 200,
+    height: '100%',
+    background: 'rgba(4, 8, 14, 0.52)',
+    boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.03)',
+    alignItems: 'flex-start',
+  },
+  '& .MuiOutlinedInput-root': {
+    ...inputSx['& .MuiOutlinedInput-root'],
+    flex: 1,
+    minHeight: 500,
+    height: '100%',
+  },
+  '& .MuiOutlinedInput-inputMultiline': {
+    flex: 1,
+    fontSize: '14px',
+    lineHeight: 1.5,
+    textAlign: 'justify',
+    color: 'var(--text-primary)',
+    letterSpacing: '0.01em',
+    padding: '12px 14px',
+  },
+  '& textarea': {
+    scrollbarWidth: 'thin',
+    scrollbarColor: 'rgba(196,58,47,0.45) rgba(255,255,255,0.04)',
+  },
+  '& textarea::-webkit-scrollbar': {
+    width: 7,
+  },
+  '& textarea::-webkit-scrollbar-track': {
+    background: 'rgba(255,255,255,0.04)',
+    borderRadius: 999,
+  },
+  '& textarea::-webkit-scrollbar-thumb': {
+    background: 'rgba(196,58,47,0.45)',
+    borderRadius: 999,
+  },
+  '& textarea::-webkit-scrollbar-thumb:hover': {
+    background: 'rgba(196,58,47,0.7)',
+  },
+  '& .MuiInputLabel-root': {
+    ...inputSx['& .MuiInputLabel-root'],
+    fontSize: '0.9rem',
+    transform: 'translate(14px, -9px) scale(0.85)',
+  },
+  '& .MuiFormHelperText-root': {
+    marginLeft: 0,
+    marginTop: 1,
+  },
+};
+
 const narrationFooterTextSx = {
   display: 'flex',
   alignItems: 'center',
@@ -688,8 +752,37 @@ const CenaForm = ({
       validationSchema={CENA_SCHEMA}
       onSubmit={onSubmit}
     >
-      {({ values, errors, touched, isSubmitting, status, setFieldValue }) => (
-        <Form>
+      {({ values, errors, touched, isSubmitting, status, setFieldValue }) => {
+        const fluxoCapitulos = [
+          {
+            nome: 'Capítulo I',
+            cenas: [
+              { titulo: 'A Chegada', ativo: true },
+              { titulo: 'O Encontro', ativo: false },
+              { titulo: 'A Floresta', ativo: false },
+              { titulo: 'O Ataque', ativo: false },
+            ],
+          },
+          {
+            nome: 'Capítulo II',
+            cenas: [
+              { titulo: 'As Ruínas', ativo: false },
+              { titulo: 'O Guardião', ativo: false },
+              { titulo: 'A Revelação', ativo: false },
+            ],
+          },
+        ];
+
+        const cenasVinculadas = [
+          { titulo: 'A Chegada', capitulo: 'Capítulo I' },
+          { titulo: 'O Encontro', capitulo: 'Capítulo I' },
+          { titulo: 'As Ruínas', capitulo: 'Capítulo II' },
+        ];
+
+        const cenaAtualLabel = values.titulo || 'Cena sem título';
+
+        return (
+          <Form>
           {status?.submitError && (
             <Alert
               severity="error"
@@ -699,299 +792,415 @@ const CenaForm = ({
               {status.submitError}
             </Alert>
           )}
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-            <Modal
-              open={editorAberto}
-              onClose={() => handleEditorClose(setFieldValue, editorConteudo)}
-              closeAfterTransition
-              slots={{ backdrop: Backdrop }}
-              slotProps={{
-                backdrop: {
-                  timeout: 240,
-                  sx: {
-                    bgcolor: 'rgba(0,0,0,0.7)',
-                    backdropFilter: 'blur(5px)',
-                  },
-                },
+
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr', xl: 'minmax(0, 1fr) 330px' },
+              gap: 3.5,
+              alignItems: 'start',
+              maxWidth: '100%',
+            }}
+          >
+            <Paper
+              elevation={0}
+              sx={{
+                background: 'rgba(8, 12, 20, 0.82)',
+                border: '1px solid rgba(255,255,255,0.08)',
+                borderRadius: '20px',
+                p: 2,
+                position: 'sticky',
+                top: 16,
+                boxShadow: '0 16px 40px rgba(0, 0, 0, 0.22)',
+                display: 'none',
               }}
             >
-              <Fade in={editorAberto} timeout={220}>
-                <Box sx={narrationEditorModalSx} ref={editorRef}>
-                  <Box sx={narrationEditorHeaderSx}>
-                    <Box sx={narrationEditorHeaderTopSx}>
-                      <Box>
-                        <Typography component="h2" sx={narrationEditorTitleSx}>
-                          Editor de Narração
-                        </Typography>
-                        <Typography sx={narrationEditorDescriptionSx}>
-                          Edite o texto completo de narração da cena. As alterações são sincronizadas automaticamente com o campo de narração.
-                        </Typography>
-                        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 1 }}>
-                          <Button
-                            variant={previewMode ? 'outlined' : 'contained'}
-                            size="small"
-                            onClick={() => setPreviewMode(false)}
-                            sx={{
-                              color: previewMode ? 'var(--text-secondary)' : 'var(--text-primary)',
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {fluxoCapitulos.map(capitulo => (
+                  <Box key={capitulo.nome}>
+                    <Typography
+                      sx={{
+                        color: 'var(--text-muted)',
+                        fontSize: '0.7rem',
+                        letterSpacing: '0.14em',
+                        textTransform: 'uppercase',
+                        mb: 1,
+                      }}
+                    >
+                      {capitulo.nome}
+                    </Typography>
+
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.8 }}>
+                      {capitulo.cenas.map((cena, index) => (
+                        <Button
+                          key={`${capitulo.nome}-${cena.titulo}`}
+                          type="button"
+                          sx={{
+                            justifyContent: 'flex-start',
+                            gap: 1,
+                            px: 1.25,
+                            py: 0.85,
+                            borderRadius: '12px',
+                            textTransform: 'none',
+                            background: cena.ativo || cenaAtualLabel === cena.titulo
+                              ? 'rgba(196, 58, 47, 0.12)'
+                              : 'rgba(255,255,255,0.02)',
+                            border: cena.ativo || cenaAtualLabel === cena.titulo
+                              ? '1px solid rgba(196, 58, 47, 0.24)'
+                              : '1px solid rgba(255,255,255,0.04)',
+                            color:
+                              cena.ativo || cenaAtualLabel === cena.titulo
+                                ? 'var(--text-primary)'
+                                : 'var(--text-secondary)',
+                            boxShadow:
+                              cena.ativo || cenaAtualLabel === cena.titulo
+                                ? 'inset 0 0 0 1px rgba(196,58,47,0.10)'
+                                : 'none',
+                            '&:hover': {
+                              background: 'rgba(255,255,255,0.04)',
                               borderColor: 'rgba(255,255,255,0.12)',
-                              background: previewMode ? 'transparent' : 'rgba(255,255,255,0.04)',
-                              '&:hover': {
-                                background: 'rgba(255,255,255,0.08)',
-                              },
-                            }}
-                          >
-                            Editor
-                          </Button>
-                          <Button
-                            variant={previewMode ? 'contained' : 'outlined'}
-                            size="small"
-                            onClick={() => setPreviewMode(true)}
+                            },
+                          }}
+                        >
+                          <Box
                             sx={{
-                              color: previewMode ? 'var(--text-primary)' : 'var(--text-secondary)',
-                              borderColor: 'rgba(255,255,255,0.12)',
-                              background: previewMode ? 'rgba(255,255,255,0.08)' : 'transparent',
-                              '&:hover': {
-                                background: 'rgba(255,255,255,0.08)',
-                              },
+                              width: 8,
+                              height: 8,
+                              borderRadius: '50%',
+                              background:
+                                cena.ativo || cenaAtualLabel === cena.titulo
+                                  ? 'var(--color-accent)'
+                                  : 'rgba(255,255,255,0.2)',
+                              boxShadow:
+                                cena.ativo || cenaAtualLabel === cena.titulo
+                                  ? '0 0 12px rgba(196,58,47,0.45)'
+                                  : 'none',
                             }}
-                          >
-                            Visualizar
-                          </Button>
-                        </Box>
-                      </Box>
-                      <IconButton
-                        type="button"
-                        onClick={() => handleEditorClose(setFieldValue, editorConteudo)}
-                        sx={{
-                          color: 'var(--text-secondary)',
-                          border: '1px solid rgba(255,255,255,0.08)',
-                          width: 40,
-                          height: 40,
-                          borderRadius: '14px',
-                          '&:hover': {
-                            background: 'rgba(255,255,255,0.08)',
-                            color: 'var(--color-accent)',
-                          },
-                        }}
-                        aria-label="Fechar editor de narração"
-                      >
-                        <CloseIcon fontSize="small" />
-                      </IconButton>
-                    </Box>
-                    <Divider sx={narrationDividerSx} />
-                    <Box sx={narrationToolbarSx}>
-                      <Box sx={narrationToolbarGroupSx}>
-                        <Tooltip title="Desfazer" arrow>
-                          <IconButton
-                            sx={narrationToolButtonSx}
-                            type="button"
-                            onMouseDown={handleToolbarMouseDown}
-                            aria-label="Desfazer"
-                            onClick={handleUndo}
-                          >
-                            <UndoIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Refazer" arrow>
-                          <IconButton
-                            sx={narrationToolButtonSx}
-                            type="button"
-                            onMouseDown={handleToolbarMouseDown}
-                            aria-label="Refazer"
-                            onClick={handleRedo}
-                          >
-                            <RedoIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      </Box>
-                      <Box sx={narrationToolbarGroupSx}>
-                        <Tooltip title="Negrito" arrow>
-                          <IconButton
-                            sx={narrationToolButtonSx}
-                            type="button"
-                            onMouseDown={handleToolbarMouseDown}
-                            aria-label="Negrito"
-                            onClick={handleToggleBold}
-                          >
-                            <FormatBoldIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Itálico" arrow>
-                          <IconButton
-                            sx={narrationToolButtonSx}
-                            type="button"
-                            onMouseDown={handleToolbarMouseDown}
-                            aria-label="Itálico"
-                            onClick={handleToggleItalic}
-                          >
-                            <FormatItalicIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Sublinhado" arrow>
-                          <IconButton
-                            sx={narrationToolButtonSx}
-                            type="button"
-                            onMouseDown={handleToolbarMouseDown}
-                            aria-label="Sublinhado"
-                            onClick={handleToggleUnderline}
-                          >
-                            <FormatUnderlinedIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      </Box>
-                      <Box sx={narrationToolbarGroupSx}>
-                        <Tooltip title="Alinhar à esquerda" arrow>
-                          <IconButton
-                            sx={narrationToolButtonSx}
-                            type="button"
-                            onMouseDown={handleToolbarMouseDown}
-                            aria-label="Alinhar à esquerda"
-                            onClick={handleAlignLeft}
-                          >
-                            <FormatAlignLeftIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Centralizar" arrow>
-                          <IconButton
-                            sx={narrationToolButtonSx}
-                            type="button"
-                            onMouseDown={handleToolbarMouseDown}
-                            aria-label="Centralizar"
-                            onClick={handleAlignCenter}
-                          >
-                            <FormatAlignCenterIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Alinhar à direita" arrow>
-                          <IconButton
-                            sx={narrationToolButtonSx}
-                            type="button"
-                            onMouseDown={handleToolbarMouseDown}
-                            aria-label="Alinhar à direita"
-                            onClick={handleAlignRight}
-                          >
-                            <FormatAlignRightIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Justificar" arrow>
-                          <IconButton
-                            sx={narrationToolButtonSx}
-                            type="button"
-                            onMouseDown={handleToolbarMouseDown}
-                            aria-label="Justificar"
-                            onClick={handleAlignJustify}
-                          >
-                            <FormatAlignJustifyIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      </Box>
-                      <Box sx={narrationToolbarGroupSx}>
-                        <Tooltip title="Lista" arrow>
-                          <IconButton
-                            sx={narrationToolButtonSx}
-                            type="button"
-                            onMouseDown={handleToolbarMouseDown}
-                            aria-label="Lista"
-                            onClick={handleToggleBulletedList}
-                          >
-                            <FormatListBulletedIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Lista numerada" arrow>
-                          <IconButton
-                            sx={narrationToolButtonSx}
-                            type="button"
-                            onMouseDown={handleToolbarMouseDown}
-                            aria-label="Lista numerada"
-                            onClick={handleToggleNumberedList}
-                          >
-                            <FormatListNumberedIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      </Box>
-                      <Box sx={narrationToolbarGroupSx}>
-                        <Tooltip title="Inserir separador" arrow>
-                          <IconButton
-                            sx={narrationSeparatorButtonSx}
-                            type="button"
-                            aria-label="Inserir separador"
-                            onMouseDown={handleToolbarMouseDown}
-                            onClick={handleInsertSeparator}
-                          >
-                            <HorizontalRuleIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      </Box>
+                          />
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                            <Typography sx={{ fontSize: '0.72rem', opacity: 0.8 }}>
+                              {String(index + 1).padStart(2, '0')}
+                            </Typography>
+                            <Typography sx={{ fontWeight: 700, fontSize: '0.92rem' }}>
+                              {cena.titulo}
+                            </Typography>
+                          </Box>
+                        </Button>
+                      ))}
                     </Box>
                   </Box>
-                  <Box sx={narrationEditorAreaSx}>
-                    {previewMode ? (
-                      <Box
+                ))}
+              </Box>
+            </Paper>
+
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3.25 }}>
+              <Paper
+                elevation={0}
+                sx={{
+                  background: 'rgba(9, 13, 21, 0.9)',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  borderRadius: '24px',
+                  boxShadow: '0 22px 60px rgba(0, 0, 0, 0.28)',
+                  overflow: 'hidden',
+                }}
+              >
+                <Box
+                  sx={{
+                    position: 'relative',
+                    minHeight: 320,
+                    background: values.linkImagem
+                      ? `linear-gradient(90deg, rgba(3,7,18,0.78) 0%, rgba(7,10,17,0.38) 26%, rgba(11,13,20,0.18) 48%, rgba(9,11,16,0.7) 100%), url(${values.linkImagem}) center/cover no-repeat`
+                      : 'linear-gradient(135deg, rgba(21,30,42,0.95), rgba(19,12,17,0.95))',
+                    p: { xs: 2.25, md: 3 },
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'flex-end',
+                    borderRadius: '24px 24px 0 0',
+                    border: '1px solid rgba(255,255,255,0.06)',
+                    overflow: 'hidden',
+                    boxShadow: 'inset 0 0 40px rgba(0,0,0,0.18)',
+                    '&::before': {
+                      content: '""',
+                      position: 'absolute',
+                      inset: 0,
+                      background:
+                        'linear-gradient(180deg, rgba(9,12,18,0.18) 0%, rgba(9,12,18,0.08) 25%, rgba(9,12,18,0.74) 100%)',
+                      pointerEvents: 'none',
+                    },
+                    '&::after': {
+                      content: '""',
+                      position: 'absolute',
+                      inset: 0,
+                      background:
+                        'radial-gradient(circle at 20% 20%, rgba(188,147,255,0.18), transparent 28%), radial-gradient(circle at 75% 10%, rgba(22,163,74,0.10), transparent 25%)',
+                      pointerEvents: 'none',
+                    },
+                  }}
+                >
+                  <Box
+                    sx={{
+                      position: 'relative',
+                      zIndex: 1,
+                      display: 'inline-flex',
+                      alignSelf: 'flex-start',
+                      px: 1.3,
+                      py: 0.7,
+                      borderRadius: '999px',
+                      background: 'rgba(4, 9, 16, 0.54)',
+                      border: '1px solid rgba(255,255,255,0.12)',
+                      color: '#dfe7f2',
+                      fontSize: '0.72rem',
+                      letterSpacing: '0.18em',
+                      textTransform: 'uppercase',
+                      mb: 1.75,
+                      fontWeight: 800,
+                      boxShadow: '0 10px 24px rgba(0,0,0,0.18)',
+                    }}
+                  >
+                    CENA {String(Number(values.numeroCena || 4)).toString().padStart(2, '0')}
+                  </Box>
+
+                  <Typography
+                    sx={{
+                      position: 'relative',
+                      zIndex: 1,
+                      color: '#f6f7fb',
+                      fontSize: { xs: '2.1rem', md: '3rem' },
+                      fontWeight: 900,
+                      letterSpacing: '-0.05em',
+                      lineHeight: 1.02,
+                      maxWidth: '80%',
+                      textShadow: '0 6px 24px rgba(0,0,0,0.45)',
+                    }}
+                  >
+                    {cenaAtualLabel}
+                  </Typography>
+                </Box>
+
+                <Box sx={{ p: 3.5, display: 'flex', flexDirection: 'column', gap: 3 }}>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: 1,
+                      flexWrap: 'wrap',
+                    }}
+                  >
+                    <Typography
+                      sx={{
+                        color: 'var(--text-secondary)',
+                        fontSize: '0.7rem',
+                        letterSpacing: '0.18em',
+                        textTransform: 'uppercase',
+                      }}
+                    >
+                      Cena atual
+                    </Typography>
+
+                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                      <Button
+                        type="button"
+                        onClick={onCancelar}
                         sx={{
-                          flex: 1,
-                          overflowY: 'auto',
-                          px: { xs: 3.5, md: 4.5 },
-                          py: { xs: 3, md: 4 },
+                          background: 'rgba(255,255,255,0.04)',
+                          border: '1px solid rgba(255,255,255,0.08)',
                           color: 'var(--text-primary)',
-                          fontSize: '1rem',
-                          lineHeight: 1.8,
-                          '& strong': { fontWeight: 700 },
-                          '& em': { fontStyle: 'italic' },
-                          '& u': { textDecoration: 'underline' },
-                          '& ul': { paddingLeft: 20, margin: '8px 0' },
-                          '& li': { marginBottom: 6 },
-                          '& p': { margin: '0 0 0.75rem' },
+                          px: 1.4,
+                          py: 0.7,
+                          borderRadius: '10px',
+                          textTransform: 'none',
                         }}
-                        dangerouslySetInnerHTML={{ __html: renderMarkdownPreview(editorConteudo) }}
-                      />
-                    ) : (
-                      <Box sx={narrationTextareaWrapperSx}>
+                      >
+                        Voltar ao Fluxograma
+                      </Button>
+                      <Button
+                        type="button"
+                        onClick={() => abrirEditorNarracao(values.descricaoNarracao)}
+                        sx={{
+                          background: 'rgba(255,255,255,0.04)',
+                          border: '1px solid rgba(255,255,255,0.08)',
+                          color: 'var(--text-primary)',
+                          px: 1.4,
+                          py: 0.7,
+                          borderRadius: '10px',
+                          textTransform: 'none',
+                        }}
+                      >
+                        Narrar Cena
+                      </Button>
+                      <Button
+                        type="button"
+                        onClick={() => setEditorAberto(false)}
+                        sx={{
+                          background: 'rgba(196, 58, 47, 0.12)',
+                          border: '1px solid rgba(196,58,47,0.2)',
+                          color: 'var(--text-primary)',
+                          px: 1.4,
+                          py: 0.7,
+                          borderRadius: '10px',
+                          textTransform: 'none',
+                        }}
+                      >
+                        Editar
+                      </Button>
+                    </Box>
+                  </Box>
+
+                  <Box
+                    sx={{
+                      display: 'grid',
+                      gridTemplateColumns: { xs: '110px 1fr', md: '120px 1fr' },
+                      gap: 2,
+                      alignItems: 'stretch',
+                    }}
+                  >
+                    <FastField name="numeroCena">
+                      {({ field, meta }) => (
                         <TextField
-                          value={editorConteudo}
-                          onChange={event => updateEditorContent(event.target.value)}
-                          multiline
-                          minRows={14}
-                          maxRows={30}
-                          variant="outlined"
-                          aria-label="Editor de narração completa"
-                          inputRef={textAreaRef}
-                          fullWidth
+                          {...field}
+                          type="number"
+                          slotProps={{
+                            htmlInput: {
+                              min: 1,
+                              max: 9999,
+                              step: 1,
+                            },
+                          }}
+                          label="Cena"
+                          value={field.value ?? 1}
+                          onChange={event => {
+                            const nextValue = event.target.value === '' ? 1 : Number(event.target.value);
+                            setFieldValue('numeroCena', Number.isNaN(nextValue) ? 1 : nextValue);
+                          }}
+                          error={meta.touched && Boolean(meta.error)}
+                          helperText={meta.touched && meta.error}
                           sx={{
-                            ...narrationTextareaSx,
-                            '& .MuiOutlinedInput-inputMultiline': {
-                              minHeight: 360,
-                              padding: 0,
-                              overflow: 'visible',
+                            ...inputSx,
+                            '& .MuiOutlinedInput-root': {
+                              ...inputSx['& .MuiOutlinedInput-root'],
+                              background: 'rgba(8, 12, 20, 0.7)',
                             },
                           }}
                         />
-                      </Box>
-                    )}
-                  </Box>
-                  <Box sx={narrationEditorFooterSx}>
-                    <Box sx={narrationFooterTextSx}>
-                      <Box sx={narrationFooterStatusDotSx} />
-                      <Typography>Alterações sincronizadas automaticamente</Typography>
-                    </Box>
-                    <Typography sx={narrationFooterCountSx}>
-                      {editorConteudo.length} caracteres
-                    </Typography>
-                  </Box>
-                </Box>
-              </Fade>
-            </Modal>
+                      )}
+                    </FastField>
 
-            <Paper elevation={0} sx={{ ...sectionSx, mb: 1.5 }}>
-              <SectionTitle>Informações Gerais</SectionTitle>
-              <Box
-                sx={{
-                  display: 'grid',
-                  gridTemplateColumns: { xs: '1fr', md: '1fr 280px' },
-                  gap: 3,
-                  mt: 1.5,
-                }}
-              >
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <Field name="estado">
+                      {({ field }) => {
+                        const estadoAtual =
+                          ESTADO_CENA_OPCOES.find(
+                            opcao => opcao.value === field.value,
+                          ) ?? ESTADO_CENA_OPCOES[0];
+
+                        return (
+                          <FormControl fullWidth>
+                            <InputLabel
+                              id={estadoLabelId}
+                              sx={{
+                                color: 'var(--text-secondary)',
+                                '&.Mui-focused': { color: 'var(--color-accent)' },
+                              }}
+                            >
+                              Estado da cena
+                            </InputLabel>
+                            <Select
+                              {...field}
+                              labelId={estadoLabelId}
+                              label="Estado da cena"
+                              value={field.value ?? 'nao_iniciado'}
+                              sx={{
+                                ...selectSx,
+                                '& .MuiOutlinedInput-root': {
+                                  borderWidth: 2,
+                                  background:
+                                    'linear-gradient(180deg, rgba(11,16,24,0.9), rgba(18,12,15,0.92))',
+                                  boxShadow: `inset 0 0 0 1px ${estadoAtual.cor}33`,
+                                },
+                                '& .MuiSelect-select': {
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: 1,
+                                  fontWeight: 700,
+                                },
+                              }}
+                              renderValue={selected => {
+                                const opcaoSelecionada =
+                                  ESTADO_CENA_OPCOES.find(
+                                    item => item.value === selected,
+                                  ) ?? ESTADO_CENA_OPCOES[0];
+
+                                return (
+                                  <Box
+                                    sx={{
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: 1.2,
+                                      color: 'var(--text-primary)',
+                                    }}
+                                  >
+                                    <Box
+                                      sx={{
+                                        width: 10,
+                                        height: 10,
+                                        borderRadius: '50%',
+                                        background: opcaoSelecionada.cor,
+                                        boxShadow: `0 0 12px ${opcaoSelecionada.cor}`,
+                                      }}
+                                    />
+                                    <Typography sx={{ fontWeight: 700 }}>
+                                      {opcaoSelecionada.icone} {opcaoSelecionada.label}
+                                    </Typography>
+                                  </Box>
+                                );
+                              }}
+                            >
+                              {ESTADO_CENA_OPCOES.map(opcao => (
+                                <MenuItem
+                                  key={opcao.value}
+                                  value={opcao.value}
+                                  sx={{
+                                    py: 1.25,
+                                    px: 1.5,
+                                    '&.Mui-selected': {
+                                      background: 'rgba(196, 58, 47, 0.08)',
+                                      color: 'var(--text-primary)',
+                                    },
+                                    '&:hover': {
+                                      background: 'rgba(255,255,255,0.04)',
+                                    },
+                                  }}
+                                >
+                                  <Box
+                                    sx={{
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: 1.2,
+                                      width: '100%',
+                                    }}
+                                  >
+                                    <Box
+                                      sx={{
+                                        width: 10,
+                                        height: 10,
+                                        borderRadius: '50%',
+                                        background: opcao.cor,
+                                        boxShadow: `0 0 10px ${opcao.cor}`,
+                                      }}
+                                    />
+                                    <Typography sx={{ fontWeight: 700 }}>
+                                      {opcao.icone} {opcao.label}
+                                    </Typography>
+                                  </Box>
+                                </MenuItem>
+                              ))}
+                            </Select>
+                          </FormControl>
+                        );
+                      }}
+                    </Field>
+                  </Box>
+
                   <FastField name="titulo">
                     {({ field }) => (
                       <TextField
@@ -1005,742 +1214,1066 @@ const CenaForm = ({
                     )}
                   </FastField>
 
-                  <Field name="estado">
-                    {({ field }) => (
-                      <FormControl fullWidth>
-                        <InputLabel
-                          id={estadoLabelId}
-                          sx={{
-                            color: 'var(--text-secondary)',
-                            '&.Mui-focused': { color: 'var(--color-accent)' },
-                          }}
-                        >
-                          Estado da Campanha
-                        </InputLabel>
-                        <Select
+                  <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr' }, gap: 2.5 }}>
+                    <FastField name="linkImagem">
+                      {({ field }) => (
+                        <TextField
                           {...field}
-                          labelId={estadoLabelId}
-                          label="Estado da Campanha"
-                          sx={selectSx}
-                        >
-                          {ESTADO_CENA_OPCOES.map(opcao => (
-                            <MenuItem key={opcao.value} value={opcao.value}>
-                              {opcao.label}
-                            </MenuItem>
-                          ))}
-                        </Select>
-                      </FormControl>
-                    )}
-                  </Field>
+                          label="Link da imagem"
+                          fullWidth
+                          placeholder="https://..."
+                          error={touched.linkImagem && Boolean(errors.linkImagem)}
+                          helperText={touched.linkImagem && errors.linkImagem}
+                          sx={inputSx}
+                        />
+                      )}
+                    </FastField>
+                  </Box>
+                </Box>
+              </Paper>
 
-                  <FastField name="linkImagem">
+              <Box
+                sx={{
+                  display: 'grid',
+                  gridTemplateColumns: { xs: '1fr', md: 'repeat(3, minmax(0, 1fr))' },
+                  gap: 2.5,
+                  alignItems: 'stretch',
+                }}
+              >
+                <Box
+                  sx={{
+                    position: 'relative',
+                    p: { xs: 1.75, md: 2.1 },
+                    borderRadius: '18px',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    background:
+                      'linear-gradient(180deg, rgba(17,22,31,0.92), rgba(12,16,24,0.78))',
+                    boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.02)',
+                    minHeight: 270,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    '&::before': {
+                      content: '""',
+                      position: 'absolute',
+                      left: 0,
+                      top: 16,
+                      bottom: 16,
+                      width: '3px',
+                      borderRadius: '999px',
+                      background:
+                        'linear-gradient(180deg, rgba(244,217,138,0.95), rgba(196,58,47,0.82))',
+                    },
+                  }}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5, pl: 2 }}>
+                    <Box
+                      component="span"
+                      sx={{
+                        width: 12,
+                        height: 12,
+                        borderRadius: '50%',
+                        background: 'linear-gradient(180deg, #f0d490, #c3803c)',
+                        boxShadow: '0 0 18px rgba(244,217,138,0.45)',
+                        display: 'inline-block',
+                      }}
+                    />
+                    <Typography
+                      sx={{
+                        color: '#f4d98a',
+                        fontSize: '0.72rem',
+                        letterSpacing: '0.18em',
+                        textTransform: 'uppercase',
+                        fontWeight: 800,
+                      }}
+                    >
+                      Contexto
+                    </Typography>
+                  </Box>
+
+                  <FastField name="resumo">
                     {({ field }) => (
                       <TextField
                         {...field}
-                        label="Link da Imagem"
+                        label="O que aconteceu antes?"
                         fullWidth
-                        placeholder="https://..."
-                        error={touched.linkImagem && Boolean(errors.linkImagem)}
-                        helperText={touched.linkImagem && errors.linkImagem}
-                        sx={inputSx}
+                        multiline
+                        minRows={5}
+                        error={touched.resumo && Boolean(errors.resumo)}
+                        helperText={touched.resumo && errors.resumo}
+                        sx={cardTextAreaSx}
                       />
                     )}
                   </FastField>
                 </Box>
 
-                <ImagePreviewPanel
-                  src={values.linkImagem}
-                  alt="Preview da cena"
-                />
-              </Box>
-            </Paper>
-
-            <Paper elevation={0} sx={{ ...sectionSx, mb: 1.5 }}>
-              <SectionTitle>Narrativa</SectionTitle>
-              <Box
-                sx={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 2,
-                  mt: 1.5,
-                }}
-              >
-                <FastField name="objetivo">
-                  {({ field }) => (
-                    <TextField
-                      {...field}
-                      label="Objetivo Principal"
-                      fullWidth
-                      multiline
-                      rows={5}
-                      error={touched.objetivo && Boolean(errors.objetivo)}
-                      helperText={touched.objetivo && errors.objetivo}
+                <Box
+                  sx={{
+                    p: { xs: 1.75, md: 2.1 },
+                    borderRadius: '18px',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    background:
+                      'linear-gradient(180deg, rgba(17,22,31,0.92), rgba(12,16,24,0.78))',
+                    boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.02)',
+                    minHeight: 270,
+                    display: 'flex',
+                    flexDirection: 'column',
+                  }}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+                    <Box
+                      component="span"
                       sx={{
-                        ...inputSx,
-                        '& .MuiOutlinedInput-inputMultiline': {
-                          maxHeight: 180,
-                          overflow: 'auto',
-                        },
+                        width: 12,
+                        height: 12,
+                        borderRadius: '50%',
+                        background: 'linear-gradient(180deg, #f0d490, #c3803c)',
+                        boxShadow: '0 0 18px rgba(244,217,138,0.45)',
+                        display: 'inline-block',
                       }}
                     />
-                  )}
-                </FastField>
-
-                <FastField name="resumo">
-                  {({ field }) => (
-                    <TextField
-                      {...field}
-                      label="Resumo"
-                      fullWidth
-                      multiline
-                      rows={5}
-                      onChange={event => {
-                        setFieldValue('resumo', event.target.value);
-                      }}
-                      error={touched.resumo && Boolean(errors.resumo)}
-                      helperText={touched.resumo && errors.resumo}
+                    <Typography
                       sx={{
-                        ...inputSx,
-                        '& .MuiOutlinedInput-inputMultiline': {
-                          maxHeight: 180,
-                          overflow: 'auto',
-                        },
+                        color: '#f4d98a',
+                        fontSize: '0.72rem',
+                        letterSpacing: '0.18em',
+                        textTransform: 'uppercase',
+                        fontWeight: 800,
                       }}
-                    />
-                  )}
-                </FastField>
+                    >
+                      Objetivo
+                    </Typography>
+                  </Box>
 
-                <FastField name="descricaoNarracao">
-                  {({ field }) => (
-                    <Box sx={{ position: 'relative' }}>
+                  <FastField name="objetivo">
+                    {({ field }) => (
                       <TextField
                         {...field}
-                        label="Descrição / Texto de Narração"
+                        label="O que esta cena precisa cumprir?"
                         fullWidth
                         multiline
-                        rows={7}
-                        error={
-                          touched.descricaoNarracao &&
-                          Boolean(errors.descricaoNarracao)
-                        }
-                        helperText={
-                          touched.descricaoNarracao && errors.descricaoNarracao
-                        }
+                        minRows={5}
+                        error={touched.objetivo && Boolean(errors.objetivo)}
+                        helperText={touched.objetivo && errors.objetivo}
+                        sx={cardTextAreaSx}
+                      />
+                    )}
+                  </FastField>
+                </Box>
+
+                <Box
+                  sx={{
+                    p: { xs: 1.75, md: 2.1 },
+                    borderRadius: '18px',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    background:
+                      'linear-gradient(180deg, rgba(17,22,31,0.92), rgba(12,16,24,0.78))',
+                    boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.02)',
+                    minHeight: 270,
+                    display: 'flex',
+                    flexDirection: 'column',
+                  }}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+                    <Box
+                      component="span"
+                      sx={{
+                        width: 12,
+                        height: 12,
+                        borderRadius: '50%',
+                        background: 'linear-gradient(180deg, #f0d490, #c3803c)',
+                        boxShadow: '0 0 18px rgba(244,217,138,0.45)',
+                        display: 'inline-block',
+                      }}
+                    />
+                    <Typography
+                      sx={{
+                        color: '#f4d98a',
+                        fontSize: '0.72rem',
+                        letterSpacing: '0.18em',
+                        textTransform: 'uppercase',
+                        fontWeight: 800,
+                      }}
+                    >
+                      Estado inicial
+                    </Typography>
+                  </Box>
+
+                  <Box sx={{ display: 'grid', gap: 1.3, gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
+                    <FastField name="localCena">
+                      {({ field }) => (
+                        <TextField
+                          {...field}
+                          label="Local"
+                          fullWidth
+                          size="small"
+                          sx={inputSx}
+                        />
+                      )}
+                    </FastField>
+
+                    <FastField name="horarioCena">
+                      {({ field }) => (
+                        <TextField
+                          {...field}
+                          label="Horário"
+                          fullWidth
+                          size="small"
+                          sx={inputSx}
+                        />
+                      )}
+                    </FastField>
+
+                    <FastField name="climaCena">
+                      {({ field }) => (
+                        <TextField
+                          {...field}
+                          label="Clima"
+                          fullWidth
+                          size="small"
+                          sx={inputSx}
+                        />
+                      )}
+                    </FastField>
+
+                    <FastField name="situacaoCena">
+                      {({ field }) => (
+                        <TextField
+                          {...field}
+                          label="Situação"
+                          fullWidth
+                          size="small"
+                          sx={inputSx}
+                        />
+                      )}
+                    </FastField>
+                  </Box>
+
+                  <FastField name="informacaoJogadores">
+                    {({ field }) => (
+                      <TextField
+                        {...field}
+                        label="Informação dos jogadores"
+                        fullWidth
+                        multiline
+                        minRows={5}
                         sx={{
                           ...inputSx,
+                          mt: 1.25,
                           '& .MuiInputBase-root': {
-                            minHeight: 260,
-                          },
-                          '& .MuiOutlinedInput-inputMultiline': {
-                            maxHeight: 260,
-                            overflow: 'auto',
-                            paddingBottom: '52px',
+                            background: 'rgba(4, 8, 14, 0.52)',
+                            boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.03)',
                           },
                         }}
                       />
-                      <Tooltip title="Editar/visualizar narração" arrow>
-                        <IconButton
-                          type="button"
-                          onClick={() => abrirEditorNarracao(values.descricaoNarracao)}
-                          sx={editorTriggerSx}
-                          aria-label="Editar ou visualizar narração"
-                        >
-                          <RemoveRedEyeOutlinedIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                    </Box>
-                  )}
-                </FastField>
-              </Box>
-            </Paper>
-
-            <Paper elevation={0} sx={sectionSx}>
-              <SectionTitle>Pontos Importantes para a Narração</SectionTitle>
-              <FieldArray name="pontosImportantes">
-                {({ push, remove }) => (
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: 1.5,
-                      mt: 1.5,
-                    }}
-                  >
-                    {values.pontosImportantes.map((_, idx) => (
-                      <Box
-                        key={pontosKeys.keys[idx] ?? idx}
-                        sx={{ display: 'flex', gap: 1.25, alignItems: 'flex-start' }}
-                      >
-                        <Box sx={{ width: 6, borderRadius: 1, alignSelf: 'stretch', background: 'linear-gradient(180deg, var(--color-primary), rgba(255,215,130,0.06))' }} />
-                        <FastField name={`pontosImportantes.${idx}`}>
-                          {({ field }) => (
-                            <TextField
-                              name={field.name}
-                              value={field.value}
-                              onChange={field.onChange}
-                              onBlur={field.onBlur}
-                              fullWidth
-                              size="small"
-                              multiline
-                              rows={4}
-                              sx={{
-                                ...inputSx,
-                                minWidth: 0,
-                                flexGrow: 1,
-                                '& .MuiOutlinedInput-root': {
-                                  borderRadius: 2,
-                                  background: 'var(--bg-card)',
-                                  border: '1px solid rgba(255,215,130,0.03)',
-                                  padding: '2px',
-                                  boxShadow: 'inset 0 -6px 18px rgba(0,0,0,0.45)',
-                                },
-                                '& .MuiOutlinedInput-inputMultiline': {
-                                  maxHeight: '5.2rem',
-                                  overflowY: 'auto',
-                                  whiteSpace: 'normal',
-                                  padding: '10px 12px',
-                                  lineHeight: '1.2rem',
-                                  color: 'var(--text-primary)',
-                                  fontWeight: 500,
-                                  fontSize: '0.95rem',
-                                },
-                                '& .MuiOutlinedInput-root.Mui-focused': {
-                                  borderColor: 'rgba(255,183,77,0.14)',
-                                  boxShadow: '0 8px 26px rgba(11,14,22,0.6), 0 0 0 3px rgba(196,58,47,0.02) inset',
-                                },
-                                '& .MuiOutlinedInput-inputMultiline::-webkit-scrollbar': { width: '8px' },
-                                '& .MuiOutlinedInput-inputMultiline::-webkit-scrollbar-track': { background: 'transparent', borderRadius: '8px' },
-                                '& .MuiOutlinedInput-inputMultiline::-webkit-scrollbar-thumb': { background: 'linear-gradient(180deg, rgba(196,58,47,0.14), rgba(255,183,77,0.12))', borderRadius: '8px' },
-                                '& .MuiOutlinedInput-inputMultiline::-webkit-scrollbar-thumb:hover': { background: 'linear-gradient(180deg, rgba(196,58,47,0.24), rgba(255,183,77,0.18))' },
-                              }}
-                            />
-                          )}
-                        </FastField>
-                        <IconButton
-                          size="small"
-                          onClick={() => {
-                            pontosKeys.removeKey(idx);
-                            remove(idx);
-                          }}
-                          sx={{
-                            color: 'var(--text-muted)',
-                            flexShrink: 0,
-                            width: 36,
-                            height: 36,
-                            borderRadius: 1,
-                            background: 'transparent',
-                            border: '1px solid rgba(255,255,255,0.02)',
-                            transition: 'all 160ms ease',
-                            '&:hover': { background: 'rgba(255,255,255,0.04)', color: '#ef4444', transform: 'translateY(-2px)' },
-                          }}
-                          aria-label="Remover ponto importante"
-                        >
-                          ✕
-                        </IconButton>
-                      </Box>
-                    ))}
-                    <Button
-                      onClick={() => {
-                        pontosKeys.addKey();
-                        push('');
-                      }}
-                      sx={{
-                        alignSelf: 'flex-start',
-                        color: 'var(--color-accent)',
-                        background: 'transparent',
-                        padding: '6px 10px',
-                        borderRadius: 1,
-                        transition: 'all 160ms ease',
-                        '&:hover': { background: 'rgba(255,255,255,0.03)', transform: 'translateY(-1px)' },
-                      }}
-                    >
-                      + Adicionar ponto importante
-                    </Button>
-                    <Popover
-                      open={openIconPickerIndex !== null && Boolean(anchorIconPickerEl)}
-                      anchorEl={anchorIconPickerEl}
-                      onClose={() => {
-                        setOpenIconPickerIndex(null);
-                        setAnchorIconPickerEl(null);
-                      }}
-                      anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-                      transformOrigin={{ vertical: 'top', horizontal: 'left' }}
-                      sx={{ zIndex: 1600 }}
-                    >
-                      <Box sx={{ p: 2, width: 420, background: 'rgba(7,10,17,0.98)', borderRadius: 2, border: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 30px 80px rgba(0,0,0,0.7)' }}>
-                        <Typography sx={{ color: 'var(--text-primary)', fontWeight: 800, mb: 0.5 }}>Escolha um ícone</Typography>
-                        <Typography sx={{ color: 'var(--text-secondary)', fontSize: '0.85rem', mb: 1.25 }}>Selecione um ícone visual para essa consequência (somente visual, não altera dados no backend).</Typography>
-                        <Box sx={{ maxHeight: 300, overflow: 'auto' }}>
-                          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 1 }}>
-                            {(
-                              iconPickerCategory === 'success'
-                                ? [
-                                    'https://i.imgur.com/BTi3kGm.png','https://i.imgur.com/rzFones.png','https://i.imgur.com/FtpIayF.png','https://i.imgur.com/6yNMP8h.png','https://i.imgur.com/uwQTa11.png','https://i.imgur.com/jES3ue7.png','https://i.imgur.com/OM8fW9O.png'
-                                  ]
-                                : iconPickerCategory === 'neutral'
-                                  ? [
-                                    'https://i.imgur.com/oKzjp6r.png','https://i.imgur.com/q3TtmwH.png','https://i.imgur.com/tom2l0b.png','https://i.imgur.com/lupJCIC.png','https://i.imgur.com/EO9TfsF.png','https://i.imgur.com/IYlqQfk.png','https://i.imgur.com/IePogoT.png'
-                                  ]
-                                  : iconPickerCategory === 'fail'
-                                    ? [
-                                      'https://i.imgur.com/YXPtoxx.png','https://i.imgur.com/I3Aawlq.png','https://i.imgur.com/0qu1421.png','https://i.imgur.com/10xOiVI.png','https://i.imgur.com/Azh2I6R.png','https://i.imgur.com/U6Thr45.png','https://i.imgur.com/ViQ63ra.png'
-                                    ]
-                                    : [
-                                      'https://i.imgur.com/75JqxFh.png','https://i.imgur.com/nM5A3Re.png','https://i.imgur.com/3NVTzJH.png','https://i.imgur.com/vWL7aV6.png','https://i.imgur.com/EDGnH5y.png','https://i.imgur.com/eiLQiq1.png','https://i.imgur.com/G1hxvG3.png'
-                                    ]
-                            ).map(url => (
-                              <Box
-                                key={url}
-                                component="button"
-                                onClick={() => {
-                                  setSelectedIcons(prev => ({ ...prev, [openIconPickerIndex]: url }));
-                                  if (typeof setFieldValue === 'function' && openIconPickerIndex !== null) {
-                                    setFieldValue(`consequencias.${openIconPickerIndex}.icone`, url);
-                                  }
-                                  setOpenIconPickerIndex(null);
-                                  setAnchorIconPickerEl(null);
-                                }}
-                                sx={{ p: 0.5, borderRadius: 1, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)', cursor: 'pointer' }}
-                              >
-                                <Box component="img" src={url} alt="icon" sx={{ width: 44, height: 44, objectFit: 'contain' }} />
-                              </Box>
-                            ))}
-                          </Box>
-                        </Box>
-                      </Box>
-                    </Popover>
-                  </Box>
-                )}
-              </FieldArray>
-            </Paper>
-
-            <Paper elevation={0} sx={sectionSx}>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Box sx={{ width: 12, height: 12, borderRadius: 2, background: 'rgba(196,58,47,0.95)', boxShadow: '0 6px 18px rgba(196,58,47,0.12)' }} />
-                  <SectionTitle sx={{ color: 'rgba(196,58,47,0.98)' }}>Consequências</SectionTitle>
+                    )}
+                  </FastField>
                 </Box>
-                <Typography sx={{ color: 'var(--text-secondary)', fontSize: '0.94rem' }}>
-                  Defina as consequências narrativas das escolhas feitas pelos jogadores neste nó.
-                </Typography>
               </Box>
-              <FieldArray name="consequencias">
-                {({ push, remove }) => (
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: 1.5,
-                      mt: 1.5,
-                    }}
-                  >
-                    {values.consequencias.map((_, idx) => {
-                      const tipoPath = `consequencias.${idx}.tipo`;
-                      const textoPath = `consequencias.${idx}.texto`;
-                      const tipoVal = values.consequencias?.[idx]?.tipo;
-                      const variant = getConsequenciaVariant(tipoVal);
-                      const badge = consequenceBadgeSx(variant);
 
-                      return (
+              <Paper
+                elevation={0}
+                sx={{
+                  background: 'rgba(8, 12, 20, 0.82)',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  borderRadius: '20px',
+                  p: 3,
+                }}
+              >
+                <Typography
+                  sx={{
+                    color: 'var(--text-primary)',
+                    fontSize: '0.76rem',
+                    letterSpacing: '0.18em',
+                    textTransform: 'uppercase',
+                    mb: 2,
+                  }}
+                >
+                  Pontos importantes
+                </Typography>
+
+                <FieldArray name="pontosImportantes">
+                  {({ push, remove }) => (
+                    <Box sx={{ display: 'grid', gap: 1.5 }}>
+                      <Button
+                        type="button"
+                        onClick={() => {
+                          push('');
+                          pontosKeys.addKey();
+                        }}
+                        sx={{
+                          alignSelf: 'flex-start',
+                          color: 'var(--text-primary)',
+                          border: '1px solid rgba(255,255,255,0.08)',
+                          borderRadius: '10px',
+                          background: 'rgba(255,255,255,0.02)',
+                          px: 1.4,
+                          py: 0.7,
+                          textTransform: 'none',
+                        }}
+                      >
+                        + Adicionar ponto importante
+                      </Button>
+
+                      {values.pontosImportantes?.map((ponto, index) => (
                         <Box
-                          key={consequenciasKeys.keys[idx] ?? idx}
+                          key={pontosKeys.keys[index] ?? index}
                           sx={{
                             display: 'flex',
                             alignItems: 'center',
-                            gap: 2,
-                            p: { xs: 1.25, md: 1.75 },
-                            background: 'rgba(6,8,12,0.6)',
-                            border: '1px solid rgba(255,255,255,0.03)',
+                            gap: 1,
+                            background: 'rgba(255,255,255,0.02)',
                             borderRadius: '12px',
+                            p: 1.25,
                           }}
                         >
-                          <Box
-                            sx={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              width: 48,
-                              height: 48,
-                              borderRadius: 1.5,
-                              background: badge.bg,
-                              border: `1px solid ${badge.border}`,
-                              boxShadow: badge.glow,
-                            }}
-                          >
-                            <ConsequenceIcon variant={variant} customUrl={values.consequencias?.[idx]?.icone || selectedIcons[idx]} />
-                          </Box>
-
-                          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, minWidth: 0, flex: 1 }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                              <FastField name={tipoPath}>
-                                {({ field }) => (
-                                  <Box
-                                        component="span"
-                                        role="button"
-                                        tabIndex={0}
-                                        onClick={e => {
-                                          setOpenTipoIndex(idx);
-                                          setAnchorTipoEl(e.currentTarget);
-                                        }}
-                                        onKeyDown={e => {
-                                          if (e.key === 'Enter' || e.key === ' ') {
-                                            setOpenTipoIndex(idx);
-                                            setAnchorTipoEl(e.currentTarget);
-                                          }
-                                        }}
-                                        sx={{
-                                          display: 'inline-flex',
-                                          alignItems: 'center',
-                                          px: 1.2,
-                                          py: 0.5,
-                                          borderRadius: '10px',
-                                          fontWeight: 800,
-                                          fontSize: '0.78rem',
-                                          letterSpacing: '0.06em',
-                                          color: badge.color,
-                                          background: 'rgba(255,255,255,0.02)',
-                                          border: `1px solid ${badge.border}`,
-                                          cursor: 'pointer',
-                                          transition: 'all 160ms ease',
-                                          '&:hover': {
-                                            transform: 'translateY(-2px)',
-                                            boxShadow: '0 6px 20px rgba(0,0,0,0.45)',
-                                          },
-                                        }}
-                                      >
-                                        {String(field.value || 'OUTRO').toUpperCase()}
-                                      </Box>
-                                )}
-                              </FastField>
-                              <Box sx={{ color: 'var(--text-secondary)', ml: 0.5 }}>{'›'}</Box>
-                            </Box>
-
-                            <FastField name={textoPath}>
-                              {({ field }) => (
-                                <TextField
-                                  {...field}
-                                  fullWidth
-                                  size="small"
-                                  placeholder="Descreva a consequência"
-                                  multiline
-                                  minRows={1}
-                                  maxRows={4}
-                                  error={Boolean(
-                                    touched.consequencias?.[idx]?.texto &&
-                                    errors.consequencias?.[idx]?.texto,
-                                  )}
-                                  helperText={
-                                    touched.consequencias?.[idx]?.texto &&
-                                    errors.consequencias?.[idx]?.texto
-                                  }
-                                  sx={{
-                                    ...inputSx,
-                                    '& .MuiOutlinedInput-input': {
-                                      lineHeight: '1.4rem',
-                                      maxHeight: '5.6rem',
-                                      overflowY: 'auto',
-                                    },
-                                    '& .MuiOutlinedInput-input::-webkit-scrollbar': {
-                                      width: 8,
-                                    },
-                                    '& .MuiOutlinedInput-input::-webkit-scrollbar-track': {
-                                      background: 'rgba(255,255,255,0.04)',
-                                    },
-                                    '& .MuiOutlinedInput-input::-webkit-scrollbar-thumb': {
-                                      background: 'rgba(196,58,47,0.4)',
-                                      borderRadius: 999,
-                                    },
-                                    '& .MuiOutlinedInput-input::-webkit-scrollbar-thumb:hover': {
-                                      background: 'rgba(196,58,47,0.65)',
-                                    },
-                                    scrollbarWidth: 'thin',
-                                    scrollbarColor: 'rgba(196,58,47,0.4) rgba(255,255,255,0.04)',
-                                  }}
-                                />
-                              )}
-                            </FastField>
-                          </Box>
-
+                          <Field name={`pontosImportantes.${index}`}>
+                            {({ field }) => (
+                              <TextField
+                                {...field}
+                                aria-label={`Ponto importante ${index + 1}`}
+                                placeholder="Descreva um ponto importante"
+                                fullWidth
+                                sx={inputSx}
+                              />
+                            )}
+                          </Field>
                           <IconButton
-                            size="small"
+                            type="button"
+                            aria-label="Remover ponto importante"
                             onClick={() => {
-                              consequenciasKeys.removeKey(idx);
-                              remove(idx);
+                              pontosKeys.removeKey(index);
+                              remove(index);
                             }}
                             sx={{
-                              width: 40,
-                              height: 40,
-                              borderRadius: '50%',
-                              background: 'rgba(196,58,47,0.04)',
-                              border: '1px solid rgba(196,58,47,0.08)',
-                              '&:hover': {
-                                background: 'rgba(196,58,47,0.12)',
-                                boxShadow: '0 6px 20px rgba(196,58,47,0.14)',
-                              },
+                              color: 'var(--text-secondary)',
+                              border: '1px solid rgba(255,255,255,0.08)',
+                              borderRadius: '10px',
                             }}
-                            aria-label="Remover consequência"
                           >
-                            <Box sx={{ color: '#ef4444', fontWeight: 800 }}>✕</Box>
+                            <CloseIcon fontSize="small" />
                           </IconButton>
                         </Box>
-                      );
-                    })}
-                    <Button
-                      onClick={() => {
-                        consequenciasKeys.addKey();
-                        push({ ...CONSEQUENCIA_INICIAL });
-                      }}
-                      sx={{
-                        alignSelf: 'flex-start',
-                        color: 'var(--color-accent)',
-                        px: 2.5,
-                        py: 1,
-                        border: '1px dashed rgba(196,58,47,0.6)',
-                        borderRadius: '12px',
-                        background: 'transparent',
-                        '&:hover': {
-                          boxShadow: '0 8px 30px rgba(196,58,47,0.12)',
-                          background: 'rgba(196,58,47,0.04)',
-                        },
-                        fontWeight: 700,
-                        letterSpacing: '0.04em',
-                      }}
-                    >
-                      + Adicionar consequência
-                    </Button>
-                    <Popover
-                      open={openTipoIndex !== null && Boolean(anchorTipoEl)}
-                      anchorEl={anchorTipoEl}
-                      onClose={() => {
-                        setOpenTipoIndex(null);
-                        setAnchorTipoEl(null);
-                      }}
-                      anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-                      transformOrigin={{ vertical: 'top', horizontal: 'left' }}
-                      sx={{ zIndex: 1500 }}
-                    >
-                      <Box sx={{ p: 2, width: 320, background: 'rgba(7,10,17,0.98)', borderRadius: 2, border: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 20px 60px rgba(0,0,0,0.6)' }}>
-                        <Typography sx={{ color: 'rgba(196,58,47,0.98)', fontWeight: 800, mb: 0.5 }}>TIPO DE CONSEQUÊNCIA</Typography>
-                        <Typography sx={{ color: 'var(--text-secondary)', fontSize: '0.85rem', mb: 1.25 }}>Escolha como essa consequência afeta a narrativa.</Typography>
-                        <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1 }}>
-                            <Box component="button" onClick={() => { setFieldValue(`consequencias.${openTipoIndex}.tipo`, 'sucesso'); setOpenTipoIndex(null); setAnchorTipoEl(null); setIconPickerCategory('success'); setOpenIconPickerIndex(openTipoIndex); setAnchorIconPickerEl(anchorTipoEl); }} sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, p: 1, background: 'rgba(34,197,94,0.04)', border: '1px solid rgba(34,197,94,0.12)', borderRadius: 1.2, cursor: 'pointer' }}>
-                            <Box sx={{ display: 'flex', justifyContent: 'center' }}><ConsequenceIcon variant="success" /></Box>
-                            <Typography sx={{ fontSize: '0.78rem', fontWeight: 800, color: '#22c55e', textAlign: 'center' }}>SUCESSO</Typography>
-                          </Box>
-                          <Box component="button" onClick={() => { setFieldValue(`consequencias.${openTipoIndex}.tipo`, 'neutro'); setOpenTipoIndex(null); setAnchorTipoEl(null); setIconPickerCategory('neutral'); setOpenIconPickerIndex(openTipoIndex); setAnchorIconPickerEl(anchorTipoEl); }} sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, p: 1, background: 'rgba(234,179,8,0.03)', border: '1px solid rgba(234,179,8,0.12)', borderRadius: 1.2, cursor: 'pointer' }}>
-                            <Box sx={{ display: 'flex', justifyContent: 'center' }}><ConsequenceIcon variant="neutral" /></Box>
-                            <Typography sx={{ fontSize: '0.78rem', fontWeight: 800, color: '#f59e0b', textAlign: 'center' }}>NEUTRO</Typography>
-                          </Box>
-                          <Box component="button" onClick={() => { setFieldValue(`consequencias.${openTipoIndex}.tipo`, 'falha'); setOpenTipoIndex(null); setAnchorTipoEl(null); setIconPickerCategory('fail'); setOpenIconPickerIndex(openTipoIndex); setAnchorIconPickerEl(anchorTipoEl); }} sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, p: 1, background: 'rgba(220,38,38,0.04)', border: '1px solid rgba(220,38,38,0.12)', borderRadius: 1.2, cursor: 'pointer' }}>
-                            <Box sx={{ display: 'flex', justifyContent: 'center' }}><ConsequenceIcon variant="fail" /></Box>
-                            <Typography sx={{ fontSize: '0.78rem', fontWeight: 800, color: '#dc2626', textAlign: 'center' }}>FALHA</Typography>
-                          </Box>
-                          <Box component="button" onClick={() => { setFieldValue(`consequencias.${openTipoIndex}.tipo`, 'outro'); setOpenTipoIndex(null); setAnchorTipoEl(null); setIconPickerCategory('other'); setOpenIconPickerIndex(openTipoIndex); setAnchorIconPickerEl(anchorTipoEl); }} sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, p: 1, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)', borderRadius: 1.2, cursor: 'pointer' }}>
-                            <Box sx={{ display: 'flex', justifyContent: 'center' }}><ConsequenceIcon variant="other" /></Box>
-                            <Typography sx={{ fontSize: '0.78rem', fontWeight: 800, color: 'rgba(200,200,200,0.95)', textAlign: 'center' }}>OUTRO</Typography>
-                          </Box>
-                        </Box>
-                      </Box>
-                    </Popover>
-                  </Box>
-                )}
-              </FieldArray>
-            </Paper>
+                      ))}
+                    </Box>
+                  )}
+                </FieldArray>
+              </Paper>
 
-            <Paper elevation={0} sx={sectionSx}>
-              <SectionTitle>
-                Se os jogadores fizerem algo inesperado...
-              </SectionTitle>
-              <Box sx={{ mt: 1.5 }}>
-                <FastField name="improvisacaoNotas">
+              <Paper
+                elevation={0}
+                sx={{
+                  background: 'rgba(8, 12, 20, 0.82)',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  borderRadius: '20px',
+                  p: 3,
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2.5 }}>
+                  <Typography
+                    sx={{
+                      color: 'var(--text-primary)',
+                      fontSize: '0.76rem',
+                      letterSpacing: '0.18em',
+                      textTransform: 'uppercase',
+                    }}
+                  >
+                    Narração
+                  </Typography>
+
+                  <Button
+                    type="button"
+                    onClick={() => abrirEditorNarracao(values.descricaoNarracao)}
+                    sx={{
+                      color: 'var(--text-primary)',
+                      border: '1px solid rgba(255,255,255,0.08)',
+                      borderRadius: '10px',
+                      background: 'rgba(255,255,255,0.02)',
+                      px: 1.25,
+                      py: 0.7,
+                      textTransform: 'none',
+                    }}
+                  >
+                    Abrir editor
+                  </Button>
+                </Box>
+
+                <FastField name="descricaoNarracao">
                   {({ field }) => (
                     <TextField
                       {...field}
-                      label="Notas de improviso"
+                      label="Descrição / texto de narração"
                       fullWidth
                       multiline
-                      rows={4}
-                      placeholder="Caminhos alternativos, reações de NPCs, ganchos improvisados..."
+                      rows={7}
                       error={
-                        touched.improvisacaoNotas &&
-                        Boolean(errors.improvisacaoNotas)
+                        touched.descricaoNarracao &&
+                        Boolean(errors.descricaoNarracao)
                       }
                       helperText={
-                        touched.improvisacaoNotas && errors.improvisacaoNotas
+                        touched.descricaoNarracao && errors.descricaoNarracao
                       }
-                      sx={inputSx}
+                      sx={{
+                        ...inputSx,
+                        '& .MuiInputBase-root': {
+                          minHeight: 240,
+                        },
+                      }}
                     />
                   )}
                 </FastField>
-              </Box>
-            </Paper>
+              </Paper>
 
-            <Paper elevation={0} sx={{ ...sectionSx, mb: 1.5 }}>
-              <SectionTitle>NPCs, Criaturas e Missões</SectionTitle>
-              <Box
+              <Paper
+                elevation={0}
                 sx={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 2,
-                  mt: 1.5,
+                  background: 'rgba(8, 12, 20, 0.82)',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  borderRadius: '20px',
+                  p: 2.5,
                 }}
               >
-                {npcs.length > 0 ? (
-                  <Field name="npcsParticipantes">
-                    {({ field }) => (
-                      <FormControl fullWidth size="small">
-                        <InputLabel
-                          id={npcsLabelId}
-                          sx={{
-                            color: 'var(--text-secondary)',
-                            '&.Mui-focused': { color: 'var(--color-accent)' },
-                          }}
-                        >
-                          NPCs participantes
-                        </InputLabel>
-                        <Select
-                          {...field}
-                          multiple
-                          labelId={npcsLabelId}
-                          label="NPCs participantes"
-                          sx={selectSx}
-                          renderValue={selecionados => (
-                            <Box
-                              sx={{
-                                display: 'flex',
-                                flexWrap: 'wrap',
-                                gap: 0.5,
-                              }}
-                            >
-                              {selecionados.map(id => (
-                                <Chip
-                                  key={id}
-                                  size="small"
-                                  label={
-                                    npcs.find(n => n.id === id)?.nome ?? id
-                                  }
-                                />
-                              ))}
-                            </Box>
-                          )}
-                        >
-                          {npcs.map(npc => (
-                            <MenuItem key={npc.id} value={npc.id}>
-                              {npc.nome}
-                            </MenuItem>
-                          ))}
-                        </Select>
-                      </FormControl>
-                    )}
-                  </Field>
-                ) : (
-                  <PlaceholderModulo>
-                    Nenhum NPC cadastrado nesta campanha ainda — crie um no
-                    módulo de NPCs para vinculá-lo a cenas.
-                  </PlaceholderModulo>
-                )}
+                <Typography
+                  sx={{
+                    color: 'var(--text-primary)',
+                    fontSize: '0.76rem',
+                    letterSpacing: '0.18em',
+                    textTransform: 'uppercase',
+                    mb: 2,
+                  }}
+                >
+                  Consequências
+                </Typography>
 
-                {criaturas.length > 0 ? (
-                  <Field name="criaturasEnvolvidas">
-                    {({ field }) => (
-                      <FormControl fullWidth size="small">
-                        <InputLabel
-                          id={criaturasLabelId}
-                          sx={{
-                            color: 'var(--text-secondary)',
-                            '&.Mui-focused': { color: 'var(--color-accent)' },
-                          }}
-                        >
-                          Criaturas envolvidas
-                        </InputLabel>
-                        <Select
-                          {...field}
-                          multiple
-                          labelId={criaturasLabelId}
-                          label="Criaturas envolvidas"
-                          sx={selectSx}
-                          renderValue={selecionados => (
-                            <Box
-                              sx={{
-                                display: 'flex',
-                                flexWrap: 'wrap',
-                                gap: 0.5,
-                              }}
-                            >
-                              {selecionados.map(id => (
-                                <Chip
-                                  key={id}
-                                  size="small"
-                                  label={
-                                    criaturas.find(c => c.id === id)?.nome ?? id
-                                  }
-                                />
-                              ))}
-                            </Box>
-                          )}
-                        >
-                          {criaturas.map(criatura => (
-                            <MenuItem key={criatura.id} value={criatura.id}>
-                              {criatura.nome}
-                            </MenuItem>
-                          ))}
-                        </Select>
-                      </FormControl>
-                    )}
-                  </Field>
-                ) : (
-                  <PlaceholderModulo>
-                    Nenhuma criatura cadastrada nesta campanha ainda — crie uma
-                    no módulo de Criaturas para vinculá-la a cenas.
-                  </PlaceholderModulo>
-                )}
+                <FieldArray name="consequencias">
+                  {({ push, remove }) => (
+                    <Box sx={{ display: 'grid', gap: 1.5 }}>
+                      <Button
+                        type="button"
+                        onClick={() => {
+                          push({ ...CONSEQUENCIA_INICIAL });
+                          consequenciasKeys.addKey();
+                        }}
+                        sx={{
+                          alignSelf: 'flex-start',
+                          color: 'var(--text-primary)',
+                          border: '1px solid rgba(255,255,255,0.08)',
+                          borderRadius: '10px',
+                          background: 'rgba(255,255,255,0.02)',
+                          px: 1.4,
+                          py: 0.7,
+                          textTransform: 'none',
+                        }}
+                      >
+                        + Adicionar consequência
+                      </Button>
 
-                <Box>
-                  <Typography
-                    variant="caption"
+                      {values.consequencias?.map((consequencia, index) => (
+                        <Box
+                          key={consequenciasKeys.keys[index] ?? index}
+                          sx={{ display: 'grid', gap: 1, background: 'rgba(255,255,255,0.02)', borderRadius: '12px', p: 1.25 }}
+                        >
+                          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                            <Field name={`consequencias.${index}.tipo`}>
+                              {({ field }) => (
+                                <FormControl fullWidth size="small">
+                                  <InputLabel id={`${idPrefix}-consequencia-tipo-${index}`} sx={{ color: 'var(--text-secondary)' }}>
+                                    Tipo
+                                  </InputLabel>
+                                  <Select
+                                    {...field}
+                                    labelId={`${idPrefix}-consequencia-tipo-${index}`}
+                                    label="Tipo"
+                                    sx={selectSx}
+                                  >
+                                    {ESTADO_CENA_OPCOES.map(opcao => (
+                                      <MenuItem key={opcao.value} value={opcao.value}>
+                                        {opcao.label}
+                                      </MenuItem>
+                                    ))}
+                                  </Select>
+                                </FormControl>
+                              )}
+                            </Field>
+                            <IconButton
+                              type="button"
+                              aria-label="Remover consequência"
+                              onClick={() => {
+                                consequenciasKeys.removeKey(index);
+                                remove(index);
+                              }}
+                              sx={{ color: 'var(--text-secondary)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px' }}
+                            >
+                              <CloseIcon fontSize="small" />
+                            </IconButton>
+                          </Box>
+
+                          <Field name={`consequencias.${index}.texto`}>
+                            {({ field }) => (
+                              <TextField
+                                {...field}
+                                placeholder="Descreva a consequência"
+                                fullWidth
+                                sx={inputSx}
+                              />
+                            )}
+                          </Field>
+                        </Box>
+                      ))}
+                    </Box>
+                  )}
+                </FieldArray>
+              </Paper>
+
+              <Paper
+                elevation={0}
+                sx={{
+                  background: 'rgba(8, 12, 20, 0.82)',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  borderRadius: '20px',
+                  p: 2.5,
+                }}
+              >
+                <Typography
+                  sx={{
+                    color: 'var(--text-primary)',
+                    fontSize: '0.76rem',
+                    letterSpacing: '0.18em',
+                    textTransform: 'uppercase',
+                    mb: 2,
+                  }}
+                >
+                  Cenas vinculadas
+                </Typography>
+
+                <Box sx={{ display: 'grid', gap: 1.25 }}>
+                  {cenasVinculadas.map(cena => (
+                    <Box
+                      key={`${cena.titulo}-${cena.capitulo}`}
+                      sx={{
+                        background: 'rgba(255,255,255,0.02)',
+                        border: '1px solid rgba(255,255,255,0.06)',
+                        borderRadius: '14px',
+                        p: 1.4,
+                      }}
+                    >
+                      <Typography sx={{ color: 'var(--text-primary)', fontWeight: 700 }}>
+                        {cena.titulo}
+                      </Typography>
+                      <Typography sx={{ color: 'var(--text-secondary)', fontSize: '0.78rem' }}>
+                        {cena.capitulo}
+                      </Typography>
+                    </Box>
+                  ))}
+                </Box>
+              </Paper>
+            </Box>
+
+            <Box
+              sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 2.5,
+                width: '100%',
+                maxWidth: 330,
+                ml: 'auto',
+                justifySelf: 'end',
+                alignItems: 'stretch',
+                position: 'relative',
+                zIndex: 0,
+                overflow: 'visible',
+              }}
+            >
+              <Paper
+                elevation={0}
+                sx={{
+                  background:
+                    'linear-gradient(180deg, rgba(12,18,28,0.94), rgba(9,13,21,0.9))',
+                  border: '1px solid rgba(148,163,184,0.16)',
+                  borderRadius: '20px',
+                  p: 2,
+                  position: 'relative',
+                  width: '100%',
+                  maxWidth: 330,
+                  ml: 'auto',
+                  zIndex: 1,
+                  alignSelf: 'flex-start',
+                  overflow: 'visible',
+                  boxShadow:
+                    '0 16px 34px rgba(2,6,23,0.42), inset 0 1px 0 rgba(255,255,255,0.04)',
+                }}
+              >
+                <Typography
+                  sx={{
+                    color: '#dfe7f2',
+                    fontSize: '0.7rem',
+                    letterSpacing: '0.2em',
+                    textTransform: 'uppercase',
+                    mb: 1.75,
+                    fontWeight: 800,
+                    opacity: 0.9,
+                  }}
+                >
+                  Informações da cena
+                </Typography>
+
+                <Box sx={{ display: 'grid', gap: 1.25 }}>
+                  <Box
                     sx={{
-                      color: 'var(--text-secondary)',
-                      display: 'block',
-                      mb: 0.75,
+                      background: 'linear-gradient(180deg, rgba(148,163,184,0.05), rgba(15,23,42,0.26))',
+                      border: '1px solid rgba(148,163,184,0.09)',
+                      borderRadius: '12px',
+                      p: 1.4,
+                      boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.02)',
+                    }}
+                  >
+                    <Typography sx={{ color: 'var(--text-muted)', fontSize: '0.72rem', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+                      Estado
+                    </Typography>
+                    <Typography sx={{ color: 'var(--text-primary)', fontWeight: 800, mt: 0.6, fontSize: '1.06rem' }}>
+                      {ESTADO_CENA_OPCOES.find(item => item.value === values.estado)?.label || values.estado}
+                    </Typography>
+                  </Box>
+
+                  <Box
+                    sx={{
+                      background: 'linear-gradient(180deg, rgba(148,163,184,0.05), rgba(15,23,42,0.26))',
+                      border: '1px solid rgba(148,163,184,0.09)',
+                      borderRadius: '12px',
+                      p: 1.4,
+                      boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.02)',
+                    }}
+                  >
+                    <Typography sx={{ color: 'var(--text-muted)', fontSize: '0.72rem', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+                      NPCs
+                    </Typography>
+                    <Typography sx={{ color: 'var(--text-primary)', fontWeight: 800, mt: 0.6, fontSize: '1.06rem' }}>
+                      {values.npcsParticipantes?.length || 0} vinculados
+                    </Typography>
+                  </Box>
+
+                  <Box
+                    sx={{
+                      background: 'linear-gradient(180deg, rgba(148,163,184,0.05), rgba(15,23,42,0.26))',
+                      border: '1px solid rgba(148,163,184,0.09)',
+                      borderRadius: '12px',
+                      p: 1.4,
+                      boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.02)',
+                    }}
+                  >
+                    <Typography sx={{ color: 'var(--text-muted)', fontSize: '0.72rem', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+                      Criaturas
+                    </Typography>
+                    <Typography sx={{ color: 'var(--text-primary)', fontWeight: 800, mt: 0.6, fontSize: '1.06rem' }}>
+                      {values.criaturasEnvolvidas?.length || 0} envolvidas
+                    </Typography>
+                  </Box>
+                </Box>
+              </Paper>
+
+              <Paper
+                elevation={0}
+                sx={{
+                  background:
+                    'linear-gradient(180deg, rgba(12,18,28,0.94), rgba(9,13,21,0.9))',
+                  border: '1px solid rgba(148,163,184,0.16)',
+                  borderRadius: '20px',
+                  p: 2.75,
+                  position: 'relative',
+                  zIndex: 1,
+                  alignSelf: 'flex-start',
+                  overflow: 'visible',
+                  boxShadow:
+                    '0 16px 34px rgba(2,6,23,0.42), inset 0 1px 0 rgba(255,255,255,0.04)',
+                }}
+              >
+                <Typography
+                  sx={{
+                    color: '#dfe7f2',
+                    fontSize: '0.7rem',
+                    letterSpacing: '0.2em',
+                    textTransform: 'uppercase',
+                    mb: 1.5,
+                    fontWeight: 800,
+                    opacity: 0.9,
+                  }}
+                >
+                  Elementos da cena
+                </Typography>
+
+                <Box sx={{ display: 'grid', gap: 1.5 }}>
+                  <Typography
+                    sx={{
+                      color: '#f4d98a',
+                      fontSize: '0.7rem',
+                      letterSpacing: '0.14em',
+                      textTransform: 'uppercase',
+                      mb: 0.5,
+                      fontWeight: 700,
                     }}
                   >
                     Missões que avançam nesta cena
                   </Typography>
                   {missoesVinculadas.length > 0 ? (
-                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                    <Box sx={{ display: 'grid', gap: 1 }}>
                       {missoesVinculadas.map(missao => (
-                        <Chip
+                        <Box
                           key={missao.id}
-                          size="small"
-                          label={missao.titulo}
                           sx={{
-                            background: 'var(--bg-secondary)',
-                            color: 'var(--color-accent)',
+                            background: 'rgba(255,255,255,0.02)',
+                            border: '1px solid rgba(255,255,255,0.06)',
+                            borderRadius: '12px',
+                            p: 1.25,
                           }}
-                        />
+                        >
+                          <Typography sx={{ color: 'var(--text-primary)', fontWeight: 700 }}>
+                            {missao.titulo}
+                          </Typography>
+                        </Box>
                       ))}
                     </Box>
                   ) : (
                     <PlaceholderModulo>
-                      Nenhuma missão vinculada a esta cena ainda — vincule pelo
-                      campo &quot;Cenas vinculadas&quot; ao editar a missão no
-                      módulo de Missões.
+                      Nenhuma missão vinculada a esta cena ainda.
                     </PlaceholderModulo>
                   )}
-                </Box>
-              </Box>
-            </Paper>
 
-            <Box sx={{ position: 'sticky', bottom: 0, pt: 2, mt: 2, background: 'linear-gradient(180deg, rgba(6,10,18,0), rgba(6,10,18,0.95))', borderTop: '1px solid rgba(255,255,255,0.04)', zIndex: 6 }}>
-              <FormActions
-                onCancelar={onCancelar}
-                isSubmitting={isSubmitting}
-                labelSalvar={labelSalvar}
-              />
+                  {npcs.length > 0 ? (
+                    <Field name="npcsParticipantes">
+                      {({ field }) => (
+                        <FormControl fullWidth size="small">
+                          <InputLabel
+                            id={npcsLabelId}
+                            sx={{
+                              color: 'var(--text-secondary)',
+                              '&.Mui-focused': { color: 'var(--color-accent)' },
+                            }}
+                          >
+                            NPCs participantes
+                          </InputLabel>
+                          <Select
+                            {...field}
+                            multiple
+                            labelId={npcsLabelId}
+                            label="NPCs participantes"
+                            sx={selectSx}
+                            renderValue={selecionados => (
+                              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                                {selecionados.map(id => (
+                                  <Chip
+                                    key={id}
+                                    size="small"
+                                    label={npcs.find(n => n.id === id)?.nome ?? id}
+                                  />
+                                ))}
+                              </Box>
+                            )}
+                          >
+                            {npcs.map(npc => (
+                              <MenuItem key={npc.id} value={npc.id}>
+                                {npc.nome}
+                              </MenuItem>
+                            ))}
+                          </Select>
+                        </FormControl>
+                      )}
+                    </Field>
+                  ) : (
+                    <PlaceholderModulo>
+                      Nenhum NPC cadastrado nesta campanha ainda.
+                    </PlaceholderModulo>
+                  )}
+
+                  {criaturas.length > 0 ? (
+                    <Field name="criaturasEnvolvidas">
+                      {({ field }) => (
+                        <FormControl fullWidth size="small">
+                          <InputLabel
+                            id={criaturasLabelId}
+                            sx={{
+                              color: 'var(--text-secondary)',
+                              '&.Mui-focused': { color: 'var(--color-accent)' },
+                            }}
+                          >
+                            Criaturas envolvidas
+                          </InputLabel>
+                          <Select
+                            {...field}
+                            multiple
+                            labelId={criaturasLabelId}
+                            label="Criaturas envolvidas"
+                            sx={selectSx}
+                            renderValue={selecionados => (
+                              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                                {selecionados.map(id => (
+                                  <Chip
+                                    key={id}
+                                    size="small"
+                                    label={criaturas.find(c => c.id === id)?.nome ?? id}
+                                  />
+                                ))}
+                              </Box>
+                            )}
+                          >
+                            {criaturas.map(criatura => (
+                              <MenuItem key={criatura.id} value={criatura.id}>
+                                {criatura.nome}
+                              </MenuItem>
+                            ))}
+                          </Select>
+                        </FormControl>
+                      )}
+                    </Field>
+                  ) : (
+                    <PlaceholderModulo>
+                      Nenhuma criatura cadastrada nesta campanha ainda.
+                    </PlaceholderModulo>
+                  )}
+
+                  <FastField name="improvisacaoNotas">
+                    {({ field }) => (
+                      <TextField
+                        {...field}
+                        label="Notas de improviso"
+                        fullWidth
+                        multiline
+                        rows={3}
+                        error={
+                          touched.improvisacaoNotas &&
+                          Boolean(errors.improvisacaoNotas)
+                        }
+                        helperText={
+                          touched.improvisacaoNotas && errors.improvisacaoNotas
+                        }
+                        sx={inputSx}
+                      />
+                    )}
+                  </FastField>
+                </Box>
+              </Paper>
             </Box>
           </Box>
+
+          <Box
+            sx={{
+              mt: 3,
+              pt: 2,
+              borderTop: '1px solid rgba(255,255,255,0.06)',
+              background: 'linear-gradient(180deg, rgba(6,10,18,0), rgba(6,10,18,0.95))',
+            }}
+          >
+            <FormActions
+              onCancelar={onCancelar}
+              isSubmitting={isSubmitting}
+              labelSalvar={labelSalvar}
+            />
+          </Box>
+
+          <Modal
+            open={editorAberto}
+            onClose={() => fecharEditorNarracao(setFieldValue, values.descricaoNarracao)}
+            closeAfterTransition
+            slots={{ backdrop: Backdrop }}
+            slotProps={{
+              backdrop: {
+                timeout: 200,
+                sx: {
+                  background: 'rgba(2, 6, 12, 0.75)',
+                  backdropFilter: 'blur(6px)',
+                },
+              },
+            }}
+          >
+            <Fade in={editorAberto} timeout={200}>
+              <Box sx={narrationEditorModalSx}>
+                <Box sx={narrationEditorHeaderSx}>
+                  <Box sx={narrationEditorHeaderTopSx}>
+                    <Box>
+                      <Typography
+                        sx={{
+                          color: '#f4d98a',
+                          fontWeight: 800,
+                          letterSpacing: '0.18em',
+                          textTransform: 'uppercase',
+                          fontSize: '0.72rem',
+                          mb: 0.8,
+                        }}
+                      >
+                        Modo de foco
+                      </Typography>
+                      <Typography sx={narrationEditorTitleSx}>Editor de narração</Typography>
+                    </Box>
+
+                    <IconButton
+                      type="button"
+                      aria-label="Fechar editor de narração"
+                      onClick={() => fecharEditorNarracao(setFieldValue, values.descricaoNarracao)}
+                      sx={{
+                        color: 'var(--text-secondary)',
+                        border: '1px solid rgba(255,255,255,0.08)',
+                        borderRadius: '12px',
+                      }}
+                    >
+                      <CloseIcon />
+                    </IconButton>
+                  </Box>
+
+                  <Typography sx={narrationEditorDescriptionSx}>
+                    Ajuste a narrativa da cena e volte para a edição da cena quando terminar.
+                  </Typography>
+                </Box>
+
+                <Divider sx={narrationDividerSx} />
+
+                <Box sx={narrationToolbarSx} onMouseDown={handleToolbarMouseDown}>
+                  <Box sx={narrationToolbarGroupSx}>
+                    <Tooltip title="Negrito">
+                      <Button type="button" onClick={handleToggleBold} sx={narrationToolButtonSx}>
+                        <FormatBoldIcon fontSize="small" />
+                      </Button>
+                    </Tooltip>
+                    <Tooltip title="Itálico">
+                      <Button type="button" onClick={handleToggleItalic} sx={narrationToolButtonSx}>
+                        <FormatItalicIcon fontSize="small" />
+                      </Button>
+                    </Tooltip>
+                    <Tooltip title="Sublinhado">
+                      <Button type="button" onClick={handleToggleUnderline} sx={narrationToolButtonSx}>
+                        <FormatUnderlinedIcon fontSize="small" />
+                      </Button>
+                    </Tooltip>
+                  </Box>
+
+                  <Box sx={narrationToolbarGroupSx}>
+                    <Tooltip title="Lista com marcadores">
+                      <Button type="button" onClick={handleToggleBulletedList} sx={narrationToolButtonSx}>
+                        <FormatListBulletedIcon fontSize="small" />
+                      </Button>
+                    </Tooltip>
+                    <Tooltip title="Lista numerada">
+                      <Button type="button" onClick={handleToggleNumberedList} sx={narrationToolButtonSx}>
+                        <FormatListNumberedIcon fontSize="small" />
+                      </Button>
+                    </Tooltip>
+                  </Box>
+
+                  <Box sx={narrationToolbarGroupSx}>
+                    <Tooltip title="Alinhamento à esquerda">
+                      <Button type="button" onClick={handleAlignLeft} sx={narrationToolButtonSx}>
+                        <FormatAlignLeftIcon fontSize="small" />
+                      </Button>
+                    </Tooltip>
+                    <Tooltip title="Alinhamento centralizado">
+                      <Button type="button" onClick={handleAlignCenter} sx={narrationToolButtonSx}>
+                        <FormatAlignCenterIcon fontSize="small" />
+                      </Button>
+                    </Tooltip>
+                    <Tooltip title="Alinhamento à direita">
+                      <Button type="button" onClick={handleAlignRight} sx={narrationToolButtonSx}>
+                        <FormatAlignRightIcon fontSize="small" />
+                      </Button>
+                    </Tooltip>
+                    <Tooltip title="Justificar">
+                      <Button type="button" onClick={handleAlignJustify} sx={narrationToolButtonSx}>
+                        <FormatAlignJustifyIcon fontSize="small" />
+                      </Button>
+                    </Tooltip>
+                  </Box>
+
+                  <Box sx={narrationToolbarGroupSx}>
+                    <Tooltip title="Separador">
+                      <Button type="button" onClick={handleInsertSeparator} sx={narrationSeparatorButtonSx}>
+                        <HorizontalRuleIcon fontSize="small" />
+                      </Button>
+                    </Tooltip>
+                    <Tooltip title="Desfazer">
+                      <Button type="button" onClick={handleUndo} sx={narrationToolButtonSx}>
+                        <UndoIcon fontSize="small" />
+                      </Button>
+                    </Tooltip>
+                    <Tooltip title="Refazer">
+                      <Button type="button" onClick={handleRedo} sx={narrationToolButtonSx}>
+                        <RedoIcon fontSize="small" />
+                      </Button>
+                    </Tooltip>
+                  </Box>
+                </Box>
+
+                <Box sx={narrationEditorAreaSx}>
+                  {previewMode ? (
+                    <Box
+                      sx={{
+                        ...narrationTextareaWrapperSx,
+                        color: 'var(--text-primary)',
+                        lineHeight: 1.9,
+                        '& *': { color: 'var(--text-primary)' },
+                      }}
+                      dangerouslySetInnerHTML={{ __html: renderMarkdownPreview(editorConteudo) }}
+                    />
+                  ) : (
+                    <Box sx={narrationTextareaWrapperSx}>
+                      <textarea
+                        ref={textAreaRef}
+                        value={editorConteudo}
+                        onChange={event => setEditorConteudo(event.target.value)}
+                        onSelect={event => {
+                          if (event.target.selectionStart !== undefined) {
+                            setEditorConteudo(prev => prev);
+                          }
+                        }}
+                        style={narrationTextareaSx}
+                        aria-label="Editor de texto da narração da cena"
+                      />
+                    </Box>
+                  )}
+                </Box>
+
+                <Box sx={narrationEditorFooterSx}>
+                  <Box sx={narrationFooterTextSx}>
+                    <Box sx={narrationFooterStatusDotSx} />
+                    <Typography sx={narrationFooterCountSx}>
+                      {editorConteudo.length} caracteres
+                    </Typography>
+                  </Box>
+
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    <Button
+                      type="button"
+                      variant="outlined"
+                      onClick={() => setPreviewMode(value => !value)}
+                      sx={{
+                        color: 'var(--text-primary)',
+                        borderColor: 'rgba(255,255,255,0.12)',
+                        textTransform: 'none',
+                        borderRadius: '12px',
+                      }}
+                    >
+                      {previewMode ? 'Editar' : 'Visualizar'}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="contained"
+                      onClick={() => {
+                        setFieldValue('descricaoNarracao', editorConteudo);
+                        setEditorAberto(false);
+                      }}
+                      sx={{
+                        background: 'linear-gradient(135deg, #d5a84f, #f0d081)',
+                        color: '#050816',
+                        fontWeight: 800,
+                        borderRadius: '12px',
+                        textTransform: 'none',
+                      }}
+                    >
+                      Voltar à cena
+                    </Button>
+                  </Box>
+                </Box>
+              </Box>
+            </Fade>
+          </Modal>
         </Form>
-      )}
+        );
+      }}
     </Formik>
   );
 };

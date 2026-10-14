@@ -68,6 +68,11 @@ import {
   getRmCardfluxEstadosPorCampanha,
   addRmCardfluxEstado,
   updateRmCardfluxEstado,
+  getRmCardfluxExploracoesPorCampanha,
+  getRmCardfluxExploracoes,
+  addRmCardfluxExploracao,
+  removeRmCardfluxExploracao,
+  updateRmCardfluxExploracao,
   getRmNotasPorCampanha,
   addRmNota,
   removeRmNota,
@@ -437,6 +442,134 @@ describe('storage.js — cardflux (somente leitura) e CRUD de rmCardfluxEstados'
       { __doc: 'rmCardfluxEstados', id: 'estado-1' },
       { estadoNoBaralho: 'descartada', updatedAt: '__serverTimestamp__' },
     );
+  });
+
+  it('rmCardfluxExploracoes: get/add/remove/update usam a coleção "rmCardfluxExploracoes"', async () => {
+    getDocs.mockResolvedValue({ docs: [] });
+    addDoc.mockResolvedValue({ id: 'exploracao-1' });
+
+    await getRmCardfluxExploracoesPorCampanha('c1', 'u1', 'mestre-1');
+    await getRmCardfluxExploracoes('u1', 'mestre-1');
+    const salvo = await addRmCardfluxExploracao({
+      id: 'exp-1791774466839-4a66a3',
+      nome: 'Floresta',
+      campanhaId: 'c1',
+      mestreId: 'mestre-1',
+      universoId: 'u1',
+      baralhos: ['D1'],
+      linhas: 2,
+      colunas: 2,
+      densidade: 50,
+      modo: 'predefinida',
+      quadrantes: [[{ estado: 'oculto' }]],
+    });
+    await removeRmCardfluxExploracao('exploracao-1');
+    await updateRmCardfluxExploracao('exploracao-1', { status: 'encerrada' });
+
+    expect(salvo.id).toBe('exploracao-1');
+    expect(salvo.id).not.toBe('exp-1791774466839-4a66a3');
+    expect(collection).toHaveBeenCalledWith({}, 'rmCardfluxExploracoes');
+    expect(where).toHaveBeenCalledWith('campanhaId', '==', 'c1');
+    expect(where).toHaveBeenCalledWith('universoId', '==', 'u1');
+    expect(where).toHaveBeenCalledWith('mestreId', '==', 'mestre-1');
+    expect(addDoc).toHaveBeenCalledWith(
+      { __collection: 'rmCardfluxExploracoes' },
+      {
+        nome: 'Floresta',
+        campanhaId: 'c1',
+        mestreId: 'mestre-1',
+        universoId: 'u1',
+        baralhos: ['D1'],
+        linhas: 2,
+        colunas: 2,
+        densidade: 50,
+        modo: 'predefinida',
+        quadrantes: [
+          {
+            id: '0-0',
+            linha: 0,
+            coluna: 0,
+            x: 0,
+            y: 0,
+            estado: 'oculto',
+            cartaId: null,
+            resultado: null,
+            observacao: '',
+            anotacao: '',
+            historico: [],
+            revelaEm: null,
+            fixo: false,
+            bloqueado: false,
+            comum: false,
+          },
+        ],
+        createdAt: '__serverTimestamp__',
+      },
+    );
+    expect(deleteDoc).toHaveBeenCalledWith({
+      __doc: 'rmCardfluxExploracoes',
+      id: 'exploracao-1',
+    });
+    expect(updateDoc).toHaveBeenCalledWith(
+      { __doc: 'rmCardfluxExploracoes', id: 'exploracao-1' },
+      { status: 'encerrada', updatedAt: '__serverTimestamp__' },
+    );
+  });
+
+  it('rmCardfluxExploracoes: mantém a identidade do documento Firestore em create, load e update', async () => {
+    addDoc.mockResolvedValue({ id: 'firestore-doc-id-123' });
+    getDocs.mockResolvedValue({
+      docs: [{ id: 'firestore-doc-id-123', data: () => ({ nome: 'Floresta', status: 'ativa' }) }],
+    });
+
+    const salvo = await addRmCardfluxExploracao({
+      id: 'exp-1791774466839-4a66a3',
+      nome: 'Floresta',
+      campanhaId: 'c1',
+      mestreId: 'mestre-1',
+      universoId: 'u1',
+      baralhos: ['D1'],
+      linhas: 2,
+      colunas: 2,
+      densidade: 50,
+      modo: 'predefinida',
+      quadrantes: [[{ estado: 'oculto' }]],
+    });
+
+    const carregadas = await getRmCardfluxExploracoesPorCampanha('c1', 'u1', 'mestre-1');
+
+    await updateRmCardfluxExploracao(salvo.id, { status: 'encerrada' });
+
+    expect(salvo.id).toBe('firestore-doc-id-123');
+    expect(salvo.id).not.toBe('exp-1791774466839-4a66a3');
+    expect(carregadas[0].id).toBe('firestore-doc-id-123');
+    expect(updateDoc).toHaveBeenCalledWith(
+      { __doc: 'rmCardfluxExploracoes', id: 'firestore-doc-id-123' },
+      { status: 'encerrada', updatedAt: '__serverTimestamp__' },
+    );
+  });
+
+  it('rmCardfluxExploracoes: prioriza o id real do documento mesmo quando o payload legado possui um id de campo', async () => {
+    getDocs.mockResolvedValue({
+      docs: [
+        {
+          id: 'doc-real-456',
+          data: () => ({
+            id: 'id-velho-da-colecao',
+            nome: 'Floresta',
+            status: 'ativa',
+            campanhaId: 'c1',
+            universoId: 'u1',
+            mestreId: 'mestre-1',
+          }),
+        },
+      ],
+    });
+
+    const itens = await getRmCardfluxExploracoesPorCampanha('c1', 'u1', 'mestre-1');
+
+    expect(itens[0].id).toBe('doc-real-456');
+    expect(itens[0].id).not.toBe('id-velho-da-colecao');
   });
 });
 

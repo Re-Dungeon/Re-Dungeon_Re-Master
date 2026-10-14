@@ -28,5 +28,17 @@ export const textoLongoSchema = Yup.string()
   .max(TEXTO_LONGO_MAX, maxCaracteresMessage(TEXTO_LONGO_MAX));
 
 export const urlImagemSchema = Yup.string()
-  .trim()
-  .url('Deve ser uma URL válida');
+  .transform(value => {
+    if (value === null || value === undefined) return '';
+    return String(value).trim();
+  })
+  .test('url-imagem-valida-ou-vazia', 'Deve ser uma URL válida', value => {
+    if (!value || !String(value).trim()) return true;
+
+    try {
+      const url = new URL(value);
+      return ['http:', 'https:'].includes(url.protocol);
+    } catch {
+      return false;
+    }
+  });
