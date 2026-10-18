@@ -454,21 +454,40 @@ service cloud.firestore {
         personagemDoUsuarioNaCampanha(campanhaId, get(membroPath).data.personagemId);
     }
 
+    // Rolagem de dados (common/utils/dados.js): o dado é rolado no cliente e a
+    // regra só valida a ESTRUTURA — Firestore Rules não têm laços, então não
+    // dá para somar `resultados` nem conferir a faixa de cada dado.
+    function chatRolagemValida(rolagem) {
+      return rolagem is map &&
+        rolagem.keys().hasOnly(['grupos', 'termos', 'modificador', 'total']) &&
+        rolagem.keys().hasAll(['grupos', 'termos', 'modificador', 'total']) &&
+        rolagem.grupos is list && rolagem.grupos.size() >= 1 && rolagem.grupos.size() <= 10 &&
+        rolagem.termos is list && rolagem.termos.size() <= 20 &&
+        rolagem.modificador is int && rolagem.total is int;
+    }
+
     // Espelha os limites de common/utils/chat.js (CHAT_TEXTO_MAX/CHAT_URL_MAX,
     // PERSONAS). O mestre pode falar como 'mestre', ou interpretar um NPC/
     // Criatura da mesa ('npc'/'criatura', com o nome/avatar dele em
     // autorNome/autorAvatar); jogador é sempre 'jogador'.
-    function chatMensagemValida(campanhaId, data) {
-      return data.keys().hasOnly(['uid', 'personagemId', 'autorNome', 'autorAvatar',
-                                  'isMestre', 'persona', 'tipo', 'texto', 'url', 'createdAt']) &&
+    // `secreta`: true só no caminho chatSecretas/{uid}/rolagens (o campo
+    // `secreta` do doc tem que bater com o caminho).
+    function chatMensagemValida(campanhaId, data, secreta) {
+      return data.keys().hasOnly(['uid', 'personagemId', 'autorNome', 'autorAvatar', 'isMestre',
+                                  'persona', 'tipo', 'texto', 'url', 'rolagem', 'secreta',
+                                  'createdAt']) &&
         data.uid == request.auth.uid &&
         data.createdAt == request.time &&
+        data.get('secreta', false) == secreta &&
         data.autorNome is string && data.autorNome.size() > 0 && data.autorNome.size() <= 200 &&
         (data.autorAvatar == null || (data.autorAvatar is string && data.autorAvatar.size() <= 2000)) &&
         data.texto is string && data.texto.size() <= 2000 &&
-        ((data.tipo == 'texto' && data.texto.size() > 0 && data.url == null) ||
+        ((data.tipo == 'texto' && data.texto.size() > 0 && data.url == null &&
+          !data.keys().hasAny(['rolagem'])) ||
          (data.tipo == 'imagem' && data.url is string && data.url.size() <= 2000 &&
-          data.url.matches('https://.+'))) &&
+          data.url.matches('https://.+') && !data.keys().hasAny(['rolagem'])) ||
+         (data.tipo == 'rolagem' && data.texto == '' && data.url == null &&
+          chatRolagemValida(data.get('rolagem', null)))) &&
         ((data.isMestre == true && data.personagemId == null &&
           data.persona in ['mestre', 'npc', 'criatura'] && isMestreDaCampanha(campanhaId)) ||
          (data.isMestre == false && data.persona == 'jogador' &&
@@ -488,9 +507,21 @@ service cloud.firestore {
     // Sem update: mensagens não são editáveis (v1). Apagar: autor ou mestre.
     match /rmCampanhas/{campanhaId}/chatMensagens/{mensagemId} {
       allow read: if isMestreDaCampanha(campanhaId) || isMembroDoChat(campanhaId);
-      allow create: if isAuth() && chatMensagemValida(campanhaId, request.resource.data);
+      allow create: if isAuth() && chatMensagemValida(campanhaId, request.resource.data, false);
       allow delete: if isAuth() &&
         (resource.data.uid == request.auth.uid || isMestreDaCampanha(campanhaId));
+    }
+
+    // Rolagens secretas: uma pasta por usuário — só o dono e o mestre da
+    // campanha leem. Os outros jogadores não ficam sabendo que houve rolagem.
+    match /rmCampanhas/{campanhaId}/chatSecretas/{donoUid}/rolagens/{rolagemId} {
+      allow read: if isAuth() &&
+        (donoUid == request.auth.uid || isMestreDaCampanha(campanhaId));
+      allow create: if isAuth() && donoUid == request.auth.uid &&
+        request.resource.data.tipo == 'rolagem' &&
+        chatMensagemValida(campanhaId, request.resource.data, true);
+      allow delete: if isAuth() &&
+        (donoUid == request.auth.uid || isMestreDaCampanha(campanhaId));
     }
   }
 }

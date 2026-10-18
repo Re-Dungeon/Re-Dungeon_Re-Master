@@ -9,6 +9,8 @@ const subscribeChatMensagens = vi.fn();
 const getPersonagens = vi.fn();
 const getRmCampanhaNpcs = vi.fn();
 const getRmCampanhaCriaturas = vi.fn();
+const addChatRolagemSecreta = vi.fn();
+const subscribeChatSecretasDoMestre = vi.fn();
 vi.mock('service/storage', () => ({
   addChatMensagem: (...args) => addChatMensagem(...args),
   removeChatMensagem: (...args) => removeChatMensagem(...args),
@@ -16,6 +18,12 @@ vi.mock('service/storage', () => ({
   getPersonagens: (...args) => getPersonagens(...args),
   getRmCampanhaNpcs: (...args) => getRmCampanhaNpcs(...args),
   getRmCampanhaCriaturas: (...args) => getRmCampanhaCriaturas(...args),
+  addChatRolagemSecreta: (...args) => addChatRolagemSecreta(...args),
+  removeChatRolagemSecreta: vi.fn(),
+  setChatMembro: vi.fn(),
+  subscribeChatSecretasDoMestre: (...args) =>
+    subscribeChatSecretasDoMestre(...args),
+  subscribeChatSecretasDoUsuario: vi.fn(() => vi.fn()),
 }));
 
 vi.mock('context/AuthContext', () => ({
@@ -101,6 +109,8 @@ describe('Chat (Re:Master)', () => {
     getRmCampanhaNpcs.mockResolvedValue([]);
     getRmCampanhaCriaturas.mockResolvedValue([]);
     addChatMensagem.mockResolvedValue();
+    addChatRolagemSecreta.mockResolvedValue();
+    subscribeChatSecretasDoMestre.mockImplementation(() => vi.fn());
     removeChatMensagem.mockResolvedValue();
     subscribeChatMensagens.mockImplementation((_id, onChange) => {
       onChange(MENSAGENS);
@@ -172,6 +182,70 @@ describe('Chat (Re:Master)', () => {
         texto: 'O que vai ser?',
         url: null,
       }),
+    );
+  });
+
+  it('mestre rola como NPC pelo comando, em segredo', async () => {
+    const user = userEvent.setup();
+    renderChat();
+    await screen.findByText('Abro a porta devagar.');
+
+    await user.click(screen.getByLabelText(/falando como/i));
+    await user.click(
+      await screen.findByRole('option', { name: /bartolomeu/i }),
+    );
+    await user.type(screen.getByLabelText('Mensagem'), '/gr 1d20+2{Enter}');
+
+    await waitFor(() =>
+      expect(addChatRolagemSecreta).toHaveBeenCalledWith(
+        'c1',
+        'm1',
+        expect.objectContaining({
+          tipo: 'rolagem',
+          secreta: true,
+          isMestre: true,
+          persona: 'npc',
+          autorNome: 'Bartolomeu',
+        }),
+      ),
+    );
+    expect(addChatMensagem).not.toHaveBeenCalled();
+  });
+
+  it('mestre vê as rolagens secretas dos jogadores', async () => {
+    subscribeChatSecretasDoMestre.mockImplementation((_id, _uid, onChange) => {
+      onChange([
+        {
+          id: 's1',
+          uid: 'jogador-1',
+          donoUid: 'jogador-1',
+          autorNome: 'Aldric',
+          isMestre: false,
+          persona: 'jogador',
+          tipo: 'rolagem',
+          secreta: true,
+          rolagem: {
+            grupos: [{ quantidade: 1, faces: 20, resultados: [20] }],
+            termos: [],
+            modificador: 0,
+            total: 20,
+          },
+          createdAt: new Date(),
+        },
+      ]);
+      return vi.fn();
+    });
+    renderChat();
+
+    const etiqueta = await screen.findByText('secreta');
+    expect(etiqueta.closest('[data-testid="chat-mensagem"]')).toHaveTextContent(
+      'Aldric rolou 1d20 = 20 {[20]}',
+    );
+    expect(subscribeChatSecretasDoMestre).toHaveBeenCalledWith(
+      'c1',
+      'm1',
+      expect.any(Function),
+      expect.any(Function),
     );
   });
 

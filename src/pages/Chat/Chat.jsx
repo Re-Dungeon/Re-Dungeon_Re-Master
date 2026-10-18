@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Avatar from '@mui/material/Avatar';
 import Box from '@mui/material/Box';
@@ -10,14 +10,11 @@ import { useAuth } from 'context/AuthContext';
 import { useCampanha } from 'context/CampanhaContext';
 import { useSnackbar } from 'context/SnackbarContext';
 import {
-  addChatMensagem,
   getPersonagens,
   getRmCampanhaCriaturas,
   getRmCampanhaNpcs,
-  removeChatMensagem,
-  subscribeChatMensagens,
 } from 'service/storage';
-import { montarMensagemImagem, montarMensagemTexto } from 'common/utils/chat';
+import useChatCampanha from 'hooks/useChatCampanha';
 import { ROUTE_PATHS } from 'common/constants/routes';
 import ChatSala from 'components/Chat/ChatSala';
 import {
@@ -43,39 +40,20 @@ const renderOpcaoPersona = persona => (
  * Chat em tempo real da Campanha ativa, compartilhado com os jogadores (site
  * Ficha-RPG---Re-Dungeon-, rota /campanhas/:id/chat). O mestre fala como
  * "Mestre" ou interpreta qualquer NPC/Criatura da mesa (a mensagem leva o
- * nome/avatar dele e uma etiqueta "NPC"/"Criatura"), e pode apagar qualquer
- * mensagem.
+ * nome/avatar dele e uma etiqueta "NPC"/"Criatura"), rola dados (públicos ou
+ * secretos), vê as rolagens secretas de todos os jogadores e pode apagar
+ * qualquer mensagem. Escuta/envio/rolagem ficam em hooks/useChatCampanha.js.
  */
 const Chat = () => {
   const { currentUser } = useAuth();
   const { campanhaAtiva, loadingCampanhas } = useCampanha();
   const { notifyError } = useSnackbar();
   const navigate = useNavigate();
-  // Guarda de qual campanha são as mensagens carregadas: ao trocar a campanha
-  // ativa, `carregando` volta a true sem precisar de setState no efeito.
-  const [recebido, setRecebido] = useState({ campanhaId: null, mensagens: [] });
-
-  const campanhaId = campanhaAtiva?.id;
-  const carregando = recebido.campanhaId !== campanhaId;
-  const mensagens = carregando ? [] : recebido.mensagens;
+  const campanhaId = campanhaAtiva?.id ?? null;
 
   useEffect(() => {
     if (!loadingCampanhas && !campanhaAtiva) navigate(ROUTE_PATHS.CAMPANHA);
   }, [loadingCampanhas, campanhaAtiva, navigate]);
-
-  useEffect(() => {
-    if (!campanhaId) return undefined;
-    return subscribeChatMensagens(
-      campanhaId,
-      novasMensagens => setRecebido({ campanhaId, mensagens: novasMensagens }),
-      error => {
-        // eslint-disable-next-line no-console
-        console.error('Falha ao ouvir mensagens do chat:', error);
-        notifyError('Sem permissão para ver o chat desta campanha.');
-        setRecebido({ campanhaId, mensagens: [] });
-      },
-    );
-  }, [campanhaId, notifyError]);
 
   // NPCs/Criaturas da mesa para o "Falando como" — mesma fonte das telas de
   // NPCs/Criaturas (personagens do Universo + clones da campanha). Falha aqui
@@ -134,42 +112,23 @@ const Chat = () => {
     [currentUser.uid, personaSelecionada],
   );
 
-  const enviar = useCallback(
-    async mensagem => {
-      try {
-        await addChatMensagem(campanhaId, mensagem);
-      } catch (error) {
-        // eslint-disable-next-line no-console
-        console.error('Falha ao enviar mensagem:', error);
-        notifyError('Não foi possível enviar a mensagem.');
-        throw error;
-      }
-    },
-    [campanhaId, notifyError],
-  );
+  const {
+    mensagens,
+    carregando,
+    erro: erroChat,
+    limparErro: limparErroChat,
+    enviarTexto,
+    enviarImagem,
+    rolar,
+    apagar,
+  } = useChatCampanha(campanhaId, autor);
 
-  const handleEnviarTexto = useCallback(
-    texto => enviar(montarMensagemTexto(autor, texto)),
-    [enviar, autor],
-  );
-  const handleEnviarImagem = useCallback(
-    url => enviar(montarMensagemImagem(autor, url)),
-    [enviar, autor],
-  );
-
-  const handleApagar = useCallback(
-    async mensagem => {
-      if (!window.confirm('Apagar esta mensagem?')) return;
-      try {
-        await removeChatMensagem(campanhaId, mensagem.id);
-      } catch (error) {
-        // eslint-disable-next-line no-console
-        console.error('Falha ao apagar mensagem:', error);
-        notifyError('Não foi possível apagar a mensagem.');
-      }
-    },
-    [campanhaId, notifyError],
-  );
+  // Erros do hook (enviar/rolar/apagar/escuta) vão para o Snackbar global.
+  useEffect(() => {
+    if (!erroChat) return;
+    notifyError(erroChat);
+    limparErroChat();
+  }, [erroChat, limparErroChat, notifyError]);
 
   if (!campanhaAtiva) return null;
 
@@ -188,9 +147,10 @@ const Chat = () => {
         carregando={carregando}
         currentUid={currentUser.uid}
         podeApagarTodas
-        onEnviarTexto={handleEnviarTexto}
-        onEnviarImagem={handleEnviarImagem}
-        onApagar={handleApagar}
+        onEnviarTexto={enviarTexto}
+        onEnviarImagem={enviarImagem}
+        onRolar={rolar}
+        onApagar={apagar}
         cabecalho={
           <>
             <Typography sx={{ color: 'var(--text-primary)', fontWeight: 700 }}>

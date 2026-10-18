@@ -10,6 +10,7 @@ import {
   rotuloPersona,
 } from 'common/utils/chat';
 
+import RolagemMensagem from './RolagemMensagem';
 import {
   MensagemAcoes,
   MensagemAutor,
@@ -25,6 +26,17 @@ import {
 
 const ChatMensagem = ({ mensagem, minha, podeApagar, onApagar }) => {
   const [imagemFalhou, setImagemFalhou] = useState(false);
+
+  if (mensagem.tipo === TIPOS_MENSAGEM.ROLAGEM && mensagem.rolagem) {
+    return (
+      <RolagemMensagem
+        mensagem={mensagem}
+        podeApagar={podeApagar}
+        onApagar={onApagar}
+      />
+    );
+  }
+
   const { autorNome, autorAvatar, isMestre, tipo, texto, url, createdAt } =
     mensagem;
   const persona = rotuloPersona(mensagem);
@@ -101,6 +113,7 @@ ChatMensagem.propTypes = {
     isMestre: PropTypes.bool,
     persona: PropTypes.string,
     tipo: PropTypes.string,
+    rolagem: PropTypes.object,
     texto: PropTypes.string,
     url: PropTypes.string,
     createdAt: PropTypes.oneOfType([

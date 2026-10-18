@@ -8,9 +8,12 @@ import ImageOutlinedIcon from '@mui/icons-material/ImageOutlined';
 import SendIcon from '@mui/icons-material/Send';
 
 import { CHAT_TEXTO_MAX, isTextoMensagemValido } from 'common/utils/chat';
+import { interpretarComandoRolagem } from 'common/utils/dados';
 
 import ChatMensagem from './ChatMensagem';
+import DadoIcone from './DadoIcone';
 import ImagemUrlDialog from './ImagemUrlDialog';
+import RolagemDialog from './RolagemDialog';
 import {
   ChatHeader,
   ChatWrapper,
@@ -33,12 +36,15 @@ const ChatSala = ({
   podeApagarTodas = false,
   onEnviarTexto,
   onEnviarImagem,
+  onRolar,
   onApagar,
   cabecalho = null,
 }) => {
   const [texto, setTexto] = useState('');
   const [enviando, setEnviando] = useState(false);
   const [dialogImagemAberto, setDialogImagemAberto] = useState(false);
+  const [dialogRolagemAberto, setDialogRolagemAberto] = useState(false);
+  const [erroComando, setErroComando] = useState(null);
   const listaRef = useRef(null);
   const acompanhandoRef = useRef(true);
 
@@ -56,16 +62,31 @@ const ChatSala = ({
       MARGEM_AUTOSCROLL;
   };
 
+  // "/r 1d20+5" (e /roll, /rs, /gr) vira rolagem em vez de mensagem; comando
+  // inválido não é enviado — mostra o erro e mantém o texto para corrigir.
   const enviarTexto = async () => {
     if (!isTextoMensagemValido(texto) || enviando) return;
+    const comando = interpretarComandoRolagem(texto);
+    if (comando?.erro) {
+      setErroComando(comando.erro);
+      return;
+    }
     setEnviando(true);
     acompanhandoRef.current = true;
     try {
-      await onEnviarTexto(texto);
+      await (comando ? onRolar(comando) : onEnviarTexto(texto));
       setTexto('');
+    } catch {
+      // Quem envia já exibiu o erro; o texto fica no campo para tentar de novo.
     } finally {
       setEnviando(false);
     }
+  };
+
+  const handleRolarDialog = async especificacao => {
+    acompanhandoRef.current = true;
+    await onRolar(especificacao);
+    setDialogRolagemAberto(false);
   };
 
   const handleSubmit = event => {
@@ -137,15 +158,29 @@ const ChatSala = ({
             <ImageOutlinedIcon />
           </IconButton>
         </Tooltip>
+        <Tooltip title="Rolar dados (ou digite /r 1d20+5)">
+          <IconButton
+            aria-label="Rolar dados"
+            onClick={() => setDialogRolagemAberto(true)}
+            sx={{ color: 'var(--text-secondary)' }}
+          >
+            <DadoIcone faces={20} />
+          </IconButton>
+        </Tooltip>
         <TextField
           fullWidth
           multiline
           maxRows={4}
           size="small"
-          placeholder="Escreva uma mensagem…"
+          placeholder="Escreva uma mensagem ou /r 1d20+5…"
           value={texto}
-          onChange={event => setTexto(event.target.value)}
+          onChange={event => {
+            setTexto(event.target.value);
+            setErroComando(null);
+          }}
           onKeyDown={handleKeyDown}
+          error={Boolean(erroComando)}
+          helperText={erroComando}
           slotProps={{
             htmlInput: { maxLength: CHAT_TEXTO_MAX, 'aria-label': 'Mensagem' },
           }}
@@ -165,6 +200,11 @@ const ChatSala = ({
         onClose={() => setDialogImagemAberto(false)}
         onConfirmar={handleEnviarImagem}
       />
+      <RolagemDialog
+        open={dialogRolagemAberto}
+        onClose={() => setDialogRolagemAberto(false)}
+        onRolar={handleRolarDialog}
+      />
     </ChatWrapper>
   );
 };
@@ -176,6 +216,8 @@ ChatSala.propTypes = {
   podeApagarTodas: PropTypes.bool,
   onEnviarTexto: PropTypes.func.isRequired,
   onEnviarImagem: PropTypes.func.isRequired,
+  // Recebe { secreta, grupos, termos } (common/utils/dados.js) e rola/envia.
+  onRolar: PropTypes.func.isRequired,
   onApagar: PropTypes.func.isRequired,
   cabecalho: PropTypes.node,
 };

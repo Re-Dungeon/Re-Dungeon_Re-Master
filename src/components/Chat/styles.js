@@ -146,3 +146,108 @@ export const PreviewImagem = styled.img`
   margin: 12px auto 0;
   border-radius: 8px;
 `;
+
+// ── Rolagem de dados ─────────────────────────────────────────────────────
+
+export const GradeDados = styled.div`
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+
+  button {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 10px 4px;
+    color: var(--text-secondary);
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border-primary);
+    border-radius: 10px;
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.8rem;
+    transition:
+      border-color 0.15s ease,
+      color 0.15s ease;
+
+    &:hover,
+    &:focus-visible {
+      color: var(--color-primary);
+      border-color: var(--border-hover);
+      outline: none;
+    }
+  }
+`;
+
+export const LinhaDado = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-secondary);
+
+  > span {
+    min-width: 40px;
+    font-weight: 700;
+  }
+`;
+
+// Rolagem é uma linha compacta (sem balão), no estilo de log de mesa virtual.
+export const RolagemLinha = styled.div`
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px 36px 6px 10px;
+  border-radius: 8px;
+  font-size: 0.92rem;
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px ${props => (props.$secreta ? 'dashed' : 'solid')}
+    ${props => (props.$secreta ? 'rgba(180, 180, 192, 0.45)' : 'transparent')};
+
+  &:hover .chat-acoes {
+    opacity: 1;
+  }
+`;
+
+export const RolagemAutor = styled.strong`
+  color: ${props => (props.$mestre ? 'var(--color-primary)' : 'var(--color-accent)')};
+`;
+
+export const RolagemExpressao = styled.span`
+  color: var(--color-accent);
+`;
+
+export const RolagemTotal = styled.strong`
+  color: var(--text-primary);
+  font-size: 1.05rem;
+`;
+
+export const RolagemDetalhe = styled.span`
+  color: #f0a65a;
+`;
+
+export const ResultadoDado = styled.span`
+  font-weight: ${props => (props.$critico ? 700 : 400)};
+  color: ${props =>
+    props.$critico === 'sucesso'
+      ? '#5fd38d'
+      : props.$critico === 'falha'
+        ? '#ff6b6b'
+        : 'inherit'};
+`;
+
+export const EtiquetaSecreta = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 6px;
+  border-radius: 999px;
+  border: 1px dashed rgba(180, 180, 192, 0.6);
+  color: var(--text-muted);
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+`;
