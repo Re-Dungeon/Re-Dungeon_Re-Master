@@ -24,6 +24,8 @@ import RolagemDialog from './RolagemDialog';
 import {
   ChatHeader,
   ChatWrapper,
+  ComposerAcoes,
+  ComposerEntrada,
   ComposerWrapper,
   ListaMensagens,
   ListaVazia,
@@ -181,71 +183,81 @@ const ChatSala = ({
       </ListaMensagens>
 
       <ComposerWrapper onSubmit={handleSubmit}>
-        <Tooltip title="Enviar imagem ou GIF por link">
-          <IconButton
-            aria-label="Enviar imagem"
-            onClick={() => setDialogImagemAberto(true)}
-            sx={{ color: 'var(--text-secondary)' }}
-          >
-            <ImageOutlinedIcon />
-          </IconButton>
-        </Tooltip>
-        <Tooltip title="Rolar dados (ou digite /r 1d20+5)">
-          <IconButton
-            aria-label="Rolar dados"
-            onClick={() => setDialogRolagemAberto(true)}
-            sx={{ color: 'var(--text-secondary)' }}
-          >
-            <DadoIcone faces={20} />
-          </IconButton>
-        </Tooltip>
-        {macros && (
-          <Tooltip
-            title={
-              macros.rodando
-                ? `Rodando "${macros.rodando}"…`
-                : 'Macros da campanha (ou /m nome)'
-            }
-          >
+        <ComposerAcoes>
+          <Tooltip title="Enviar imagem ou GIF por link">
             <IconButton
-              aria-label="Macros"
-              onClick={() => setDialogMacrosAberto(true)}
-              sx={{
-                color: macros.rodando
-                  ? 'var(--color-primary)'
-                  : 'var(--text-secondary)',
-              }}
+              size="small"
+              aria-label="Enviar imagem"
+              onClick={() => setDialogImagemAberto(true)}
+              sx={{ color: 'var(--text-secondary)' }}
             >
-              <CodeIcon />
+              <ImageOutlinedIcon />
             </IconButton>
           </Tooltip>
-        )}
-        <TextField
-          fullWidth
-          multiline
-          maxRows={4}
-          size="small"
-          placeholder="Escreva uma mensagem, /r 1d20+5 ou /m macro…"
-          value={texto}
-          onChange={event => {
-            setTexto(event.target.value);
-            setErroComando(null);
-          }}
-          onKeyDown={handleKeyDown}
-          error={Boolean(erroComando)}
-          helperText={erroComando}
-          slotProps={{
-            htmlInput: { maxLength: CHAT_TEXTO_MAX, 'aria-label': 'Mensagem' },
-          }}
-        />
-        <IconButton
-          type="submit"
-          aria-label="Enviar mensagem"
-          disabled={!isTextoMensagemValido(texto) || enviando}
-          sx={{ color: 'var(--color-primary)' }}
-        >
-          <SendIcon />
-        </IconButton>
+          <Tooltip title="Rolar dados (ou digite /r 1d20+5)">
+            <IconButton
+              size="small"
+              aria-label="Rolar dados"
+              onClick={() => setDialogRolagemAberto(true)}
+              sx={{ color: 'var(--text-secondary)' }}
+            >
+              <DadoIcone faces={20} />
+            </IconButton>
+          </Tooltip>
+          {macros && (
+            <Tooltip
+              title={
+                macros.rodando
+                  ? `Rodando "${macros.rodando}"…`
+                  : 'Macros da campanha (ou /m nome)'
+              }
+            >
+              <IconButton
+                size="small"
+                aria-label="Macros"
+                onClick={() => setDialogMacrosAberto(true)}
+                sx={{
+                  color: macros.rodando
+                    ? 'var(--color-primary)'
+                    : 'var(--text-secondary)',
+                }}
+              >
+                <CodeIcon />
+              </IconButton>
+            </Tooltip>
+          )}
+        </ComposerAcoes>
+        <ComposerEntrada>
+          <TextField
+            fullWidth
+            multiline
+            maxRows={4}
+            size="small"
+            placeholder="Escreva uma mensagem, /r 1d20+5 ou /m macro…"
+            value={texto}
+            onChange={event => {
+              setTexto(event.target.value);
+              setErroComando(null);
+            }}
+            onKeyDown={handleKeyDown}
+            error={Boolean(erroComando)}
+            helperText={erroComando}
+            slotProps={{
+              htmlInput: {
+                maxLength: CHAT_TEXTO_MAX,
+                'aria-label': 'Mensagem',
+              },
+            }}
+          />
+          <IconButton
+            type="submit"
+            aria-label="Enviar mensagem"
+            disabled={!isTextoMensagemValido(texto) || enviando}
+            sx={{ color: 'var(--color-primary)' }}
+          >
+            <SendIcon />
+          </IconButton>
+        </ComposerEntrada>
       </ComposerWrapper>
 
       <ImagemUrlDialog

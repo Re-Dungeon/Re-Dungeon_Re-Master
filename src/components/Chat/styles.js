@@ -131,12 +131,28 @@ export const MensagemAcoes = styled.div`
   }
 `;
 
+// Compositor em duas linhas: ações (imagem, dados, macros) acima e o campo
+// + Enviar abaixo — o campo fica com a largura toda mesmo em telas estreitas
+// e no painel de chat do Grid.
 export const ComposerWrapper = styled.form`
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 16px 12px;
+  border-top: 1px solid var(--border-primary);
+`;
+
+export const ComposerAcoes = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: -6px;
+`;
+
+export const ComposerEntrada = styled.div`
   display: flex;
   align-items: flex-end;
   gap: 8px;
-  padding: 12px 16px;
-  border-top: 1px solid var(--border-primary);
 `;
 
 export const PreviewImagem = styled.img`
