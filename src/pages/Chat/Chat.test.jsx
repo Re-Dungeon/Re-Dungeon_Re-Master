@@ -11,6 +11,7 @@ const getRmCampanhaNpcs = vi.fn();
 const getRmCampanhaCriaturas = vi.fn();
 const addChatRolagemSecreta = vi.fn();
 const subscribeChatSecretasDoMestre = vi.fn();
+const getChatMacros = vi.fn();
 vi.mock('service/storage', () => ({
   addChatMensagem: (...args) => addChatMensagem(...args),
   removeChatMensagem: (...args) => removeChatMensagem(...args),
@@ -24,6 +25,10 @@ vi.mock('service/storage', () => ({
   subscribeChatSecretasDoMestre: (...args) =>
     subscribeChatSecretasDoMestre(...args),
   subscribeChatSecretasDoUsuario: vi.fn(() => vi.fn()),
+  getChatMacros: (...args) => getChatMacros(...args),
+  addChatMacro: vi.fn(),
+  updateChatMacro: vi.fn(),
+  removeChatMacro: vi.fn(),
 }));
 
 vi.mock('context/AuthContext', () => ({
@@ -111,6 +116,16 @@ describe('Chat (Re:Master)', () => {
     addChatMensagem.mockResolvedValue();
     addChatRolagemSecreta.mockResolvedValue();
     subscribeChatSecretasDoMestre.mockImplementation(() => vi.fn());
+    getChatMacros.mockResolvedValue([
+      {
+        id: 'mc1',
+        nome: 'encontros',
+        descricao: '',
+        codigo: 'enviar(1)',
+        somenteMestre: true,
+        ordem: 1,
+      },
+    ]);
     removeChatMensagem.mockResolvedValue();
     subscribeChatMensagens.mockImplementation((_id, onChange) => {
       onChange(MENSAGENS);
@@ -247,6 +262,24 @@ describe('Chat (Re:Master)', () => {
       expect.any(Function),
       expect.any(Function),
     );
+  });
+
+  it('mestre vê todas as macros (inclusive só mestre) e pode gerenciar', async () => {
+    const user = userEvent.setup();
+    renderChat();
+    await screen.findByText('Abro a porta devagar.');
+    await waitFor(() =>
+      expect(getChatMacros).toHaveBeenCalledWith('c1', {
+        incluirSomenteMestre: true,
+      }),
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Macros' }));
+    expect(await screen.findByText('encontros')).toBeInTheDocument();
+    expect(screen.getByText('só mestre')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /adicionar macro/i }),
+    ).toBeInTheDocument();
   });
 
   it('mestre pode apagar mensagem de jogador', async () => {

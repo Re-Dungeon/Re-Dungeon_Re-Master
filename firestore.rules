@@ -475,19 +475,23 @@ service cloud.firestore {
     function chatMensagemValida(campanhaId, data, secreta) {
       return data.keys().hasOnly(['uid', 'personagemId', 'autorNome', 'autorAvatar', 'isMestre',
                                   'persona', 'tipo', 'texto', 'url', 'rolagem', 'secreta',
-                                  'createdAt']) &&
+                                  'macroNome', 'createdAt']) &&
         data.uid == request.auth.uid &&
         data.createdAt == request.time &&
         data.get('secreta', false) == secreta &&
         data.autorNome is string && data.autorNome.size() > 0 && data.autorNome.size() <= 200 &&
         (data.autorAvatar == null || (data.autorAvatar is string && data.autorAvatar.size() <= 2000)) &&
-        data.texto is string && data.texto.size() <= 2000 &&
-        ((data.tipo == 'texto' && data.texto.size() > 0 && data.url == null &&
-          !data.keys().hasAny(['rolagem'])) ||
-         (data.tipo == 'imagem' && data.url is string && data.url.size() <= 2000 &&
-          data.url.matches('https://.+') && !data.keys().hasAny(['rolagem'])) ||
+        data.texto is string && data.texto.size() <= 4000 &&
+        ((data.tipo == 'texto' && data.texto.size() > 0 && data.texto.size() <= 2000 &&
+          data.url == null && !data.keys().hasAny(['rolagem', 'macroNome'])) ||
+         (data.tipo == 'imagem' && data.texto.size() <= 2000 && data.url is string &&
+          data.url.size() <= 2000 && data.url.matches('https://.+') &&
+          !data.keys().hasAny(['rolagem', 'macroNome'])) ||
          (data.tipo == 'rolagem' && data.texto == '' && data.url == null &&
-          chatRolagemValida(data.get('rolagem', null)))) &&
+          !data.keys().hasAny(['macroNome']) && chatRolagemValida(data.get('rolagem', null))) ||
+         (data.tipo == 'macro' && data.texto.size() > 0 && data.url == null &&
+          !data.keys().hasAny(['rolagem']) && data.macroNome is string &&
+          data.macroNome.size() > 0 && data.macroNome.size() <= 100)) &&
         ((data.isMestre == true && data.personagemId == null &&
           data.persona in ['mestre', 'npc', 'criatura'] && isMestreDaCampanha(campanhaId)) ||
          (data.isMestre == false && data.persona == 'jogador' &&
@@ -522,6 +526,29 @@ service cloud.firestore {
         chatMensagemValida(campanhaId, request.resource.data, true);
       allow delete: if isAuth() &&
         (donoUid == request.auth.uid || isMestreDaCampanha(campanhaId));
+    }
+
+    // Macros Lua da campanha (common/lua/ + common/utils/macros.js). Só o
+    // mestre cria/edita/apaga; membros leem as que não são `somenteMestre`
+    // (a consulta do jogador filtra `somenteMestre == false`, senão a lista
+    // inteira é recusada). Executar uma macro nunca grava aqui — ela roda
+    // isolada num Web Worker e só gera mensagens em chatMensagens.
+    function chatMacroValida(data) {
+      return data.keys().hasOnly(['nome', 'descricao', 'codigo', 'somenteMestre', 'ordem',
+                                  'createdAt', 'updatedAt']) &&
+        data.nome is string && data.nome.size() > 0 && data.nome.size() <= 100 &&
+        data.get('descricao', '') is string && data.get('descricao', '').size() <= 300 &&
+        data.codigo is string && data.codigo.size() > 0 && data.codigo.size() <= 51200 &&
+        data.somenteMestre is bool &&
+        data.ordem is int;
+    }
+
+    match /rmCampanhas/{campanhaId}/macros/{macroId} {
+      allow read: if isMestreDaCampanha(campanhaId) ||
+        (isMembroDoChat(campanhaId) && resource.data.somenteMestre == false);
+      allow create, update: if isMestreDaCampanha(campanhaId) &&
+        chatMacroValida(request.resource.data);
+      allow delete: if isMestreDaCampanha(campanhaId);
     }
   }
 }

@@ -11,7 +11,13 @@ export const TIPOS_MENSAGEM = {
   TEXTO: 'texto',
   IMAGEM: 'imagem',
   ROLAGEM: 'rolagem',
+  MACRO: 'macro',
 };
+
+// Mensagem gerada por `enviar(texto)` de uma macro Lua — limite maior que o
+// do texto digitado (relatórios como o "dano_impacto" passam de 2000).
+export const CHAT_MACRO_TEXTO_MAX = 4000;
+export const MACRO_NOME_MAX = 100;
 
 // Quem "fala" na mensagem. O mestre pode interpretar NPCs e Criaturas da
 // campanha (Re:Master) — a mensagem continua `isMestre: true` e a regra só
@@ -142,6 +148,14 @@ export const montarMensagemRolagem = (autor, rolagem, secreta = false) => ({
   url: null,
   rolagem,
   ...(secreta ? { secreta: true } : {}),
+});
+
+export const montarMensagemMacro = (autor, macroNome, texto) => ({
+  ...camposAutor(autor),
+  tipo: TIPOS_MENSAGEM.MACRO,
+  texto: String(texto ?? '').slice(0, CHAT_MACRO_TEXTO_MAX),
+  url: null,
+  macroNome: String(macroNome ?? '').slice(0, MACRO_NOME_MAX) || 'macro',
 });
 
 const instanteDaMensagem = mensagem => {

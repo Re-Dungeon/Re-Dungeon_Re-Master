@@ -41,9 +41,13 @@ const erro = mensagem => ({ erro: `${mensagem} Ex.: ${EXEMPLO_COMANDO}` });
 export const ehComandoRolagem = texto =>
   typeof texto === 'string' && PREFIXO_COMANDO.test(texto.trim());
 
-// Garante os limites comuns aos dois fluxos (comando e modal).
-export const validarEspecificacao = ({ grupos, termos }) => {
-  if (grupos.length === 0) return 'Inclua ao menos um dado.';
+// Garante os limites comuns aos fluxos (comando, modal e macros). `exigirDado:
+// false` aceita expressão só com números (ex.: `rolarLocal("0")` das macros).
+export const validarEspecificacao = (
+  { grupos, termos },
+  { exigirDado = true } = {},
+) => {
+  if (exigirDado && grupos.length === 0) return 'Inclua ao menos um dado.';
   if (grupos.length > MAX_GRUPOS)
     return `No máximo ${MAX_GRUPOS} grupos de dados.`;
   if (grupos.some(g => !FACES_PERMITIDAS.includes(g.faces))) {
@@ -63,14 +67,15 @@ export const validarEspecificacao = ({ grupos, termos }) => {
   return null;
 };
 
-// "/r 2d6+1d4+3-1" → { secreta, grupos: [{quantidade, faces}], termos: [3, -1] }
-// ou { erro }. Retorna null se o texto não é um comando de rolagem.
-export const interpretarComandoRolagem = texto => {
-  if (!ehComandoRolagem(texto)) return null;
-  const valor = texto.trim();
-  const [prefixo, comando] = valor.match(PREFIXO_COMANDO);
-  const expressao = valor.slice(prefixo.length).replace(/\s+/g, '');
-  if (!expressao) return erro('Informe os dados.');
+// "2d6+1d4+3-1" (sem o "/r") → { grupos: [{quantidade, faces}], termos: [3, -1] }
+// ou { erro } (mensagem sem exemplo). Usado pelo comando do chat e pelas
+// funções `rolar`/`rolarLocal` das macros Lua.
+export const interpretarExpressaoRolagem = (
+  texto,
+  { exigirDado = true } = {},
+) => {
+  const expressao = String(texto ?? '').replace(/\s+/g, '');
+  if (!expressao) return { erro: 'Informe os dados.' };
 
   const grupos = [];
   const termos = [];
@@ -78,28 +83,37 @@ export const interpretarComandoRolagem = texto => {
   while (TOKEN.lastIndex < expressao.length) {
     const inicio = TOKEN.lastIndex;
     const match = TOKEN.exec(expressao);
-    if (!match) return erro(`Não entendi "${expressao.slice(inicio)}".`);
+    if (!match) return { erro: `Não entendi "${expressao.slice(inicio)}".` };
     const [, sinal, quantidadeTexto, d, numero] = match;
     if (inicio > 0 && !sinal)
-      return erro(`Falta + ou - antes de "${match[0]}".`);
+      return { erro: `Falta + ou - antes de "${match[0]}".` };
     if (d) {
-      if (sinal === '-') return erro('Dados não podem ser subtraídos.');
+      if (sinal === '-') return { erro: 'Dados não podem ser subtraídos.' };
       grupos.push({
         quantidade: quantidadeTexto ? Number(quantidadeTexto) : 1,
         faces: Number(numero),
       });
     } else {
-      if (quantidadeTexto) return erro(`Não entendi "${match[0]}".`);
+      if (quantidadeTexto) return { erro: `Não entendi "${match[0]}".` };
       termos.push(sinal === '-' ? -Number(numero) : Number(numero));
     }
   }
 
-  const problema = validarEspecificacao({ grupos, termos });
-  if (problema) return erro(problema);
+  const problema = validarEspecificacao({ grupos, termos }, { exigirDado });
+  return problema ? { erro: problema } : { grupos, termos };
+};
+
+// "/r 2d6+1d4+3-1" → { secreta, grupos: [{quantidade, faces}], termos: [3, -1] }
+// ou { erro }. Retorna null se o texto não é um comando de rolagem.
+export const interpretarComandoRolagem = texto => {
+  if (!ehComandoRolagem(texto)) return null;
+  const valor = texto.trim();
+  const [prefixo, comando] = valor.match(PREFIXO_COMANDO);
+  const resultado = interpretarExpressaoRolagem(valor.slice(prefixo.length));
+  if (resultado.erro) return erro(resultado.erro);
   return {
     secreta: COMANDOS_SECRETOS.includes(comando.toLowerCase()),
-    grupos,
-    termos,
+    ...resultado,
   };
 };
 

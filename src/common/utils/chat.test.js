@@ -8,6 +8,7 @@ import {
   isUrlImagemValida,
   mesclarMensagens,
   montarMensagemImagem,
+  montarMensagemMacro,
   montarMensagemRolagem,
   montarMensagemTexto,
   normalizarAvatar,
@@ -160,6 +161,24 @@ describe('montarMensagemRolagem', () => {
 
   it('rolagem secreta leva secreta: true', () => {
     expect(montarMensagemRolagem(autor, rolagem, true).secreta).toBe(true);
+  });
+});
+
+describe('montarMensagemMacro', () => {
+  it('leva o nome da macro e o texto gerado', () => {
+    const autor = { uid: 'u1', personagemId: 'p1', autorNome: 'Wesley Chase' };
+    expect(
+      montarMensagemMacro(autor, 'dano_impacto', 'DANO FINAL: 32'),
+    ).toMatchObject({
+      tipo: 'macro',
+      macroNome: 'dano_impacto',
+      texto: 'DANO FINAL: 32',
+      url: null,
+      persona: 'jogador',
+    });
+    expect(montarMensagemMacro(autor, '', 'x'.repeat(5000)).texto).toHaveLength(
+      4000,
+    );
   });
 });
 

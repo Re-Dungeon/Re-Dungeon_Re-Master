@@ -13,10 +13,12 @@ import {
 import {
   mesclarMensagens,
   montarMensagemImagem,
+  montarMensagemMacro,
   montarMensagemRolagem,
   montarMensagemTexto,
 } from 'common/utils/chat';
 import { rolarEspecificacao } from 'common/utils/dados';
+import useMacrosCampanha from 'hooks/useMacrosCampanha';
 
 // Liga um componente ao chat de uma campanha (rmCampanhas/{id}/chatMensagens):
 // registra o ponteiro chatMembros/{uid} do jogador, ouve as mensagens em tempo
@@ -25,10 +27,20 @@ import { rolarEspecificacao } from 'common/utils/dados';
 // (Ficha-RPG---Re-Dungeon-) — aqui usado pela página Chat, sempre como mestre
 // (sem ponteiro de membro; vê as rolagens secretas de todos os membros). `autor` = campos de montarMensagem* (uid,
 // personagemId, autorNome, autorAvatar, isMestre); `null` deixa o hook inativo
-// (ex.: enquanto a campanha ainda carrega).
+// (ex.: enquanto a campanha ainda carrega). `ehMestreDaCampanha`: quem está
+// usando é o mestre (mesmo falando como personagem) — vê/gerencia todas as
+// macros. Também executa macros Lua (common/lua/) e publica o que geraram.
 const SEM_MENSAGENS = [];
 
-const useChatCampanha = (campanhaId, autor) => {
+// Id de cada pergunta de macro (key do diálogo — duas perguntas iguais
+// seguidas ainda recomeçam do padrão).
+let proximoIdPergunta = 0;
+
+const useChatCampanha = (
+  campanhaId,
+  autor,
+  { ehMestreDaCampanha = false } = {},
+) => {
   const uid = autor?.uid ?? null;
   const personagemId = autor?.personagemId ?? null;
   const isMestre = Boolean(autor?.isMestre);
@@ -45,6 +57,10 @@ const useChatCampanha = (campanhaId, autor) => {
     mensagens: [],
   });
   const [erro, setErro] = useState(null);
+  // Pergunta pendente da macro em execução (inputQuery/choose):
+  // { macroNome, pedido, responder(resposta), cancelar() }.
+  const [perguntaMacro, setPerguntaMacro] = useState(null);
+  const [macroRodando, setMacroRodando] = useState(null);
 
   useEffect(() => {
     if (!campanhaId || !uid || isMestre || !personagemId) return undefined;
@@ -83,6 +99,11 @@ const useChatCampanha = (campanhaId, autor) => {
       },
     );
   }, [campanhaId, podeOuvir]);
+
+  const macrosApi = useMacrosCampanha(campanhaId, {
+    ativo: podeOuvir,
+    ehMestre: ehMestreDaCampanha || isMestre,
+  });
 
   // Rolagens secretas: o jogador vê só as dele; quem fala como mestre vê as
   // de todos os membros (chatSecretas/{uid}/rolagens de cada um).
@@ -163,7 +184,102 @@ const useChatCampanha = (campanhaId, autor) => {
     [campanhaId],
   );
 
-  const limparErro = useCallback(() => setErro(null), []);
+  // Roda a macro num Web Worker (bundle do fengari carregado só agora) e,
+  // fora do modo teste, publica as saídas na ordem — só depois que a macro
+  // termina sem erro (erro/cancelamento = nada publicado). Em teste devolve as
+  // saídas (e propaga o erro) para a prévia do editor.
+  const executarMacro = useCallback(
+    async (macro, { teste = false } = {}) => {
+      const { executarMacro: rodarNoWorker, MacroCancelada } =
+        await import('common/lua/executarMacro');
+      setMacroRodando(macro.nome);
+      try {
+        const saidas = await rodarNoWorker(macro.codigo, {
+          perguntar: pedido =>
+            new Promise((resolve, reject) => {
+              proximoIdPergunta += 1;
+              setPerguntaMacro({
+                id: proximoIdPergunta,
+                macroNome: macro.nome,
+                pedido,
+                responder: resposta => {
+                  setPerguntaMacro(null);
+                  resolve(resposta);
+                },
+                cancelar: () => {
+                  setPerguntaMacro(null);
+                  reject(new MacroCancelada());
+                },
+              });
+            }),
+        });
+        if (teste) return saidas;
+        const mensagens = saidas.map(saida =>
+          saida.tipo === 'rolagem'
+            ? montarMensagemRolagem(autor, saida.rolagem)
+            : montarMensagemMacro(autor, macro.nome, saida.texto),
+        );
+        await mensagens.reduce(
+          (anterior, mensagem) =>
+            anterior.then(() => addChatMensagem(campanhaId, mensagem)),
+          Promise.resolve(),
+        );
+        return saidas;
+      } catch (error) {
+        if (error instanceof MacroCancelada) return null;
+        if (teste) throw error;
+        // eslint-disable-next-line no-console
+        console.error('Falha na macro:', error);
+        setErro(`A macro "${macro.nome}" falhou: ${error.message}`);
+        return null;
+      } finally {
+        setMacroRodando(null);
+        setPerguntaMacro(null);
+      }
+    },
+    [autor, campanhaId],
+  );
+
+  // Formato da prop `macros` do ChatSala (pronto para as páginas repassarem).
+  const podeGerenciarMacros = ehMestreDaCampanha || isMestre;
+  const {
+    macros: listaMacros,
+    carregando: carregandoMacros,
+    salvarMacro,
+    apagarMacro,
+    moverMacro,
+  } = macrosApi;
+  const macros = useMemo(
+    () => ({
+      lista: listaMacros,
+      carregando: carregandoMacros,
+      podeGerenciar: podeGerenciarMacros,
+      rodando: macroRodando,
+      pergunta: perguntaMacro,
+      executar: macro => executarMacro(macro),
+      testar: macro => executarMacro(macro, { teste: true }),
+      salvar: salvarMacro,
+      apagar: apagarMacro,
+      mover: moverMacro,
+    }),
+    [
+      listaMacros,
+      carregandoMacros,
+      podeGerenciarMacros,
+      macroRodando,
+      perguntaMacro,
+      executarMacro,
+      salvarMacro,
+      apagarMacro,
+      moverMacro,
+    ],
+  );
+
+  const { erro: erroMacros, limparErro: limparErroMacros } = macrosApi;
+  const limparErro = useCallback(() => {
+    setErro(null);
+    limparErroMacros();
+  }, [limparErroMacros]);
 
   const carregando = recebido.campanhaId !== campanhaId;
   const secretas =
@@ -178,8 +294,9 @@ const useChatCampanha = (campanhaId, autor) => {
   return {
     mensagens,
     carregando,
-    erro,
+    erro: erro ?? erroMacros,
     limparErro,
+    macros,
     enviarTexto,
     enviarImagem,
     rolar,

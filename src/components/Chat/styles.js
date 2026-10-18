@@ -251,3 +251,49 @@ export const EtiquetaSecreta = styled.span`
   text-transform: uppercase;
   letter-spacing: 0.06em;
 `;
+
+// ── Macros Lua ───────────────────────────────────────────────────────────
+
+export const MacroItem = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-primary);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+`;
+
+export const PreviaMacro = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px dashed
+    ${props => (props.$erro ? 'rgba(255, 107, 107, 0.6)' : 'var(--border-hover)')};
+  color: ${props => (props.$erro ? '#ff8f8f' : 'var(--text-secondary)')};
+  font-family: Consolas, 'Fira Code', monospace;
+  font-size: 0.8rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+`;
+
+export const MensagemMacroTitulo = styled.div`
+  margin-bottom: 4px;
+  color: var(--color-primary);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+`;
+
+export const MensagemMacroTexto = styled.div`
+  color: var(--text-secondary);
+  font-family: Consolas, 'Fira Code', monospace;
+  font-size: 0.8rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+`;

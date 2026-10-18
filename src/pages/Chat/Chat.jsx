@@ -121,7 +121,8 @@ const Chat = () => {
     enviarImagem,
     rolar,
     apagar,
-  } = useChatCampanha(campanhaId, autor);
+    macros,
+  } = useChatCampanha(campanhaId, autor, { ehMestreDaCampanha: true });
 
   // Erros do hook (enviar/rolar/apagar/escuta) vão para o Snackbar global.
   useEffect(() => {
@@ -151,6 +152,7 @@ const Chat = () => {
         onEnviarImagem={enviarImagem}
         onRolar={rolar}
         onApagar={apagar}
+        macros={macros}
         cabecalho={
           <>
             <Typography sx={{ color: 'var(--text-primary)', fontWeight: 700 }}>
