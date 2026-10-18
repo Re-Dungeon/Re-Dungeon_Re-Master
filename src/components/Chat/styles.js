@@ -79,6 +79,19 @@ export const MensagemAutor = styled.span`
   color: ${props => (props.$mestre ? 'var(--color-primary)' : 'var(--text-primary)')};
 `;
 
+// Etiqueta "NPC"/"Criatura" quando o mestre fala como um personagem da mesa.
+export const MensagemPersona = styled.span`
+  padding: 0 6px;
+  border-radius: 999px;
+  border: 1px solid rgba(196, 58, 47, 0.45);
+  color: var(--color-primary);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  line-height: 1.5;
+`;
+
 export const MensagemHorario = styled.span`
   font-size: 0.7rem;
   color: var(--text-muted);

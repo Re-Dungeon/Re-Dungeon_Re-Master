@@ -9,6 +9,33 @@ export const CHAT_URL_MAX = 2000;
 
 export const TIPOS_MENSAGEM = { TEXTO: 'texto', IMAGEM: 'imagem' };
 
+// Quem "fala" na mensagem. O mestre pode interpretar NPCs e Criaturas da
+// campanha (Re:Master) — a mensagem continua `isMestre: true` e a regra só
+// aceita essas personas vindas do mestre; jogador é sempre 'jogador'.
+export const PERSONAS = {
+  MESTRE: 'mestre',
+  NPC: 'npc',
+  CRIATURA: 'criatura',
+  JOGADOR: 'jogador',
+};
+
+export const PERSONAS_DO_MESTRE = [
+  PERSONAS.MESTRE,
+  PERSONAS.NPC,
+  PERSONAS.CRIATURA,
+];
+
+const ROTULO_PERSONA = {
+  [PERSONAS.NPC]: 'NPC',
+  [PERSONAS.CRIATURA]: 'Criatura',
+};
+
+// Etiqueta exibida ao lado do nome quando o mestre fala como NPC/Criatura
+// (null para mestre "puro" e jogadores — inclusive mensagens antigas sem
+// `persona`).
+export const rotuloPersona = mensagem =>
+  (mensagem.isMestre && ROTULO_PERSONA[mensagem.persona]) || null;
+
 const EXTENSOES_IMAGEM = /\.(gif|png|jpe?g|webp)$/i;
 
 // Hosts que servem o arquivo de mídia direto mesmo sem extensão no caminho
@@ -64,20 +91,27 @@ export const normalizarAvatar = avatar =>
     ? avatar
     : null;
 
-// `autor` = { uid, personagemId, autorNome, autorAvatar, isMestre } — os dados
+// `autor` = { uid, personagemId, autorNome, autorAvatar, isMestre, persona } — os dados
 // do personagem são denormalizados na mensagem (nome/avatar no momento do envio).
+const personaDoAutor = (isMestre, persona) => {
+  if (!isMestre) return PERSONAS.JOGADOR;
+  return PERSONAS_DO_MESTRE.includes(persona) ? persona : PERSONAS.MESTRE;
+};
+
 const camposAutor = ({
   uid,
   personagemId = null,
   autorNome,
   autorAvatar = null,
   isMestre = false,
+  persona,
 }) => ({
   uid,
   personagemId: isMestre ? null : personagemId,
   autorNome: String(autorNome ?? '').slice(0, 200) || 'Jogador',
   autorAvatar: normalizarAvatar(autorAvatar),
   isMestre: Boolean(isMestre),
+  persona: personaDoAutor(isMestre, persona),
 });
 
 export const montarMensagemTexto = (autor, texto) => ({

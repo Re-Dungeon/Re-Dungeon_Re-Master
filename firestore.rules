@@ -454,10 +454,13 @@ service cloud.firestore {
         personagemDoUsuarioNaCampanha(campanhaId, get(membroPath).data.personagemId);
     }
 
-    // Espelha os limites de common/utils/chat.js (CHAT_TEXTO_MAX/CHAT_URL_MAX).
+    // Espelha os limites de common/utils/chat.js (CHAT_TEXTO_MAX/CHAT_URL_MAX,
+    // PERSONAS). O mestre pode falar como 'mestre', ou interpretar um NPC/
+    // Criatura da mesa ('npc'/'criatura', com o nome/avatar dele em
+    // autorNome/autorAvatar); jogador é sempre 'jogador'.
     function chatMensagemValida(campanhaId, data) {
       return data.keys().hasOnly(['uid', 'personagemId', 'autorNome', 'autorAvatar',
-                                  'isMestre', 'tipo', 'texto', 'url', 'createdAt']) &&
+                                  'isMestre', 'persona', 'tipo', 'texto', 'url', 'createdAt']) &&
         data.uid == request.auth.uid &&
         data.createdAt == request.time &&
         data.autorNome is string && data.autorNome.size() > 0 && data.autorNome.size() <= 200 &&
@@ -466,8 +469,10 @@ service cloud.firestore {
         ((data.tipo == 'texto' && data.texto.size() > 0 && data.url == null) ||
          (data.tipo == 'imagem' && data.url is string && data.url.size() <= 2000 &&
           data.url.matches('https://.+'))) &&
-        ((data.isMestre == true && data.personagemId == null && isMestreDaCampanha(campanhaId)) ||
-         (data.isMestre == false && personagemDoUsuarioNaCampanha(campanhaId, data.personagemId)));
+        ((data.isMestre == true && data.personagemId == null &&
+          data.persona in ['mestre', 'npc', 'criatura'] && isMestreDaCampanha(campanhaId)) ||
+         (data.isMestre == false && data.persona == 'jogador' &&
+          personagemDoUsuarioNaCampanha(campanhaId, data.personagemId)));
     }
 
     match /rmCampanhas/{campanhaId}/chatMembros/{membroUid} {

@@ -4,7 +4,11 @@ import Avatar from '@mui/material/Avatar';
 import IconButton from '@mui/material/IconButton';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined';
 
-import { TIPOS_MENSAGEM, formatarHorarioMensagem } from 'common/utils/chat';
+import {
+  TIPOS_MENSAGEM,
+  formatarHorarioMensagem,
+  rotuloPersona,
+} from 'common/utils/chat';
 
 import {
   MensagemAcoes,
@@ -15,6 +19,7 @@ import {
   MensagemImagem,
   MensagemLink,
   MensagemLinha,
+  MensagemPersona,
   MensagemTexto,
 } from './styles';
 
@@ -22,6 +27,7 @@ const ChatMensagem = ({ mensagem, minha, podeApagar, onApagar }) => {
   const [imagemFalhou, setImagemFalhou] = useState(false);
   const { autorNome, autorAvatar, isMestre, tipo, texto, url, createdAt } =
     mensagem;
+  const persona = rotuloPersona(mensagem);
 
   return (
     <MensagemLinha $minha={minha} data-testid="chat-mensagem">
@@ -44,6 +50,7 @@ const ChatMensagem = ({ mensagem, minha, podeApagar, onApagar }) => {
       <MensagemBalao $minha={minha} $mestre={isMestre}>
         <MensagemCabecalho>
           <MensagemAutor $mestre={isMestre}>{autorNome}</MensagemAutor>
+          {persona && <MensagemPersona>{persona}</MensagemPersona>}
           <MensagemHorario>
             {formatarHorarioMensagem(createdAt)}
           </MensagemHorario>
@@ -92,6 +99,7 @@ ChatMensagem.propTypes = {
     autorNome: PropTypes.string,
     autorAvatar: PropTypes.string,
     isMestre: PropTypes.bool,
+    persona: PropTypes.string,
     tipo: PropTypes.string,
     texto: PropTypes.string,
     url: PropTypes.string,

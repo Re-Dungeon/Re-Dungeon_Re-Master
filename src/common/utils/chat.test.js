@@ -10,6 +10,7 @@ import {
   montarMensagemTexto,
   normalizarAvatar,
   personagensNaCampanha,
+  rotuloPersona,
 } from './chat';
 
 describe('isUrlImagemValida', () => {
@@ -71,10 +72,44 @@ describe('montarMensagem*', () => {
       autorNome: 'Aldric',
       autorAvatar: 'https://exemplo.com/aldric.png',
       isMestre: false,
+      persona: 'jogador',
       tipo: 'texto',
       texto: 'Olá mesa!',
       url: null,
     });
+  });
+
+  it('jogador nunca assume persona do mestre', () => {
+    expect(
+      montarMensagemTexto({ ...jogador, persona: 'npc' }, 'oi').persona,
+    ).toBe('jogador');
+  });
+
+  it('mestre falando como NPC leva nome, avatar e persona do NPC', () => {
+    const npc = {
+      uid: 'uid-m',
+      autorNome: 'Bartolomeu, o taverneiro',
+      autorAvatar: 'https://exemplo.com/bart.png',
+      isMestre: true,
+      persona: 'npc',
+    };
+    expect(montarMensagemTexto(npc, 'O que vai ser?')).toMatchObject({
+      isMestre: true,
+      personagemId: null,
+      persona: 'npc',
+      autorNome: 'Bartolomeu, o taverneiro',
+      autorAvatar: 'https://exemplo.com/bart.png',
+    });
+  });
+
+  it('persona desconhecida do mestre vira "mestre"', () => {
+    const mestre = {
+      uid: 'uid-m',
+      autorNome: 'Mestre',
+      isMestre: true,
+      persona: 'deus',
+    };
+    expect(montarMensagemTexto(mestre, 'x').persona).toBe('mestre');
   });
 
   it('monta mensagem de imagem do mestre sem personagem', () => {
@@ -92,10 +127,23 @@ describe('montarMensagem*', () => {
       autorNome: 'Mestre',
       autorAvatar: null,
       isMestre: true,
+      persona: 'mestre',
       tipo: 'imagem',
       texto: '',
       url: 'https://exemplo.com/mapa.gif',
     });
+  });
+});
+
+describe('rotuloPersona', () => {
+  it('etiqueta só mensagens do mestre como NPC/Criatura', () => {
+    expect(rotuloPersona({ isMestre: true, persona: 'npc' })).toBe('NPC');
+    expect(rotuloPersona({ isMestre: true, persona: 'criatura' })).toBe(
+      'Criatura',
+    );
+    expect(rotuloPersona({ isMestre: true, persona: 'mestre' })).toBeNull();
+    expect(rotuloPersona({ isMestre: true })).toBeNull();
+    expect(rotuloPersona({ isMestre: false, persona: 'npc' })).toBeNull();
   });
 });
 
