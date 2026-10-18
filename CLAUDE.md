@@ -227,6 +227,8 @@ Ao adicionar uma nova entidade ao sistema:
 1. Escolha um nome de coleção prefixado com `rm` (ex.: `rmMapas`) — nunca reutilize um nome de coleção do Re-Dungeon ou de outro projeto irmão, mesmo que pareça equivalente.
 
 > **Exceção — CardFlux**: o módulo CardFlux não cria baralhos nem cartas. Ele só lê a coleção `cardflux` (gerida por um projeto irmão, no mesmo Firestore, leitura liberada a qualquer autenticado) filtrando pelo campo `universo` (id do Universo). "Baralho" não é uma entidade própria — é só o agrupamento das cartas pelo campo `deck`. Uma carta cadastrada no projeto irmão para aquele Universo aparece no Re:Master automaticamente, sem sincronização. A única coisa que o Re:Master grava é o estado de sorteio de cada carta dentro de uma Campanha (no baralho / comprada / descartada), na coleção própria `rmCardfluxEstados` (um doc por par campanha+carta) — nunca escreva em `cardflux`.
+> **Exceção — Chat da campanha** (`pages/Chat/`, rota `/chat`): primeiro conteúdo `rm*` compartilhado com jogadores. Subcoleções `rmCampanhas/{id}/chatMensagens` (mensagens) e `rmCampanhas/{id}/chatMembros` (ponteiro `{uid, personagemId}` gravado só pelo site dos jogadores). Os docs **não** denormalizam `universoId`/`mestreId` — a regra lê `mestreId` do doc pai e o personagem do jogador via `get()` (bloco do chat no fim de `firestore.rules`). É o **único** `onSnapshot` do projeto (`subscribeChatMensagens`, devolve o `unsubscribe`). `components/Chat/` e `common/utils/chat.js` são cópias dos do site dos jogadores (Ficha-RPG---Re-Dungeon-) — mudou um, mude o outro.
+
 2. Denormalize `universoId` e `mestreId` no documento (ver Firestore Rules abaixo) — evita `get()` extra nas regras de segurança.
 3. Exporte as funções `get*`/`add*`/`remove*`/`update*` em `storage.js`, seguindo o mesmo padrão genérico já usado pelas entidades do Re-Dungeon (`getFirestoreItems`/`addFirestoreItem`/`updateFirestoreItem`/`removeFirestoreItem` com `createdAt`/`updatedAt` via `serverTimestamp()`) e pelas primeiras entidades do Re:Master.
 
@@ -298,7 +300,7 @@ const MeuFormulario = ({ onSubmit, initialValues }) => (
 
 ### O fluxograma da Campanha (React Flow)
 
-A página `Campanha` usa `@xyflow/react` para o grafo de Cenas, com `@dagrejs/dagre` para o layout inicial (só aplicado a cenas sem `posicaoCanvas` salva — nunca reposiciona uma cena que o mestre já arrastou manualmente). As conexões entre cenas (`rmCenaConexoes`) mapeiam direto para o formato de aresta do React Flow (`origemCenaId`→`source`, `destinoCenaId`→`target`, `rotulo`→`label`). Mantenha a leitura dos dados do grafo como busca única (`getDocs`, ao montar a tela) em vez de listener em tempo real (`onSnapshot`), consistente com o resto do `storage.js`.
+A página `Campanha` usa `@xyflow/react` para o grafo de Cenas, com `@dagrejs/dagre` para o layout inicial (só aplicado a cenas sem `posicaoCanvas` salva — nunca reposiciona uma cena que o mestre já arrastou manualmente). As conexões entre cenas (`rmCenaConexoes`) mapeiam direto para o formato de aresta do React Flow (`origemCenaId`→`source`, `destinoCenaId`→`target`, `rotulo`→`label`). Mantenha a leitura dos dados do grafo como busca única (`getDocs`, ao montar a tela) em vez de listener em tempo real (`onSnapshot`), consistente com o resto do `storage.js` (a única exceção é o Chat, onde tempo real é o próprio objetivo).
 
 ---
 

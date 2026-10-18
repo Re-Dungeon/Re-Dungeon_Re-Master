@@ -36,6 +36,7 @@ const CardFluxExploracaoPage = lazy(
 const Luta = lazy(() => import('pages/Luta/Luta'));
 const Notas = lazy(() => import('pages/Notas/Notas'));
 const NovaNota = lazy(() => import('pages/Notas/NovaNota'));
+const Chat = lazy(() => import('pages/Chat/Chat'));
 
 export const ROUTES = [
   { index: true, element: <Dashboard /> },
@@ -78,4 +79,5 @@ export const ROUTES = [
   { path: ROUTE_PATHS.LUTA.slice(1), element: <Luta /> },
   { path: ROUTE_PATHS.NOTAS.slice(1), element: <Notas /> },
   { path: ROUTE_PATHS.NOVA_NOTA.slice(1), element: <NovaNota /> },
+  { path: ROUTE_PATHS.CHAT.slice(1), element: <Chat /> },
 ];

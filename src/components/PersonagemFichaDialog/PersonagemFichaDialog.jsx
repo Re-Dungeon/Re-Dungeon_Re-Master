@@ -904,27 +904,89 @@ const coletarReinosCultivoIds = cultivo => {
   return [...new Set(ids)];
 };
 
-const formatarValorCultivo = (chave, valor, reinoNomes) => {
+const nomeReinoCultivo = (reinoId, reinos) =>
+  reinos[reinoId] === undefined
+    ? reinoId
+    : (reinos[reinoId]?.nome?.trim() ?? 'Reino não encontrado');
+
+const formatarValorCultivo = (chave, valor, reinos) => {
   if (ehChaveReinoCultivo(chave) && typeof valor === 'string') {
-    return reinoNomes[valor] === undefined
-      ? valor
-      : (reinoNomes[valor] ?? 'Reino não encontrado');
+    return nomeReinoCultivo(valor, reinos);
   }
   if (ehTimestamp(valor)) return formatarTimestamp(valor);
   return normalizarValorSimples(valor) ?? String(valor);
 };
 
+// `xpAtual` é acumulado dentro do reino e cada nível (sub-reino) custa
+// `experienciaPorSubReino`: nível = floor(xp / custo) + 1, limitado a
+// `quantidadeSubReinos`. Retorna null se o reino ainda não carregou ou não
+// tem esses dados (o chamador cai de volta para a lista genérica de campos).
+const calcularProgressoCultivo = (xpAtual, reino) => {
+  const porNivel = Number(reino?.experienciaPorSubReino);
+  if (!Number.isFinite(xpAtual) || !(porNivel > 0)) return null;
+  const total = Number(reino.quantidadeSubReinos);
+  const totalNiveis = total > 0 ? total : null;
+  const nivelBruto = Math.floor(xpAtual / porNivel) + 1;
+  const nivel = totalNiveis ? Math.min(nivelBruto, totalNiveis) : nivelBruto;
+  const proximo = porNivel * nivel;
+  return {
+    porNivel,
+    totalNiveis,
+    nivel,
+    proximo,
+    faltam: Math.max(0, proximo - xpAtual),
+  };
+};
+
+const CHAVES_PROGRESSO_CULTIVO = ['xpAtual', 'reinoId', 'reino'];
+
+// Células do grupo principal do cultivo: reino, nível e quanto XP falta.
+const montarItensProgressoCultivo = (obj, reinos) => {
+  const reinoId = obj.reinoId ?? obj.reino;
+  const xpAtual = Number(obj.xpAtual);
+  if (typeof reinoId !== 'string' || !reinoId || obj.xpAtual === undefined) {
+    return null;
+  }
+  const progresso = calcularProgressoCultivo(xpAtual, reinos[reinoId]);
+  if (!progresso) return null;
+  return [
+    { key: 'reino', label: 'Reino', value: nomeReinoCultivo(reinoId, reinos) },
+    {
+      key: 'nivel',
+      label: 'Nível',
+      value: progresso.totalNiveis
+        ? `${progresso.nivel} / ${progresso.totalNiveis}`
+        : progresso.nivel,
+    },
+    { key: 'xpPorNivel', label: 'XP por nível', value: progresso.porNivel },
+    { key: 'xpAtual', label: 'XP atual', value: xpAtual },
+    {
+      key: 'xpProximo',
+      label: 'XP p/ próximo nível',
+      value: progresso.proximo,
+    },
+    { key: 'xpFaltam', label: 'XP restante', value: progresso.faltam },
+  ];
+};
+
 // Cada grupo do cultivo (ex.: `principal`) vira um painel de totais; se o
 // campo for um objeto plano, vira um único painel "Cultivo".
-const montarPaineisCultivoAtual = (cultivo, reinoNomes) => {
-  const montarItens = obj =>
-    Object.entries(obj)
-      .filter(([, valor]) => !ehVazio(valor))
+const montarPaineisCultivoAtual = (cultivo, reinos) => {
+  const montarItens = obj => {
+    const progresso = montarItensProgressoCultivo(obj, reinos);
+    const extras = Object.entries(obj)
+      .filter(
+        ([chave, valor]) =>
+          !ehVazio(valor) &&
+          !(progresso && CHAVES_PROGRESSO_CULTIVO.includes(chave)),
+      )
       .map(([chave, valor]) => ({
         key: chave,
         label: humanizarLabel(chave.replace(/Id$/, '')),
-        value: formatarValorCultivo(chave, valor, reinoNomes),
+        value: formatarValorCultivo(chave, valor, reinos),
       }));
+    return [...(progresso ?? []), ...extras];
+  };
 
   const entradas = Object.entries(cultivo).filter(
     ([, valor]) => !ehVazio(valor),
@@ -4630,7 +4692,7 @@ const PersonagemFichaDialog = ({
   const [noVeiaAstralNomes, setNoVeiaAstralNomes] = useState({});
   const [origemNome, setOrigemNome] = useState();
   const [corpoEspecialNome, setCorpoEspecialNome] = useState();
-  const [reinoCultivoNomes, setReinoCultivoNomes] = useState({});
+  const [reinoCultivoDados, setReinoCultivoDados] = useState({});
   const [reputacaoOrigemNomes, setReputacaoOrigemNomes] = useState({});
   const [noVeiaAstralIcons, setNoVeiaAstralIcons] = useState({});
   const [condicaoReferencias, setCondicaoReferencias] = useState({});
@@ -4727,13 +4789,10 @@ const PersonagemFichaDialog = ({
         getReinoCultivo(id)
           .then(reino => {
             if (active)
-              setReinoCultivoNomes(prev => ({
-                ...prev,
-                [id]: reino?.nome ?? null,
-              }));
+              setReinoCultivoDados(prev => ({ ...prev, [id]: reino ?? null }));
           })
           .catch(() => {
-            if (active) setReinoCultivoNomes(prev => ({ ...prev, [id]: null }));
+            if (active) setReinoCultivoDados(prev => ({ ...prev, [id]: null }));
           });
       });
 
@@ -6335,7 +6394,7 @@ const PersonagemFichaDialog = ({
             if (campo === 'cultivo' && valor && typeof valor === 'object') {
               const paineis = montarPaineisCultivoAtual(
                 valor,
-                reinoCultivoNomes,
+                reinoCultivoDados,
               );
               if (paineis.length > 0) {
                 return <CultivoBonusSection key={campo} paineis={paineis} />;

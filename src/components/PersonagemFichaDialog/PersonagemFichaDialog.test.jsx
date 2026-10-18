@@ -180,6 +180,8 @@ describe('PersonagemFichaDialog', () => {
     getReinoCultivo.mockResolvedValue({
       id: 'reinoXyz123',
       nome: 'Reino da Fundação',
+      experienciaPorSubReino: 2500,
+      quantidadeSubReinos: 5,
     });
     render(
       <PersonagemFichaDialog
@@ -188,7 +190,7 @@ describe('PersonagemFichaDialog', () => {
         personagem={{
           ...PERSONAGEM,
           cultivo: {
-            principal: { cultivoAtual: 5000, reinoId: 'reinoXyz123' },
+            principal: { xpAtual: 5000, reinoId: 'reinoXyz123' },
           },
         }}
       />,
@@ -202,7 +204,13 @@ describe('PersonagemFichaDialog', () => {
     await waitFor(() =>
       expect(within(painel).getByText('Reino da Fundação')).toBeInTheDocument(),
     );
+    // xp 5000 com 2500 por nível: nível 3 de 5, próximo em 7500, faltam 2500
+    expect(within(painel).getByText('3 / 5')).toBeInTheDocument();
+    expect(within(painel).getByText('XP atual')).toBeInTheDocument();
     expect(within(painel).getByText('5000')).toBeInTheDocument();
+    expect(within(painel).getByText('7500')).toBeInTheDocument();
+    expect(within(painel).getByText('XP restante')).toBeInTheDocument();
+    expect(within(painel).getAllByText('2500')).toHaveLength(2);
     expect(within(painel).getByText('Reino')).toBeInTheDocument();
     expect(getReinoCultivo).toHaveBeenCalledWith('reinoXyz123');
     expect(screen.queryByText('reinoXyz123')).not.toBeInTheDocument();

@@ -1,0 +1,144 @@
+// Funções puras do chat de campanha (rmCampanhas/{id}/chatMensagens).
+// Mantidas em sincronia com a cópia do site dos jogadores
+// (Ficha-RPG---Re-Dungeon-, mesmo arquivo/mesmos testes) e com o bloco do
+// chat no `firestore.rules` — os limites aqui (tamanho do
+// texto/URL, valores de `tipo`) são os mesmos que a regra exige.
+
+export const CHAT_TEXTO_MAX = 2000;
+export const CHAT_URL_MAX = 2000;
+
+export const TIPOS_MENSAGEM = { TEXTO: 'texto', IMAGEM: 'imagem' };
+
+const EXTENSOES_IMAGEM = /\.(gif|png|jpe?g|webp)$/i;
+
+// Hosts que servem o arquivo de mídia direto mesmo sem extensão no caminho
+// (ex.: https://media.giphy.com/media/<id>/giphy.gif costuma ter, mas variantes
+// como `.../giphy.webp?cid=...` ou `i.giphy.com/<id>` às vezes não).
+const HOSTS_MIDIA_DIRETA = [
+  'media.giphy.com',
+  'i.giphy.com',
+  'media.tenor.com',
+  'c.tenor.com',
+];
+
+const ehHostMidiaDireta = hostname =>
+  HOSTS_MIDIA_DIRETA.includes(hostname) ||
+  /^media\d+\.giphy\.com$/.test(hostname);
+
+// Só aceita URL direta do arquivo de imagem — páginas como tenor.com/view/...
+// ou giphy.com/gifs/... são HTML e não renderizam num <img>.
+export const isUrlImagemValida = url => {
+  if (typeof url !== 'string') return false;
+  const valor = url.trim();
+  if (!valor || valor.length > CHAT_URL_MAX) return false;
+
+  let parsed;
+  try {
+    parsed = new URL(valor);
+  } catch {
+    return false;
+  }
+  if (parsed.protocol !== 'https:') return false;
+
+  return (
+    EXTENSOES_IMAGEM.test(parsed.pathname) ||
+    ehHostMidiaDireta(parsed.hostname.toLowerCase())
+  );
+};
+
+export const normalizarTextoMensagem = texto =>
+  typeof texto === 'string' ? texto.trim() : '';
+
+export const isTextoMensagemValido = texto => {
+  const normalizado = normalizarTextoMensagem(texto);
+  return normalizado.length > 0 && normalizado.length <= CHAT_TEXTO_MAX;
+};
+
+// O avatar vem de `personagem.linkImagem`, que pode ser qualquer coisa (até
+// uma data: URL enorme) — a regra só aceita até CHAT_URL_MAX, então descarta
+// em vez de deixar a mensagem inteira ser recusada.
+export const normalizarAvatar = avatar =>
+  typeof avatar === 'string' &&
+  /^https?:\/\//i.test(avatar) &&
+  avatar.length <= CHAT_URL_MAX
+    ? avatar
+    : null;
+
+// `autor` = { uid, personagemId, autorNome, autorAvatar, isMestre } — os dados
+// do personagem são denormalizados na mensagem (nome/avatar no momento do envio).
+const camposAutor = ({
+  uid,
+  personagemId = null,
+  autorNome,
+  autorAvatar = null,
+  isMestre = false,
+}) => ({
+  uid,
+  personagemId: isMestre ? null : personagemId,
+  autorNome: String(autorNome ?? '').slice(0, 200) || 'Jogador',
+  autorAvatar: normalizarAvatar(autorAvatar),
+  isMestre: Boolean(isMestre),
+});
+
+export const montarMensagemTexto = (autor, texto) => ({
+  ...camposAutor(autor),
+  tipo: TIPOS_MENSAGEM.TEXTO,
+  texto: normalizarTextoMensagem(texto),
+  url: null,
+});
+
+export const montarMensagemImagem = (autor, url) => ({
+  ...camposAutor(autor),
+  tipo: TIPOS_MENSAGEM.IMAGEM,
+  texto: '',
+  url: url.trim(),
+});
+
+const paraDate = valor => {
+  if (!valor) return null;
+  if (valor instanceof Date) return valor;
+  if (typeof valor.toDate === 'function') return valor.toDate();
+  return null;
+};
+
+const doisDigitos = numero => String(numero).padStart(2, '0');
+
+// "14:05" se a mensagem é de hoje, senão "03/10 14:05". `agora` é injetável
+// para o teste ser determinístico.
+export const formatarHorarioMensagem = (createdAt, agora = new Date()) => {
+  const data = paraDate(createdAt);
+  if (!data) return '';
+  const hora = `${doisDigitos(data.getHours())}:${doisDigitos(data.getMinutes())}`;
+  const mesmoDia =
+    data.getFullYear() === agora.getFullYear() &&
+    data.getMonth() === agora.getMonth() &&
+    data.getDate() === agora.getDate();
+  return mesmoDia
+    ? hora
+    : `${doisDigitos(data.getDate())}/${doisDigitos(data.getMonth() + 1)} ${hora}`;
+};
+
+// Mesmo critério de pages/Jogadores/jogadoresUtils.js para "jogador
+// na campanha": personagem jogável (tipo ausente = jogável, docs antigos) cuja
+// lista `campanhas` contém a campanha. Companheiros ficam de fora.
+const TIPO_JOGAVEL = 'Personagem Jogável';
+
+const ehJogavel = personagem =>
+  (personagem.tipo ?? TIPO_JOGAVEL) === TIPO_JOGAVEL &&
+  !personagem.companheiroDe;
+
+export const personagensNaCampanha = (personagens, campanhaId) =>
+  personagens.filter(
+    personagem =>
+      ehJogavel(personagem) &&
+      (personagem.campanhas ?? []).includes(campanhaId),
+  );
+
+export const campanhaIdsDosPersonagens = personagens =>
+  Array.from(
+    new Set(
+      personagens
+        .filter(ehJogavel)
+        .flatMap(personagem => personagem.campanhas ?? []),
+    ),
+  );

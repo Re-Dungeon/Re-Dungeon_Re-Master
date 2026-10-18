@@ -24,6 +24,7 @@ export const ROUTE_PATHS = {
   LUTA: '/luta',
   NOTAS: '/notas',
   NOVA_NOTA: '/notas/nova',
+  CHAT: '/chat',
 };
 
 export const PAGE_TITLES = {
@@ -51,4 +52,5 @@ export const PAGE_TITLES = {
   [ROUTE_PATHS.LUTA]: 'Luta',
   [ROUTE_PATHS.NOTAS]: 'Notas',
   [ROUTE_PATHS.NOVA_NOTA]: 'Nova Nota',
+  [ROUTE_PATHS.CHAT]: 'Chat',
 };

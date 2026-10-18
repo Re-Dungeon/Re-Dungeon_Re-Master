@@ -9,6 +9,9 @@ import {
   serverTimestamp,
   query,
   where,
+  orderBy,
+  limit,
+  onSnapshot,
 } from 'firebase/firestore';
 import {
   recuperarExploracaoGrid,
@@ -575,3 +578,44 @@ export const getRmSessaoLogsPorCampanha = (campanhaId, universoId, mestreId) =>
   ]);
 export const addRmSessaoLog = log =>
   addFirestoreItem(RM_SESSAO_LOGS_COLLECTION, log);
+
+// ── Chat da campanha — rmCampanhas/{id}/chatMensagens ─────────────────────
+// Sala compartilhada com o site dos jogadores (Ficha-RPG---Re-Dungeon-, que
+// tem as mesmas funções). Diferente das outras subcoleções de rmCampanhas, os
+// docs NÃO denormalizam universoId/mestreId: a regra lê `mestreId` do doc pai
+// (e o personagem do jogador) via get() — ver o bloco do chat em
+// firestore.rules. O mestre não precisa de doc em `chatMembros` (só jogadores).
+export const CHAT_LIMITE_MENSAGENS = 100;
+
+// Primeiro listener em tempo real do projeto: devolve o `unsubscribe` do
+// `onSnapshot` — chame-o no cleanup do `useEffect`. Mensagens em ordem
+// cronológica (mais antiga primeiro), limitadas às últimas 100.
+export const subscribeChatMensagens = (campanhaId, onChange, onError) => {
+  const mensagensQuery = query(
+    collection(db, RM_CAMPANHAS_COLLECTION, campanhaId, 'chatMensagens'),
+    orderBy('createdAt', 'desc'),
+    limit(CHAT_LIMITE_MENSAGENS),
+  );
+  return onSnapshot(
+    mensagensQuery,
+    snapshot => {
+      const mensagens = snapshot.docs.map(docSnapshot => ({
+        id: docSnapshot.id,
+        ...docSnapshot.data({ serverTimestamps: 'estimate' }),
+      }));
+      onChange(mensagens.reverse());
+    },
+    onError,
+  );
+};
+
+export const addChatMensagem = (campanhaId, mensagem) =>
+  addDoc(collection(db, RM_CAMPANHAS_COLLECTION, campanhaId, 'chatMensagens'), {
+    ...mensagem,
+    createdAt: serverTimestamp(),
+  });
+
+export const removeChatMensagem = (campanhaId, mensagemId) =>
+  deleteDoc(
+    doc(db, RM_CAMPANHAS_COLLECTION, campanhaId, 'chatMensagens', mensagemId),
+  );

@@ -22,6 +22,24 @@ describe('resolverValorAtributoPrimario', () => {
     expect(resolverValorAtributoPrimario(personagem, ALIASES_FORCA)).toBe('15');
   });
 
+  it('usa atributosTotais (já inclui o cultivo) em vez de só base + bônus + extra', () => {
+    const personagem = {
+      atributosBase: { forca: 34 },
+      atributosTotais: { forca: 44 },
+      cultivoBonus: { primarios: { forca: { reinoA: 10 } } },
+    };
+    expect(resolverValorAtributoPrimario(personagem, ALIASES_FORCA)).toBe('44');
+  });
+
+  it('inclui o bônus de cultivo na soma quando não há total pronto', () => {
+    const personagem = {
+      atributosBase: { forca: 34 },
+      atributosExtra: { forca: 2 },
+      cultivoBonus: { primarios: { forca: { reinoA: 10, reinoB: 4 } } },
+    };
+    expect(resolverValorAtributoPrimario(personagem, ALIASES_FORCA)).toBe('50');
+  });
+
   it('cai para o campo cru quando não há total nem componentes', () => {
     const personagem = { forca: 8 };
     expect(resolverValorAtributoPrimario(personagem, ALIASES_FORCA)).toBe('8');
@@ -44,6 +62,16 @@ describe('resolverValorAtributoSecundario', () => {
     const personagem = {
       secundariosBase: { ataque: 4 },
       atributosBonus: { ataque: 3 },
+    };
+    expect(resolverValorAtributoSecundario(personagem, ALIASES_ATAQUE)).toBe(
+      '7',
+    );
+  });
+
+  it('inclui o bônus de cultivo na soma quando não há total pronto', () => {
+    const personagem = {
+      secundariosBase: { ataque: 4 },
+      cultivoBonus: { secundarios: { ataque: { reinoA: 3 } } },
     };
     expect(resolverValorAtributoSecundario(personagem, ALIASES_ATAQUE)).toBe(
       '7',

@@ -424,5 +424,68 @@ service cloud.firestore {
       allow read: if isAdmin() || isCampanhaOwner(resource.data.mestreId);
       allow create: if isAuth() && isCampanhaOwner(request.resource.data.mestreId);
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Chat da campanha — primeiro conteúdo `rm*` visível para jogadores.
+    // Acesso: o mestre da campanha (`mestreId` do doc pai) OU um jogador cujo
+    // personagem (dele, `uid`) tem a campanha em `campanhas`. Admin que não é
+    // o mestre NÃO entra (conversa de mesa é privada). Como `personagens` não
+    // pode ser consultado por regra, cada jogador grava um ponteiro
+    // `chatMembros/{uid}` = {uid, personagemId}; a leitura revalida esse
+    // personagem a cada request — desmarcar a campanha na ficha corta o acesso
+    // na hora, sem precisar apagar o ponteiro.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    function isMestreDaCampanha(campanhaId) {
+      return isAuth() &&
+        get(/databases/$(database)/documents/rmCampanhas/$(campanhaId)).data.mestreId == request.auth.uid;
+    }
+
+    function personagemDoUsuarioNaCampanha(campanhaId, personagemId) {
+      let personagem = get(/databases/$(database)/documents/personagens/$(personagemId)).data;
+      return isAuth() && personagemId is string &&
+        personagem.uid == request.auth.uid &&
+        campanhaId in personagem.get('campanhas', []);
+    }
+
+    function isMembroDoChat(campanhaId) {
+      let membroPath = /databases/$(database)/documents/rmCampanhas/$(campanhaId)/chatMembros/$(request.auth.uid);
+      return isAuth() && exists(membroPath) &&
+        personagemDoUsuarioNaCampanha(campanhaId, get(membroPath).data.personagemId);
+    }
+
+    // Espelha os limites de common/utils/chat.js (CHAT_TEXTO_MAX/CHAT_URL_MAX).
+    function chatMensagemValida(campanhaId, data) {
+      return data.keys().hasOnly(['uid', 'personagemId', 'autorNome', 'autorAvatar',
+                                  'isMestre', 'tipo', 'texto', 'url', 'createdAt']) &&
+        data.uid == request.auth.uid &&
+        data.createdAt == request.time &&
+        data.autorNome is string && data.autorNome.size() > 0 && data.autorNome.size() <= 200 &&
+        (data.autorAvatar == null || (data.autorAvatar is string && data.autorAvatar.size() <= 2000)) &&
+        data.texto is string && data.texto.size() <= 2000 &&
+        ((data.tipo == 'texto' && data.texto.size() > 0 && data.url == null) ||
+         (data.tipo == 'imagem' && data.url is string && data.url.size() <= 2000 &&
+          data.url.matches('https://.+'))) &&
+        ((data.isMestre == true && data.personagemId == null && isMestreDaCampanha(campanhaId)) ||
+         (data.isMestre == false && personagemDoUsuarioNaCampanha(campanhaId, data.personagemId)));
+    }
+
+    match /rmCampanhas/{campanhaId}/chatMembros/{membroUid} {
+      allow read: if isAuth() &&
+        (membroUid == request.auth.uid || isMestreDaCampanha(campanhaId));
+      allow create, update: if isAuth() && membroUid == request.auth.uid &&
+        request.resource.data.keys().hasOnly(['uid', 'personagemId', 'updatedAt']) &&
+        request.resource.data.uid == request.auth.uid &&
+        personagemDoUsuarioNaCampanha(campanhaId, request.resource.data.personagemId);
+      allow delete: if isAuth() && membroUid == request.auth.uid;
+    }
+
+    // Sem update: mensagens não são editáveis (v1). Apagar: autor ou mestre.
+    match /rmCampanhas/{campanhaId}/chatMensagens/{mensagemId} {
+      allow read: if isMestreDaCampanha(campanhaId) || isMembroDoChat(campanhaId);
+      allow create: if isAuth() && chatMensagemValida(campanhaId, request.resource.data);
+      allow delete: if isAuth() &&
+        (resource.data.uid == request.auth.uid || isMestreDaCampanha(campanhaId));
+    }
   }
 }

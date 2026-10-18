@@ -1,12 +1,35 @@
 // Resolve o valor exibido nos cards de NPCs/Jogadores/Criaturas a partir de
 // um doc de `personagens` (Re-Dungeon, schema não controlado pelo Re:Master).
-// Prioridade: total já calculado pelo Re-Dungeon (`totais`/`secundariosTotais`)
-// > soma de base + bônus (+ extra) quando os componentes existem > campo cru
-// no doc (que costuma ser só o valor base) como último fallback.
+// Prioridade: total já calculado pelo Re-Dungeon (`totais`/`atributosTotais`/
+// `secundariosTotais`) > soma de base + bônus + extra + cultivo quando os
+// componentes existem > campo cru no doc (que costuma ser só o valor base)
+// como último fallback.
 const ehValorPrimitivo = valor =>
   typeof valor === 'string' ||
   typeof valor === 'number' ||
   typeof valor === 'boolean';
+
+// `cultivoBonus.{primarios|secundarios}.{atributo}` é um mapa
+// `idDoReino -> bônus`; o total do cultivo para o atributo é a soma deles.
+const somarNumeros = valor => {
+  if (typeof valor === 'number') return Number.isFinite(valor) ? valor : 0;
+  if (valor && typeof valor === 'object') {
+    return Object.values(valor).reduce(
+      (total, item) => total + somarNumeros(item),
+      0,
+    );
+  }
+  return 0;
+};
+
+const bonusCultivo = (personagem, grupo, aliases) => {
+  const alias = aliases.find(
+    chave => personagem?.cultivoBonus?.[grupo]?.[chave] !== undefined,
+  );
+  return alias === undefined
+    ? 0
+    : somarNumeros(personagem.cultivoBonus[grupo][alias]);
+};
 
 const somaComponentesPrimarios = (personagem, aliases) => {
   for (const alias of aliases) {
@@ -17,7 +40,8 @@ const somaComponentesPrimarios = (personagem, aliases) => {
       return (
         base +
         (typeof bonus === 'number' ? bonus : 0) +
-        (typeof extra === 'number' ? extra : 0)
+        (typeof extra === 'number' ? extra : 0) +
+        bonusCultivo(personagem, 'primarios', aliases)
       );
     }
   }
@@ -26,7 +50,10 @@ const somaComponentesPrimarios = (personagem, aliases) => {
 
 export const resolverValorAtributoPrimario = (personagem, aliases) => {
   const totalDireto = aliases
-    .map(alias => personagem?.totais?.[alias])
+    .map(
+      alias =>
+        personagem?.totais?.[alias] ?? personagem?.atributosTotais?.[alias],
+    )
     .find(valor => typeof valor === 'number');
   if (totalDireto !== undefined) {
     return String(totalDireto);
@@ -69,7 +96,7 @@ export const resolverValorAtributoSecundario = (personagem, aliases) => {
         (typeof bonus === 'number' ? bonus : 0)
       );
     }, 0);
-    return String(soma);
+    return String(soma + bonusCultivo(personagem, 'secundarios', aliases));
   }
 
   return resolverValorAtributoPrimario(personagem, aliases);
