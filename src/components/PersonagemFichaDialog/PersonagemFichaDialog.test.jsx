@@ -8,7 +8,9 @@ const getRaca = vi.fn();
 const getClasse = vi.fn();
 const getVeiaAstral = vi.fn();
 const getOrigem = vi.fn();
+const getCorpoEspecial = vi.fn();
 vi.mock('service/storage', () => ({
+  getCorpoEspecial: (...args) => getCorpoEspecial(...args),
   getPersonagemSubcolecao: (...args) => getPersonagemSubcolecao(...args),
   getAptidao: (...args) => getAptidao(...args),
   getRaca: (...args) => getRaca(...args),
@@ -146,6 +148,77 @@ describe('PersonagemFichaDialog', () => {
       expect(screen.getByText('scXcrtWfvpAZNI6WKHAj')).toBeInTheDocument(),
     );
     expect(screen.getByText('UYcKdf1pAfOCMck1ITM8')).toBeInTheDocument();
+  });
+
+  it('mostra o nome do Corpo Especial em vez do id', async () => {
+    const user = userEvent.setup();
+    getCorpoEspecial.mockResolvedValue({
+      id: 'apKqvgomEwFeT2jfcNd0',
+      nome: 'Corpo de Jade Celestial',
+    });
+    render(
+      <PersonagemFichaDialog
+        open
+        onClose={() => {}}
+        personagem={{ ...PERSONAGEM, corpoEspecial: 'apKqvgomEwFeT2jfcNd0' }}
+      />,
+    );
+
+    await expandirTodosOsPainels(user);
+
+    await waitFor(() =>
+      expect(screen.getByText('Corpo de Jade Celestial')).toBeInTheDocument(),
+    );
+    expect(getCorpoEspecial).toHaveBeenCalledWith('apKqvgomEwFeT2jfcNd0');
+    expect(screen.queryByText('apKqvgomEwFeT2jfcNd0')).not.toBeInTheDocument();
+  });
+
+  it('mostra o Cultivo Bônus como painéis de totais somados, sem expor os ids das fontes', async () => {
+    const user = userEvent.setup();
+    const personagemComCultivo = {
+      ...PERSONAGEM,
+      cultivoBonus: {
+        primarios: {
+          inteligencia: { fonteA1b2C3d4E5f6G7h8I9j0: 5 },
+          agilidade: { fonteA1b2C3d4E5f6G7h8I9j0: 15, outraFonteZ9y8X7w6: 10 },
+        },
+        secundarios: { reacao: { fonteA1b2C3d4E5f6G7h8I9j0: 3 } },
+        status: { hp: { fonteA1b2C3d4E5f6G7h8I9j0: 50 } },
+      },
+    };
+    render(
+      <PersonagemFichaDialog
+        open
+        onClose={() => {}}
+        personagem={personagemComCultivo}
+      />,
+    );
+
+    await expandirTodosOsPainels(user);
+
+    const painelPrimarios = (
+      await screen.findByText('Cultivo Bônus — Primários')
+    ).closest('[class*="MuiPaper"]');
+    expect(within(painelPrimarios).getByText('Inteligência')).toBeInTheDocument();
+    expect(within(painelPrimarios).getByText('5')).toBeInTheDocument();
+    expect(within(painelPrimarios).getByText('Agilidade')).toBeInTheDocument();
+    expect(within(painelPrimarios).getByText('25')).toBeInTheDocument();
+
+    const painelSecundarios = screen
+      .getByText('Cultivo Bônus — Secundários')
+      .closest('[class*="MuiPaper"]');
+    expect(within(painelSecundarios).getByText('Reação')).toBeInTheDocument();
+    expect(within(painelSecundarios).getByText('3')).toBeInTheDocument();
+
+    const painelStatus = screen
+      .getByText('Cultivo Bônus — Status')
+      .closest('[class*="MuiPaper"]');
+    expect(within(painelStatus).getByText('HP')).toBeInTheDocument();
+    expect(within(painelStatus).getByText('50')).toBeInTheDocument();
+
+    expect(
+      screen.queryByText(/fonteA1b2C3d4E5f6G7h8I9j0/i),
+    ).not.toBeInTheDocument();
   });
 
   it('organiza atributos principais e status em grades separadas', async () => {

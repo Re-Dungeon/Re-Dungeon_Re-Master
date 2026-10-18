@@ -232,6 +232,17 @@ service cloud.firestore {
       allow delete: if canWriteUniverso(resource.data.universo);
     }
 
+    // ── tricksterCoin ───────────────────────────────────────────────────────
+    // Coleção administrativa de benefícios da Trickster Coin. O acesso é
+    // restrito ao mesmo gate de administração já usado pelo banco:
+    // usuário autenticado + documento `userPermissions/{uid}` com `isAdmin == true`.
+    match /tricksterCoin/{benefitId} {
+      allow read: if isAuth();
+      allow create: if isAdmin();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
     // ── personagens ──────────────────────────────────────────────────────
     // Cada usuário só escreve os próprios personagens (uid == request.auth.uid).
     // Leitura liberada para qualquer autenticado, independente do `tipo`: NPC

@@ -31,6 +31,7 @@ import {
   getClasse,
   getVeiaAstral,
   getOrigem,
+  getCorpoEspecial,
   getCondicoes,
   getUsuarioNome,
 } from 'service/storage';
@@ -713,6 +714,180 @@ const SmallPanel = ({ title, children }) => (
 SmallPanel.propTypes = {
   title: PropTypes.string.isRequired,
   children: PropTypes.node,
+};
+
+// Painel de "totais": título + grade de células label pequeno / valor grande.
+// Compartilhado por Atributos Totais, Secundários Totais e Cultivo Bônus.
+const PainelTotais = ({ title, itens }) => (
+  <Paper
+    elevation={0}
+    sx={{
+      p: 2.25,
+      background: 'rgba(15,23,42,0.35)',
+      border: '1px solid rgba(212,175,55,0.12)',
+      borderRadius: '16px',
+    }}
+  >
+    <Typography
+      variant="subtitle2"
+      sx={{
+        color: 'var(--color-accent)',
+        fontWeight: 800,
+        textTransform: 'uppercase',
+        letterSpacing: 1,
+        mb: 1,
+      }}
+    >
+      {title}
+    </Typography>
+    <Box
+      sx={{
+        display: 'grid',
+        gridTemplateColumns: { xs: 'repeat(2,1fr)', sm: 'repeat(3,1fr)' },
+        gap: 1,
+      }}
+    >
+      {itens.map(item => (
+        <Box
+          key={item.key}
+          sx={{
+            p: 1.25,
+            background: 'rgba(18,22,32,0.6)',
+            borderRadius: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            minHeight: 84,
+          }}
+        >
+          <Typography sx={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>
+            {item.label}
+          </Typography>
+          <Typography
+            sx={{
+              color: 'var(--text-primary)',
+              fontWeight: 900,
+              fontSize: '1.1rem',
+            }}
+          >
+            {String(item.value)}
+          </Typography>
+        </Box>
+      ))}
+    </Box>
+  </Paper>
+);
+
+PainelTotais.propTypes = {
+  title: PropTypes.string.isRequired,
+  itens: PropTypes.arrayOf(
+    PropTypes.shape({
+      key: PropTypes.string.isRequired,
+      label: PropTypes.string.isRequired,
+      value: PropTypes.any,
+    }),
+  ).isRequired,
+};
+
+// Cada atributo do cultivo vem como mapa `idDaFonte -> bônus` (ou um número
+// direto); o que interessa ao mestre é o total, então soma os valores
+// numéricos recursivamente e ignora o resto.
+const somarBonusCultivo = valor => {
+  if (typeof valor === 'number') return Number.isFinite(valor) ? valor : null;
+  if (typeof valor === 'string') {
+    const numero = Number(valor.trim().replace(',', '.'));
+    return valor.trim() !== '' && Number.isFinite(numero) ? numero : null;
+  }
+  if (valor && typeof valor === 'object') {
+    const parcelas = Object.values(valor)
+      .map(somarBonusCultivo)
+      .filter(parcela => parcela !== null);
+    return parcelas.length > 0
+      ? parcelas.reduce((total, parcela) => total + parcela, 0)
+      : null;
+  }
+  return null;
+};
+
+const LABELS_STATUS_CULTIVO = {
+  hp: 'HP',
+  energia: 'Energia',
+  fadiga: 'Fadiga',
+};
+
+// Monta as células de um grupo do cultivo (primarios/secundarios/status),
+// seguindo a ordem da lista de referência e deixando chaves extras por último.
+const montarItensCultivo = (grupo, referencia) => {
+  if (!grupo || typeof grupo !== 'object') return [];
+  const chaves = Object.keys(grupo);
+  const ordemReferencia = referencia.map(({ aliases }) => aliases[0]);
+  const ordenadas = [
+    ...ordemReferencia.filter(chave => chaves.includes(chave)),
+    ...chaves.filter(chave => !ordemReferencia.includes(chave)),
+  ];
+  return ordenadas
+    .map(chave => ({
+      key: chave,
+      label: resolverLabelAtributo(chave, referencia),
+      value: somarBonusCultivo(grupo[chave]),
+    }))
+    .filter(({ value }) => value !== null);
+};
+
+const CULTIVO_STATUS_REFERENCIA = Object.entries(LABELS_STATUS_CULTIVO).map(
+  ([chave, label]) => ({ label, aliases: [chave] }),
+);
+
+const GRUPOS_CULTIVO = [
+  {
+    chave: 'primarios',
+    title: 'Cultivo Bônus — Primários',
+    referencia: ATRIBUTOS_PRINCIPAIS_DIALOG,
+  },
+  {
+    chave: 'secundarios',
+    title: 'Cultivo Bônus — Secundários',
+    referencia: ATRIBUTOS_SECUNDARIOS_DIALOG,
+  },
+  {
+    chave: 'status',
+    title: 'Cultivo Bônus — Status',
+    referencia: CULTIVO_STATUS_REFERENCIA,
+  },
+];
+
+// Retorna os painéis do cultivo já calculados; vazio quando o formato não é o
+// esperado (o chamador então cai no SecaoCampo genérico para não perder dado).
+const montarPaineisCultivo = valor =>
+  GRUPOS_CULTIVO.map(({ chave, title, referencia }) => ({
+    chave,
+    title,
+    itens: montarItensCultivo(valor?.[chave], referencia),
+  })).filter(({ itens }) => itens.length > 0);
+
+const CultivoBonusSection = ({ paineis }) => (
+  <Box
+    sx={{
+      display: 'grid',
+      gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' },
+      gap: 2,
+    }}
+  >
+    {paineis.map(({ chave, title, itens }) => (
+      <PainelTotais key={chave} title={title} itens={itens} />
+    ))}
+  </Box>
+);
+
+CultivoBonusSection.propTypes = {
+  paineis: PropTypes.arrayOf(
+    PropTypes.shape({
+      chave: PropTypes.string.isRequired,
+      title: PropTypes.string.isRequired,
+      itens: PropTypes.array.isRequired,
+    }),
+  ).isRequired,
 };
 
 const extrairCampoHistorico = (doc, aliases) => {
@@ -4384,6 +4559,7 @@ const PersonagemFichaDialog = ({
   const [classeNomes, setClasseNomes] = useState({});
   const [noVeiaAstralNomes, setNoVeiaAstralNomes] = useState({});
   const [origemNome, setOrigemNome] = useState();
+  const [corpoEspecialNome, setCorpoEspecialNome] = useState();
   const [reputacaoOrigemNomes, setReputacaoOrigemNomes] = useState({});
   const [noVeiaAstralIcons, setNoVeiaAstralIcons] = useState({});
   const [condicaoReferencias, setCondicaoReferencias] = useState({});
@@ -4397,6 +4573,7 @@ const PersonagemFichaDialog = ({
       setAba(0);
       setAptidaoReferencias({});
       setRacaNome(undefined);
+      setCorpoEspecialNome(undefined);
       setClasseNomes({});
       setNoVeiaAstralNomes({});
       setReputacaoOrigemNomes({});
@@ -4472,6 +4649,16 @@ const PersonagemFichaDialog = ({
           })
           .catch(() => {
             if (active) setOrigemNome(null);
+          });
+      }
+
+      if (typeof personagem.corpoEspecial === 'string' && personagem.corpoEspecial) {
+        getCorpoEspecial(personagem.corpoEspecial)
+          .then(corpo => {
+            if (active) setCorpoEspecialNome(corpo?.nome ?? null);
+          })
+          .catch(() => {
+            if (active) setCorpoEspecialNome(null);
           });
       }
 
@@ -4666,6 +4853,12 @@ const PersonagemFichaDialog = ({
         ? personagem.origem
         : (origemNome ?? 'Origem não encontrada')
       : personagem.origem,
+    corpoEspecial:
+      typeof personagem.corpoEspecial === 'string' && personagem.corpoEspecial
+        ? corpoEspecialNome === undefined
+          ? personagem.corpoEspecial
+          : (corpoEspecialNome ?? 'Corpo Especial não encontrado')
+        : personagem.corpoEspecial,
   };
 
   const campos = personagemResolvido
@@ -5434,68 +5627,7 @@ const PersonagemFichaDialog = ({
         value: obj[aliases[0]] ?? '—',
       }));
 
-      return (
-        <Paper
-          elevation={0}
-          sx={{
-            p: 2.25,
-            background: 'rgba(15,23,42,0.35)',
-            border: '1px solid rgba(212,175,55,0.12)',
-            borderRadius: '16px',
-          }}
-        >
-          <Typography
-            variant="subtitle2"
-            sx={{
-              color: 'var(--color-accent)',
-              fontWeight: 800,
-              textTransform: 'uppercase',
-              letterSpacing: 1,
-              mb: 1,
-            }}
-          >
-            Atributos Totais
-          </Typography>
-          <Box
-            sx={{
-              display: 'grid',
-              gridTemplateColumns: { xs: 'repeat(2,1fr)', sm: 'repeat(3,1fr)' },
-              gap: 1,
-            }}
-          >
-            {itens.map(item => (
-              <Box
-                key={item.key}
-                sx={{
-                  p: 1.25,
-                  background: 'rgba(18,22,32,0.6)',
-                  borderRadius: 1,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  minHeight: 84,
-                }}
-              >
-                <Typography
-                  sx={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}
-                >
-                  {item.label}
-                </Typography>
-                <Typography
-                  sx={{
-                    color: 'var(--text-primary)',
-                    fontWeight: 900,
-                    fontSize: '1.1rem',
-                  }}
-                >
-                  {String(item.value)}
-                </Typography>
-              </Box>
-            ))}
-          </Box>
-        </Paper>
-      );
+      return <PainelTotais title="Atributos Totais" itens={itens} />;
     };
 
     const renderSecundariosTotais = () => {
@@ -5507,68 +5639,7 @@ const PersonagemFichaDialog = ({
         key: aliases[0],
         value: obj[aliases[0]] ?? '—',
       }));
-      return (
-        <Paper
-          elevation={0}
-          sx={{
-            p: 2.25,
-            background: 'rgba(15,23,42,0.35)',
-            border: '1px solid rgba(212,175,55,0.12)',
-            borderRadius: '16px',
-          }}
-        >
-          <Typography
-            variant="subtitle2"
-            sx={{
-              color: 'var(--color-accent)',
-              fontWeight: 800,
-              textTransform: 'uppercase',
-              letterSpacing: 1,
-              mb: 1,
-            }}
-          >
-            Secundários Totais
-          </Typography>
-          <Box
-            sx={{
-              display: 'grid',
-              gridTemplateColumns: { xs: 'repeat(2,1fr)', sm: 'repeat(3,1fr)' },
-              gap: 1,
-            }}
-          >
-            {itens.map(item => (
-              <Box
-                key={item.key}
-                sx={{
-                  p: 1.25,
-                  background: 'rgba(18,22,32,0.6)',
-                  borderRadius: 1,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  minHeight: 84,
-                }}
-              >
-                <Typography
-                  sx={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}
-                >
-                  {item.label}
-                </Typography>
-                <Typography
-                  sx={{
-                    color: 'var(--text-primary)',
-                    fontWeight: 900,
-                    fontSize: '1.1rem',
-                  }}
-                >
-                  {String(item.value)}
-                </Typography>
-              </Box>
-            ))}
-          </Box>
-        </Paper>
-      );
+      return <PainelTotais title="Secundários Totais" itens={itens} />;
     };
 
     // Para rastrear quais campos já renderizamos e evitar duplicação
@@ -6174,6 +6245,13 @@ const PersonagemFichaDialog = ({
                   </Box>
                 </SmallPanel>
               );
+            }
+
+            if (campo === 'cultivoBonus' && valor && typeof valor === 'object') {
+              const paineis = montarPaineisCultivo(valor);
+              if (paineis.length > 0) {
+                return <CultivoBonusSection key={campo} paineis={paineis} />;
+              }
             }
 
             return <SecaoCampo key={campo} campo={campo} valor={valor} />;
