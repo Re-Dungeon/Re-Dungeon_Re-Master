@@ -9,7 +9,9 @@ const getClasse = vi.fn();
 const getVeiaAstral = vi.fn();
 const getOrigem = vi.fn();
 const getCorpoEspecial = vi.fn();
+const getReinoCultivo = vi.fn();
 vi.mock('service/storage', () => ({
+  getReinoCultivo: (...args) => getReinoCultivo(...args),
   getCorpoEspecial: (...args) => getCorpoEspecial(...args),
   getPersonagemSubcolecao: (...args) => getPersonagemSubcolecao(...args),
   getAptidao: (...args) => getAptidao(...args),
@@ -171,6 +173,39 @@ describe('PersonagemFichaDialog', () => {
     );
     expect(getCorpoEspecial).toHaveBeenCalledWith('apKqvgomEwFeT2jfcNd0');
     expect(screen.queryByText('apKqvgomEwFeT2jfcNd0')).not.toBeInTheDocument();
+  });
+
+  it('mostra o Cultivo como painel de totais com o nome do reino em vez do id', async () => {
+    const user = userEvent.setup();
+    getReinoCultivo.mockResolvedValue({
+      id: 'reinoXyz123',
+      nome: 'Reino da Fundação',
+    });
+    render(
+      <PersonagemFichaDialog
+        open
+        onClose={() => {}}
+        personagem={{
+          ...PERSONAGEM,
+          cultivo: {
+            principal: { cultivoAtual: 5000, reinoId: 'reinoXyz123' },
+          },
+        }}
+      />,
+    );
+
+    await expandirTodosOsPainels(user);
+
+    const painel = (await screen.findByText('Cultivo — Principal')).closest(
+      '[class*="MuiPaper"]',
+    );
+    await waitFor(() =>
+      expect(within(painel).getByText('Reino da Fundação')).toBeInTheDocument(),
+    );
+    expect(within(painel).getByText('5000')).toBeInTheDocument();
+    expect(within(painel).getByText('Reino')).toBeInTheDocument();
+    expect(getReinoCultivo).toHaveBeenCalledWith('reinoXyz123');
+    expect(screen.queryByText('reinoXyz123')).not.toBeInTheDocument();
   });
 
   it('mostra o Cultivo Bônus como painéis de totais somados, sem expor os ids das fontes', async () => {

@@ -32,6 +32,7 @@ import {
   getVeiaAstral,
   getOrigem,
   getCorpoEspecial,
+  getReinoCultivo,
   getCondicoes,
   getUsuarioNome,
 } from 'service/storage';
@@ -769,6 +770,8 @@ const PainelTotais = ({ title, itens }) => (
               color: 'var(--text-primary)',
               fontWeight: 900,
               fontSize: '1.1rem',
+              textAlign: 'center',
+              wordBreak: 'break-word',
             }}
           >
             {String(item.value)}
@@ -879,6 +882,73 @@ const CultivoBonusSection = ({ paineis }) => (
     ))}
   </Box>
 );
+
+const ehChaveReinoCultivo = chave => /^reino(Id)?$/i.test(chave);
+
+// `cultivo` guarda o reino só como id (ex.: `principal.reinoId`) — coleta
+// todos para resolver o nome em `reinosCultivo`.
+const coletarReinosCultivoIds = cultivo => {
+  if (!cultivo || typeof cultivo !== 'object') return [];
+  const ids = [];
+  const visitar = (no, profundidade) => {
+    if (!no || typeof no !== 'object' || profundidade > 3) return;
+    Object.entries(no).forEach(([chave, valor]) => {
+      if (ehChaveReinoCultivo(chave) && typeof valor === 'string' && valor) {
+        ids.push(valor);
+      } else {
+        visitar(valor, profundidade + 1);
+      }
+    });
+  };
+  visitar(cultivo, 0);
+  return [...new Set(ids)];
+};
+
+const formatarValorCultivo = (chave, valor, reinoNomes) => {
+  if (ehChaveReinoCultivo(chave) && typeof valor === 'string') {
+    return reinoNomes[valor] === undefined
+      ? valor
+      : (reinoNomes[valor] ?? 'Reino não encontrado');
+  }
+  if (ehTimestamp(valor)) return formatarTimestamp(valor);
+  return normalizarValorSimples(valor) ?? String(valor);
+};
+
+// Cada grupo do cultivo (ex.: `principal`) vira um painel de totais; se o
+// campo for um objeto plano, vira um único painel "Cultivo".
+const montarPaineisCultivoAtual = (cultivo, reinoNomes) => {
+  const montarItens = obj =>
+    Object.entries(obj)
+      .filter(([, valor]) => !ehVazio(valor))
+      .map(([chave, valor]) => ({
+        key: chave,
+        label: humanizarLabel(chave.replace(/Id$/, '')),
+        value: formatarValorCultivo(chave, valor, reinoNomes),
+      }));
+
+  const entradas = Object.entries(cultivo).filter(
+    ([, valor]) => !ehVazio(valor),
+  );
+  const grupos = entradas.filter(
+    ([, valor]) =>
+      valor && typeof valor === 'object' && !Array.isArray(valor) && !ehTimestamp(valor),
+  );
+
+  if (grupos.length === 0) {
+    const itens = montarItens(cultivo);
+    return itens.length > 0
+      ? [{ chave: 'cultivo', title: 'Cultivo', itens }]
+      : [];
+  }
+
+  return grupos
+    .map(([grupo, valor]) => ({
+      chave: grupo,
+      title: `Cultivo — ${humanizarLabel(grupo)}`,
+      itens: montarItens(valor),
+    }))
+    .filter(({ itens }) => itens.length > 0);
+};
 
 CultivoBonusSection.propTypes = {
   paineis: PropTypes.arrayOf(
@@ -4560,6 +4630,7 @@ const PersonagemFichaDialog = ({
   const [noVeiaAstralNomes, setNoVeiaAstralNomes] = useState({});
   const [origemNome, setOrigemNome] = useState();
   const [corpoEspecialNome, setCorpoEspecialNome] = useState();
+  const [reinoCultivoNomes, setReinoCultivoNomes] = useState({});
   const [reputacaoOrigemNomes, setReputacaoOrigemNomes] = useState({});
   const [noVeiaAstralIcons, setNoVeiaAstralIcons] = useState({});
   const [condicaoReferencias, setCondicaoReferencias] = useState({});
@@ -4651,6 +4722,20 @@ const PersonagemFichaDialog = ({
             if (active) setOrigemNome(null);
           });
       }
+
+      coletarReinosCultivoIds(personagem.cultivo).forEach(id => {
+        getReinoCultivo(id)
+          .then(reino => {
+            if (active)
+              setReinoCultivoNomes(prev => ({
+                ...prev,
+                [id]: reino?.nome ?? null,
+              }));
+          })
+          .catch(() => {
+            if (active) setReinoCultivoNomes(prev => ({ ...prev, [id]: null }));
+          });
+      });
 
       if (typeof personagem.corpoEspecial === 'string' && personagem.corpoEspecial) {
         getCorpoEspecial(personagem.corpoEspecial)
@@ -6245,6 +6330,16 @@ const PersonagemFichaDialog = ({
                   </Box>
                 </SmallPanel>
               );
+            }
+
+            if (campo === 'cultivo' && valor && typeof valor === 'object') {
+              const paineis = montarPaineisCultivoAtual(
+                valor,
+                reinoCultivoNomes,
+              );
+              if (paineis.length > 0) {
+                return <CultivoBonusSection key={campo} paineis={paineis} />;
+              }
             }
 
             if (campo === 'cultivoBonus' && valor && typeof valor === 'object') {
