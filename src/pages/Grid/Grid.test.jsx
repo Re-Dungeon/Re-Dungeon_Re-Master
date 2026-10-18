@@ -19,6 +19,11 @@ const removeGridToken = vi.fn();
 const moverGridToken = vi.fn();
 const getPersonagens = vi.fn();
 const getPersonagensJogaveis = vi.fn();
+const subscribeAudioMesa = vi.fn((_id, onChange) => {
+  onChange(null);
+  return vi.fn();
+});
+const setAudioMesa = vi.fn(() => Promise.resolve());
 vi.mock('service/storage', () => ({
   subscribeGridCenaAtiva: (...args) => subscribeGridCenaAtiva(...args),
   subscribeGridCenas: (...args) => subscribeGridCenas(...args),
@@ -54,6 +59,8 @@ vi.mock('service/storage', () => ({
   }),
   subscribeChatSecretasDoMestre: vi.fn(() => vi.fn()),
   subscribeChatSecretasDoUsuario: vi.fn(() => vi.fn()),
+  subscribeAudioMesa: (...args) => subscribeAudioMesa(...args),
+  setAudioMesa: (...args) => setAudioMesa(...args),
   addChatMensagem: vi.fn(),
   removeChatMensagem: vi.fn(),
   addChatRolagemSecreta: vi.fn(),

@@ -9,6 +9,7 @@ import { useAuth } from 'context/AuthContext';
 import { useSnackbar } from 'context/SnackbarContext';
 import useChatCampanha from 'hooks/useChatCampanha';
 import ChatSala from 'components/Chat/ChatSala';
+import PlayerAudioMesa from 'components/Chat/PlayerAudioMesa';
 import { PERSONA_MESTRE, autorDaPersona } from './chatPersonas';
 
 const avatarSx = { width: 24, height: 24, fontSize: '0.75rem', mr: 1 };
@@ -27,8 +28,9 @@ const renderOpcaoPersona = persona => (
  * interpreta qualquer NPC/Criatura da mesa (a mensagem leva o nome/avatar
  * dele e uma etiqueta "NPC"/"Criatura"), rola dados (públicos ou secretos),
  * vê as rolagens secretas de todos os jogadores e pode apagar qualquer
- * mensagem. Usada pela página Chat e pelo painel de chat do Grid — quem a
- * monta carrega as personas (useFontesDaMesa) e define a altura.
+ * mensagem; controla a música da mesa (YouTube). Usada pela página Chat e
+ * pelo painel de chat do Grid — quem a monta carrega as personas
+ * (useFontesDaMesa) e define a altura.
  */
 const ChatMestre = ({ campanha, npcs, criaturas, titulo }) => {
   const { currentUser } = useAuth();
@@ -59,6 +61,7 @@ const ChatMestre = ({ campanha, npcs, criaturas, titulo }) => {
     rolar,
     apagar,
     macros,
+    audio,
   } = useChatCampanha(campanha.id, autor, { ehMestreDaCampanha: true });
 
   // Erros do hook (enviar/rolar/apagar/escuta) vão para o Snackbar global.
@@ -69,38 +72,43 @@ const ChatMestre = ({ campanha, npcs, criaturas, titulo }) => {
   }, [erroChat, limparErroChat, notifyError]);
 
   return (
-    <ChatSala
-      mensagens={mensagens}
-      carregando={carregando}
-      currentUid={currentUser.uid}
-      podeApagarTodas
-      onEnviarTexto={enviarTexto}
-      onEnviarImagem={enviarImagem}
-      onRolar={rolar}
-      onApagar={apagar}
-      macros={macros}
-      cabecalho={
-        <>
-          <Typography sx={{ color: 'var(--text-primary)', fontWeight: 700 }}>
-            {titulo}
-          </Typography>
-          <TextField
-            select
-            size="small"
-            label="Falando como"
-            value={personaSelecionada.id}
-            onChange={event => setPersonaId(event.target.value)}
-            sx={{ minWidth: 220 }}
-          >
-            {renderOpcaoPersona(PERSONA_MESTRE)}
-            {npcs.length > 0 && <ListSubheader>NPCs</ListSubheader>}
-            {npcs.map(renderOpcaoPersona)}
-            {criaturas.length > 0 && <ListSubheader>Criaturas</ListSubheader>}
-            {criaturas.map(renderOpcaoPersona)}
-          </TextField>
-        </>
-      }
-    />
+    <>
+      <ChatSala
+        mensagens={mensagens}
+        carregando={carregando}
+        currentUid={currentUser.uid}
+        podeApagarTodas
+        onEnviarTexto={enviarTexto}
+        onEnviarImagem={enviarImagem}
+        onRolar={rolar}
+        onApagar={apagar}
+        macros={macros}
+        audio={audio}
+        cabecalho={
+          <>
+            <Typography sx={{ color: 'var(--text-primary)', fontWeight: 700 }}>
+              {titulo}
+            </Typography>
+            <TextField
+              select
+              size="small"
+              label="Falando como"
+              value={personaSelecionada.id}
+              onChange={event => setPersonaId(event.target.value)}
+              sx={{ minWidth: 220 }}
+            >
+              {renderOpcaoPersona(PERSONA_MESTRE)}
+              {npcs.length > 0 && <ListSubheader>NPCs</ListSubheader>}
+              {npcs.map(renderOpcaoPersona)}
+              {criaturas.length > 0 && <ListSubheader>Criaturas</ListSubheader>}
+              {criaturas.map(renderOpcaoPersona)}
+            </TextField>
+          </>
+        }
+      />
+      {/* Música da mesa: o mestre controla pelo ícone 🎵 e também ouve. */}
+      <PlayerAudioMesa {...audio.player} />
+    </>
   );
 };
 

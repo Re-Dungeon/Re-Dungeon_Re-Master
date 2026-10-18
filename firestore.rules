@@ -640,5 +640,31 @@ service cloud.firestore {
          veCenaDoGrid(campanhaId, cenaId));
       allow delete: if isMestreDaCampanha(campanhaId);
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Música da mesa (common/utils/audioMesa.js) — faixa do YouTube tocando
+    // para todos com o chat da campanha aberto. Mesmo acesso do chat para
+    // ler; só o mestre grava. `referenciaEm` = horário do servidor na gravação
+    // (cada cliente calcula a posição atual a partir dele).
+    // ═══════════════════════════════════════════════════════════════════════
+
+    function audioMesaValido(data) {
+      return data.keys().hasOnly(['videoId', 'estado', 'posicaoBase', 'repetir',
+                                  'referenciaEm', 'updatedAt']) &&
+        data.keys().hasAll(['videoId', 'estado', 'posicaoBase', 'repetir', 'referenciaEm']) &&
+        ((data.videoId == null && data.estado == 'parado') ||
+         (data.videoId is string && data.videoId.matches('[A-Za-z0-9_-]{11}') &&
+          data.estado in ['tocando', 'pausado'])) &&
+        data.posicaoBase is number && data.posicaoBase >= 0 && data.posicaoBase <= 86400 &&
+        data.repetir is bool &&
+        data.referenciaEm == request.time;
+    }
+
+    match /rmCampanhas/{campanhaId}/audio/{audioId} {
+      allow read: if isMestreDaCampanha(campanhaId) || isMembroDoChat(campanhaId);
+      allow create, update: if audioId == 'atual' && isMestreDaCampanha(campanhaId) &&
+        audioMesaValido(request.resource.data);
+      allow delete: if isMestreDaCampanha(campanhaId);
+    }
   }
 }

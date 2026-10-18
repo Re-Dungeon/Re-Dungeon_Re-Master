@@ -934,3 +934,37 @@ export const updateGridToken = (campanhaId, cenaId, tokenId, patch) =>
 
 export const removeGridToken = (campanhaId, cenaId, tokenId) =>
   deleteDoc(doc(gridTokensRef(campanhaId, cenaId), tokenId));
+
+// ── Música da mesa — rmCampanhas/{id}/audio/atual ──────────────────────────
+// Estado da faixa do YouTube que toca para todos com a mesa aberta (modelo em
+// common/utils/audioMesa.js). Mesmo bloco do site dos jogadores: membros
+// leem, só o mestre grava (as regras garantem). `referenciaEm` (horário do
+// servidor na gravação) chega como milissegundos para o cálculo da posição.
+const audioMesaRef = campanhaId =>
+  doc(db, RM_CAMPANHAS_COLLECTION, campanhaId, 'audio', 'atual');
+
+// Chama `onChange(estado | null)` — null enquanto nunca tocou nada.
+export const subscribeAudioMesa = (campanhaId, onChange, onError) =>
+  onSnapshot(
+    audioMesaRef(campanhaId),
+    snapshot => {
+      if (!snapshot.exists()) {
+        onChange(null);
+        return;
+      }
+      const dados = snapshot.data({ serverTimestamps: 'estimate' });
+      onChange({
+        ...dados,
+        referenciaEm: dados.referenciaEm?.toMillis?.() ?? null,
+      });
+    },
+    onError,
+  );
+
+// `estado` = um dos montarAudio* (ou AUDIO_PARADO) de common/utils/audioMesa.js.
+export const setAudioMesa = (campanhaId, estado) =>
+  setDoc(audioMesaRef(campanhaId), {
+    ...estado,
+    referenciaEm: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });

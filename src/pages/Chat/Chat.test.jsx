@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 
@@ -12,6 +12,11 @@ const getRmCampanhaCriaturas = vi.fn();
 const addChatRolagemSecreta = vi.fn();
 const subscribeChatSecretasDoMestre = vi.fn();
 const getChatMacros = vi.fn();
+const subscribeAudioMesa = vi.fn((_id, onChange) => {
+  onChange(null);
+  return vi.fn();
+});
+const setAudioMesa = vi.fn(() => Promise.resolve());
 vi.mock('service/storage', () => ({
   addChatMensagem: (...args) => addChatMensagem(...args),
   removeChatMensagem: (...args) => removeChatMensagem(...args),
@@ -25,6 +30,8 @@ vi.mock('service/storage', () => ({
   subscribeChatSecretasDoMestre: (...args) =>
     subscribeChatSecretasDoMestre(...args),
   subscribeChatSecretasDoUsuario: vi.fn(() => vi.fn()),
+  subscribeAudioMesa: (...args) => subscribeAudioMesa(...args),
+  setAudioMesa: (...args) => setAudioMesa(...args),
   getChatMacros: (...args) => getChatMacros(...args),
   addChatMacro: vi.fn(),
   updateChatMacro: vi.fn(),
@@ -295,6 +302,34 @@ describe('Chat (Re:Master)', () => {
 
     await waitFor(() =>
       expect(removeChatMensagem).toHaveBeenCalledWith('c1', 'msg1'),
+    );
+  });
+
+  it('mestre toca uma música do YouTube para a mesa', async () => {
+    const user = userEvent.setup();
+    renderChat();
+    await screen.findByText('Abro a porta devagar.');
+
+    await user.click(screen.getByRole('button', { name: 'Música da mesa' }));
+    const dialogo = await screen.findByRole('dialog');
+    await user.type(
+      within(dialogo).getByLabelText('Link do YouTube'),
+      'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+    );
+    await user.click(within(dialogo).getByRole('button', { name: 'Tocar' }));
+
+    await waitFor(() =>
+      expect(setAudioMesa).toHaveBeenCalledWith('c1', {
+        videoId: 'dQw4w9WgXcQ',
+        estado: 'tocando',
+        posicaoBase: 0,
+        repetir: true,
+      }),
+    );
+    expect(subscribeAudioMesa).toHaveBeenCalledWith(
+      'c1',
+      expect.any(Function),
+      expect.any(Function),
     );
   });
 

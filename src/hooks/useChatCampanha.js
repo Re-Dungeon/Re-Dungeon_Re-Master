@@ -17,6 +17,7 @@ import {
   montarMensagemTexto,
 } from 'common/utils/chat';
 import { rolarEspecificacao } from 'common/utils/dados';
+import useAudioMesa from 'hooks/useAudioMesa';
 import useMacrosCampanha from 'hooks/useMacrosCampanha';
 import useMembroDoChat from 'hooks/useMembroDoChat';
 
@@ -30,7 +31,9 @@ import useMembroDoChat from 'hooks/useMembroDoChat';
 // personagemId, autorNome, autorAvatar, isMestre); `null` deixa o hook inativo
 // (ex.: enquanto a campanha ainda carrega). `ehMestreDaCampanha`: quem está
 // usando é o mestre (mesmo falando como personagem) — vê/gerencia todas as
-// macros. Também executa macros Lua (common/lua/) e publica o que geraram.
+// macros. Também executa macros Lua (common/lua/) e publica o que geraram,
+// e liga a música da mesa (`audio`, hooks/useAudioMesa.js — quem usa monta
+// <PlayerAudioMesa {...audio.player} />).
 const SEM_MENSAGENS = [];
 
 // Id de cada pergunta de macro (key do diálogo — duas perguntas iguais
@@ -83,6 +86,11 @@ const useChatCampanha = (
       },
     );
   }, [campanhaId, podeOuvir]);
+
+  const audio = useAudioMesa(campanhaId, {
+    ativo: podeOuvir,
+    podeControlar: ehMestreDaCampanha || isMestre,
+  });
 
   const macrosApi = useMacrosCampanha(campanhaId, {
     ativo: podeOuvir,
@@ -260,10 +268,12 @@ const useChatCampanha = (
   );
 
   const { erro: erroMacros, limparErro: limparErroMacros } = macrosApi;
+  const { erro: erroAudio, limparErro: limparErroAudio } = audio;
   const limparErro = useCallback(() => {
     setErro(null);
     limparErroMacros();
-  }, [limparErroMacros]);
+    limparErroAudio();
+  }, [limparErroMacros, limparErroAudio]);
 
   const carregando = recebido.campanhaId !== campanhaId;
   const secretas =
@@ -278,9 +288,10 @@ const useChatCampanha = (
   return {
     mensagens,
     carregando,
-    erro: erro ?? erroMacros,
+    erro: erro ?? erroMacros ?? erroAudio,
     limparErro,
     macros,
+    audio,
     enviarTexto,
     enviarImagem,
     rolar,

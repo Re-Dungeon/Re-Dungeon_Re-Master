@@ -471,26 +471,26 @@ const Grid = () => {
           )}
         </Box>
 
-        {chatAberto && (
-          <Box
-            sx={{
-              width: { xs: '100%', md: 380 },
-              height: { xs: '45%', md: 'auto' },
-              flexShrink: 0,
-              minHeight: 0,
-              display: 'flex',
-              flexDirection: 'column',
-            }}
-          >
-            <ChatMestre
-              key={campanhaAtiva.id}
-              campanha={campanhaAtiva}
-              npcs={fontes.npcs}
-              criaturas={fontes.criaturas}
-              titulo="Chat"
-            />
-          </Box>
-        )}
+        {/* Sempre montado (só escondido): fechar o chat não corta a música
+            da mesa nem as escutas do chat. */}
+        <Box
+          sx={{
+            width: { xs: '100%', md: 380 },
+            height: { xs: '45%', md: 'auto' },
+            flexShrink: 0,
+            minHeight: 0,
+            display: chatAberto ? 'flex' : 'none',
+            flexDirection: 'column',
+          }}
+        >
+          <ChatMestre
+            key={campanhaAtiva.id}
+            campanha={campanhaAtiva}
+            npcs={fontes.npcs}
+            criaturas={fontes.criaturas}
+            titulo="Chat"
+          />
+        </Box>
       </Box>
 
       <AdicionarTokenDialog
