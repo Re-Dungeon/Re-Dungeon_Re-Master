@@ -8,7 +8,12 @@ import {
   configDoGrid,
   dimensoesDoMundo,
   limitarPosicao,
+  montarCena,
   montarToken,
+  nomeDaCena,
+  nomeDaCopia,
+  ordenarCenas,
+  validarNomeCena,
   normalizarConfigGrid,
   ordenarTokens,
   podeMoverToken,
@@ -200,6 +205,42 @@ describe('montarToken / validarToken', () => {
     expect(validarToken({ ...base, tamanho: 11 })).toMatch(/tamanho/);
     expect(validarToken({ ...base, tamanho: 1.5 })).toMatch(/tamanho/);
     expect(validarToken({ ...base, col: -1 })).toMatch(/Posição/);
+  });
+});
+
+describe('cenas', () => {
+  it('montarCena usa a configuração padrão e descarta imagem inválida', () => {
+    expect(
+      montarCena({ nome: '  Taverna ', imagemUrl: 'https://ex.com/t.png' }),
+    ).toEqual({
+      ...GRID_CONFIG_PADRAO,
+      nome: 'Taverna',
+      imagemUrl: 'https://ex.com/t.png',
+    });
+    expect(
+      montarCena({ nome: 'X', imagemUrl: 'ftp://x' }).imagemUrl,
+    ).toBeNull();
+  });
+
+  it('valida o nome', () => {
+    expect(validarNomeCena('  ')).toMatch(/nome/);
+    expect(validarNomeCena('a'.repeat(101))).toMatch(/100/);
+    expect(validarNomeCena('Masmorra')).toBeNull();
+  });
+
+  it('nome exibido e nome da cópia', () => {
+    expect(nomeDaCena({ nome: '' })).toBe('Cena sem nome');
+    expect(nomeDaCopia('Taverna')).toBe('Taverna (cópia)');
+    expect(nomeDaCopia('a'.repeat(100))).toHaveLength(100);
+  });
+
+  it('ordena pela criação; a recém-criada (sem data ainda) vai para o fim', () => {
+    const ordenadas = ordenarCenas([
+      { id: 'nova', nome: 'Nova', createdAt: null },
+      { id: 'b', nome: 'B', createdAt: { toMillis: () => 20 } },
+      { id: 'a', nome: 'A', createdAt: new Date(10) },
+    ]);
+    expect(ordenadas.map(cena => cena.id)).toEqual(['a', 'b', 'nova']);
   });
 });
 

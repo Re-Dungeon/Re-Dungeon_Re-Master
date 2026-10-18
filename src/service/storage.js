@@ -13,6 +13,7 @@ import {
   orderBy,
   limit,
   onSnapshot,
+  writeBatch,
 } from 'firebase/firestore';
 import {
   recuperarExploracaoGrid,
@@ -774,34 +775,69 @@ export const updateChatMacro = (campanhaId, macroId, patch) =>
 export const removeChatMacro = (campanhaId, macroId) =>
   deleteDoc(doc(db, RM_CAMPANHAS_COLLECTION, campanhaId, 'macros', macroId));
 
-// ── Grid da campanha — rmCampanhas/{id}/grid/atual e gridTokens ───────────
-// Mesmo bloco do site dos jogadores (subscribeGrid/subscribeGridTokens/
-// moverGridToken) + as escritas do mestre: configurar o grid e criar/editar/
-// apagar tokens. As regras só deixam o jogador mudar `col`/`lin` dos tokens em
-// que está em `donos`; tokens `oculto` só o mestre lê (a consulta do jogador
-// filtra `oculto == false`). Limites em common/utils/grid.js.
+// ── Grid da campanha — rmCampanhas/{id}/grid/atual e gridCenas ────────────
+// Em CENAS: `gridCenas/{cenaId}` (nome, imagem, grade) com os próprios tokens
+// em `gridCenas/{cenaId}/tokens`; `grid/atual` = {cenaAtivaId}, a única cena
+// que os jogadores veem (as outras o mestre prepara em segredo). Mesmo bloco
+// de leitura do site dos jogadores (subscribeGridCenaAtiva/subscribeGridCena/
+// subscribeGridTokens/moverGridToken) + as escritas do mestre. As regras só
+// deixam o jogador mudar `col`/`lin` dos tokens em que está em `donos`;
+// tokens `oculto` só o mestre lê. Limites em common/utils/grid.js.
 const gridRef = campanhaId =>
   doc(db, RM_CAMPANHAS_COLLECTION, campanhaId, 'grid', 'atual');
-const gridTokensRef = campanhaId =>
-  collection(db, RM_CAMPANHAS_COLLECTION, campanhaId, 'gridTokens');
+const gridCenasRef = campanhaId =>
+  collection(db, RM_CAMPANHAS_COLLECTION, campanhaId, 'gridCenas');
+const gridCenaRef = (campanhaId, cenaId) =>
+  doc(gridCenasRef(campanhaId), cenaId);
+const gridTokensRef = (campanhaId, cenaId) =>
+  collection(gridCenaRef(campanhaId, cenaId), 'tokens');
 
-// Chama `onChange(dados | null)` — null enquanto o grid não foi configurado.
-export const subscribeGrid = (campanhaId, onChange, onError) =>
+// Chama `onChange(cenaAtivaId | null)`.
+export const subscribeGridCenaAtiva = (campanhaId, onChange, onError) =>
   onSnapshot(
     gridRef(campanhaId),
-    snapshot => onChange(snapshot.exists() ? snapshot.data() : null),
+    snapshot =>
+      onChange(
+        snapshot.exists() ? (snapshot.data().cenaAtivaId ?? null) : null,
+      ),
+    onError,
+  );
+
+// Chama `onChange({ id, ...dados } | null)` — null se a cena não existe mais.
+export const subscribeGridCena = (campanhaId, cenaId, onChange, onError) =>
+  onSnapshot(
+    gridCenaRef(campanhaId, cenaId),
+    snapshot =>
+      onChange(
+        snapshot.exists() ? { id: snapshot.id, ...snapshot.data() } : null,
+      ),
+    onError,
+  );
+
+// Todas as cenas (só o mestre pode listar). Ordene com `ordenarCenas`.
+export const subscribeGridCenas = (campanhaId, onChange, onError) =>
+  onSnapshot(
+    gridCenasRef(campanhaId),
+    snapshot =>
+      onChange(
+        snapshot.docs.map(docSnapshot => ({
+          id: docSnapshot.id,
+          ...docSnapshot.data({ serverTimestamps: 'estimate' }),
+        })),
+      ),
     onError,
   );
 
 export const subscribeGridTokens = (
   campanhaId,
+  cenaId,
   { incluirOcultos = false } = {},
   onChange,
   onError,
 ) => {
   const filtros = incluirOcultos ? [] : [where('oculto', '==', false)];
   return onSnapshot(
-    query(gridTokensRef(campanhaId), ...filtros),
+    query(gridTokensRef(campanhaId, cenaId), ...filtros),
     snapshot =>
       onChange(
         snapshot.docs.map(docSnapshot => ({
@@ -813,31 +849,88 @@ export const subscribeGridTokens = (
   );
 };
 
-export const moverGridToken = (campanhaId, tokenId, col, lin) =>
-  updateDoc(doc(gridTokensRef(campanhaId), tokenId), {
+export const moverGridToken = (campanhaId, cenaId, tokenId, col, lin) =>
+  updateDoc(doc(gridTokensRef(campanhaId, cenaId), tokenId), {
     col,
     lin,
     updatedAt: serverTimestamp(),
   });
 
-// Grava a configuração inteira (normalizarConfigGrid de common/utils/grid.js).
-export const setGridConfig = (campanhaId, config) =>
-  setDoc(gridRef(campanhaId), { ...config, updatedAt: serverTimestamp() });
-
-export const addGridToken = async (campanhaId, token) => {
-  const docRef = await addDoc(gridTokensRef(campanhaId), {
-    ...token,
-    createdAt: serverTimestamp(),
+// null = nenhuma cena visível aos jogadores.
+export const setGridCenaAtiva = (campanhaId, cenaId) =>
+  setDoc(gridRef(campanhaId), {
+    cenaAtivaId: cenaId,
     updatedAt: serverTimestamp(),
   });
-  return docRef.id;
+
+const comDatas = dados => ({
+  ...dados,
+  createdAt: serverTimestamp(),
+  updatedAt: serverTimestamp(),
+});
+
+// Cria a cena (montarCena de common/utils/grid.js) e, numa mesma escrita
+// atômica, os tokens iniciais (ex.: "Adicionar todos os jogadores").
+export const addGridCena = async (campanhaId, cena, tokens = []) => {
+  const batch = writeBatch(db);
+  const cenaRef = doc(gridCenasRef(campanhaId));
+  batch.set(cenaRef, comDatas(cena));
+  tokens.forEach(token =>
+    batch.set(doc(gridTokensRef(campanhaId, cenaRef.id)), comDatas(token)),
+  );
+  await batch.commit();
+  return cenaRef.id;
 };
 
-export const updateGridToken = (campanhaId, tokenId, patch) =>
-  updateDoc(doc(gridTokensRef(campanhaId), tokenId), {
+export const updateGridCena = (campanhaId, cenaId, patch) =>
+  updateDoc(gridCenaRef(campanhaId, cenaId), {
     ...patch,
     updatedAt: serverTimestamp(),
   });
 
-export const removeGridToken = (campanhaId, tokenId) =>
-  deleteDoc(doc(gridTokensRef(campanhaId), tokenId));
+// Dados de um doc sem createdAt/updatedAt (a cópia ganha datas novas).
+const semDatas = dados => {
+  const resto = { ...dados };
+  delete resto.createdAt;
+  delete resto.updatedAt;
+  return resto;
+};
+
+// Copia a configuração e todos os tokens para uma cena nova.
+export const duplicarGridCena = async (campanhaId, cenaId, nome) => {
+  const [cenaSnapshot, tokensSnapshot] = await Promise.all([
+    getDoc(gridCenaRef(campanhaId, cenaId)),
+    getDocs(gridTokensRef(campanhaId, cenaId)),
+  ]);
+  return addGridCena(
+    campanhaId,
+    { ...semDatas(cenaSnapshot.data()), nome },
+    tokensSnapshot.docs.map(docSnapshot => semDatas(docSnapshot.data())),
+  );
+};
+
+// Apaga os tokens e a cena numa escrita só (até 200 tokens por cena).
+export const removeGridCena = async (campanhaId, cenaId) => {
+  const tokensSnapshot = await getDocs(gridTokensRef(campanhaId, cenaId));
+  const batch = writeBatch(db);
+  tokensSnapshot.docs.forEach(docSnapshot => batch.delete(docSnapshot.ref));
+  batch.delete(gridCenaRef(campanhaId, cenaId));
+  await batch.commit();
+};
+
+export const addGridTokens = async (campanhaId, cenaId, tokens) => {
+  const batch = writeBatch(db);
+  tokens.forEach(token =>
+    batch.set(doc(gridTokensRef(campanhaId, cenaId)), comDatas(token)),
+  );
+  await batch.commit();
+};
+
+export const updateGridToken = (campanhaId, cenaId, tokenId, patch) =>
+  updateDoc(doc(gridTokensRef(campanhaId, cenaId), tokenId), {
+    ...patch,
+    updatedAt: serverTimestamp(),
+  });
+
+export const removeGridToken = (campanhaId, cenaId, tokenId) =>
+  deleteDoc(doc(gridTokensRef(campanhaId, cenaId), tokenId));

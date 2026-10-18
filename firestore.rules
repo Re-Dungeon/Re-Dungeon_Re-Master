@@ -552,20 +552,34 @@ service cloud.firestore {
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    // Grid da campanha (common/utils/grid.js) — mesmo acesso do chat. O mestre
-    // configura o grid (`grid/atual`) e cria/edita/apaga tokens (Re:Master);
-    // o jogador só lê e MOVE (col/lin) os tokens em que o uid dele está em
-    // `donos`. Tokens `oculto` só o mestre lê — a consulta do jogador filtra
-    // `oculto == false` (senão a lista inteira é recusada).
+    // Grid da campanha (common/utils/grid.js) — mesmo acesso do chat, em
+    // CENAS: `gridCenas/{cenaId}` (imagem + grade) com os próprios tokens em
+    // `gridCenas/{cenaId}/tokens`; `grid/atual` = {cenaAtivaId}. O mestre
+    // cria/edita/apaga tudo (Re:Master) e prepara cenas em segredo: o jogador
+    // só lê a cena ATIVA e os tokens dela, e só MOVE (col/lin) os tokens em
+    // que o uid dele está em `donos`. Tokens `oculto` só o mestre lê — a
+    // consulta do jogador filtra `oculto == false` (senão é recusada).
     // ═══════════════════════════════════════════════════════════════════════
 
     function gridImagemValida(url) {
       return url == null || (url is string && url.size() <= 2000 && url.matches('https://.+'));
     }
 
-    function gridConfigValida(data) {
-      return data.keys().hasOnly(['imagemUrl', 'celula', 'deslocamentoX', 'deslocamentoY',
-                                  'mostrarGrade', 'corGrade', 'opacidadeGrade', 'updatedAt']) &&
+    function gridCenaAtiva(campanhaId, cenaId) {
+      let ponteiro = /databases/$(database)/documents/rmCampanhas/$(campanhaId)/grid/atual;
+      return exists(ponteiro) && get(ponteiro).data.get('cenaAtivaId', null) == cenaId;
+    }
+
+    // Jogador da mesa olhando a cena ativa.
+    function veCenaDoGrid(campanhaId, cenaId) {
+      return isMembroDoChat(campanhaId) && gridCenaAtiva(campanhaId, cenaId);
+    }
+
+    function gridCenaValida(data) {
+      return data.keys().hasOnly(['nome', 'imagemUrl', 'celula', 'deslocamentoX', 'deslocamentoY',
+                                  'mostrarGrade', 'corGrade', 'opacidadeGrade',
+                                  'createdAt', 'updatedAt']) &&
+        data.nome is string && data.nome.size() > 0 && data.nome.size() <= 100 &&
         gridImagemValida(data.get('imagemUrl', null)) &&
         data.celula is int && data.celula >= 10 && data.celula <= 400 &&
         data.deslocamentoX is int && data.deslocamentoX >= 0 && data.deslocamentoX <= 400 &&
@@ -595,16 +609,27 @@ service cloud.firestore {
         data.oculto is bool;
     }
 
+    // Ponteiro da cena ativa (null = nenhuma cena visível aos jogadores).
     match /rmCampanhas/{campanhaId}/grid/{gridId} {
       allow read: if isMestreDaCampanha(campanhaId) || isMembroDoChat(campanhaId);
       allow create, update: if gridId == 'atual' && isMestreDaCampanha(campanhaId) &&
-        gridConfigValida(request.resource.data);
+        request.resource.data.keys().hasOnly(['cenaAtivaId', 'updatedAt']) &&
+        (request.resource.data.get('cenaAtivaId', null) == null ||
+         (request.resource.data.cenaAtivaId is string &&
+          request.resource.data.cenaAtivaId.size() <= 200));
       allow delete: if isMestreDaCampanha(campanhaId);
     }
 
-    match /rmCampanhas/{campanhaId}/gridTokens/{tokenId} {
+    match /rmCampanhas/{campanhaId}/gridCenas/{cenaId} {
+      allow read: if isMestreDaCampanha(campanhaId) || veCenaDoGrid(campanhaId, cenaId);
+      allow create, update: if isMestreDaCampanha(campanhaId) &&
+        gridCenaValida(request.resource.data);
+      allow delete: if isMestreDaCampanha(campanhaId);
+    }
+
+    match /rmCampanhas/{campanhaId}/gridCenas/{cenaId}/tokens/{tokenId} {
       allow read: if isMestreDaCampanha(campanhaId) ||
-        (isMembroDoChat(campanhaId) && resource.data.oculto == false);
+        (resource.data.oculto == false && veCenaDoGrid(campanhaId, cenaId));
       allow create: if isMestreDaCampanha(campanhaId) && gridTokenValido(request.resource.data);
       allow update: if (isMestreDaCampanha(campanhaId) && gridTokenValido(request.resource.data)) ||
         (isAuth() && request.auth.uid in resource.data.donos &&
@@ -612,7 +637,7 @@ service cloud.firestore {
          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['col', 'lin', 'updatedAt']) &&
          request.resource.data.updatedAt == request.time &&
          gridPosicaoValida(request.resource.data) &&
-         isMembroDoChat(campanhaId));
+         veCenaDoGrid(campanhaId, cenaId));
       allow delete: if isMestreDaCampanha(campanhaId);
     }
   }

@@ -40,8 +40,16 @@ const VAZIO = {
  * ficha já vira dono do token), de um NPC/Criatura da mesa ou avulso (nome +
  * link de imagem). O diálogo fica aberto para adicionar vários seguidos; quem
  * monta escolhe a célula (primeira livre), grava e devolve se deu certo.
+ * "Adicionar todos os jogadores" traz de uma vez os que ainda faltam na cena.
  */
-const AdicionarTokenDialog = ({ open, onClose, fontes, onAdicionar }) => {
+const AdicionarTokenDialog = ({
+  open,
+  onClose,
+  fontes,
+  onAdicionar,
+  jogadoresFaltando,
+  onAdicionarJogadores,
+}) => {
   const [aba, setAba] = useState(TIPOS_TOKEN.JOGADOR);
   const [tamanho, setTamanho] = useState(1);
   const [oculto, setOculto] = useState(false);
@@ -121,6 +129,19 @@ const AdicionarTokenDialog = ({ open, onClose, fontes, onAdicionar }) => {
           />
         </Box>
 
+        {aba === TIPOS_TOKEN.JOGADOR && (
+          <Button
+            variant="outlined"
+            size="small"
+            onClick={onAdicionarJogadores}
+            disabled={jogadoresFaltando === 0}
+            sx={{ mt: 1 }}
+          >
+            {jogadoresFaltando === 0
+              ? 'Todos os jogadores já estão na cena'
+              : `Adicionar todos os jogadores (${jogadoresFaltando})`}
+          </Button>
+        )}
         {abaAtual.fonte ? (
           <List dense aria-label={abaAtual.rotulo}>
             {lista.length === 0 && (
@@ -213,6 +234,8 @@ AdicionarTokenDialog.propTypes = {
     criaturas: PropTypes.arrayOf(origemShape).isRequired,
   }).isRequired,
   onAdicionar: PropTypes.func.isRequired,
+  jogadoresFaltando: PropTypes.number.isRequired,
+  onAdicionarJogadores: PropTypes.func.isRequired,
 };
 
 export default AdicionarTokenDialog;

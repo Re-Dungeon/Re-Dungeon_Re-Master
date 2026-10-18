@@ -1,10 +1,13 @@
 import { isUrlImagemValida } from 'common/utils/chat';
 
-// Grid (mapa tático) da campanha — rmCampanhas/{id}/grid/atual (configuração)
-// e rmCampanhas/{id}/gridTokens/{tokenId}. Posições e tamanhos dos tokens são
-// guardados em CÉLULAS (não em px de tela), então não dependem do zoom nem da
-// resolução de quem está vendo. Os limites espelham o bloco "Grid da campanha"
-// do firestore.rules. Mantido em sincronia com a cópia do site dos jogadores.
+// Grid (mapa tático) da campanha, em CENAS: cada cena
+// (rmCampanhas/{id}/gridCenas/{cenaId}) tem a própria imagem/grade e os
+// próprios tokens (gridCenas/{cenaId}/tokens/{tokenId}); rmCampanhas/{id}/
+// grid/atual só aponta a cena ativa (`cenaAtivaId`), a única que os jogadores
+// veem. Posições e tamanhos dos tokens são guardados em CÉLULAS (não em px de
+// tela), então não dependem do zoom nem da resolução de quem está vendo. Os
+// limites espelham o bloco "Grid da campanha" do firestore.rules. Mantido em
+// sincronia com a cópia do site dos jogadores.
 
 export const TIPOS_TOKEN = {
   JOGADOR: 'jogador',
@@ -29,6 +32,10 @@ export const TOKEN_TAMANHO_MIN = 1;
 export const TOKEN_TAMANHO_MAX = 10;
 export const TOKEN_NOME_MAX = 100;
 export const TOKEN_DONOS_MAX = 20;
+export const CENA_NOME_MAX = 100;
+// Limites só da interface (as regras não contam documentos).
+export const GRID_CENAS_MAX = 50;
+export const GRID_TOKENS_POR_CENA_MAX = 200;
 // Área do grid quando não há imagem (ou ela não carregou).
 export const GRID_SEM_IMAGEM = { colunas: 30, linhas: 20 };
 
@@ -94,6 +101,51 @@ export const validarConfigGrid = config => {
     return 'Opacidade inválida.';
   return null;
 };
+
+// Doc de uma cena → { id, nome }. Config da cena: configDoGrid(doc).
+export const nomeDaCena = doc =>
+  (typeof doc?.nome === 'string' && doc.nome.trim()) || 'Cena sem nome';
+
+// Payload de uma cena nova: nome + configuração padrão (imagem opcional).
+export const montarCena = ({ nome, imagemUrl = null }) => {
+  const url = typeof imagemUrl === 'string' ? imagemUrl.trim() : '';
+  return {
+    ...GRID_CONFIG_PADRAO,
+    nome: String(nome ?? '')
+      .trim()
+      .slice(0, CENA_NOME_MAX),
+    imagemUrl: url && isUrlImagemValida(url) ? url : null,
+  };
+};
+
+export const validarNomeCena = nome => {
+  const valor = String(nome ?? '').trim();
+  if (!valor) return 'Dê um nome à cena.';
+  if (valor.length > CENA_NOME_MAX)
+    return `O nome pode ter até ${CENA_NOME_MAX} caracteres.`;
+  return null;
+};
+
+// Nome da cópia ao duplicar ("Taverna" → "Taverna (cópia)").
+export const nomeDaCopia = nome => {
+  const sufixo = ' (cópia)';
+  return `${nomeDaCena({ nome }).slice(0, CENA_NOME_MAX - sufixo.length)}${sufixo}`;
+};
+
+const milissegundos = data => {
+  if (!data) return Number.MAX_SAFE_INTEGER; // recém-criada (serverTimestamp pendente)
+  if (typeof data.toMillis === 'function') return data.toMillis();
+  if (data instanceof Date) return data.getTime();
+  return Number(data) || 0;
+};
+
+// Ordem das cenas: a de criação (a mais antiga primeiro).
+export const ordenarCenas = cenas =>
+  [...cenas].sort(
+    (a, b) =>
+      milissegundos(a.createdAt) - milissegundos(b.createdAt) ||
+      nomeDaCena(a).localeCompare(nomeDaCena(b)),
+  );
 
 // Área do "mundo" (em px da imagem) e quantas células cabem nela.
 // `imagem` = { largura, altura } natural da imagem carregada, ou null.
