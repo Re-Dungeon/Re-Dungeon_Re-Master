@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   PERSONA_MESTRE,
   autorDaPersona,
+  montarJogadoresDaMesa,
   montarPersonasDoMestre,
 } from './chatPersonas';
 
@@ -46,6 +47,7 @@ const PERSONAGENS = [
   },
   {
     id: 'pj',
+    uid: 'jogador-1',
     tipo: 'Personagem Jogável',
     nome: 'Aldric',
     universo: 'u1',
@@ -66,6 +68,7 @@ describe('montarPersonasDoMestre', () => {
     expect(criaturas).toEqual([
       {
         id: 'criatura:cr1',
+        refId: 'cr1',
         label: 'Rato Gigante',
         avatar: null,
         persona: 'criatura',
@@ -91,12 +94,14 @@ describe('montarPersonasDoMestre', () => {
     expect(npcs).toEqual([
       {
         id: 'npc:n2',
+        refId: 'n2',
         label: 'Bartolomeu, o taverneiro',
         avatar: 'https://ex.com/bart.png',
         persona: 'npc',
       },
       {
         id: 'npc:n1',
+        refId: 'n1',
         label: 'Zelda',
         avatar: 'https://ex.com/z.png',
         persona: 'npc',
@@ -128,5 +133,26 @@ describe('autorDaPersona', () => {
       autorNome: 'Zelda',
       autorAvatar: 'https://ex.com/z.png',
     });
+  });
+});
+
+describe('montarJogadoresDaMesa', () => {
+  it('lista os personagens jogáveis da campanha com o uid do dono', () => {
+    expect(
+      montarJogadoresDaMesa({
+        personagens: PERSONAGENS,
+        clones: [{ origemPersonagemId: 'pj', nome: 'Aldric, o Bravo' }],
+        campanha: CAMPANHA,
+      }),
+    ).toEqual([
+      {
+        id: 'jogador:pj',
+        refId: 'pj',
+        label: 'Aldric, o Bravo',
+        avatar: null,
+        persona: 'jogador',
+        uid: 'jogador-1',
+      },
+    ]);
   });
 });

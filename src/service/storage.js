@@ -773,3 +773,71 @@ export const updateChatMacro = (campanhaId, macroId, patch) =>
 
 export const removeChatMacro = (campanhaId, macroId) =>
   deleteDoc(doc(db, RM_CAMPANHAS_COLLECTION, campanhaId, 'macros', macroId));
+
+// ── Grid da campanha — rmCampanhas/{id}/grid/atual e gridTokens ───────────
+// Mesmo bloco do site dos jogadores (subscribeGrid/subscribeGridTokens/
+// moverGridToken) + as escritas do mestre: configurar o grid e criar/editar/
+// apagar tokens. As regras só deixam o jogador mudar `col`/`lin` dos tokens em
+// que está em `donos`; tokens `oculto` só o mestre lê (a consulta do jogador
+// filtra `oculto == false`). Limites em common/utils/grid.js.
+const gridRef = campanhaId =>
+  doc(db, RM_CAMPANHAS_COLLECTION, campanhaId, 'grid', 'atual');
+const gridTokensRef = campanhaId =>
+  collection(db, RM_CAMPANHAS_COLLECTION, campanhaId, 'gridTokens');
+
+// Chama `onChange(dados | null)` — null enquanto o grid não foi configurado.
+export const subscribeGrid = (campanhaId, onChange, onError) =>
+  onSnapshot(
+    gridRef(campanhaId),
+    snapshot => onChange(snapshot.exists() ? snapshot.data() : null),
+    onError,
+  );
+
+export const subscribeGridTokens = (
+  campanhaId,
+  { incluirOcultos = false } = {},
+  onChange,
+  onError,
+) => {
+  const filtros = incluirOcultos ? [] : [where('oculto', '==', false)];
+  return onSnapshot(
+    query(gridTokensRef(campanhaId), ...filtros),
+    snapshot =>
+      onChange(
+        snapshot.docs.map(docSnapshot => ({
+          id: docSnapshot.id,
+          ...docSnapshot.data(),
+        })),
+      ),
+    onError,
+  );
+};
+
+export const moverGridToken = (campanhaId, tokenId, col, lin) =>
+  updateDoc(doc(gridTokensRef(campanhaId), tokenId), {
+    col,
+    lin,
+    updatedAt: serverTimestamp(),
+  });
+
+// Grava a configuração inteira (normalizarConfigGrid de common/utils/grid.js).
+export const setGridConfig = (campanhaId, config) =>
+  setDoc(gridRef(campanhaId), { ...config, updatedAt: serverTimestamp() });
+
+export const addGridToken = async (campanhaId, token) => {
+  const docRef = await addDoc(gridTokensRef(campanhaId), {
+    ...token,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+  return docRef.id;
+};
+
+export const updateGridToken = (campanhaId, tokenId, patch) =>
+  updateDoc(doc(gridTokensRef(campanhaId), tokenId), {
+    ...patch,
+    updatedAt: serverTimestamp(),
+  });
+
+export const removeGridToken = (campanhaId, tokenId) =>
+  deleteDoc(doc(gridTokensRef(campanhaId), tokenId));

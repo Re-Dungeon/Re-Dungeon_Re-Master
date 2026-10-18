@@ -550,5 +550,70 @@ service cloud.firestore {
         chatMacroValida(request.resource.data);
       allow delete: if isMestreDaCampanha(campanhaId);
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Grid da campanha (common/utils/grid.js) — mesmo acesso do chat. O mestre
+    // configura o grid (`grid/atual`) e cria/edita/apaga tokens (Re:Master);
+    // o jogador só lê e MOVE (col/lin) os tokens em que o uid dele está em
+    // `donos`. Tokens `oculto` só o mestre lê — a consulta do jogador filtra
+    // `oculto == false` (senão a lista inteira é recusada).
+    // ═══════════════════════════════════════════════════════════════════════
+
+    function gridImagemValida(url) {
+      return url == null || (url is string && url.size() <= 2000 && url.matches('https://.+'));
+    }
+
+    function gridConfigValida(data) {
+      return data.keys().hasOnly(['imagemUrl', 'celula', 'deslocamentoX', 'deslocamentoY',
+                                  'mostrarGrade', 'corGrade', 'opacidadeGrade', 'updatedAt']) &&
+        gridImagemValida(data.get('imagemUrl', null)) &&
+        data.celula is int && data.celula >= 10 && data.celula <= 400 &&
+        data.deslocamentoX is int && data.deslocamentoX >= 0 && data.deslocamentoX <= 400 &&
+        data.deslocamentoY is int && data.deslocamentoY >= 0 && data.deslocamentoY <= 400 &&
+        data.mostrarGrade is bool &&
+        data.corGrade is string && data.corGrade.matches('#[0-9a-fA-F]{6}') &&
+        data.opacidadeGrade is number && data.opacidadeGrade >= 0 && data.opacidadeGrade <= 1;
+    }
+
+    function gridPosicaoValida(data) {
+      return data.col is int && data.col >= 0 && data.col <= 500 &&
+        data.lin is int && data.lin >= 0 && data.lin <= 500;
+    }
+
+    function gridTokenValido(data) {
+      return data.keys().hasOnly(['nome', 'imagemUrl', 'tipo', 'refId', 'col', 'lin', 'tamanho',
+                                  'donos', 'oculto', 'createdAt', 'updatedAt']) &&
+        data.keys().hasAll(['nome', 'tipo', 'col', 'lin', 'tamanho', 'donos', 'oculto']) &&
+        data.nome is string && data.nome.size() > 0 && data.nome.size() <= 100 &&
+        gridImagemValida(data.get('imagemUrl', null)) &&
+        data.tipo in ['jogador', 'npc', 'criatura', 'avulso'] &&
+        (data.get('refId', null) == null ||
+         (data.refId is string && data.refId.size() <= 200)) &&
+        gridPosicaoValida(data) &&
+        data.tamanho is int && data.tamanho >= 1 && data.tamanho <= 10 &&
+        data.donos is list && data.donos.size() <= 20 &&
+        data.oculto is bool;
+    }
+
+    match /rmCampanhas/{campanhaId}/grid/{gridId} {
+      allow read: if isMestreDaCampanha(campanhaId) || isMembroDoChat(campanhaId);
+      allow create, update: if gridId == 'atual' && isMestreDaCampanha(campanhaId) &&
+        gridConfigValida(request.resource.data);
+      allow delete: if isMestreDaCampanha(campanhaId);
+    }
+
+    match /rmCampanhas/{campanhaId}/gridTokens/{tokenId} {
+      allow read: if isMestreDaCampanha(campanhaId) ||
+        (isMembroDoChat(campanhaId) && resource.data.oculto == false);
+      allow create: if isMestreDaCampanha(campanhaId) && gridTokenValido(request.resource.data);
+      allow update: if (isMestreDaCampanha(campanhaId) && gridTokenValido(request.resource.data)) ||
+        (isAuth() && request.auth.uid in resource.data.donos &&
+         resource.data.oculto == false &&
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['col', 'lin', 'updatedAt']) &&
+         request.resource.data.updatedAt == request.time &&
+         gridPosicaoValida(request.resource.data) &&
+         isMembroDoChat(campanhaId));
+      allow delete: if isMestreDaCampanha(campanhaId);
+    }
   }
 }

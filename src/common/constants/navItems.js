@@ -12,6 +12,7 @@ export const NAV_ITEMS = [
   { path: ROUTE_PATHS.LUTA, icon: '⚔️', label: 'Luta' },
   { path: ROUTE_PATHS.NOTAS, icon: '📝', label: 'Notas' },
   { path: ROUTE_PATHS.CHAT, icon: '💬', label: 'Chat' },
+  { path: ROUTE_PATHS.GRID, icon: '♟️', label: 'Grid' },
 ];
 
 export const NAV_ITEMS_SECONDARY = [];
