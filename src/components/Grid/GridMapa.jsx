@@ -8,6 +8,7 @@ import React, {
 import PropTypes from 'prop-types';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
+import useMediaQuery from '@mui/material/useMediaQuery';
 import AddIcon from '@mui/icons-material/Add';
 import RemoveIcon from '@mui/icons-material/Remove';
 import CenterFocusStrongIcon from '@mui/icons-material/CenterFocusStrong';
@@ -19,6 +20,7 @@ import {
   limitarPosicao,
   ordenarTokens,
   posicaoEmPx,
+  vistaFocadaNoToken,
 } from 'common/utils/grid';
 
 import {
@@ -114,6 +116,21 @@ const GridMapa = ({
   const [arraste, setArraste] = useState(null);
   const gesto = useRef(null);
   const ponteiros = useRef(new Map());
+  // Celular (abaixo do `sm`): o mapa abre focado no primeiro token que a
+  // pessoa pode mover, com célula ≥ 44px. A posição do foco é a do token
+  // quando ele apareceu — mover o token depois não arrasta a vista junto.
+  const celular = useMediaQuery('(max-width: 599.95px)');
+  const [foco, setFoco] = useState(null);
+  if (celular && !foco) {
+    const meuToken = tokens.find(token => podeMover(token));
+    if (meuToken) {
+      setFoco({
+        col: meuToken.col,
+        lin: meuToken.lin,
+        tamanho: meuToken.tamanho ?? 1,
+      });
+    }
+  }
 
   const imagemAtual = imagem.url === config.imagemUrl ? imagem : null;
   const imagemCarregada =
@@ -121,10 +138,19 @@ const GridMapa = ({
       ? imagemAtual
       : null;
   const mundo = dimensoesDoMundo(config, imagemCarregada);
+  const vistaEncaixada = encaixar(mundo, viewport);
+  const vistaPadrao =
+    celular && foco && viewport.largura
+      ? vistaFocadaNoToken({
+          config,
+          token: foco,
+          viewport,
+          zoomEncaixe: vistaEncaixada.zoom,
+          zoomMax: ZOOM_MAX,
+        })
+      : vistaEncaixada;
   const vista =
-    vistaManual?.chave === config.imagemUrl
-      ? vistaManual
-      : encaixar(mundo, viewport);
+    vistaManual?.chave === config.imagemUrl ? vistaManual : vistaPadrao;
   const definirVista = novaVista =>
     setVistaManual({ ...novaVista, chave: config.imagemUrl });
 
@@ -495,7 +521,11 @@ const GridMapa = ({
           <IconButton
             size="small"
             aria-label="Centralizar mapa"
-            onClick={() => setVistaManual(null)}
+            // No celular a vista padrão é o foco no token: "centralizar"
+            // mostra o mapa inteiro.
+            onClick={() =>
+              celular ? definirVista(vistaEncaixada) : setVistaManual(null)
+            }
           >
             <CenterFocusStrongIcon fontSize="small" />
           </IconButton>

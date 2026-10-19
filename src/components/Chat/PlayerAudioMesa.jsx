@@ -6,6 +6,7 @@ import React, {
   useState,
 } from 'react';
 import PropTypes from 'prop-types';
+import useMediaQuery from '@mui/material/useMediaQuery';
 
 import {
   AUDIO_ESTADOS,
@@ -76,6 +77,57 @@ const estiloPlayerParaTocar = {
   overflow: 'hidden',
 };
 
+// Celular: a caixa de 216px cobriria o compositor (Enviar). Vira um botão ♪
+// de 44px no canto superior direito, abaixo das barras da mesa; tocar nele
+// abre a caixa ali mesmo. O player (iframe) nunca desmonta — só muda o estilo.
+const TOPO_CELULAR = 132;
+
+const estiloParaTocarCelular = {
+  ...estiloParaTocar,
+  right: 8,
+  bottom: 'auto',
+  top: TOPO_CELULAR,
+};
+
+const estiloRecolhidoCelular = {
+  position: 'fixed',
+  right: 8,
+  top: TOPO_CELULAR,
+  zIndex: 1500,
+  width: 44,
+  height: 44,
+  borderRadius: '50%',
+  overflow: 'hidden',
+  background: 'rgba(10, 9, 19, 0.95)',
+  border: '1px solid var(--border-hover)',
+  boxShadow: 'var(--shadow-md)',
+};
+
+const estiloBotaoCelular = {
+  position: 'absolute',
+  inset: 0,
+  zIndex: 1,
+  border: 'none',
+  borderRadius: '50%',
+  background: 'rgba(10, 9, 19, 0.95)',
+  color: 'var(--color-primary)',
+  fontSize: '1.3rem',
+  cursor: 'pointer',
+};
+
+const estiloMinimizar = {
+  position: 'absolute',
+  top: 2,
+  right: 6,
+  border: 'none',
+  background: 'transparent',
+  color: 'var(--text-secondary)',
+  fontSize: '1.1rem',
+  lineHeight: 1,
+  padding: 4,
+  cursor: 'pointer',
+};
+
 const PlayerAudioMesa = ({
   atual = null,
   volume,
@@ -92,6 +144,9 @@ const PlayerAudioMesa = ({
   const [pronto, setPronto] = useState(false);
   // Liberar por clique não bastou: mostra o player para um toque direto.
   const [pedirToque, setPedirToque] = useState(false);
+  const celular = useMediaQuery('(max-width: 599.95px)');
+  // Celular: a caixa "toque para ouvir" começa recolhida no botão ♪.
+  const [expandidoCelular, setExpandidoCelular] = useState(false);
 
   const temFaixa = Boolean(atual?.videoId);
 
@@ -294,15 +349,42 @@ const PlayerAudioMesa = ({
 
   const mostrarParaTocar =
     pedirToque && atual?.estado === AUDIO_ESTADOS.TOCANDO;
+  const recolhido = mostrarParaTocar && celular && !expandidoCelular;
+  let estilo = estiloEscondido;
+  if (recolhido) estilo = estiloRecolhidoCelular;
+  else if (mostrarParaTocar)
+    estilo = celular ? estiloParaTocarCelular : estiloParaTocar;
   return (
     <div
-      style={mostrarParaTocar ? estiloParaTocar : estiloEscondido}
+      style={estilo}
       aria-hidden={mostrarParaTocar ? undefined : 'true'}
       role={mostrarParaTocar ? 'region' : undefined}
       aria-label={mostrarParaTocar ? 'Liberar música da mesa' : undefined}
     >
-      {mostrarParaTocar && (
-        <p style={{ margin: '0 0 6px' }}>Toque ▶ para ouvir a música da mesa</p>
+      {recolhido && (
+        <button
+          type="button"
+          style={estiloBotaoCelular}
+          aria-label="Abrir player da música da mesa"
+          onClick={() => setExpandidoCelular(true)}
+        >
+          ♪
+        </button>
+      )}
+      {mostrarParaTocar && !recolhido && (
+        <p style={{ margin: celular ? '0 18px 6px' : '0 0 6px' }}>
+          Toque ▶ para ouvir a música da mesa
+        </p>
+      )}
+      {mostrarParaTocar && celular && !recolhido && (
+        <button
+          type="button"
+          style={estiloMinimizar}
+          aria-label="Minimizar player"
+          onClick={() => setExpandidoCelular(false)}
+        >
+          ×
+        </button>
       )}
       <div
         ref={hospedeiroRef}

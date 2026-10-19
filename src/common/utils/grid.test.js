@@ -13,6 +13,7 @@ import {
   nomeDaCena,
   nomeDaCopia,
   ordenarCenas,
+  vistaFocadaNoToken,
   validarNomeCena,
   normalizarConfigGrid,
   ordenarTokens,
@@ -119,6 +120,49 @@ describe('dimensoesDoMundo / posições', () => {
       col: 3,
       lin: 3,
     });
+  });
+
+  it('foca no token com célula de pelo menos 44px de tela, centrado no viewport', () => {
+    const viewport = { largura: 360, altura: 600 };
+    const vista = vistaFocadaNoToken({
+      config,
+      token: { col: 2, lin: 3 },
+      viewport,
+      zoomEncaixe: 0.3,
+      zoomMax: 4,
+    });
+    expect(vista.zoom).toBeCloseTo(44 / 50);
+    // Centro do token (110 + 25, 170 + 25) cai no centro do viewport.
+    expect(vista.x + 135 * vista.zoom).toBeCloseTo(180);
+    expect(vista.y + 195 * vista.zoom).toBeCloseTo(300);
+  });
+
+  it('ao focar, não afasta além do encaixe, respeita o zoom máximo e o tamanho do token', () => {
+    const viewport = { largura: 400, altura: 400 };
+    const base = { config, viewport, zoomMax: 4 };
+    expect(
+      vistaFocadaNoToken({
+        ...base,
+        token: { col: 0, lin: 0 },
+        zoomEncaixe: 1.5,
+      }).zoom,
+    ).toBe(1.5);
+    expect(
+      vistaFocadaNoToken({
+        ...base,
+        token: { col: 0, lin: 0 },
+        zoomEncaixe: 0.1,
+        zoomMax: 0.5,
+      }).zoom,
+    ).toBe(0.5);
+    // Token 2×2 em (0,0): centro em (10 + 50, 20 + 50).
+    const grande = vistaFocadaNoToken({
+      ...base,
+      token: { col: 0, lin: 0, tamanho: 2 },
+      zoomEncaixe: 1,
+    });
+    expect(grande.x + 60 * grande.zoom).toBeCloseTo(200);
+    expect(grande.y + 70 * grande.zoom).toBeCloseTo(200);
   });
 
   it('mantém o token inteiro dentro do grid', () => {

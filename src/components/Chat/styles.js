@@ -1,5 +1,9 @@
 import styled from 'styled-components';
 
+// Celular (abaixo do `sm` do MUI). Literal aqui — e não importado de
+// common/styles — para a cópia do Re:Master seguir autocontida.
+const MOBILE = '@media (max-width: 599.95px)';
+
 export const ChatWrapper = styled.div`
   display: flex;
   flex-direction: column;
@@ -20,6 +24,11 @@ export const ChatHeader = styled.div`
   gap: 12px;
   padding: 12px 16px;
   border-bottom: 1px solid var(--border-primary);
+
+  ${MOBILE} {
+    gap: 8px;
+    padding: 8px 10px;
+  }
 `;
 
 export const ListaMensagens = styled.div`
@@ -30,6 +39,11 @@ export const ListaMensagens = styled.div`
   flex-direction: column;
   gap: 10px;
   padding: 16px;
+
+  ${MOBILE} {
+    gap: 8px;
+    padding: 10px 8px;
+  }
 `;
 
 export const ListaVazia = styled.div`
@@ -62,6 +76,15 @@ export const MensagemBalao = styled.div`
 
   &:hover .chat-acoes {
     opacity: 1;
+  }
+
+  ${MOBILE} {
+    max-width: 85%;
+
+    /* Ação de apagar sempre visível no celular: abre espaço para ela. */
+    &:has(.chat-acoes) {
+      padding-right: 36px;
+    }
   }
 `;
 
@@ -129,6 +152,15 @@ export const MensagemAcoes = styled.div`
   &:focus-within {
     opacity: 1;
   }
+
+  /* Sem hover no toque: sempre visível (discreto) e com alvo maior. */
+  ${MOBILE} {
+    opacity: 0.55;
+
+    & .MuiIconButton-root {
+      padding: 8px;
+    }
+  }
 `;
 
 // Compositor em duas linhas: ações (imagem, dados, macros) acima e o campo
@@ -140,6 +172,10 @@ export const ComposerWrapper = styled.form`
   gap: 4px;
   padding: 8px 16px 12px;
   border-top: 1px solid var(--border-primary);
+
+  ${MOBILE} {
+    padding: 6px 8px 8px;
+  }
 `;
 
 export const ComposerAcoes = styled.div`

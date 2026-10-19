@@ -139,6 +139,14 @@ export const GridControles = styled.div`
   border: 1px solid var(--border-primary);
   cursor: default;
   z-index: 30;
+
+  /* Celular: alvos de toque de 44px. */
+  @media (max-width: 599.95px) {
+    & .MuiIconButton-root {
+      width: 44px;
+      height: 44px;
+    }
+  }
 `;
 
 export const GridAviso = styled.div`

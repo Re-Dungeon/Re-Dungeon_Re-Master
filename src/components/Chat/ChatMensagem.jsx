@@ -56,6 +56,11 @@ const ChatMensagem = ({ mensagem, minha, podeApagar, onApagar }) => {
             ? 'rgba(196, 58, 47, 0.25)'
             : 'rgba(91, 124, 250, 0.3)',
           color: isMestre ? 'var(--color-primary)' : 'var(--text-primary)',
+          '@media (max-width: 599.95px)': {
+            width: 30,
+            height: 30,
+            fontSize: '0.8rem',
+          },
         }}
       >
         {autorNome?.[0]?.toUpperCase()}

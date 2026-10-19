@@ -5,6 +5,7 @@ import CircularProgress from '@mui/material/CircularProgress';
 import IconButton from '@mui/material/IconButton';
 import TextField from '@mui/material/TextField';
 import Tooltip from '@mui/material/Tooltip';
+import useMediaQuery from '@mui/material/useMediaQuery';
 import CodeIcon from '@mui/icons-material/Code';
 import ImageOutlinedIcon from '@mui/icons-material/ImageOutlined';
 import MusicNoteIcon from '@mui/icons-material/MusicNote';
@@ -56,6 +57,8 @@ const ChatSala = ({
   audio = null,
   cabecalho = null,
 }) => {
+  // Celular (abaixo do `sm`): placeholder curto, que caiba no campo.
+  const celular = useMediaQuery('(max-width: 599.95px)');
   const [texto, setTexto] = useState('');
   const [enviando, setEnviando] = useState(false);
   const [dialogImagemAberto, setDialogImagemAberto] = useState(false);
@@ -274,7 +277,11 @@ const ChatSala = ({
             multiline
             maxRows={4}
             size="small"
-            placeholder="Escreva uma mensagem, /r 1d20+5 ou /m macro…"
+            placeholder={
+              celular
+                ? 'Mensagem, /r 1d20 ou /m…'
+                : 'Escreva uma mensagem, /r 1d20+5 ou /m macro…'
+            }
             value={texto}
             onChange={event => {
               setTexto(event.target.value);

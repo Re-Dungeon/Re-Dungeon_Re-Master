@@ -176,6 +176,31 @@ export const posicaoEmPx = (config, col, lin) => ({
   y: config.deslocamentoY + lin * config.celula,
 });
 
+// Vista (zoom + deslocamento em px de tela) centrada no token, com a célula
+// ocupando pelo menos `celulaMinimaPx` na tela — usada no celular, onde o mapa
+// inteiro encaixado deixa os tokens pequenos demais para tocar. Nunca afasta
+// além de `zoomEncaixe` (a vista do mapa inteiro) nem passa de `zoomMax`.
+export const vistaFocadaNoToken = ({
+  config,
+  token,
+  viewport,
+  zoomEncaixe,
+  zoomMax,
+  celulaMinimaPx = 44,
+}) => {
+  const zoom = Math.min(
+    Math.max(zoomEncaixe, celulaMinimaPx / config.celula),
+    zoomMax,
+  );
+  const lado = (token.tamanho ?? 1) * config.celula;
+  const { x, y } = posicaoEmPx(config, token.col, token.lin);
+  return {
+    zoom,
+    x: viewport.largura / 2 - (x + lado / 2) * zoom,
+    y: viewport.altura / 2 - (y + lado / 2) * zoom,
+  };
+};
+
 // Mantém o token inteiro dentro do grid (e dentro do limite da regra).
 export const limitarPosicao = (col, lin, limites, tamanho = 1) => ({
   col: limitar(
