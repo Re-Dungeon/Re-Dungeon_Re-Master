@@ -95,4 +95,21 @@ describe('Sidebar', () => {
 
     expect(screen.getByText('Dashboard')).toBeInTheDocument();
   });
+
+  it('agrupa os itens do menu em categorias e inclui Músicas no bloco de ferramentas', () => {
+    mockAuth = {
+      ...mockAuth,
+      currentUser: { uid: 'u1', email: 'mestre@example.com' },
+      isAdmin: false,
+      allowedUniversos: ['universo-1'],
+      loadingPermissions: false,
+    };
+    renderSidebar();
+
+    expect(screen.getByText('Principal')).toBeInTheDocument();
+    expect(screen.getByText('Gerenciamento do Mundo')).toBeInTheDocument();
+    expect(screen.getByText('Ferramentas de Sessão')).toBeInTheDocument();
+    expect(screen.getByText('Administração')).toBeInTheDocument();
+    expect(screen.getByText('Músicas')).toBeInTheDocument();
+  });
 });

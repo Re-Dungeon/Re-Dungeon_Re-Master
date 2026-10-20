@@ -30,8 +30,7 @@ import { ROUTE_PATHS } from 'common/constants/routes';
 
 const cardSx = {
   p: 3,
-  background:
-    'linear-gradient(180deg, rgba(11, 14, 22, 0.98), rgba(8, 10, 16, 0.98))',
+  background: 'rgba(15, 18, 25, 0.95)',
   border: '1px solid rgba(255,255,255,0.08)',
   borderRadius: 4,
   boxShadow: '0 22px 56px rgba(0,0,0,0.32)',

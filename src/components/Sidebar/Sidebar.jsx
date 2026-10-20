@@ -4,11 +4,10 @@ import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
-import Divider from '@mui/material/Divider';
 import Typography from '@mui/material/Typography';
 import Avatar from '@mui/material/Avatar';
 import Tooltip from '@mui/material/Tooltip';
-import { NAV_ITEMS, NAV_ITEMS_SECONDARY } from 'common/constants/navItems';
+import { NAV_GROUPS } from 'common/constants/navItems';
 import { useAuth } from 'context/AuthContext';
 import LoginModal from 'components/LoginModal/LoginModal';
 import ResourceCenterModal from 'components/ResourceCenterModal/ResourceCenterModal';
@@ -19,6 +18,8 @@ import {
   StyledNavLink,
   NavItemButton,
   UserButton,
+  MenuSection,
+  SectionLabel,
 } from './styles';
 
 const Sidebar = () => {
@@ -77,74 +78,69 @@ const Sidebar = () => {
         )}
 
         {currentUser && !loadingPermissions && temAcessoAUniverso && (
-          <>
-            <List disablePadding>
-              {NAV_ITEMS.map(item => (
-                <ListItem key={item.path} disablePadding>
-                  <StyledNavLink to={item.path}>
-                    <NavItemButton className="nav-item-btn">
-                      <ListItemIcon sx={{ fontSize: 18 }}>
-                        {item.icon}
-                      </ListItemIcon>
-                      <ListItemText
-                        primary={
-                          <Typography sx={{ fontSize: 14, fontWeight: 500 }}>
-                            {item.label}
-                          </Typography>
-                        }
-                      />
-                    </NavItemButton>
-                  </StyledNavLink>
-                </ListItem>
-              ))}
-              <ListItem disablePadding>
-                <NavItemButton
-                  onClick={() => setResourceModalOpen(true)}
-                  className="nav-item-btn"
-                  sx={{ cursor: 'pointer' }}
-                >
-                  <ListItemIcon sx={{ fontSize: 18 }}>
-                    📚
-                  </ListItemIcon>
-                  <ListItemText
-                    primary={
-                      <Typography sx={{ fontSize: 14, fontWeight: 500 }}>
-                        Central de Recursos
-                      </Typography>
-                    }
-                  />
-                </NavItemButton>
-              </ListItem>
-            </List>
-
-            {NAV_ITEMS_SECONDARY.length > 0 && (
-              <>
-                <Divider
-                  sx={{ mx: 2, my: 1, borderColor: 'rgba(255,255,255,0.08)' }}
-                />
+          <MenuSection>
+            {NAV_GROUPS.map(section => (
+              <Box key={section.label} sx={{ width: '100%' }}>
+                <SectionLabel variant="overline">{section.label}</SectionLabel>
                 <List disablePadding>
-                  {NAV_ITEMS_SECONDARY.map(item => (
-                    <ListItem key={item.path} disablePadding>
-                      <StyledNavLink to={item.path}>
-                        <NavItemButton className="nav-item-btn">
-                          <ListItemIcon sx={{ fontSize: 18 }}>
-                            {item.icon}
+                  {section.items.map(item => (
+                    <ListItem key={item.path || item.label} disablePadding>
+                      {item.action === 'resource-center' ? (
+                        <NavItemButton
+                          onClick={() => setResourceModalOpen(true)}
+                          className="nav-item-btn"
+                          sx={{ cursor: 'pointer' }}
+                        >
+                          <ListItemIcon sx={{ minWidth: 28, color: 'inherit' }}>
+                            <item.icon fontSize="small" />
                           </ListItemIcon>
                           <ListItemText
                             primary={
-                              <Typography sx={{ fontSize: 14, fontWeight: 500 }}>
+                              <Typography sx={{ fontSize: 13, fontWeight: 500 }}>
                                 {item.label}
                               </Typography>
                             }
                           />
                         </NavItemButton>
-                      </StyledNavLink>
+                      ) : item.action === 'muted' ? (
+                        <NavItemButton
+                          className="nav-item-btn"
+                          disabled
+                          sx={{ opacity: 0.6, cursor: 'not-allowed' }}
+                        >
+                          <ListItemIcon sx={{ minWidth: 28, color: 'inherit' }}>
+                            <item.icon fontSize="small" />
+                          </ListItemIcon>
+                          <ListItemText
+                            primary={
+                              <Typography sx={{ fontSize: 13, fontWeight: 500 }}>
+                                {item.label}
+                              </Typography>
+                            }
+                          />
+                        </NavItemButton>
+                      ) : (
+                        <StyledNavLink to={item.path}>
+                          <NavItemButton className="nav-item-btn">
+                            <ListItemIcon sx={{ minWidth: 28, color: 'inherit' }}>
+                              <item.icon fontSize="small" />
+                            </ListItemIcon>
+                            <ListItemText
+                              primary={
+                                <Typography sx={{ fontSize: 13, fontWeight: 500 }}>
+                                  {item.label}
+                                </Typography>
+                              }
+                            />
+                          </NavItemButton>
+                        </StyledNavLink>
+                      )}
                     </ListItem>
                   ))}
                 </List>
-              </>
-            )}
-          </>
+              </Box>
+            ))}
+          </MenuSection>
         )}
       </Box>
 
