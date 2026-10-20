@@ -87,10 +87,18 @@ describe('Dashboard', () => {
     const user = userEvent.setup();
     renderDashboard();
 
+    expect(screen.getByText('Sua aventura começa aqui')).toBeInTheDocument();
     expect(
-      screen.getByText('Nenhuma campanha selecionada'),
+      screen.getByText(
+        'Selecione uma campanha existente ou crie uma nova para acessar suas ferramentas de Mestre e começar a sessão.',
+      ),
     ).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Ir para Campanha' }));
+    expect(
+      screen.queryByText('Centro de comando da sessão — em construção.'),
+    ).not.toBeInTheDocument();
+    await user.click(
+      screen.getByRole('button', { name: 'Explorar Campanhas' }),
+    );
     expect(navigate).toHaveBeenCalledWith('/campanha');
   });
 

@@ -5,6 +5,7 @@ import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
 import Paper from '@mui/material/Paper';
 import CircularProgress from '@mui/material/CircularProgress';
+import MapOutlined from '@mui/icons-material/MapOutlined';
 import { useCampanha } from 'context/CampanhaContext';
 import {
   getRmNotasPorCampanha,
@@ -139,32 +140,132 @@ const Dashboard = () => {
 
   if (!campanhaAtiva) {
     return (
-      <Box className="page-container">
-        <Box className="page-section">
-          <Box className="page-header">
-            <Box>
-              <Typography variant="h3">Dashboard</Typography>
-              <Typography variant="body2">
-                Centro de comando da sessão — em construção.
-              </Typography>
+      <Box
+        className="page-container"
+        sx={{
+          position: 'relative',
+          width: '100%',
+          minHeight: 'calc(100vh - 64px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          overflow: 'hidden',
+        }}
+      >
+        <Box
+          sx={{
+            position: 'absolute',
+            inset: 0,
+            backgroundImage: 'url("https://i.imgur.com/lfbLUGy.png")',
+            backgroundSize: 'cover',
+            backgroundPosition: 'center center',
+            filter: 'saturate(1.05) brightness(0.52)',
+            zIndex: 0,
+          }}
+        />
+        <Box
+          sx={{
+            position: 'absolute',
+            inset: 0,
+            background:
+              'linear-gradient(180deg, rgba(8, 11, 16, 0.56) 0%, rgba(8, 11, 16, 0.84) 100%)',
+            zIndex: 1,
+          }}
+        />
+
+        <Box
+          sx={{
+            position: 'relative',
+            zIndex: 2,
+            width: '100%',
+            minHeight: 'calc(100vh - 64px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            textAlign: 'center',
+            px: { xs: 2, sm: 4, md: 6 },
+            py: { xs: 4, md: 6 },
+          }}
+        >
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: { xs: 2, md: 3 },
+              width: '100%',
+              maxWidth: 980,
+            }}
+          >
+            <Box
+              sx={{
+                width: { xs: 96, sm: 120, md: 150 },
+                height: { xs: 96, sm: 120, md: 150 },
+                display: 'grid',
+                placeItems: 'center',
+                borderRadius: '26px',
+                background: 'rgba(111, 45, 168, 0.14)',
+                border: '1px solid rgba(145, 164, 255, 0.28)',
+                boxShadow: '0 22px 60px rgba(10, 12, 18, 0.42)',
+              }}
+            >
+              <MapOutlined
+                sx={{
+                  fontSize: { xs: 52, sm: 70, md: 90 },
+                  color: '#8bd3ff',
+                }}
+              />
             </Box>
-          </Box>
-          <Box className="empty-state">
-            <span className="empty-state-icon">🏠</span>
-            <p>Nenhuma campanha selecionada</p>
-            <small>
-              Crie ou selecione uma Campanha para começar a rodar sua sessão.
-            </small>
+
+            <Typography
+              variant="h2"
+              sx={{
+                m: 0,
+                fontWeight: 800,
+                letterSpacing: '-0.06em',
+                color: '#f5f7ff',
+                fontSize: { xs: '2.7rem', sm: '4rem', md: '5.1rem' },
+                lineHeight: 1.04,
+                textShadow: '0 12px 38px rgba(0,0,0,0.5)',
+              }}
+            >
+              Sua aventura começa aqui
+            </Typography>
+
+            <Typography
+              variant="body1"
+              sx={{
+                m: 0,
+                maxWidth: 760,
+                color: 'rgba(236, 240, 255, 0.88)',
+                fontSize: { xs: '1rem', sm: '1.15rem', md: '1.35rem' },
+                lineHeight: 1.7,
+                textShadow: '0 4px 18px rgba(0,0,0,0.42)',
+              }}
+            >
+              Selecione uma campanha existente ou crie uma nova para acessar
+              suas ferramentas de Mestre e começar a sessão.
+            </Typography>
+
             <Button
               variant="contained"
               onClick={() => navigate(ROUTE_PATHS.CAMPANHA)}
               sx={{
-                mt: 2,
-                background: 'var(--color-primary)',
-                '&:hover': { background: 'var(--color-primary-dark)' },
+                mt: { xs: 0.5, md: 1 },
+                px: { xs: 3, md: 4 },
+                py: { xs: 1.3, md: 1.6 },
+                fontSize: { xs: '0.95rem', md: '1.05rem' },
+                fontWeight: 800,
+                borderRadius: '14px',
+                background: 'linear-gradient(135deg, var(--color-primary), #5a8cff)',
+                boxShadow: '0 18px 44px rgba(111, 45, 168, 0.3)',
+                '&:hover': {
+                  background: 'linear-gradient(135deg, #7b38de, #4d7ef0)',
+                },
               }}
             >
-              Ir para Campanha
+              Explorar Campanhas
             </Button>
           </Box>
         </Box>

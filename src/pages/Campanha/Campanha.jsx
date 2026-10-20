@@ -43,14 +43,15 @@ const Campanha = () => {
           alignItems: 'flex-start',
           justifyContent: 'space-between',
           mb: 3,
+          gap: 2,
         }}
       >
         <Box>
           <Typography
             variant="h5"
-            sx={{ color: 'var(--text-primary)', fontWeight: 700, mb: 0.5 }}
+            sx={{ color: 'var(--text-primary)', fontWeight: 800, mb: 0.5 }}
           >
-            Campanha
+            Campanhas
           </Typography>
           <Typography variant="body2" sx={{ color: 'var(--text-secondary)' }}>
             Crie e selecione a campanha ativa para rodar sua sessão.
@@ -60,8 +61,10 @@ const Campanha = () => {
           variant="contained"
           onClick={() => navigate(ROUTE_PATHS.NOVA_CAMPANHA)}
           sx={{
-            background: 'var(--color-primary)',
-            '&:hover': { background: 'var(--color-primary-dark)' },
+            background: 'linear-gradient(135deg, #7f1d1d, var(--color-primary))',
+            border: '1px solid rgba(255,255,255,0.08)',
+            boxShadow: '0 10px 26px rgba(117, 28, 28, 0.28)',
+            '&:hover': { background: 'linear-gradient(135deg, #9b2c2c, #6c2d9d)' },
           }}
           aria-label="+ Nova Campanha"
         >
@@ -92,10 +95,14 @@ const Campanha = () => {
             display: 'grid',
             gridTemplateColumns: {
               xs: '1fr',
-              sm: 'repeat(auto-fill, minmax(320px, 1fr))',
-              md: 'repeat(auto-fill, minmax(360px, 1fr))',
+              sm: 'repeat(2, minmax(0, 1fr))',
+              md: 'repeat(3, minmax(0, 1fr))',
+              lg: 'repeat(5, minmax(0, 1fr))',
             },
-            gap: 2,
+            gap: 1.5,
+            alignItems: 'stretch',
+            width: '100%',
+            maxWidth: '100%',
           }}
         >
           {campanhas.map(campanha => {
@@ -108,197 +115,278 @@ const Campanha = () => {
               <Card key={campanha.id} elevation={0}>
                 <Box
                   sx={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    mb: 2,
-                    gap: 2,
+                    position: 'relative',
+                    overflow: 'hidden',
+                    borderRadius: '18px 18px 0 0',
+                    minHeight: 154,
+                    maxHeight: 154,
+                    background: 'linear-gradient(180deg, rgba(17,22,29,0.12), rgba(6,9,13,0.7))',
                   }}
                 >
-                  {ativa ? (
-                    <Typography
-                      variant="caption"
+                  {campanha.linkImagem ? (
+                    <Box
+                      component="img"
+                      src={campanha.linkImagem}
+                      alt={campanha.nome}
+                      loading="lazy"
                       sx={{
-                        color: 'var(--color-accent)',
-                        fontWeight: 800,
-                        letterSpacing: '0.2em',
-                        textTransform: 'uppercase',
-                        background: 'rgba(196, 58, 47, 0.12)',
-                        px: 2,
-                        py: 0.75,
-                        borderRadius: '999px',
+                        width: '100%',
+                        height: 154,
+                        objectFit: 'cover',
+                        display: 'block',
+                        filter: 'saturate(1.08) contrast(1.04)',
+                        transition: 'transform 280ms ease',
+                        '&:hover': {
+                          transform: 'scale(1.04)',
+                        },
                       }}
-                    >
-                      Ativa
-                    </Typography>
+                      onError={e => {
+                        e.currentTarget.style.display = 'none';
+                      }}
+                    />
                   ) : (
-                    <Typography
-                      variant="caption"
+                    <Box
                       sx={{
-                        color: '#9FA7B2',
-                        fontWeight: 700,
-                        letterSpacing: '0.18em',
-                        textTransform: 'uppercase',
-                        background: 'rgba(255, 255, 255, 0.04)',
-                        px: 2,
-                        py: 0.75,
-                        borderRadius: '999px',
+                        width: '100%',
+                        height: 154,
+                        background:
+                          'linear-gradient(135deg, rgba(103, 69, 137, 0.9), rgba(17, 25, 40, 0.9))',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: 'rgba(255,255,255,0.78)',
+                        fontSize: 38,
                       }}
                     >
-                      Inativa
-                    </Typography>
+                      🗺️
+                    </Box>
                   )}
 
-                  <Box sx={{ display: 'flex', gap: 0.5, ml: 'auto' }}>
-                    {podeEscrever && (
-                      <>
-                        <IconButton
-                          size="small"
-                          onClick={() =>
-                            navigate(ROUTE_PATHS.NOVA_CAMPANHA, {
-                              state: { campanha },
-                            })
-                          }
-                          sx={{
-                            color: 'rgba(255,255,255,0.84)',
-                            background: 'rgba(255,255,255,0.04)',
-                            '&:hover': { background: 'rgba(255,255,255,0.08)' },
-                          }}
-                          aria-label={`Editar campanha ${campanha.nome}`}
-                        >
-                          <EditOutlinedIcon fontSize="small" />
-                        </IconButton>
-                        <IconButton
-                          size="small"
-                          onClick={() => handleRemove(campanha.id)}
-                          sx={{
-                            color: '#ef4444',
-                            background: 'rgba(239, 68, 68, 0.08)',
-                            '&:hover': {
-                              background: 'rgba(239, 68, 68, 0.16)',
-                            },
-                          }}
-                          aria-label={`Remover campanha ${campanha.nome}`}
-                        >
-                          <DeleteOutlineIcon fontSize="small" />
-                        </IconButton>
-                      </>
-                    )}
-                  </Box>
-                </Box>
-
-                {campanha.linkImagem && (
                   <Box
-                    component="img"
-                    src={campanha.linkImagem}
-                    alt={campanha.nome}
-                    loading="lazy"
                     sx={{
-                      width: '100%',
-                      height: 210,
-                      borderRadius: '20px',
-                      objectFit: 'cover',
-                      display: 'block',
-                      mb: 2,
-                      boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.06)',
-                      transition: 'transform 280ms ease',
-                      '&:hover': {
-                        transform: 'scale(1.02)',
-                      },
-                    }}
-                    onError={e => {
-                      e.currentTarget.style.display = 'none';
+                      position: 'absolute',
+                      inset: 0,
+                      background:
+                        'linear-gradient(180deg, rgba(8,10,16,0.12) 0%, rgba(8,10,16,0.68) 100%)',
+                      pointerEvents: 'none',
                     }}
                   />
-                )}
 
-                <Typography
-                  variant="h5"
-                  sx={{
-                    color: '#FFFFFF',
-                    fontWeight: 800,
-                    lineHeight: 1.15,
-                    mb: 1,
-                  }}
-                >
-                  {campanha.nome}
-                </Typography>
-                <Typography
-                  variant="caption"
-                  sx={{
-                    color: '#7e8a99',
-                    fontWeight: 600,
-                    display: 'block',
-                    mb: 1.5,
-                    letterSpacing: '0.08em',
-                    textTransform: 'uppercase',
-                  }}
-                >
-                  {universos.find(u => u.id === campanha.universoId)?.Nome ||
-                    'Universo Desconhecido'}
-                </Typography>
-                {campanha.descricao && (
-                  <Typography
-                    variant="body2"
+                  <Box
                     sx={{
-                      color: '#c3cad6',
-                      mt: 0.5,
-                      mb: 2.5,
-                      minHeight: 72,
+                      position: 'absolute',
+                      top: 12,
+                      left: 12,
+                      zIndex: 2,
+                      px: 1.5,
+                      py: 0.7,
+                      borderRadius: '999px',
+                      border: ativa
+                        ? '1px solid rgba(255, 132, 132, 0.6)'
+                        : '1px solid rgba(255,255,255,0.12)',
+                      background: ativa
+                        ? 'rgba(196, 58, 47, 0.18)'
+                        : 'rgba(20, 25, 34, 0.68)',
+                      backdropFilter: 'blur(10px)',
+                    }}
+                  >
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        display: 'block',
+                        color: ativa ? '#ffd7d7' : '#dfe7f2',
+                        fontWeight: 800,
+                        letterSpacing: '0.16em',
+                        textTransform: 'uppercase',
+                        fontSize: 10,
+                      }}
+                    >
+                      {ativa ? 'Ativa' : 'Inativa'}
+                    </Typography>
+                  </Box>
+
+                  {podeEscrever && (
+                    <Box
+                      sx={{
+                        position: 'absolute',
+                        top: 12,
+                        right: 12,
+                        display: 'flex',
+                        gap: 0.75,
+                        zIndex: 2,
+                      }}
+                    >
+                      <IconButton
+                        size="small"
+                        onClick={() =>
+                          navigate(ROUTE_PATHS.NOVA_CAMPANHA, {
+                            state: { campanha },
+                          })
+                        }
+                        sx={{
+                          color: '#f8fbff',
+                          background: 'rgba(15, 17, 25, 0.55)',
+                          border: '1px solid rgba(255,255,255,0.14)',
+                          backdropFilter: 'blur(10px)',
+                          '&:hover': { background: 'rgba(26, 31, 42, 0.8)' },
+                        }}
+                        aria-label={`Editar campanha ${campanha.nome}`}
+                      >
+                        <EditOutlinedIcon fontSize="small" />
+                      </IconButton>
+                      <IconButton
+                        size="small"
+                        onClick={() => handleRemove(campanha.id)}
+                        sx={{
+                          color: '#ff9a9a',
+                          background: 'rgba(69, 17, 17, 0.52)',
+                          border: '1px solid rgba(255,160,160,0.22)',
+                          backdropFilter: 'blur(10px)',
+                          '&:hover': { background: 'rgba(101, 24, 24, 0.78)' },
+                        }}
+                        aria-label={`Remover campanha ${campanha.nome}`}
+                      >
+                        <DeleteOutlineIcon fontSize="small" />
+                      </IconButton>
+                    </Box>
+                  )}
+                </Box>
+
+                <Box
+                  sx={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    flex: 1,
+                    p: 2.25,
+                    pt: 1.75,
+                  }}
+                >
+                  <Typography
+                    variant="h6"
+                    sx={{
+                      color: '#FFFFFF',
+                      fontWeight: 800,
+                      lineHeight: 1.2,
+                      mb: 0.65,
+                      minHeight: '2.4em',
                       display: '-webkit-box',
-                      WebkitLineClamp: 3,
+                      WebkitLineClamp: 2,
                       WebkitBoxOrient: 'vertical',
                       overflow: 'hidden',
                     }}
                   >
-                    {campanha.descricao}
+                    {campanha.nome}
                   </Typography>
-                )}
-
-                <Box sx={{ display: 'grid', gap: 1.25 }}>
-                  <Button
-                    fullWidth
-                    variant="contained"
-                    disabled={ativa}
-                    onClick={() => setCampanhaAtiva(campanha.id)}
+                  <Typography
+                    variant="caption"
                     sx={{
-                      color: '#FFFFFF',
-                      background: ativa
-                        ? 'rgba(196, 58, 47, 0.16)'
-                        : 'var(--color-primary)',
-                      border: ativa
-                        ? '1px solid rgba(196, 58, 47, 0.32)'
-                        : '1px solid rgba(143, 35, 28, 0.36)',
-                      py: 1.25,
+                      color: '#9aa5b5',
                       fontWeight: 700,
-                      textTransform: 'none',
-                      '&:hover': {
-                        background: ativa
-                          ? 'rgba(196, 58, 47, 0.24)'
-                          : 'var(--color-primary-dark)',
-                      },
+                      display: 'block',
+                      mb: 0.85,
+                      letterSpacing: '0.08em',
+                      textTransform: 'uppercase',
+                      fontSize: '0.65rem',
                     }}
                   >
-                    {ativa ? 'Campanha Ativa' : 'Selecionar Campanha'}
-                  </Button>
-                  {ativa && (
+                    {universos.find(u => u.id === campanha.universoId)?.Nome ||
+                      'Universo Desconhecido'}
+                  </Typography>
+                  {campanha.descricao && (
+                    <Box
+                      sx={{
+                        flex: 1,
+                        minHeight: 112,
+                        maxHeight: 112,
+                        overflowY: 'auto',
+                        pr: 0.75,
+                        mb: 1.5,
+                        color: '#c7ced9',
+                        lineHeight: 1.5,
+                        fontSize: '0.78rem',
+                        '&::-webkit-scrollbar': {
+                          width: '8px',
+                        },
+                        '&::-webkit-scrollbar-track': {
+                          background: 'rgba(255,255,255,0.04)',
+                          borderRadius: '999px',
+                        },
+                        '&::-webkit-scrollbar-thumb': {
+                          background: 'rgba(196, 58, 47, 0.72)',
+                          borderRadius: '999px',
+                          border: '2px solid transparent',
+                          backgroundClip: 'padding-box',
+                        },
+                        '&::-webkit-scrollbar-thumb:hover': {
+                          background: 'rgba(196, 58, 47, 0.92)',
+                          backgroundClip: 'padding-box',
+                        },
+                      }}
+                    >
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          color: '#c7ced9',
+                          lineHeight: 1.5,
+                          fontSize: '0.78rem',
+                          whiteSpace: 'pre-wrap',
+                          wordBreak: 'break-word',
+                        }}
+                      >
+                        {campanha.descricao}
+                      </Typography>
+                    </Box>
+                  )}
+
+                  <Box sx={{ display: 'grid', gap: 0.85, mt: 'auto' }}>
                     <Button
                       fullWidth
                       variant="contained"
-                      onClick={() => navigate(ROUTE_PATHS.CENAS)}
+                      disabled={ativa}
+                      onClick={() => setCampanhaAtiva(campanha.id)}
                       sx={{
-                        background: 'var(--color-accent)',
-                        color: 'var(--bg-primary)',
+                        color: '#FFFFFF',
+                        background: ativa
+                          ? 'rgba(196, 58, 47, 0.14)'
+                          : 'linear-gradient(135deg, #8b1e1e, var(--color-primary))',
+                        border: ativa
+                          ? '1px solid rgba(196, 58, 47, 0.4)'
+                          : '1px solid rgba(255,255,255,0.08)',
+                        py: 0.9,
+                        fontSize: '0.78rem',
                         fontWeight: 700,
                         textTransform: 'none',
-                        py: 1.25,
-                        border: '1px solid rgba(196, 58, 47, 0.4)',
-                        '&:hover': { background: 'var(--color-primary-light)' },
+                        boxShadow: ativa ? 'none' : '0 10px 18px rgba(140, 39, 39, 0.18)',
+                        '&:hover': {
+                          background: ativa
+                            ? 'rgba(196, 58, 47, 0.22)'
+                            : 'linear-gradient(135deg, #a22525, #7a2abc)',
+                        },
                       }}
                     >
-                      Ver Cenas →
+                      {ativa ? 'Campanha Ativa' : 'Selecionar Campanha'}
                     </Button>
-                  )}
+                    {ativa && (
+                      <Button
+                        fullWidth
+                        variant="contained"
+                        onClick={() => navigate(ROUTE_PATHS.CENAS)}
+                        sx={{
+                          background: 'linear-gradient(135deg, #e7b36b, #d95b45)',
+                          color: '#15181f',
+                          fontWeight: 800,
+                          textTransform: 'none',
+                          py: 0.9,
+                          fontSize: '0.78rem',
+                          border: '1px solid rgba(255,255,255,0.14)',
+                          boxShadow: '0 10px 18px rgba(193, 92, 58, 0.14)',
+                          '&:hover': { background: 'linear-gradient(135deg, #f7cb80, #e36d4e)' },
+                        }}
+                      >
+                        Ver Cenas →
+                      </Button>
+                    )}
+                  </Box>
                 </Box>
               </Card>
             );

@@ -5,16 +5,22 @@ import Box from '@mui/material/Box';
 import Checkbox from '@mui/material/Checkbox';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import IconButton from '@mui/material/IconButton';
+import InputAdornment from '@mui/material/InputAdornment';
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
+import EmailOutlined from '@mui/icons-material/EmailOutlined';
+import LockOutlined from '@mui/icons-material/LockOutlined';
 import { useAuth } from 'context/AuthContext';
 import { getFirebaseErrorMessage, loginSchema } from './utils';
 import {
   BrandBadge,
+  BrandDivider,
+  BrandLogo,
   DialogActionRow,
   ErrorAlert,
   FormRow,
   LinkButton,
+  LoginFooterText,
   ModalHeader,
   ModalSubtitle,
   ModalTitle,
@@ -116,9 +122,15 @@ const LoginModal = ({ open, onClose }) => {
           </Box>
 
           <ModalHeader>
-            <BrandBadge aria-hidden="true">🔐</BrandBadge>
-            <ModalTitle id="login-modal-title">Entrar no Re</ModalTitle>
-            <ModalSubtitle>Centro de Comando do Mestre</ModalSubtitle>
+            <BrandLogo
+              src="https://i.imgur.com/EMY0XIJ.png"
+              alt="Re:Master"
+            />
+            <BrandDivider />
+            <ModalTitle id="login-modal-title">Bem-vindo de volta</ModalTitle>
+            <ModalSubtitle>
+              Acesse o painel do Re e gerencie suas campanhas, mundos e aventuras.
+            </ModalSubtitle>
           </ModalHeader>
 
           <Formik
@@ -139,7 +151,16 @@ const LoginModal = ({ open, onClose }) => {
                       error={touched.email && Boolean(errors.email)}
                       helperText={touched.email && errors.email}
                       autoComplete="email"
-                      slotProps={{ htmlInput: { 'aria-label': 'E-mail' } }}
+                      slotProps={{
+                        htmlInput: { 'aria-label': 'E-mail' },
+                        input: {
+                          startAdornment: (
+                            <InputAdornment position="start">
+                              <EmailOutlined fontSize="small" />
+                            </InputAdornment>
+                          ),
+                        },
+                      }}
                     />
                   )}
                 </Field>
@@ -156,7 +177,16 @@ const LoginModal = ({ open, onClose }) => {
                         error={touched.password && Boolean(errors.password)}
                         helperText={touched.password && errors.password}
                         autoComplete="current-password"
-                        slotProps={{ htmlInput: { 'aria-label': 'Senha' } }}
+                        slotProps={{
+                          htmlInput: { 'aria-label': 'Senha' },
+                          input: {
+                            startAdornment: (
+                              <InputAdornment position="start">
+                                <LockOutlined fontSize="small" />
+                              </InputAdornment>
+                            ),
+                          },
+                        }}
                       />
                       <PasswordToggleButton
                         type="button"
@@ -164,7 +194,11 @@ const LoginModal = ({ open, onClose }) => {
                         onClick={() => setShowPassword(current => !current)}
                         size="small"
                       >
-                        {showPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+                        {showPassword ? (
+                          <VisibilityOff fontSize="small" />
+                        ) : (
+                          <Visibility fontSize="small" />
+                        )}
                       </PasswordToggleButton>
                     </PasswordFieldWrapper>
                   )}
@@ -213,6 +247,8 @@ const LoginModal = ({ open, onClose }) => {
                 >
                   {isSubmitting ? 'Entrando...' : 'Entrar'}
                 </SubmitButton>
+
+                <LoginFooterText>Acesso restrito a Mestres autorizados.</LoginFooterText>
               </Form>
             )}
           </Formik>

@@ -16,8 +16,8 @@ import {
 import { ROUTE_PATHS } from './routes';
 
 export const NAV_ITEMS = [
-  { path: ROUTE_PATHS.DASHBOARD, icon: DashboardOutlined, label: 'Dashboard' },
   { path: ROUTE_PATHS.CAMPANHA, icon: MapOutlined, label: 'Campanha' },
+  { path: ROUTE_PATHS.DASHBOARD, icon: DashboardOutlined, label: 'Dashboard' },
   { path: ROUTE_PATHS.NPCS, icon: PersonOutlineOutlined, label: 'NPCs' },
   { path: ROUTE_PATHS.JOGADORES, icon: PeopleAltOutlined, label: 'Jogadores' },
   { path: ROUTE_PATHS.CRIATURAS, icon: ShieldOutlined, label: 'Criaturas' },

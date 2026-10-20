@@ -1,4 +1,5 @@
 import React, { lazy } from 'react';
+import { Navigate } from 'react-router-dom';
 import { ROUTE_PATHS } from 'common/constants/routes';
 
 const Dashboard = lazy(() => import('pages/Dashboard/Dashboard'));
@@ -40,7 +41,8 @@ const Chat = lazy(() => import('pages/Chat/Chat'));
 const Grid = lazy(() => import('pages/Grid/Grid'));
 
 export const ROUTES = [
-  { index: true, element: <Dashboard /> },
+  { index: true, element: <Navigate to={ROUTE_PATHS.CAMPANHA} replace /> },
+  { path: ROUTE_PATHS.DASHBOARD.slice(1), element: <Dashboard /> },
   { path: ROUTE_PATHS.CAMPANHA.slice(1), element: <Campanha /> },
   { path: ROUTE_PATHS.NOVA_CAMPANHA.slice(1), element: <NovaCampanha /> },
   { path: ROUTE_PATHS.CENAS.slice(1), element: <Cenas /> },
