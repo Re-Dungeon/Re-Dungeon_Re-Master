@@ -1,5 +1,5 @@
 export const ROUTE_PATHS = {
-  DASHBOARD: '/',
+  DASHBOARD: '/dashboard',
   CAMPANHA: '/campanha',
   NOVA_CAMPANHA: '/campanha/nova',
   CENAS: '/campanha/cenas',
