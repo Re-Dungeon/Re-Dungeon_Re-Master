@@ -3,6 +3,7 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 const getPersonagemSubcolecao = vi.fn();
+const getPersonagemPorId = vi.fn();
 const getAptidao = vi.fn();
 const getRaca = vi.fn();
 const getClasse = vi.fn();
@@ -13,6 +14,7 @@ const getReinoCultivo = vi.fn();
 vi.mock('service/storage', () => ({
   getReinoCultivo: (...args) => getReinoCultivo(...args),
   getCorpoEspecial: (...args) => getCorpoEspecial(...args),
+  getPersonagemPorId: (...args) => getPersonagemPorId(...args),
   getPersonagemSubcolecao: (...args) => getPersonagemSubcolecao(...args),
   getAptidao: (...args) => getAptidao(...args),
   getRaca: (...args) => getRaca(...args),
@@ -35,6 +37,7 @@ const PERSONAGEM = {
 describe('PersonagemFichaDialog', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    getPersonagemPorId.mockResolvedValue(null);
     getPersonagemSubcolecao.mockResolvedValue([]);
     getAptidao.mockResolvedValue(null);
     getRaca.mockResolvedValue(null);
@@ -48,6 +51,245 @@ describe('PersonagemFichaDialog', () => {
       await user.click(botao);
     }
   };
+
+  it('mantém a ordem das abas e cria a aba Prontidão & Ações logo após Ficha', async () => {
+    const user = userEvent.setup();
+    render(
+      <PersonagemFichaDialog open onClose={() => {}} personagem={PERSONAGEM} />,
+    );
+
+    const tabs = screen.getAllByRole('tab');
+    expect(tabs.map(tab => tab.textContent)).toEqual([
+      'Ficha',
+      'Prontidão & Ações',
+      'Aptidões Adquiridas',
+      'Núcleos',
+      'Artes',
+      'Variantes',
+      'Histórico de Sorte',
+      'Itens (Inventário)',
+      'Materiais (Inventário)',
+      'Receitas (Inventário)',
+    ]);
+
+    await user.click(screen.getByRole('tab', { name: /Prontidão & Ações/i }));
+
+    expect(
+      screen.getByRole('tab', { name: /Prontidão & Ações/i }),
+    ).toHaveAttribute('aria-selected', 'true');
+    expect(
+      screen.getByText('Acompanhamento de combate do personagem'),
+    ).toBeInTheDocument();
+  });
+
+  it('recarrega os dados atuais do personagem ao abrir o modal e ao clicar em Atualizar Informações', async () => {
+    const user = userEvent.setup();
+    const personagemInicial = {
+      ...PERSONAGEM,
+      prontidaoAtual: 12,
+      prontidaoMaximaEfetiva: 18,
+      ppGastosTurno: 3,
+      turnoNumero: 4,
+      historicoAcoes: [{ nome: 'Golpe inicial', ppConsumida: 3, ppRestante: 15, turno: 4 }],
+    };
+    const personagemAtualizado = {
+      ...personagemInicial,
+      prontidaoAtual: 0,
+      prontidaoMaximaEfetiva: 12,
+      ppGastosTurno: 0,
+      turnoNumero: 1,
+      historicoAcoes: [],
+    };
+    getPersonagemPorId.mockResolvedValue(personagemAtualizado);
+
+    render(
+      <PersonagemFichaDialog
+        open
+        onClose={() => {}}
+        personagem={personagemInicial}
+      />,
+    );
+
+    await user.click(screen.getByRole('tab', { name: /Prontidão & Ações/i }));
+
+    await waitFor(() => {
+      expect(getPersonagemPorId).toHaveBeenCalledWith(personagemInicial.id);
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/Nenhuma ação registrada/i),
+      ).toBeInTheDocument();
+    });
+    expect(screen.getByText('Turno Atual')).toBeInTheDocument();
+    expect(screen.getByText('1')).toBeInTheDocument();
+    expect(screen.getAllByText('0')).toHaveLength(2);
+
+    await user.click(screen.getByRole('button', { name: /Atualizar Informações/i }));
+
+    await waitFor(() => {
+      expect(getPersonagemPorId).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it('recarrega os dados atuais do personagem ao clicar em Atualizar Informações', async () => {
+    const user = userEvent.setup();
+    const personagemInicial = {
+      ...PERSONAGEM,
+      prontidaoAtual: 12,
+      prontidaoMaximaEfetiva: 18,
+      ppGastosTurno: 3,
+      turnoNumero: 4,
+      historicoAcoes: [{ nome: 'Golpe inicial', ppConsumida: 3, ppRestante: 15, turno: 4 }],
+    };
+    const personagemAtualizado = {
+      ...personagemInicial,
+      prontidaoAtual: 16,
+      prontidaoMaximaEfetiva: 20,
+      ppGastosTurno: 5,
+      turnoNumero: 6,
+      historicoAcoes: [{ nome: 'Ação nova', ppConsumida: 5, ppRestante: 15, turno: 6 }],
+    };
+    getPersonagemPorId.mockResolvedValue(personagemAtualizado);
+
+    render(
+      <PersonagemFichaDialog
+        open
+        onClose={() => {}}
+        personagem={personagemInicial}
+      />,
+    );
+
+    await user.click(screen.getByRole('tab', { name: /Prontidão & Ações/i }));
+    await user.click(screen.getByRole('button', { name: /Atualizar Informações/i }));
+
+    await waitFor(() => {
+      expect(getPersonagemPorId).toHaveBeenCalledWith(personagemInicial.id);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Ação nova')).toBeInTheDocument();
+    });
+    expect(screen.getByText('20')).toBeInTheDocument();
+    expect(screen.getByText('16')).toBeInTheDocument();
+    expect(screen.getByText('5')).toBeInTheDocument();
+    expect(screen.getByText('6')).toBeInTheDocument();
+    expect(screen.getByText('80%')).toBeInTheDocument();
+  });
+
+  it('interpreta corretamente o turno salvo em alias do histórico de ações', async () => {
+    const user = userEvent.setup();
+    const personagemComHistoricoAlternativo = {
+      ...PERSONAGEM,
+      prontidaoAtual: 16,
+      prontidaoMaximaEfetiva: 20,
+      historicoAcoes: [
+        {
+          nome: 'Ação com turno em campo alternativo',
+          ppConsumida: 2,
+          ppRestante: 18,
+          turno: 'Turno 2',
+        },
+        {
+          nome: 'Ação com turno em outro alias',
+          ppConsumida: 1,
+          ppRestante: 17,
+          turnoExecucao: 1,
+        },
+      ],
+    };
+
+    render(
+      <PersonagemFichaDialog
+        open
+        onClose={() => {}}
+        personagem={personagemComHistoricoAlternativo}
+      />,
+    );
+
+    await user.click(screen.getByRole('tab', { name: /Prontidão & Ações/i }));
+
+    expect(screen.getByText('Turno 2')).toBeInTheDocument();
+    expect(screen.getByText('Turno 1')).toBeInTheDocument();
+    expect(screen.queryByText('Turno —')).not.toBeInTheDocument();
+  });
+
+  it('renderiza o painel de prontidão e ações com dados reais do personagem', async () => {
+    const user = userEvent.setup();
+    const personagemComProntidao = {
+      ...PERSONAGEM,
+      prontidaoAtual: 16,
+      prontidaoMaximaEfetiva: 20,
+      ppGastosTurno: 4,
+      turnoNumero: 7,
+      historicoAcoes: [
+        {
+          nome: 'Ataque pesado',
+          ppConsumida: 4,
+          ppRestante: 16,
+          turno: 7,
+        },
+        {
+          nome: 'Movimento evasivo',
+          ppConsumida: 2,
+          ppRestante: 18,
+          turno: 6,
+        },
+      ],
+    };
+
+    render(
+      <PersonagemFichaDialog
+        open
+        onClose={() => {}}
+        personagem={personagemComProntidao}
+      />,
+    );
+
+    await user.click(screen.getByRole('tab', { name: /Prontidão & Ações/i }));
+
+    expect(
+      screen.getByRole('button', { name: /Atualizar Informações/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Prontidão Máxima')).toBeInTheDocument();
+    expect(screen.getByText('Prontidão Atual')).toBeInTheDocument();
+    expect(screen.getByText('PP Gastos no Turno')).toBeInTheDocument();
+    expect(screen.getByText('Turno Atual')).toBeInTheDocument();
+    expect(screen.getByText('80%')).toBeInTheDocument();
+    expect(screen.getByText('Ataque pesado')).toBeInTheDocument();
+    expect(screen.getByText('Turno 7')).toBeInTheDocument();
+  });
+
+  it('oculta os campos de combate da aba Ficha sem remover os dados da personagem', async () => {
+    const user = userEvent.setup();
+    const personagemComCombate = {
+      ...PERSONAGEM,
+      ppGastosTurno: 2,
+      turnoNumero: 5,
+      prontidaoAtual: 12,
+      prontidaoMaximaEfetiva: 18,
+      status: { hp: 17, fadiga: 3, energia: 9 },
+      statusMaximos: { hp: 20, fadiga: 6, energia: 10 },
+    };
+
+    render(
+      <PersonagemFichaDialog
+        open
+        onClose={() => {}}
+        personagem={personagemComCombate}
+      />,
+    );
+
+    await expandirTodosOsPainels(user);
+
+    expect(screen.queryByText('PP Gastos Turno')).not.toBeInTheDocument();
+    expect(screen.queryByText('Turno Número')).not.toBeInTheDocument();
+    expect(screen.queryByText('Prontidão Atual')).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('Prontidão Máxima Efetiva'),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText('Status')).toBeInTheDocument();
+  });
 
   it('não busca subcoleções nem renderiza campos quando fechado', () => {
     render(

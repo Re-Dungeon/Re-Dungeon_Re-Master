@@ -163,6 +163,17 @@ export const getPersonagens = () => getPersonagensPorTipo(['NPC', 'Criatura']);
 export const getPersonagensJogaveis = () =>
   getPersonagensPorTipo(['Personagem Jogável']);
 
+export const getPersonagemPorId = async personagemId => {
+  try {
+    const snap = await getDoc(doc(db, PERSONAGENS_COLLECTION, personagemId));
+    return snap.exists() ? { id: snap.id, ...snap.data() } : null;
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error(`Erro ao buscar personagem "${personagemId}":`, error);
+    throw error;
+  }
+};
+
 // Subcoleções da ficha de personagem (aptidoesAdquiridas, arts,
 // historicoSorte — ver firestore.rules). Diferente do doc principal, a
 // regra dessas subcoleções restringe leitura ao dono do personagem

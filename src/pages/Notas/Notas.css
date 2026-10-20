@@ -8,7 +8,10 @@
   --text-secondary: #9A9A9A;
 }
 
-.page-container { color: var(--text-primary); }
+.page-container {
+  color: var(--text-primary);
+  background: transparent;
+}
 
 /* Header */
 .notas-header{
@@ -48,11 +51,12 @@
   display:grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap:20px;
+  background: transparent;
 }
 
 /* Card */
 .nota-card{
-  background: linear-gradient(180deg, rgba(8,8,10,0.72), rgba(10,10,14,0.68));
+  background: rgba(15, 18, 25, 0.95) !important;
   border-radius:14px;
   padding:14px !important;
   position:relative;
@@ -65,8 +69,7 @@
 .nota-card::before{
   content: '';
   position:absolute; inset:0; border-radius:14px; pointer-events:none;
-  background: linear-gradient(90deg, rgba(196,58,47,0.06), rgba(124,28,28,0.02));
-  mix-blend-mode: overlay; opacity:0.9;
+  background: transparent;
 }
 .nota-card:hover{ transform: translateY(-8px) scale(1.005); box-shadow: 0 40px 100px rgba(196,58,47,0.12); border-color: var(--hover) !important; }
 

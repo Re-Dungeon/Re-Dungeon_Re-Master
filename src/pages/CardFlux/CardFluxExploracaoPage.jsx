@@ -1407,7 +1407,6 @@ const CardFluxExploracaoPage = () => {
                     const principalIconSrc = principalMeta.src;
                     const principalFallback = principalMeta.fallback;
                     const principalAlt = principalMeta.alt;
-                    const principalIconSize = marcadorManualPrincipal ? '58%' : '100%';
                     const podeMostrarTipoBadge = Boolean(
                       quadrante?.cartaId &&
                       categoriaMeta &&
@@ -1448,14 +1447,17 @@ const CardFluxExploracaoPage = () => {
                           minHeight: 0,
                           height: '100%',
                           minWidth: 0,
+                          padding: 0,
                           background: 'transparent',
                           border: selectedNow
                             ? '1px solid rgba(89,171,255,0.88)'
                             : `1px solid ${visual.cellBorder}`,
                           borderRadius: 2.5,
                           color: visual.badgeColor,
-                          display: 'grid',
-                          placeItems: 'center',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'stretch',
+                          justifyContent: 'stretch',
                           fontSize: 'clamp(0.9rem, 1vw, 1.3rem)',
                           fontWeight: 800,
                           boxShadow: selectedNow ? '0 10px 24px rgba(89,171,255,0.14)' : '0 0 0 1px rgba(255,255,255,0.02)',
@@ -1509,25 +1511,30 @@ const CardFluxExploracaoPage = () => {
                             🔒
                           </Box>
                         )}
-                        {principalIconSrc && (
-                          <Box
-                            sx={{
-                              position: 'absolute',
-                              inset: 0,
-                              display: 'grid',
-                              placeItems: 'center',
-                              zIndex: 2,
-                              pointerEvents: 'none',
-                            }}
-                          >
+                        <Box
+                          className="grid-cell-image-area"
+                          sx={{
+                            position: 'relative',
+                            zIndex: 2,
+                            display: 'flex',
+                            flex: 1,
+                            minHeight: 0,
+                            width: '100%',
+                            padding: '8px 8px 4px',
+                            boxSizing: 'border-box',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}
+                        >
+                          {principalIconSrc && (
                             <Box
+                              className="grid-cell-image-frame"
                               sx={{
-                                display: 'grid',
-                                placeItems: 'center',
-                                width: principalIconSize,
-                                height: principalIconSize,
-                                maxWidth: marcadorManualPrincipal ? 78 : '100%',
-                                maxHeight: marcadorManualPrincipal ? 78 : '100%',
+                                width: '100%',
+                                height: '100%',
+                                maxWidth: '100%',
+                                maxHeight: '100%',
+                                pointerEvents: 'none',
                               }}
                             >
                               {buildIconElement({
@@ -1541,43 +1548,59 @@ const CardFluxExploracaoPage = () => {
                                     ? 'drop-shadow(0 0 18px rgba(96,165,250,0.35))'
                                     : 'drop-shadow(0 0 18px rgba(89,171,255,0.42))',
                                   objectFit: 'contain',
+                                  maxWidth: '100%',
+                                  maxHeight: '100%',
                                 },
+                                boxSx: { width: '100%', height: '100%', maxWidth: '100%', maxHeight: '100%' },
+                              })}
+                            </Box>
+                          )}
+                          {podeMostrarTipoBadge && (
+                            <Box
+                              sx={{
+                                position: 'absolute',
+                                right: 7,
+                                top: 7,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                width: 'clamp(24px, 18%, 32px)',
+                                height: 'clamp(24px, 18%, 32px)',
+                                borderRadius: 999,
+                                background: 'rgba(15,23,42,0.72)',
+                                border: '1px solid rgba(148,163,184,0.26)',
+                                backdropFilter: 'blur(4px)',
+                                zIndex: 3,
+                                boxShadow: '0 8px 18px rgba(2,6,23,0.18)',
+                              }}
+                            >
+                              {buildIconElement({
+                                src: categoriaMeta.src,
+                                fallback: categoriaMeta.fallback,
+                                alt: categoriaMeta.key,
+                                size: '100%',
+                                variant: 'cell-category',
                                 boxSx: { width: '100%', height: '100%' },
                               })}
                             </Box>
-                          </Box>
-                        )}
-                        {podeMostrarTipoBadge && (
-                          <Box
-                            sx={{
-                              position: 'absolute',
-                              right: 7,
-                              top: 7,
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              width: 'clamp(24px, 18%, 32px)',
-                              height: 'clamp(24px, 18%, 32px)',
-                              borderRadius: 999,
-                              background: 'rgba(15,23,42,0.72)',
-                              border: '1px solid rgba(148,163,184,0.26)',
-                              backdropFilter: 'blur(4px)',
-                              zIndex: 3,
-                              boxShadow: '0 8px 18px rgba(2,6,23,0.18)',
-                            }}
-                          >
-                            {buildIconElement({
-                              src: categoriaMeta.src,
-                              fallback: categoriaMeta.fallback,
-                              alt: categoriaMeta.key,
-                              size: '100%',
-                              variant: 'cell-category',
-                              boxSx: { width: '100%', height: '100%' },
-                            })}
-                          </Box>
-                        )}
-                        <Box sx={{ position: 'relative', zIndex: 3, display: 'grid', gap: 0.25, textAlign: 'center', mt: 'auto', pb: 0.5 }}>
-                          <Typography variant="caption" sx={{ color: 'rgba(248,250,252,0.88)', letterSpacing: '0.08em', opacity: 0.9 }}>
+                          )}
+                        </Box>
+                        <Box
+                          className="grid-cell-coordinates"
+                          sx={{
+                            position: 'relative',
+                            zIndex: 3,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            minHeight: '22px',
+                            px: 0.75,
+                            pb: 0.5,
+                            pt: 0.25,
+                            textAlign: 'center',
+                          }}
+                        >
+                          <Typography variant="caption" sx={{ color: 'rgba(248,250,252,0.88)', letterSpacing: '0.08em', opacity: 0.9, lineHeight: 1.2 }}>
                             {quadrante.x},{quadrante.y}
                           </Typography>
                         </Box>

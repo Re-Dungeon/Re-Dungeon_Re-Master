@@ -25,6 +25,7 @@ import BoltOutlinedIcon from '@mui/icons-material/BoltOutlined';
 import ShieldOutlinedIcon from '@mui/icons-material/ShieldOutlined';
 import SpeedOutlinedIcon from '@mui/icons-material/SpeedOutlined';
 import {
+  getPersonagemPorId,
   getPersonagemSubcolecao,
   getAptidao,
   getRaca,
@@ -73,6 +74,10 @@ const CAMPOS_OCULTOS = new Set([
   'notasAdicionais',
   'status',
   'statusMaximos',
+  'ppGastosTurno',
+  'turnoNumero',
+  'prontidaoAtual',
+  'prontidaoMaximaEfetiva',
 ]);
 
 // Subcoleções conhecidas da ficha de personagem — o match `{subcolecao}` do
@@ -4631,9 +4636,17 @@ const renderTabLabel = (label, count, active = false) => (
       alignItems: 'center',
       gap: 0.7,
       whiteSpace: 'nowrap',
+      maxWidth: '100%',
     }}
   >
-    <Box component="span" sx={{ lineHeight: 1.2 }}>
+    <Box
+      component="span"
+      sx={{
+        lineHeight: 1.2,
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+      }}
+    >
       {count !== null ? `${label} (${count})` : label}
     </Box>
     {count !== null && (
@@ -4643,18 +4656,18 @@ const renderTabLabel = (label, count, active = false) => (
           display: 'inline-flex',
           alignItems: 'center',
           justifyContent: 'center',
-          minWidth: 22,
-          height: 20,
-          px: 0.7,
+          minWidth: 20,
+          height: 18,
+          px: 0.55,
           borderRadius: 999,
-          fontSize: '0.72rem',
+          fontSize: '0.68rem',
           fontWeight: 700,
           lineHeight: 1,
-          bgcolor: active ? 'rgba(255,255,255,0.16)' : 'rgba(255,255,255,0.08)',
-          color: active ? 'var(--text-primary)' : 'inherit',
+          bgcolor: active ? 'rgba(168, 40, 40, 0.3)' : 'rgba(255,255,255,0.08)',
+          color: active ? 'var(--text-primary)' : 'rgba(224, 230, 242, 0.85)',
           border: active
-            ? '1px solid rgba(255,255,255,0.18)'
-            : '1px solid rgba(255,255,255,0.1)',
+            ? '1px solid rgba(220, 90, 90, 0.52)'
+            : '1px solid rgba(255,255,255,0.12)',
         }}
       >
         {count}
@@ -4677,6 +4690,52 @@ const PersonagemFichaDialog = ({
     infoJogador: false,
     detalhesAdicionais: false,
   });
+  const [personagemAtualizado, setPersonagemAtualizado] = useState(personagem);
+  const [atualizandoInformacoes, setAtualizandoInformacoes] = useState(false);
+
+  const carregarPersonagemAtual = async () => {
+    if (!personagem?.id) {
+      setPersonagemAtualizado(personagem);
+      return;
+    }
+
+    try {
+      const dadosAtualizados = await getPersonagemPorId(personagem.id);
+      setPersonagemAtualizado(dadosAtualizados ?? personagem);
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('Erro ao atualizar informações do personagem:', error);
+      setPersonagemAtualizado(personagem);
+    }
+  };
+
+  useEffect(() => {
+    if (!open || !personagem?.id) {
+      Promise.resolve().then(() => {
+        setPersonagemAtualizado(personagem);
+      });
+      return undefined;
+    }
+
+    let active = true;
+    const buscarDadosFrescos = async () => {
+      try {
+        const dadosAtualizados = await getPersonagemPorId(personagem.id);
+        if (!active) return;
+        setPersonagemAtualizado(dadosAtualizados ?? personagem);
+      } catch (error) {
+        if (!active) return;
+        // eslint-disable-next-line no-console
+        console.error('Erro ao carregar ficha atual do personagem:', error);
+        setPersonagemAtualizado(personagem);
+      }
+    };
+
+    void buscarDadosFrescos();
+    return () => {
+      active = false;
+    };
+  }, [open, personagem]);
 
   const toggleCollapse = painel => {
     setCollapseStates(prev => ({
@@ -4697,6 +4756,35 @@ const PersonagemFichaDialog = ({
   const [noVeiaAstralIcons, setNoVeiaAstralIcons] = useState({});
   const [condicaoReferencias, setCondicaoReferencias] = useState({});
   const [criadorNome, setCriadorNome] = useState();
+
+  const personagemAtivo = personagemAtualizado ?? personagem;
+
+  const prontidaoMaxima = Number(personagemAtivo?.prontidaoMaximaEfetiva ?? 0) || 0;
+  const prontidaoAtual = Number(personagemAtivo?.prontidaoAtual ?? 0) || 0;
+  const gastosTurno = Number(personagemAtivo?.ppGastosTurno ?? 0) || 0;
+  const turnoAtual = Number(personagemAtivo?.turnoNumero ?? 0) || 0;
+  const percentualProntidao =
+    prontidaoMaxima > 0 ? Math.min(100, Math.max(0, (prontidaoAtual / prontidaoMaxima) * 100)) : 0;
+  const historicoAcoes = Array.isArray(personagemAtivo?.historicoAcoes)
+    ? [...personagemAtivo.historicoAcoes]
+    : [];
+  const historicoAcoesOrdenado = [...historicoAcoes].sort((a, b) => {
+    const turnoA = Number(a?.turno ?? 0) || 0;
+    const turnoB = Number(b?.turno ?? 0) || 0;
+    if (turnoB !== turnoA) return turnoB - turnoA;
+    return (Number(b?.ppConsumida ?? 0) || 0) - (Number(a?.ppConsumida ?? 0) || 0);
+  });
+
+  const handleAtualizarInformacoes = async () => {
+    if (!personagem?.id) return;
+
+    setAtualizandoInformacoes(true);
+    try {
+      await carregarPersonagemAtual();
+    } finally {
+      setAtualizandoInformacoes(false);
+    }
+  };
 
   useEffect(() => {
     if (!open) return undefined;
@@ -5012,6 +5100,39 @@ const PersonagemFichaDialog = ({
     : [];
 
   const statusValue = valor => valor?.atual ?? valor ?? '—';
+
+  const resolverTurnoAcao = acao => {
+    const aliases = [
+      'turno',
+      'turnoExecucao',
+      'turnoAcao',
+      'turnoDaAcao',
+      'turnoAtual',
+      'turnoNumero',
+      'numeroTurno',
+      'turnoDaExecucao',
+    ];
+
+    for (const alias of aliases) {
+      const valor = acao?.[alias];
+      if (valor === null || valor === undefined || valor === '') continue;
+
+      if (typeof valor === 'number' && Number.isFinite(valor)) {
+        return valor;
+      }
+
+      if (typeof valor === 'string') {
+        const textoLimpo = valor.trim();
+        if (!textoLimpo) continue;
+        const matchNumero = textoLimpo.match(/(\d+)/);
+        if (matchNumero) return Number(matchNumero[1]);
+        const numero = Number(textoLimpo);
+        if (Number.isFinite(numero)) return numero;
+      }
+    }
+
+    return null;
+  };
 
   const infoJogadorBase =
     clone?.infoJogador ??
@@ -6570,25 +6691,25 @@ const PersonagemFichaDialog = ({
           scrollButtons="auto"
           allowScrollButtonsMobile
           sx={{
-            px: { xs: 1.5, md: 2.5 },
+            px: { xs: 1.25, md: 2.25 },
             py: 0.5,
-            minHeight: 54,
+            minHeight: 52,
             overflowX: 'auto',
             scrollbarWidth: 'none',
             '&::-webkit-scrollbar': {
               display: 'none',
             },
             '& .MuiTab-root': {
-              color: 'rgba(224, 230, 242, 0.7)',
-              minHeight: 38,
+              color: 'rgba(224, 230, 242, 0.72)',
+              minHeight: 36,
               minWidth: 'fit-content',
-              px: 1.25,
-              py: 0.75,
-              mx: 0.35,
+              px: 1,
+              py: 0.6,
+              mx: 0.2,
               borderRadius: 999,
               textTransform: 'none',
               fontWeight: 700,
-              fontSize: '0.9rem',
+              fontSize: '0.83rem',
               letterSpacing: '0.01em',
               transition: 'all 220ms ease',
               whiteSpace: 'nowrap',
@@ -6599,15 +6720,16 @@ const PersonagemFichaDialog = ({
             },
             '& .Mui-selected': {
               color: 'var(--text-primary) !important',
-              background: 'rgba(160, 34, 34, 0.18)',
-              boxShadow: 'inset 0 -2px 0 rgba(204, 54, 54, 0.75)',
+              background: 'rgba(110, 27, 27, 0.38)',
+              boxShadow: 'inset 0 0 0 1px rgba(239, 92, 92, 0.26)',
             },
             '& .MuiTabs-indicator': {
               display: 'none',
             },
           }}
         >
-          <Tab label="Ficha" />
+          <Tab label={renderTabLabel('Ficha', null, aba === 0)} />
+          <Tab label={renderTabLabel('Prontidão & Ações', null, aba === 1)} />
           {SUBCOLECOES.map(({ chave, label }, indice) => {
             const count =
               subcolecoes[chave]?.status === 'ok' &&
@@ -6617,7 +6739,7 @@ const PersonagemFichaDialog = ({
             return (
               <Tab
                 key={chave}
-                label={renderTabLabel(label, count, aba === indice + 1)}
+                label={renderTabLabel(label, count, aba === indice + 2)}
               />
             );
           })}
@@ -7373,10 +7495,299 @@ const PersonagemFichaDialog = ({
             </Box>
           )}
 
-          {aba >= 1 && (
+          {aba === 1 && (
+            <Box sx={{ display: 'grid', gap: 2.25 }}>
+              <Paper
+                elevation={0}
+                sx={{
+                  p: 2.5,
+                  borderRadius: 3,
+                  background:
+                    'linear-gradient(135deg, rgba(25, 17, 17, 0.82), rgba(16, 19, 28, 0.92))',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  display: 'grid',
+                  gap: 1.25,
+                }}
+              >
+                <Box
+                  sx={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    gap: 1.5,
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  <Box>
+                    <Typography
+                      sx={{
+                        color: 'var(--color-accent)',
+                        fontWeight: 800,
+                        fontSize: '1.4rem',
+                      }}
+                    >
+                      Prontidão & Ações
+                    </Typography>
+                    <Typography
+                      sx={{
+                        color: 'var(--text-secondary)',
+                        fontSize: '0.98rem',
+                        lineHeight: 1.6,
+                      }}
+                    >
+                      Acompanhamento de combate do personagem
+                    </Typography>
+                  </Box>
+                  <Button
+                    variant="contained"
+                    size="small"
+                    onClick={handleAtualizarInformacoes}
+                    disabled={atualizandoInformacoes}
+                    sx={{
+                      borderRadius: 999,
+                      px: 1.5,
+                      py: 0.75,
+                      background:
+                        'linear-gradient(135deg, rgba(182, 58, 58, 0.95), rgba(116, 28, 28, 0.9))',
+                      color: 'var(--text-primary)',
+                      fontWeight: 700,
+                      textTransform: 'none',
+                      boxShadow: 'none',
+                      opacity: atualizandoInformacoes ? 0.75 : 1,
+                    }}
+                  >
+                    {atualizandoInformacoes
+                      ? 'Atualizando...'
+                      : 'Atualizar Informações'}
+                  </Button>
+                </Box>
+              </Paper>
+
+              <Box
+                sx={{
+                  display: 'grid',
+                  gridTemplateColumns: {
+                    xs: '1fr',
+                    sm: 'repeat(2, minmax(0, 1fr))',
+                    md: 'repeat(4, minmax(0, 1fr))',
+                  },
+                  gap: 1.5,
+                }}
+              >
+                {[
+                  {
+                    label: 'Prontidão Máxima',
+                    value: `${prontidaoMaxima}`,
+                  },
+                  {
+                    label: 'Prontidão Atual',
+                    value: `${prontidaoAtual}`,
+                  },
+                  {
+                    label: 'PP Gastos no Turno',
+                    value: `${gastosTurno}`,
+                  },
+                  {
+                    label: 'Turno Atual',
+                    value: `${turnoAtual}`,
+                  },
+                ].map(item => (
+                  <Paper
+                    key={item.label}
+                    elevation={0}
+                    sx={{
+                      p: 2,
+                      borderRadius: 2.5,
+                      background:
+                        'linear-gradient(180deg, rgba(20, 23, 32, 0.96), rgba(13, 16, 22, 0.96))',
+                      border: '1px solid rgba(255,255,255,0.06)',
+                      display: 'grid',
+                      gap: 0.5,
+                    }}
+                  >
+                    <Typography
+                      sx={{
+                        color: 'var(--text-muted)',
+                        fontSize: '0.68rem',
+                        letterSpacing: '0.14em',
+                        textTransform: 'uppercase',
+                        fontWeight: 700,
+                      }}
+                    >
+                      {item.label}
+                    </Typography>
+                    <Typography
+                      sx={{
+                        color: 'var(--text-primary)',
+                        fontWeight: 800,
+                        fontSize: '1.6rem',
+                        lineHeight: 1.1,
+                      }}
+                    >
+                      {item.value}
+                    </Typography>
+                  </Paper>
+                ))}
+              </Box>
+
+              <Paper
+                elevation={0}
+                sx={{
+                  p: 2.25,
+                  borderRadius: 2.5,
+                  background:
+                    'linear-gradient(180deg, rgba(18, 22, 31, 0.96), rgba(12, 15, 21, 0.96))',
+                  border: '1px solid rgba(255,255,255,0.06)',
+                  display: 'grid',
+                  gap: 1,
+                }}
+              >
+                <Box
+                  sx={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    gap: 1,
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  <Typography
+                    sx={{
+                      color: 'var(--text-primary)',
+                      fontWeight: 700,
+                      fontSize: '0.86rem',
+                      letterSpacing: '0.12em',
+                      textTransform: 'uppercase',
+                    }}
+                  >
+                    Progresso de prontidão
+                  </Typography>
+                  <Typography
+                    sx={{
+                      color: 'var(--color-accent)',
+                      fontWeight: 800,
+                      fontSize: '0.9rem',
+                    }}
+                  >
+                    {Math.round(percentualProntidao)}%
+                  </Typography>
+                </Box>
+                <Box
+                  sx={{
+                    width: '100%',
+                    height: 12,
+                    background: 'rgba(255,255,255,0.06)',
+                    borderRadius: 999,
+                    overflow: 'hidden',
+                    border: '1px solid rgba(255,255,255,0.04)',
+                  }}
+                >
+                  <Box
+                    sx={{
+                      width: `${percentualProntidao}%`,
+                      height: '100%',
+                      borderRadius: 999,
+                      background:
+                        'linear-gradient(90deg, rgba(140, 85, 255, 0.95), rgba(0, 217, 255, 0.9))',
+                      transition: 'width 220ms ease',
+                    }}
+                  />
+                </Box>
+              </Paper>
+
+              <Paper
+                elevation={0}
+                sx={{
+                  p: 2.25,
+                  borderRadius: 2.5,
+                  background:
+                    'linear-gradient(180deg, rgba(19, 22, 31, 0.96), rgba(12, 15, 21, 0.96))',
+                  border: '1px solid rgba(255,255,255,0.06)',
+                  display: 'grid',
+                  gap: 1.25,
+                }}
+              >
+                <Typography
+                  sx={{
+                    color: 'var(--text-muted)',
+                    fontSize: '0.7rem',
+                    letterSpacing: '0.14em',
+                    textTransform: 'uppercase',
+                    fontWeight: 700,
+                  }}
+                >
+                  Últimas ações
+                </Typography>
+
+                {historicoAcoesOrdenado.length === 0 ? (
+                  <Typography sx={{ color: 'var(--text-secondary)' }}>
+                    Nenhuma ação registrada
+                  </Typography>
+                ) : (
+                  <Box sx={{ display: 'grid', gap: 1 }}>
+                    {historicoAcoesOrdenado.map((acao, index) => {
+                      const turnoAcao = resolverTurnoAcao(acao);
+                      const ppConsumida = Number(acao?.ppConsumida ?? 0) || 0;
+                      const ppRestante = Number(acao?.ppRestante ?? 0) || 0;
+
+                      return (
+                        <Box
+                          key={`${acao?.nome ?? 'acao'}-${turnoAcao}-${ppConsumida}-${index}`}
+                          sx={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            gap: 1.5,
+                            flexWrap: 'wrap',
+                            p: 1.25,
+                            borderRadius: 2,
+                            background: 'rgba(255,255,255,0.03)',
+                            border: '1px solid rgba(255,255,255,0.04)',
+                          }}
+                        >
+                          <Box>
+                            <Typography
+                              sx={{
+                                color: 'var(--text-primary)',
+                                fontWeight: 700,
+                              }}
+                            >
+                              {acao?.nome || 'Ação sem nome'}
+                            </Typography>
+                            <Typography
+                              sx={{
+                                color: 'var(--text-secondary)',
+                                fontSize: '0.82rem',
+                              }}
+                            >
+                              {ppConsumida > 0 ? `PP consumida: ${ppConsumida}` : 'Sem custo de PP'}
+                              {ppRestante > 0 ? ` • Restante: ${ppRestante}` : ''}
+                            </Typography>
+                          </Box>
+                          <Typography
+                            sx={{
+                              color: 'var(--color-accent)',
+                              fontWeight: 700,
+                              fontSize: '0.82rem',
+                            }}
+                          >
+                            {turnoAcao === null || turnoAcao === undefined
+                              ? 'Turno —'
+                              : `Turno ${turnoAcao}`}
+                          </Typography>
+                        </Box>
+                      );
+                    })}
+                  </Box>
+                )}
+              </Paper>
+            </Box>
+          )}
+
+          {aba >= 2 && (
             <Box sx={{ display: 'grid', gap: 2 }}>
               {SUBCOLECOES.map(({ chave, label }, indice) => {
-                if (aba !== indice + 1) return null;
+                if (aba !== indice + 2) return null;
                 const estado = subcolecoes[chave] ?? {
                   status: 'loading',
                   docs: [],
