@@ -11,6 +11,7 @@ import {
   montarAudioTocar,
   posicaoAtual,
 } from './audioMesa';
+import { carregarApiYoutube } from './youtubeApi';
 
 const ID = 'dQw4w9WgXcQ';
 
@@ -129,5 +130,42 @@ describe('mensagemErroYoutube', () => {
     expect(mensagemErroYoutube(150)).toMatch(/fora do YouTube/);
     expect(mensagemErroYoutube(100)).toMatch(/não encontrado/);
     expect(mensagemErroYoutube(5)).toMatch(/não conseguiu/);
+  });
+});
+
+describe('carregarApiYoutube', () => {
+  it('carrega a API oficial do YouTube para o player da mesa', async () => {
+    const originalYt = window.YT;
+    const originalReady = window.onYouTubeIframeAPIReady;
+    const originalAppend = document.head.appendChild.bind(document.head);
+    const originalCreate = document.createElement.bind(document);
+    const scripts = [];
+
+    document.createElement = (...args) => {
+      const element = originalCreate(...args);
+      if (args[0] === 'script') scripts.push(element);
+      return element;
+    };
+    document.head.appendChild = node => {
+      scripts.push(node);
+      return originalAppend(node);
+    };
+    delete window.YT;
+    window.onYouTubeIframeAPIReady = undefined;
+
+    const promise = carregarApiYoutube();
+    const script = scripts.at(-1);
+
+    expect(script?.src).toBe('https://www.youtube.com/iframe_api');
+
+    window.YT = { Player: class MockPlayer {} };
+    window.onYouTubeIframeAPIReady?.();
+
+    await expect(promise).resolves.toEqual(window.YT);
+
+    document.createElement = originalCreate;
+    document.head.appendChild = originalAppend;
+    window.onYouTubeIframeAPIReady = originalReady;
+    window.YT = originalYt;
   });
 });

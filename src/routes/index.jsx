@@ -36,7 +36,9 @@ const CardFluxExploracaoPage = lazy(
 );
 const Luta = lazy(() => import('pages/Luta/Luta'));
 const Notas = lazy(() => import('pages/Notas/Notas'));
+const NotaDetalhes = lazy(() => import('pages/Notas/NotaDetalhes'));
 const NovaNota = lazy(() => import('pages/Notas/NovaNota'));
+const Musicas = lazy(() => import('pages/Musicas/Musicas'));
 const Chat = lazy(() => import('pages/Chat/Chat'));
 const Grid = lazy(() => import('pages/Grid/Grid'));
 
@@ -80,7 +82,10 @@ export const ROUTES = [
     element: <CardFluxExploracaoPage />,
   },
   { path: ROUTE_PATHS.LUTA.slice(1), element: <Luta /> },
+  { path: ROUTE_PATHS.MUSICAS.slice(1), element: <Musicas /> },
   { path: ROUTE_PATHS.NOTAS.slice(1), element: <Notas /> },
+  { path: ROUTE_PATHS.NOTA_DETALHES.slice(1), element: <NotaDetalhes /> },
+  { path: ROUTE_PATHS.NOTA_EDITAR.slice(1), element: <NovaNota /> },
   { path: ROUTE_PATHS.NOVA_NOTA.slice(1), element: <NovaNota /> },
   { path: ROUTE_PATHS.CHAT.slice(1), element: <Chat /> },
   { path: ROUTE_PATHS.GRID.slice(1), element: <Grid /> },

@@ -20,7 +20,7 @@ describe('FormActions', () => {
     expect(onCancelar).toHaveBeenCalledTimes(1);
   });
 
-  it('renderiza o label de salvar recebido e desabilita o botão quando isSubmitting é true', () => {
+  it('mostra o estado de salvamento e desabilita o botão quando isSubmitting é true', () => {
     render(
       <FormActions
         onCancelar={() => {}}
@@ -29,9 +29,7 @@ describe('FormActions', () => {
       />,
     );
 
-    expect(
-      screen.getByRole('button', { name: 'Salvar Alterações' }),
-    ).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Salvando...' })).toBeDisabled();
   });
 
   it('não desabilita o botão de salvar quando isSubmitting é false', () => {

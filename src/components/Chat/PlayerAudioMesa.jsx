@@ -259,7 +259,7 @@ const PlayerAudioMesa = ({
   // Liberar o som num clique (autoplay bloqueado pelo navegador).
   useEffect(() => {
     if (!pronto) return undefined;
-    controleRef.current = {
+    const controle = {
       tocar: () => {
         const player = playerRef.current;
         if (!player || atualRef.current?.estado !== AUDIO_ESTADOS.TOCANDO)
@@ -269,8 +269,11 @@ const PlayerAudioMesa = ({
         verificarBloqueio(true);
       },
     };
+    controleRef.current = controle;
     return () => {
-      controleRef.current = null;
+      if (controleRef.current === controle) {
+        controleRef.current = null;
+      }
     };
   }, [pronto, controleRef, verificarBloqueio]);
 

@@ -19,6 +19,8 @@ import {
   recuperarExploracaoGrid,
   sanitizarExploracaoParaPersistencia,
 } from '../pages/CardFlux/exploracaoGrid';
+import { normalizeEntityTypeName } from '../pages/Notas/notaUtils';
+import { extrairVideoYoutube } from 'common/utils/audioMesa';
 import { db } from './firebase';
 
 // ── Helpers genéricos de CRUD Firestore ─────────────────────────────────────
@@ -573,6 +575,232 @@ export const addRmNota = nota => addFirestoreItem(RM_NOTAS_COLLECTION, nota);
 export const removeRmNota = id => removeFirestoreItem(RM_NOTAS_COLLECTION, id);
 export const updateRmNota = (id, updates) =>
   updateFirestoreItem(RM_NOTAS_COLLECTION, id, updates);
+
+// ── rmTiposEntidade (Firestore) ───────────────────────────────────────────────
+const RM_TIPOS_ENTIDADE_COLLECTION = 'rmTiposEntidade';
+
+export const getRmTiposEntidadePorUniverso = async (universoId, mestreId) => {
+  if (!universoId || !mestreId) return [];
+
+  return getFirestoreItemsWhereAll(RM_TIPOS_ENTIDADE_COLLECTION, [
+    ['universoId', universoId],
+    ['mestreId', mestreId],
+  ]);
+};
+
+export const getRmTiposEntidadePorMestre = async mestreId => {
+  if (!mestreId) return [];
+
+  return getFirestoreItemsWhereAll(RM_TIPOS_ENTIDADE_COLLECTION, [
+    ['mestreId', mestreId],
+  ]);
+};
+
+export const addRmTipoEntidade = async item => {
+  const nome = typeof item?.name === 'string' ? item.name.trim() : '';
+  if (!nome || !item?.universoId || !item?.mestreId) return null;
+
+  const payload = {
+    ...item,
+    name: nome,
+    normalizedName: normalizeEntityTypeName(nome),
+  };
+
+  return addFirestoreItem(RM_TIPOS_ENTIDADE_COLLECTION, payload);
+};
+
+export const removeRmTipoEntidade = id =>
+  removeFirestoreItem(RM_TIPOS_ENTIDADE_COLLECTION, id);
+
+export const updateRmTipoEntidade = (id, updates) => {
+  const payload = { ...updates };
+
+  if (typeof payload.name === 'string') {
+    payload.name = payload.name.trim();
+    payload.normalizedName = normalizeEntityTypeName(payload.name);
+  }
+
+  return updateFirestoreItem(RM_TIPOS_ENTIDADE_COLLECTION, id, payload);
+};
+
+// ── Biblioteca Global de Músicas (Firestore) ───────────────────────────────
+// `rmMusicasBiblioteca` guarda músicas reutilizáveis por Mestre; as playlists
+// apontam para estes docs por `musicaId` sem duplicar conteúdo. `mestreId`
+// garante que apenas o dono da biblioteca possa alterar registros.
+const RM_MUSICAS_BIBLIOTECA_COLLECTION = 'rmMusicasBiblioteca';
+const RM_MUSICAS_PASTAS_COLLECTION = 'rmMusicasPastas';
+const RM_PLAYLISTS_COLLECTION = 'rmPlaylists';
+
+const normalizarTexto = valor =>
+  typeof valor === 'string' ? valor.trim() : '';
+
+const normalizarTags = tags => {
+  if (!Array.isArray(tags)) return [];
+  return [...new Set(
+    tags
+      .map(tag => normalizarTexto(tag))
+      .filter(Boolean)
+      .map(tag => tag.replace(/\s+/g, ' ')),
+  )];
+};
+
+const normalizarDadosMusica = musica => {
+  const dados = { ...(musica ?? {}) };
+  const url = normalizarTexto(dados.url);
+  const videoIdInformado = normalizarTexto(dados.videoId);
+  const video = url ? extrairVideoYoutube(url) : null;
+  const videoId = video?.videoId ?? videoIdInformado;
+  if (!videoId) {
+    throw new Error('Link do YouTube inválido.');
+  }
+
+  const nome = normalizarTexto(dados.nome) || `Música ${videoId}`;
+  const pastaId = normalizarTexto(dados.pastaId);
+  const tags = normalizarTags(dados.tags);
+
+  return {
+    ...dados,
+    nome,
+    url,
+    videoId,
+    pastaId: pastaId || null,
+    tags,
+    mestreId: dados.mestreId ?? null,
+    descricao: normalizarTexto(dados.descricao),
+    duracaoSegundos:
+      Number.isFinite(Number(dados.duracaoSegundos)) && Number(dados.duracaoSegundos) >= 0
+        ? Number(dados.duracaoSegundos)
+        : null,
+    thumbnailUrl: normalizarTexto(dados.thumbnailUrl),
+  };
+};
+
+const normalizarDadosPasta = pasta => {
+  const dados = { ...(pasta ?? {}) };
+  return {
+    ...dados,
+    nome: normalizarTexto(dados.nome) || 'Nova Pasta',
+    mestreId: dados.mestreId ?? null,
+    descricao: normalizarTexto(dados.descricao),
+    cor: normalizarTexto(dados.cor) || '#6f2da8',
+    ordenacao: Number.isInteger(Number(dados.ordenacao)) ? Number(dados.ordenacao) : 0,
+  };
+};
+
+const normalizarDadosPlaylist = playlist => {
+  const dados = { ...(playlist ?? {}) };
+  const payload = {};
+
+  if (Object.hasOwn(dados, 'nome')) {
+    payload.nome = normalizarTexto(dados.nome) || 'Nova Playlist';
+  }
+  if (Object.hasOwn(dados, 'descricao')) {
+    payload.descricao = normalizarTexto(dados.descricao);
+  }
+  if (Object.hasOwn(dados, 'linkImagem') || Object.hasOwn(dados, 'imagemUrl')) {
+    const imagem = normalizarTexto(dados.linkImagem ?? dados.imagemUrl ?? '');
+    payload.linkImagem = imagem || null;
+  }
+  if (Object.hasOwn(dados, 'mestreId')) {
+    payload.mestreId = dados.mestreId ?? null;
+  }
+  if (Object.hasOwn(dados, 'musicas')) {
+    const musicaRefs = Array.isArray(dados.musicas) ? dados.musicas : [];
+    const musicas = [];
+    const vistos = new Set();
+    musicaRefs.forEach(item => {
+      if (!item || !item.musicaId) return;
+      const musicaId = normalizarTexto(item.musicaId);
+      if (!musicaId || vistos.has(musicaId)) return;
+      vistos.add(musicaId);
+      const musicaRef = { musicaId };
+      const ordem = Number(item.ordem);
+      if (Number.isInteger(ordem)) {
+        musicaRef.ordem = ordem;
+      }
+      musicas.push(musicaRef);
+    });
+    payload.musicas = musicas;
+  }
+
+  return payload;
+};
+
+export const getRmMusicasBibliotecaPorMestre = mestreId =>
+  getFirestoreItemsWhereAll(RM_MUSICAS_BIBLIOTECA_COLLECTION, [
+    ['mestreId', mestreId],
+  ]);
+export const addRmMusicaBiblioteca = musica =>
+  addFirestoreItem(
+    RM_MUSICAS_BIBLIOTECA_COLLECTION,
+    normalizarDadosMusica(musica),
+  );
+export const removeRmMusicaBiblioteca = async (id, mestreId) => {
+  if (mestreId) {
+    const playlists = await getRmPlaylistsPorMestre(mestreId);
+    await Promise.all(
+      playlists.map(async playlist => {
+        const musicas = Array.isArray(playlist.musicas)
+          ? playlist.musicas.filter(item => item?.musicaId !== id)
+          : [];
+        if (musicas.length === (playlist.musicas?.length ?? 0)) return;
+        await updateRmPlaylist(playlist.id, { musicas });
+      }),
+    );
+  }
+  await removeFirestoreItem(RM_MUSICAS_BIBLIOTECA_COLLECTION, id);
+};
+export const updateRmMusicaBiblioteca = (id, updates) => {
+  const payload = { ...updates };
+  if (Object.hasOwn(payload, 'url')) {
+    const dados = normalizarDadosMusica({ ...payload, mestreId: payload.mestreId ?? updates.mestreId });
+    Object.assign(payload, dados);
+  }
+  if (Object.hasOwn(payload, 'nome')) {
+    payload.nome = normalizarTexto(payload.nome) || 'Nova Música';
+  }
+  if (Object.hasOwn(payload, 'pastaId')) {
+    payload.pastaId = normalizarTexto(payload.pastaId) || null;
+  }
+  if (Object.hasOwn(payload, 'tags')) {
+    payload.tags = normalizarTags(payload.tags);
+  }
+  if (Object.hasOwn(payload, 'descricao')) {
+    payload.descricao = normalizarTexto(payload.descricao);
+  }
+  if (Object.hasOwn(payload, 'thumbnailUrl')) {
+    payload.thumbnailUrl = normalizarTexto(payload.thumbnailUrl);
+  }
+  return updateFirestoreItem(RM_MUSICAS_BIBLIOTECA_COLLECTION, id, payload);
+};
+
+export const getRmMusicasPastasPorMestre = mestreId =>
+  getFirestoreItemsWhereAll(RM_MUSICAS_PASTAS_COLLECTION, [
+    ['mestreId', mestreId],
+  ]);
+export const addRmMusicaPasta = pasta =>
+  addFirestoreItem(RM_MUSICAS_PASTAS_COLLECTION, normalizarDadosPasta(pasta));
+export const removeRmMusicaPasta = id =>
+  removeFirestoreItem(RM_MUSICAS_PASTAS_COLLECTION, id);
+export const updateRmMusicaPasta = (id, updates) =>
+  updateFirestoreItem(
+    RM_MUSICAS_PASTAS_COLLECTION,
+    id,
+    normalizarDadosPasta(updates),
+  );
+
+export const getRmPlaylistsPorMestre = mestreId =>
+  getFirestoreItemsWhereAll(RM_PLAYLISTS_COLLECTION, [['mestreId', mestreId]]);
+export const addRmPlaylist = playlist =>
+  addFirestoreItem(RM_PLAYLISTS_COLLECTION, normalizarDadosPlaylist(playlist));
+export const removeRmPlaylist = id =>
+  removeFirestoreItem(RM_PLAYLISTS_COLLECTION, id);
+export const updateRmPlaylist = (id, updates) =>
+  updateFirestoreItem(
+    RM_PLAYLISTS_COLLECTION,
+    id,
+    normalizarDadosPlaylist(updates),
+  );
 
 // ── rmSessaoLogs (Firestore) ──────────────────────────────────────────────
 // Registro cronológico automático de eventos da sessão (cena marcada como
