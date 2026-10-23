@@ -100,11 +100,16 @@ describe('exploracaoGrid', () => {
 
   it('faz sorteio ponderado com pesos relativos', () => {
     const pool = [{ id: 'a', peso: 8 }, { id: 'b', peso: 2 }];
-    const resultados = Array.from({ length: 200 }, () =>
+    const resultados = Array.from({ length: 300 }, () =>
       sortearCartaExploracao({ cartas: pool, cartasUsadas: [] }),
     );
     const vezesA = resultados.filter(c => c.id === 'a').length;
-    expect(vezesA).toBeGreaterThan(150);
+
+    // O sorteio é probabilístico; a média esperada é ~80% para 'a', mas uma
+    // amostra pequena pode cair abaixo do limite de 150 em CI. Mantemos um
+    // limiar suficientemente acima da frequência de um peso invertido sem tornar
+    // o teste frágil.
+    expect(vezesA).toBeGreaterThan(200);
   });
 
   it('não trava quando não há cartas disponíveis', () => {
