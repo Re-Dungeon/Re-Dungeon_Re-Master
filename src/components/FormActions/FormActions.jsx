@@ -61,7 +61,7 @@ const FormActions = ({ onCancelar, isSubmitting, labelSalvar }) => (
         },
       }}
     >
-      {labelSalvar}
+      {isSubmitting ? 'Salvando...' : labelSalvar}
     </Button>
   </Box>
 );

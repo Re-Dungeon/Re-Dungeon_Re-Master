@@ -415,6 +415,85 @@ service cloud.firestore {
       allow delete: if isAdmin() || isCampanhaOwner(resource.data.mestreId);
     }
 
+    match /rmTiposEntidade/{docId} {
+      allow read: if isAdmin() ||
+        (isAuth() &&
+          resource.data.mestreId == request.auth.uid &&
+          canWriteUniverso(resource.data.universoId));
+      allow create: if isAuth() &&
+        request.resource.data.mestreId == request.auth.uid &&
+        canWriteUniverso(request.resource.data.universoId);
+      allow update: if isAdmin() ||
+        (isAuth() &&
+          resource.data.mestreId == request.auth.uid &&
+          request.resource.data.mestreId == request.auth.uid &&
+          resource.data.universoId == request.resource.data.universoId &&
+          canWriteUniverso(request.resource.data.universoId));
+      allow delete: if isAdmin() ||
+        (isAuth() &&
+          resource.data.mestreId == request.auth.uid &&
+          canWriteUniverso(resource.data.universoId));
+    }
+
+    // Biblioteca global de músicas do mestre — só o dono do conteúdo pode
+    // publicar/editar/excluir suas músicas, pastas e playlists. A regra usa
+    // `mestreId` para impedir que um mestre altere registros de outro.
+    function musicaBibliotecaValida(data) {
+      return data.keys().hasOnly(['nome', 'url', 'videoId', 'pastaId', 'tags', 'descricao',
+                                  'thumbnailUrl', 'duracaoSegundos', 'mestreId', 'createdAt', 'updatedAt']) &&
+        data.mestreId == request.auth.uid &&
+        data.nome is string && data.nome.size() > 0 && data.nome.size() <= 200 &&
+        data.url is string && data.url.size() <= 2000 && data.url.matches('https://.+') &&
+        data.videoId is string && data.videoId.matches('[A-Za-z0-9_-]{11}') &&
+        (data.pastaId == null || (data.pastaId is string && data.pastaId.size() <= 200)) &&
+        data.tags is list && data.tags.size() <= 20 &&
+        data.descricao is string && data.descricao.size() <= 2000 &&
+        (data.thumbnailUrl == null || (data.thumbnailUrl is string && data.thumbnailUrl.size() <= 2000)) &&
+        (data.duracaoSegundos == null || (data.duracaoSegundos is number && data.duracaoSegundos >= 0));
+    }
+
+    function musicaPastaValida(data) {
+      return data.keys().hasOnly(['nome', 'descricao', 'cor', 'ordenacao', 'mestreId', 'createdAt', 'updatedAt']) &&
+        data.mestreId == request.auth.uid &&
+        data.nome is string && data.nome.size() > 0 && data.nome.size() <= 200 &&
+        data.descricao is string && data.descricao.size() <= 2000 &&
+        data.cor is string && data.cor.matches('#[0-9a-fA-F]{6}') &&
+        data.ordenacao is int && data.ordenacao >= 0;
+    }
+
+    function playlistBibliotecaValida(data) {
+      return data.keys().hasOnly(['nome', 'descricao', 'linkImagem', 'musicas', 'mestreId', 'createdAt', 'updatedAt']) &&
+        data.mestreId == request.auth.uid &&
+        data.nome is string && data.nome.size() > 0 && data.nome.size() <= 200 &&
+        data.descricao is string && data.descricao.size() <= 2000 &&
+        (data.linkImagem == null || (data.linkImagem is string && data.linkImagem.size() <= 2000)) &&
+        data.musicas is list && data.musicas.size() <= 200;
+    }
+
+    match /rmMusicasBiblioteca/{docId} {
+      allow read: if isAdmin() || (isAuth() && resource.data.mestreId == request.auth.uid);
+      allow create: if isAuth() && request.resource.data.mestreId == request.auth.uid && musicaBibliotecaValida(request.resource.data);
+      allow update: if isAdmin() ||
+        (isAuth() && resource.data.mestreId == request.auth.uid && request.resource.data.mestreId == request.auth.uid && musicaBibliotecaValida(request.resource.data));
+      allow delete: if isAdmin() || (isAuth() && resource.data.mestreId == request.auth.uid);
+    }
+
+    match /rmMusicasPastas/{docId} {
+      allow read: if isAdmin() || (isAuth() && resource.data.mestreId == request.auth.uid);
+      allow create: if isAuth() && request.resource.data.mestreId == request.auth.uid && musicaPastaValida(request.resource.data);
+      allow update: if isAdmin() ||
+        (isAuth() && resource.data.mestreId == request.auth.uid && request.resource.data.mestreId == request.auth.uid && musicaPastaValida(request.resource.data));
+      allow delete: if isAdmin() || (isAuth() && resource.data.mestreId == request.auth.uid);
+    }
+
+    match /rmPlaylists/{docId} {
+      allow read: if isAdmin() || (isAuth() && resource.data.mestreId == request.auth.uid);
+      allow create: if isAuth() && request.resource.data.mestreId == request.auth.uid && playlistBibliotecaValida(request.resource.data);
+      allow update: if isAdmin() ||
+        (isAuth() && resource.data.mestreId == request.auth.uid && request.resource.data.mestreId == request.auth.uid && playlistBibliotecaValida(request.resource.data));
+      allow delete: if isAdmin() || (isAuth() && resource.data.mestreId == request.auth.uid);
+    }
+
     // Registro cronológico automático de eventos da sessão (cena marcada
     // como atual, carta sorteada, participante entrou na Luta) — só leitura
     // e criação (append-only por design, ver storage.js): nenhuma tela edita

@@ -21,11 +21,12 @@ export const NAV_ITEMS = [
   { path: ROUTE_PATHS.NPCS, icon: PersonOutlineOutlined, label: 'NPCs' },
   { path: ROUTE_PATHS.JOGADORES, icon: PeopleAltOutlined, label: 'Jogadores' },
   { path: ROUTE_PATHS.CRIATURAS, icon: ShieldOutlined, label: 'Criaturas' },
+  { path: ROUTE_PATHS.NOTAS, icon: NotesOutlined, label: 'Universo' },
   { path: ROUTE_PATHS.MAPAS, icon: MapOutlined, label: 'Mapas' },
   { path: ROUTE_PATHS.MISSOES, icon: AssignmentOutlined, label: 'Missões' },
   { path: ROUTE_PATHS.CARDFLUX, icon: LibraryBooksOutlined, label: 'CardFlux' },
   { path: ROUTE_PATHS.LUTA, icon: SportsMmaOutlined, label: 'Luta' },
-  { path: ROUTE_PATHS.NOTAS, icon: NotesOutlined, label: 'Notas' },
+  { path: ROUTE_PATHS.MUSICAS, icon: MusicNoteOutlined, label: 'Músicas' },
   { path: ROUTE_PATHS.CHAT, icon: MessageOutlined, label: 'Chat' },
   { path: ROUTE_PATHS.GRID, icon: GridOnOutlined, label: 'Grid' },
 ];
@@ -43,6 +44,7 @@ export const NAV_GROUPS = [
   {
     label: 'Gerenciamento do Mundo',
     items: [
+      { path: ROUTE_PATHS.NOTAS, icon: NotesOutlined, label: 'Universo' },
       { path: ROUTE_PATHS.JOGADORES, icon: PeopleAltOutlined, label: 'Jogadores' },
       { path: ROUTE_PATHS.NPCS, icon: PersonOutlineOutlined, label: 'NPCs' },
       { path: ROUTE_PATHS.CRIATURAS, icon: ShieldOutlined, label: 'Criaturas' },
@@ -57,13 +59,12 @@ export const NAV_GROUPS = [
       { path: ROUTE_PATHS.LUTA, icon: SportsMmaOutlined, label: 'Luta' },
       { path: ROUTE_PATHS.GRID, icon: GridOnOutlined, label: 'Grid' },
       { path: ROUTE_PATHS.CHAT, icon: MessageOutlined, label: 'Chat' },
-      { path: null, icon: MusicNoteOutlined, label: 'Músicas', action: 'muted' },
+      { path: ROUTE_PATHS.MUSICAS, icon: MusicNoteOutlined, label: 'Músicas' },
     ],
   },
   {
     label: 'Administração',
     items: [
-      { path: ROUTE_PATHS.NOTAS, icon: NotesOutlined, label: 'Notas' },
       { path: null, icon: ViewAgendaOutlined, label: 'Central de Recursos', action: 'resource-center' },
     ],
   },

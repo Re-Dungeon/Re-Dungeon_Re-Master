@@ -79,6 +79,12 @@ import {
   updateRmNota,
   getRmSessaoLogsPorCampanha,
   addRmSessaoLog,
+  getRmMusicasBibliotecaPorMestre,
+  addRmMusicaBiblioteca,
+  removeRmMusicaBiblioteca,
+  getRmMusicasPastasPorMestre,
+  getRmPlaylistsPorMestre,
+  addRmPlaylist,
 } from './storage';
 
 describe('storage.js — CRUD de rmCampanhas (padrão Firestore repetido em toda entidade rm*)', () => {
@@ -148,6 +154,98 @@ describe('storage.js — CRUD de rmCampanhas (padrão Firestore repetido em toda
     );
 
     consoleError.mockRestore();
+  });
+});
+
+describe('storage.js — Biblioteca Global de Músicas', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('getRmMusicasBibliotecaPorMestre, getRmMusicasPastasPorMestre e getRmPlaylistsPorMestre consultam pelo mestreId', async () => {
+    getDocs.mockResolvedValue({ docs: [] });
+
+    await getRmMusicasBibliotecaPorMestre('mestre-1');
+    await getRmMusicasPastasPorMestre('mestre-1');
+    await getRmPlaylistsPorMestre('mestre-1');
+
+    expect(where).toHaveBeenCalledWith('mestreId', '==', 'mestre-1');
+    expect(getDocs).toHaveBeenCalledTimes(3);
+  });
+
+  it('addRmMusicaBiblioteca normaliza link do YouTube e grava os campos essenciais', async () => {
+    addDoc.mockResolvedValue({ id: 'musica-1' });
+
+    await addRmMusicaBiblioteca({
+      nome: '  Cavaleiro da Noite  ',
+      url: 'https://www.youtube.com/watch?v=abc123DEFgH&list=xxx',
+      pastaId: 'pasta-1',
+      tags: ['fantasia', ' boss ', 'fantasia'],
+      mestreId: 'mestre-1',
+    });
+
+    expect(addDoc).toHaveBeenCalledWith(
+      { __collection: 'rmMusicasBiblioteca' },
+      expect.objectContaining({
+        nome: 'Cavaleiro da Noite',
+        url: 'https://www.youtube.com/watch?v=abc123DEFgH&list=xxx',
+        videoId: 'abc123DEFgH',
+        pastaId: 'pasta-1',
+        mestreId: 'mestre-1',
+        tags: ['fantasia', 'boss'],
+        createdAt: '__serverTimestamp__',
+      }),
+    );
+  });
+
+  it('removeRmMusicaBiblioteca remove a referência da música em playlists do mesmo mestre', async () => {
+    getDocs.mockResolvedValue({
+      docs: [
+        {
+          id: 'playlist-1',
+          data: () => ({
+            mestreId: 'mestre-1',
+            musicas: [{ musicaId: 'musica-1' }, { musicaId: 'musica-2' }],
+          }),
+        },
+      ],
+    });
+
+    await removeRmMusicaBiblioteca('musica-1', 'mestre-1');
+
+    expect(updateDoc).toHaveBeenCalledWith(
+      { __doc: 'rmPlaylists', id: 'playlist-1' },
+      {
+        musicas: [{ musicaId: 'musica-2' }],
+        updatedAt: '__serverTimestamp__',
+      },
+    );
+    expect(deleteDoc).toHaveBeenCalledWith({
+      __doc: 'rmMusicasBiblioteca',
+      id: 'musica-1',
+    });
+  });
+
+  it('addRmPlaylist valida referências, preserva link da capa e a ordem das músicas', async () => {
+    addDoc.mockResolvedValue({ id: 'playlist-1' });
+
+    await addRmPlaylist({
+      nome: 'Campanha do Castelo',
+      linkImagem: 'https://exemplo.com/capa-playlist.jpg',
+      mestreId: 'mestre-1',
+      musicas: [{ musicaId: 'm1', ordem: 0 }, { musicaId: 'm2', ordem: 1 }, { musicaId: '' }],
+    });
+
+    expect(addDoc).toHaveBeenCalledWith(
+      { __collection: 'rmPlaylists' },
+      expect.objectContaining({
+        nome: 'Campanha do Castelo',
+        linkImagem: 'https://exemplo.com/capa-playlist.jpg',
+        mestreId: 'mestre-1',
+        musicas: [{ musicaId: 'm1', ordem: 0 }, { musicaId: 'm2', ordem: 1 }],
+        createdAt: '__serverTimestamp__',
+      }),
+    );
   });
 });
 

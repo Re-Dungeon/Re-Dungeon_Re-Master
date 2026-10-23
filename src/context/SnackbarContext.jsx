@@ -64,4 +64,15 @@ SnackbarProvider.propTypes = {
   children: PropTypes.node.isRequired,
 };
 
-export const useSnackbar = () => useContext(SnackbarContext);
+export const useSnackbar = () => {
+  const context = useContext(SnackbarContext);
+
+  if (!context) {
+    return {
+      notifyError: () => {},
+      notifySuccess: () => {},
+    };
+  }
+
+  return context;
+};
