@@ -9,6 +9,16 @@ import {
   within,
 } from '@testing-library/react';
 
+vi.mock('context/AuthContext', () => ({
+  useAuth: () => ({ currentUser: { uid: 'u1' } }),
+}));
+
+vi.mock('service/storage', () => ({
+  getRmMusicasBibliotecaPorMestre: vi.fn(),
+  getRmMusicasPastasPorMestre: vi.fn(),
+  getRmPlaylistsPorMestre: vi.fn(),
+}));
+
 import ChatSala from './ChatSala';
 
 // O CodeMirror real não roda bem no jsdom — no teste o editor é um textarea.
