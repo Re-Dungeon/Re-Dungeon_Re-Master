@@ -7,8 +7,100 @@ const TIMEOUT_MS = 15000;
 
 let carregando = null;
 
+const mockPlayerYoutube = () => {
+  if (typeof window === 'undefined') return null;
+  if (window.YT?.Player) return window.YT;
+
+  class MockYouTubePlayer {
+    constructor(target, options = {}) {
+      this.target = target;
+      this.options = options;
+      this._state = 0;
+      this._volume = 100;
+      this._muted = false;
+      this._duration = 0;
+      this._currentTime = 0;
+      this._videoData = { video_id: null, title: '', isLive: false };
+      options.events?.onReady?.();
+    }
+
+    playVideo() {
+      this._state = 1;
+    }
+
+    pauseVideo() {
+      this._state = 2;
+    }
+
+    stopVideo() {
+      this._state = 0;
+      this._currentTime = 0;
+    }
+
+    seekTo(segundos) {
+      this._currentTime = Number.isFinite(segundos) ? segundos : 0;
+    }
+
+    getPlayerState() {
+      return this._state;
+    }
+
+    getVideoData() {
+      return this._videoData;
+    }
+
+    getDuration() {
+      return this._duration;
+    }
+
+    getCurrentTime() {
+      return this._currentTime;
+    }
+
+    setVolume(volume) {
+      this._volume = volume;
+    }
+
+    mute() {
+      this._muted = true;
+    }
+
+    unMute() {
+      this._muted = false;
+    }
+
+    isMuted() {
+      return this._muted;
+    }
+
+    loadVideoById({ videoId, startSeconds = 0 }) {
+      this._videoData = { video_id: videoId, title: 'Mock YouTube', isLive: false };
+      this._currentTime = startSeconds;
+      this._state = 1;
+    }
+
+    cueVideoById({ videoId, startSeconds = 0 }) {
+      this._videoData = { video_id: videoId, title: 'Mock YouTube', isLive: false };
+      this._currentTime = startSeconds;
+      this._state = 3;
+    }
+
+    destroy() {
+      this._state = 0;
+    }
+  }
+
+  window.YT = { Player: MockYouTubePlayer };
+  return window.YT;
+};
+
 export const carregarApiYoutube = () => {
   if (window.YT?.Player) return Promise.resolve(window.YT);
+
+  if (process.env.NODE_ENV === 'test') {
+    return Promise.resolve(mockPlayerYoutube());
+  }
+
   if (!carregando) {
     carregando = new Promise((resolve, reject) => {
       const anterior = window.onYouTubeIframeAPIReady;

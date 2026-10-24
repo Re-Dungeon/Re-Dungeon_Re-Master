@@ -1132,17 +1132,22 @@ const Musicas = () => {
         nome: dados.nome,
         descricao: dados.descricao || '',
         linkImagem: dados.linkImagem || null,
+        pastaId: dados.pastaId ?? null,
         mestreId: userId,
         musicas: [],
       };
 
-      if (playlistTargetId) {
-        await updateRmPlaylist(playlistTargetId, payload);
-      } else {
-        await addRmPlaylist(payload);
+      try {
+        if (playlistTargetId) {
+          await updateRmPlaylist(playlistTargetId, payload);
+        } else {
+          await addRmPlaylist(payload);
+        }
+        setPlaylistDialog({ open: false, initialValues: null });
+        await carregarDados();
+      } catch (err) {
+        setError(err);
       }
-      setPlaylistDialog({ open: false, initialValues: null });
-      await carregarDados();
     },
     [carregarDados, playlistTargetId, userId],
   );
@@ -1521,15 +1526,27 @@ const Musicas = () => {
                   onClick={() => setPlaylistDialog({ open: true, initialValues: null })}
                   sx={{
                     borderRadius: 2,
-                    minWidth: 160,
-                    background: 'linear-gradient(135deg, rgba(184,60,53,0.78), rgba(130,30,30,0.9))',
-                    color: '#fff',
+                    minWidth: 176,
+                    px: 2,
+                    py: 1.1,
+                    background: 'linear-gradient(135deg, #ff9a5c 0%, #f7724f 28%, #b92f2f 100%)',
+                    color: '#fff8f4',
+                    border: '1px solid rgba(255, 168, 122, 0.5)',
                     fontWeight: 800,
-                    boxShadow: '0 14px 28px rgba(184,60,53,0.22)',
-                    '&:hover': { background: 'linear-gradient(135deg, rgba(184,60,53,0.9), rgba(130,30,30,1))' },
+                    textTransform: 'none',
+                    letterSpacing: '0.01em',
+                    boxShadow: '0 14px 28px rgba(185, 47, 47, 0.32)',
+                    '& .MuiButton-startIcon': {
+                      color: '#fff8f4',
+                      mr: 1,
+                    },
+                    '&:hover': {
+                      background: 'linear-gradient(135deg, #ffad69 0%, #f77a52 28%, #c33a35 100%)',
+                      boxShadow: '0 18px 34px rgba(185, 47, 47, 0.4)',
+                    },
                   }}
                 >
-                  + Criar playlist
+                  Nova playlist
                 </Button>
               </Box>
             )}

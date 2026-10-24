@@ -12,6 +12,8 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
 import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
+import Tooltip from '@mui/material/Tooltip';
+import useMediaQuery from '@mui/material/useMediaQuery';
 import CloseIcon from '@mui/icons-material/Close';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import FitnessCenterOutlinedIcon from '@mui/icons-material/FitnessCenterOutlined';
@@ -41,6 +43,7 @@ import {
   resolverValorAtributoPrimario,
   resolverValorAtributoSecundario,
 } from 'common/utils/atributosPersonagem';
+import { sanitizeRichHtml } from 'pages/Notas/notaUtils';
 
 // Campos já exibidos pelo EntityViewDialog (nome/imagem/descrição) ou que são
 // metadados internos do Re-Dungeon/Re:Master — não repetidos na ficha abaixo.
@@ -4687,11 +4690,13 @@ const PersonagemFichaDialog = ({
     atributosTotais: false,
     atributosSecundarios: false,
     atributosDetalhados: false,
-    infoJogador: false,
+    infoJogador: true,
     detalhesAdicionais: false,
   });
   const [personagemAtualizado, setPersonagemAtualizado] = useState(personagem);
   const [atualizandoInformacoes, setAtualizandoInformacoes] = useState(false);
+  const [backgroundDialogOpen, setBackgroundDialogOpen] = useState(false);
+  const prefersReducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)');
 
   const carregarPersonagemAtual = async () => {
     if (!personagem?.id) {
@@ -5192,7 +5197,14 @@ const PersonagemFichaDialog = ({
     ),
   };
 
-  const temInfoJogador = Object.values(infoJogador).some(v => !ehVazio(v));
+  const temInfoJogador = Object.entries(infoJogador).some(
+    ([chave, valor]) => chave === 'background' || !ehVazio(valor),
+  );
+  const backgroundHtml =
+    typeof infoJogador.background === 'string'
+      ? sanitizeRichHtml(infoJogador.background)
+      : '';
+  const backgroundVazio = !backgroundHtml || backgroundHtml.trim() === '';
 
   const construirMeta = () => {
     const meta = [];
@@ -6746,6 +6758,161 @@ const PersonagemFichaDialog = ({
         </Tabs>
       </Box>
 
+      <Dialog
+        open={backgroundDialogOpen}
+        onClose={() => setBackgroundDialogOpen(false)}
+        fullWidth
+        maxWidth="lg"
+        slotProps={{
+          paper: {
+            sx: {
+              width: 'min(980px, calc(100vw - 32px))',
+              maxHeight: '84vh',
+              overflow: 'hidden',
+              borderRadius: 3,
+              background:
+                'linear-gradient(180deg, rgba(18, 13, 11, 0.98), rgba(7, 9, 13, 0.98))',
+              border: '1px solid rgba(255, 178, 117, 0.18)',
+              boxShadow: '0 24px 60px rgba(0, 0, 0, 0.45)',
+            },
+          },
+        }}
+      >
+        <Box
+          sx={{
+            position: 'sticky',
+            top: 0,
+            zIndex: 2,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 2,
+            px: { xs: 2, md: 2.5 },
+            py: 2,
+            borderBottom: '1px solid rgba(255,255,255,0.08)',
+            background:
+              'linear-gradient(180deg, rgba(17, 24, 36, 0.98), rgba(12, 16, 24, 0.95))',
+          }}
+        >
+          <Box>
+            <Typography
+              component="h2"
+              variant="overline"
+              sx={{
+                display: 'block',
+                color: '#dca66d',
+                letterSpacing: '0.18em',
+                fontSize: '0.62rem',
+                fontWeight: 800,
+              }}
+            >
+              Background
+            </Typography>
+            <Typography
+              variant="h5"
+              sx={{
+                color: 'var(--text-primary)',
+                fontWeight: 800,
+                letterSpacing: 0.2,
+                lineHeight: 1.2,
+                fontSize: { xs: '1.2rem', md: '1.55rem' },
+              }}
+            >
+              {personagem?.nome ?? 'Personagem'}
+            </Typography>
+          </Box>
+
+          <IconButton
+            aria-label="Fechar leitura do background"
+            onClick={() => setBackgroundDialogOpen(false)}
+            sx={{
+              color: 'var(--text-secondary)',
+              background: 'rgba(255,255,255,0.04)',
+              border: '1px solid rgba(255,255,255,0.08)',
+              '&:hover': { background: 'rgba(255,255,255,0.08)', color: 'var(--text-primary)' },
+            }}
+          >
+            <CloseIcon />
+          </IconButton>
+        </Box>
+
+        <DialogContent
+          dividers
+          sx={{
+            p: { xs: 2, md: 3 },
+            overflowY: 'auto',
+            background: 'rgba(8, 12, 18, 0.96)',
+            scrollbarWidth: 'thin',
+            scrollbarColor: 'rgba(219, 150, 99, 0.5) transparent',
+            '&::-webkit-scrollbar': { width: '9px' },
+            '&::-webkit-scrollbar-thumb': {
+              background: 'rgba(219, 150, 99, 0.5)',
+              borderRadius: 999,
+            },
+            '&::-webkit-scrollbar-track': { background: 'transparent' },
+          }}
+        >
+          <Box
+            sx={{
+              maxWidth: '60rem',
+              color: 'var(--text-primary)',
+              lineHeight: 1.8,
+              fontSize: '1rem',
+              wordBreak: 'break-word',
+              '& p': { m: 0, mb: 1.4 },
+              '& h1, & h2, & h3, & h4': {
+                color: '#f0c989',
+                fontWeight: 700,
+                letterSpacing: '0.02em',
+                mt: 1.5,
+                mb: 0.75,
+              },
+              '& strong': { color: '#fff4d9', fontWeight: 700 },
+              '& em': { color: '#dfe8ff', fontStyle: 'italic' },
+              '& u': { textDecoration: 'underline', textDecorationColor: 'rgba(162, 201, 255, 0.8)' },
+              '& ul, & ol': {
+                pl: 3.3,
+                my: 1.2,
+              },
+              '& li': { mb: 0.6 },
+              '& a': {
+                color: '#9ec2ff',
+                textDecoration: 'underline',
+                textDecorationThickness: '1.5px',
+                textUnderlineOffset: '0.15em',
+              },
+              '& img, & iframe, & video': {
+                display: 'block',
+                maxWidth: '100%',
+                borderRadius: 2,
+                my: 1.5,
+                border: '1px solid rgba(255,255,255,0.12)',
+              },
+              '& blockquote': {
+                borderLeft: '3px solid rgba(214,176,92,0.9)',
+                pl: 1.6,
+                py: 0.3,
+                my: 1.4,
+                color: 'var(--text-secondary)',
+                background: 'rgba(255,255,255,0.02)',
+              },
+              '& pre': {
+                background: 'rgba(255,255,255,0.04)',
+                borderRadius: 2,
+                p: 1.5,
+                overflowX: 'auto',
+                border: '1px solid rgba(255,255,255,0.08)',
+              },
+              '& code': { color: '#d8e6ff', fontFamily: 'monospace' },
+            }}
+            dangerouslySetInnerHTML={{
+              __html: backgroundHtml ||
+                '<p style="margin:0;color:var(--text-secondary);">Este personagem ainda não possui um Background registrado.</p>',
+            }}
+          />
+        </DialogContent>
+      </Dialog>
+
       <DialogContent
         dividers
         sx={{
@@ -7310,23 +7477,81 @@ const PersonagemFichaDialog = ({
                             '&::before': { display: 'none' },
                           }}
                         >
-                          <Typography
-                            variant="overline"
+                          <Box
                             sx={{
-                              color: 'var(--color-accent)',
-                              textTransform: 'uppercase',
-                              letterSpacing: '0.18em',
-                              fontSize: '0.64rem',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              gap: 1,
                               mb: 0.8,
-                              display: 'block',
                             }}
                           >
-                            BACKGROUND
-                          </Typography>
-                          <Typography sx={textoScrollSx}>
-                            {infoJogador.background ??
-                              'Nenhuma informação cadastrada.'}
-                          </Typography>
+                            <Typography
+                              variant="overline"
+                              sx={{
+                                color: 'var(--color-accent)',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.18em',
+                                fontSize: '0.64rem',
+                                display: 'block',
+                              }}
+                            >
+                              BACKGROUND
+                            </Typography>
+
+                            <Tooltip title="Ler Background completo">
+                              <IconButton
+                                size="small"
+                                aria-label="Ler Background completo"
+                                onClick={() => setBackgroundDialogOpen(true)}
+                                sx={{
+                                  color: '#f8e4c7',
+                                  background:
+                                    'linear-gradient(135deg, rgba(184, 72, 42, 0.44), rgba(25, 16, 12, 0.78))',
+                                  border: '1px solid rgba(255, 163, 103, 0.38)',
+                                  boxShadow:
+                                    '0 0 0 1px rgba(255, 178, 110, 0.14), 0 10px 24px rgba(110, 42, 22, 0.22)',
+                                  transition: 'all 180ms ease',
+                                  animation: prefersReducedMotion
+                                    ? 'none'
+                                    : 'backgroundReadPulse 2.8s ease-in-out infinite',
+                                  '@keyframes backgroundReadPulse': {
+                                    '0%, 100%': {
+                                      boxShadow:
+                                        '0 0 0 1px rgba(255, 178, 110, 0.14), 0 10px 24px rgba(110, 42, 22, 0.18)',
+                                      transform: 'scale(1)',
+                                    },
+                                    '50%': {
+                                      boxShadow:
+                                        '0 0 0 6px rgba(255, 145, 86, 0.16), 0 14px 28px rgba(110, 42, 22, 0.28)',
+                                      transform: 'scale(1.02)',
+                                    },
+                                  },
+                                  '@media (prefers-reduced-motion: reduce)': {
+                                    animation: 'none',
+                                  },
+                                  '&:hover': {
+                                    background:
+                                      'linear-gradient(135deg, rgba(210, 96, 55, 0.52), rgba(36, 22, 17, 0.84))',
+                                    borderColor: 'rgba(255, 186, 120, 0.44)',
+                                  },
+                                  '&:focus-visible': {
+                                    outline: '2px solid rgba(255, 182, 120, 0.9)',
+                                    outlineOffset: 2,
+                                  },
+                                }}
+                              >
+                                <VisibilityOutlinedIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          </Box>
+                          {!backgroundDialogOpen && (
+                            <Typography sx={textoScrollSx}>
+                              {backgroundVazio
+                                ? 'Nenhuma informação cadastrada.'
+                                : infoJogador.background}
+                            </Typography>
+                          )}
                         </Paper>
 
                         <Paper

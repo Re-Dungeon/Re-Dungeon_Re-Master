@@ -1,8 +1,22 @@
 import React from 'react';
-import { describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 import ChatSala from './ChatSala';
+
+const getRmMusicasBibliotecaPorMestre = vi.fn();
+const getRmMusicasPastasPorMestre = vi.fn();
+const getRmPlaylistsPorMestre = vi.fn();
+
+vi.mock('context/AuthContext', () => ({
+  useAuth: () => ({ currentUser: { uid: 'u1' } }),
+}));
+
+vi.mock('service/storage', () => ({
+  getRmMusicasBibliotecaPorMestre: (...args) => getRmMusicasBibliotecaPorMestre(...args),
+  getRmMusicasPastasPorMestre: (...args) => getRmMusicasPastasPorMestre(...args),
+  getRmPlaylistsPorMestre: (...args) => getRmPlaylistsPorMestre(...args),
+}));
 
 const audioFalso = sobrescrever => ({
   tocando: true,
@@ -39,6 +53,15 @@ const renderSala = audio =>
   );
 
 describe('ChatSala — música da mesa', () => {
+  beforeEach(() => {
+    getRmMusicasBibliotecaPorMestre.mockReset();
+    getRmMusicasPastasPorMestre.mockReset();
+    getRmPlaylistsPorMestre.mockReset();
+    getRmMusicasBibliotecaPorMestre.mockResolvedValue([]);
+    getRmMusicasPastasPorMestre.mockResolvedValue([]);
+    getRmPlaylistsPorMestre.mockResolvedValue([]);
+  });
+
   it('sem `audio`, não mostra o ícone', () => {
     renderSala(null);
     expect(
@@ -79,11 +102,75 @@ describe('ChatSala — música da mesa', () => {
     expect(audio.setVolume).toHaveBeenCalledWith(51);
   });
 
-  it('mestre com música tocando: mudar o "Repetir" grava na mesa', () => {
+  it('exibe as abas do centro musical com reprodução, biblioteca e playlists', () => {
+    const audio = audioFalso();
+    renderSala(audio);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Música da mesa' }));
+
+    expect(screen.getByRole('tab', { name: 'Reprodutor' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Biblioteca' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Playlists' })).toBeInTheDocument();
+  });
+
+  it('mestre com música tocando: clicar no botão de repetir grava na mesa', () => {
     const audio = audioFalso({ podeControlar: true });
     renderSala(audio);
     fireEvent.click(screen.getByRole('button', { name: 'Música da mesa' }));
-    fireEvent.click(screen.getByRole('switch'));
+    fireEvent.click(screen.getByRole('button', { name: 'Desativar repetição' }));
     expect(audio.setRepetir).toHaveBeenCalledWith(false);
+  });
+
+  it('mostra navegação por pastas e filtra a biblioteca por pasta', async () => {
+    const audio = audioFalso({ podeControlar: true });
+    getRmMusicasBibliotecaPorMestre.mockResolvedValue([
+      { id: 'm1', nome: 'Tema da Taverna', url: 'https://youtu.be/abc123', pastaId: 'p1', tags: ['ambiental'] },
+      { id: 'm2', nome: 'Combate Rápido', url: 'https://youtu.be/def456', pastaId: 'p2', tags: ['luta'] },
+    ]);
+    getRmMusicasPastasPorMestre.mockResolvedValue([
+      { id: 'p1', nome: 'Exploração' },
+      { id: 'p2', nome: 'Luta' },
+    ]);
+    getRmPlaylistsPorMestre.mockResolvedValue([]);
+
+    renderSala(audio);
+    fireEvent.click(screen.getByRole('button', { name: 'Música da mesa' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Biblioteca' }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Todas as músicas' })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Luta' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Combate Rápido')).toBeInTheDocument();
+      expect(screen.queryByText('Tema da Taverna')).not.toBeInTheDocument();
+    });
+  });
+
+  it('exibe a navegação da biblioteca de playlists em lista compacta e com acesso direto à seleção', async () => {
+    const audio = audioFalso({ podeControlar: true });
+    getRmMusicasBibliotecaPorMestre.mockResolvedValue([
+      { id: 'm1', nome: 'Tema da Taverna', url: 'https://youtu.be/abc123', pastaId: 'p1', tags: ['ambiental'] },
+      { id: 'm2', nome: 'Combate Rápido', url: 'https://youtu.be/def456', pastaId: 'p2', tags: ['luta'] },
+    ]);
+    getRmMusicasPastasPorMestre.mockResolvedValue([
+      { id: 'p1', nome: 'Exploração' },
+      { id: 'p2', nome: 'Luta' },
+    ]);
+    getRmPlaylistsPorMestre.mockResolvedValue([
+      { id: 'pl1', nome: 'Exploração', musicas: [{ musicaId: 'm1' }], descricao: 'Abertura' },
+      { id: 'pl2', nome: 'Combate', musicas: [{ musicaId: 'm2' }], descricao: 'Ação' },
+    ]);
+
+    renderSala(audio);
+    fireEvent.click(screen.getByRole('button', { name: 'Música da mesa' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Playlists' }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Todas as playlists' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Combate' })).toBeInTheDocument();
+    });
   });
 });

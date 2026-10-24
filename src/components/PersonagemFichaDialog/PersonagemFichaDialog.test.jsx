@@ -52,6 +52,49 @@ describe('PersonagemFichaDialog', () => {
     }
   };
 
+  it('exibe o botão e abre o modal de leitura do background com conteúdo rico', async () => {
+    const user = userEvent.setup();
+    const personagemComBackground = {
+      ...PERSONAGEM,
+      infoJogador: {
+        background:
+          '<p><strong>Origem:</strong> filho de um mercador em um porto perdido.</p><ul><li>Viveu entre marinheiros e mercadores.</li><li>Aprendeu a ler as pessoas antes das cartas.</li></ul>',
+      },
+    };
+
+    render(
+      <PersonagemFichaDialog open onClose={() => {}} personagem={personagemComBackground} />,
+    );
+
+    const botaoBackground = screen.getByRole('button', { name: /ler background completo/i });
+    expect(botaoBackground).toBeInTheDocument();
+
+    await user.click(botaoBackground);
+
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /background/i })).toBeInTheDocument();
+    expect(screen.getByText(/Origem:/i)).toBeInTheDocument();
+    expect(screen.getByText(/Viveu entre marinheiros/i)).toBeInTheDocument();
+  });
+
+  it('mostra uma mensagem elegante quando o background não está preenchido', async () => {
+    const user = userEvent.setup();
+    const personagemSemBackground = {
+      ...PERSONAGEM,
+      infoJogador: { background: '' },
+    };
+
+    render(
+      <PersonagemFichaDialog open onClose={() => {}} personagem={personagemSemBackground} />,
+    );
+
+    await user.click(screen.getByRole('button', { name: /ler background completo/i }));
+
+    expect(
+      screen.getByText(/Este personagem ainda não possui um Background registrado/i),
+    ).toBeInTheDocument();
+  });
+
   it('mantém a ordem das abas e cria a aba Prontidão & Ações logo após Ficha', async () => {
     const user = userEvent.setup();
     render(

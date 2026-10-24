@@ -258,7 +258,7 @@ describe('Musicas', () => {
 
     await waitFor(() => {
       expect(screen.getByPlaceholderText(/buscar playlist/i)).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /\+ criar playlist/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /nova playlist/i })).toBeInTheDocument();
       expect(screen.getByText('Combate Final')).toBeInTheDocument();
       expect(screen.getByText('Exploração')).toBeInTheDocument();
     });

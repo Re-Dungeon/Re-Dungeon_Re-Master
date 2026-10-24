@@ -83,6 +83,7 @@ import {
   addRmMusicaBiblioteca,
   removeRmMusicaBiblioteca,
   getRmMusicasPastasPorMestre,
+  getRmPlaylistsPastasPorMestre,
   getRmPlaylistsPorMestre,
   addRmPlaylist,
 } from './storage';
@@ -116,7 +117,11 @@ describe('storage.js — CRUD de rmCampanhas (padrão Firestore repetido em toda
 
     expect(addDoc).toHaveBeenCalledWith(
       { __collection: 'rmCampanhas' },
-      { nome: 'Nova Campanha', createdAt: '__serverTimestamp__' },
+      {
+        nome: 'Nova Campanha',
+        createdAt: '__serverTimestamp__',
+        updatedAt: '__serverTimestamp__',
+      },
     );
     expect(result).toEqual({ id: 'novo-id', nome: 'Nova Campanha' });
   });
@@ -162,15 +167,16 @@ describe('storage.js — Biblioteca Global de Músicas', () => {
     vi.clearAllMocks();
   });
 
-  it('getRmMusicasBibliotecaPorMestre, getRmMusicasPastasPorMestre e getRmPlaylistsPorMestre consultam pelo mestreId', async () => {
+  it('getRmMusicasBibliotecaPorMestre, getRmMusicasPastasPorMestre, getRmPlaylistsPastasPorMestre e getRmPlaylistsPorMestre consultam pelo mestreId', async () => {
     getDocs.mockResolvedValue({ docs: [] });
 
     await getRmMusicasBibliotecaPorMestre('mestre-1');
     await getRmMusicasPastasPorMestre('mestre-1');
+    await getRmPlaylistsPastasPorMestre('mestre-1');
     await getRmPlaylistsPorMestre('mestre-1');
 
     expect(where).toHaveBeenCalledWith('mestreId', '==', 'mestre-1');
-    expect(getDocs).toHaveBeenCalledTimes(3);
+    expect(getDocs).toHaveBeenCalledTimes(4);
   });
 
   it('addRmMusicaBiblioteca normaliza link do YouTube e grava os campos essenciais', async () => {
@@ -194,6 +200,7 @@ describe('storage.js — Biblioteca Global de Músicas', () => {
         mestreId: 'mestre-1',
         tags: ['fantasia', 'boss'],
         createdAt: '__serverTimestamp__',
+        updatedAt: '__serverTimestamp__',
       }),
     );
   });
@@ -244,6 +251,65 @@ describe('storage.js — Biblioteca Global de Músicas', () => {
         mestreId: 'mestre-1',
         musicas: [{ musicaId: 'm1', ordem: 0 }, { musicaId: 'm2', ordem: 1 }],
         createdAt: '__serverTimestamp__',
+        updatedAt: '__serverTimestamp__',
+      }),
+    );
+  });
+
+  it('addRmPlaylist inclui pastaId null quando a playlist não pertence a uma pasta', async () => {
+    addDoc.mockResolvedValue({ id: 'playlist-sem-pasta' });
+
+    await addRmPlaylist({
+      nome: 'Sem Pasta',
+      descricao: 'Playlist sem pasta',
+      linkImagem: null,
+      mestreId: 'mestre-1',
+      musicas: [],
+    });
+
+    expect(addDoc).toHaveBeenCalledWith(
+      { __collection: 'rmPlaylists' },
+      expect.objectContaining({
+        nome: 'Sem Pasta',
+        descricao: 'Playlist sem pasta',
+        pastaId: null,
+        mestreId: 'mestre-1',
+        musicas: [],
+        createdAt: '__serverTimestamp__',
+        updatedAt: '__serverTimestamp__',
+      }),
+    );
+    expect(Object.keys(addDoc.mock.calls[0][1]).sort()).toEqual([
+      'createdAt',
+      'descricao',
+      'linkImagem',
+      'mestreId',
+      'musicas',
+      'nome',
+      'pastaId',
+      'updatedAt',
+    ].sort());
+  });
+
+  it('addRmPlaylist preserva pastaId quando a playlist pertence a uma pasta', async () => {
+    addDoc.mockResolvedValue({ id: 'playlist-com-pasta' });
+
+    await addRmPlaylist({
+      nome: 'Com Pasta',
+      pastaId: 'pasta-42',
+      mestreId: 'mestre-1',
+      musicas: [],
+    });
+
+    expect(addDoc).toHaveBeenCalledWith(
+      { __collection: 'rmPlaylists' },
+      expect.objectContaining({
+        nome: 'Com Pasta',
+        pastaId: 'pasta-42',
+        mestreId: 'mestre-1',
+        musicas: [],
+        createdAt: '__serverTimestamp__',
+        updatedAt: '__serverTimestamp__',
       }),
     );
   });
@@ -305,7 +371,11 @@ describe('storage.js — personagens (somente leitura) e CRUD de rmCampanhaNpcs/
     expect(where).toHaveBeenCalledWith('mestreId', '==', 'mestre-1');
     expect(addDoc).toHaveBeenCalledWith(
       { __collection: 'rmCampanhas/c1/npcs' },
-      { nome: 'Grumnak', createdAt: '__serverTimestamp__' },
+      {
+        nome: 'Grumnak',
+        createdAt: '__serverTimestamp__',
+        updatedAt: '__serverTimestamp__',
+      },
     );
     expect(doc).toHaveBeenCalledWith({}, 'rmCampanhas', 'c1', 'npcs', 'npc-1');
     expect(deleteDoc).toHaveBeenCalledWith({
@@ -339,7 +409,11 @@ describe('storage.js — personagens (somente leitura) e CRUD de rmCampanhaNpcs/
     expect(where).toHaveBeenCalledWith('mestreId', '==', 'mestre-1');
     expect(addDoc).toHaveBeenCalledWith(
       { __collection: 'rmCampanhas/c1/jogadores' },
-      { nome: 'Lyra', createdAt: '__serverTimestamp__' },
+      {
+        nome: 'Lyra',
+        createdAt: '__serverTimestamp__',
+        updatedAt: '__serverTimestamp__',
+      },
     );
     expect(doc).toHaveBeenCalledWith(
       {},
@@ -379,7 +453,11 @@ describe('storage.js — personagens (somente leitura) e CRUD de rmCampanhaNpcs/
     expect(where).toHaveBeenCalledWith('mestreId', '==', 'mestre-1');
     expect(addDoc).toHaveBeenCalledWith(
       { __collection: 'rmCampanhas/c1/criaturas' },
-      { nome: 'Fera das Sombras', createdAt: '__serverTimestamp__' },
+      {
+        nome: 'Fera das Sombras',
+        createdAt: '__serverTimestamp__',
+        updatedAt: '__serverTimestamp__',
+      },
     );
     expect(doc).toHaveBeenCalledWith(
       {},
@@ -430,7 +508,11 @@ describe.each([
 
     expect(addDoc).toHaveBeenCalledWith(
       { __collection: colecao },
-      { nome: 'Item', createdAt: '__serverTimestamp__' },
+      {
+        nome: 'Item',
+        createdAt: '__serverTimestamp__',
+        updatedAt: '__serverTimestamp__',
+      },
     );
   });
 
@@ -534,6 +616,7 @@ describe('storage.js — cardflux (somente leitura) e CRUD de rmCardfluxEstados'
         cartaId: 'carta-1',
         estadoNoBaralho: 'comprada',
         createdAt: '__serverTimestamp__',
+        updatedAt: '__serverTimestamp__',
       },
     );
     expect(updateDoc).toHaveBeenCalledWith(
@@ -602,6 +685,7 @@ describe('storage.js — cardflux (somente leitura) e CRUD de rmCardfluxEstados'
           },
         ],
         createdAt: '__serverTimestamp__',
+        updatedAt: '__serverTimestamp__',
       },
     );
     expect(deleteDoc).toHaveBeenCalledWith({
@@ -818,6 +902,7 @@ describe('storage.js — rmSessaoLogs (registro cronológico automático, append
         tipo: 'cena_atual',
         mensagem: 'x',
         createdAt: '__serverTimestamp__',
+        updatedAt: '__serverTimestamp__',
       },
     );
   });

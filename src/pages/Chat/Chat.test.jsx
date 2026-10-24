@@ -12,6 +12,9 @@ const getRmCampanhaCriaturas = vi.fn();
 const addChatRolagemSecreta = vi.fn();
 const subscribeChatSecretasDoMestre = vi.fn();
 const getChatMacros = vi.fn();
+const getRmMusicasBibliotecaPorMestre = vi.fn(() => Promise.resolve([]));
+const getRmMusicasPastasPorMestre = vi.fn(() => Promise.resolve([]));
+const getRmPlaylistsPorMestre = vi.fn(() => Promise.resolve([]));
 const subscribeAudioMesa = vi.fn((_id, onChange) => {
   onChange(null);
   return vi.fn();
@@ -33,6 +36,11 @@ vi.mock('service/storage', () => ({
   subscribeAudioMesa: (...args) => subscribeAudioMesa(...args),
   setAudioMesa: (...args) => setAudioMesa(...args),
   getChatMacros: (...args) => getChatMacros(...args),
+  getRmMusicasBibliotecaPorMestre: (...args) =>
+    getRmMusicasBibliotecaPorMestre(...args),
+  getRmMusicasPastasPorMestre: (...args) =>
+    getRmMusicasPastasPorMestre(...args),
+  getRmPlaylistsPorMestre: (...args) => getRmPlaylistsPorMestre(...args),
   addChatMacro: vi.fn(),
   updateChatMacro: vi.fn(),
   removeChatMacro: vi.fn(),

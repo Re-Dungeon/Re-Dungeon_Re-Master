@@ -21,7 +21,30 @@ import {
 import { auth, googleProvider } from 'service/firebase';
 import usePermissions from 'hooks/usePermissions';
 
-const AuthContext = createContext(null);
+const defaultAuthContext = {
+  currentUser: null,
+  loading: true,
+  login: async () => {
+    throw new Error('AuthProvider não inicializado');
+  },
+  signup: async () => {
+    throw new Error('AuthProvider não inicializado');
+  },
+  resetPassword: async () => {
+    throw new Error('AuthProvider não inicializado');
+  },
+  loginWithGoogle: async () => {
+    throw new Error('AuthProvider não inicializado');
+  },
+  logout: async () => {},
+  isAdmin: false,
+  allowedUniversos: [],
+  loadingPermissions: true,
+  canCreate: () => false,
+  canWrite: () => false,
+};
+
+const AuthContext = createContext(defaultAuthContext);
 
 export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
@@ -106,4 +129,8 @@ AuthProvider.propTypes = {
   children: PropTypes.node.isRequired,
 };
 
-export const useAuth = () => useContext(AuthContext);
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+
+  return context ?? defaultAuthContext;
+};
