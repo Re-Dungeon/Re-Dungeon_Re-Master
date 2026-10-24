@@ -51,10 +51,13 @@ const addFirestoreItem = async (collectionName, item) => {
     const dadosPersistidos = item ? { ...item } : {};
     delete dadosPersistidos.id;
 
-    const docRef = await addDoc(collection(db, ...path), {
+    const payloadParaPersistir = {
       ...dadosPersistidos,
       createdAt: serverTimestamp(),
-    });
+      updatedAt: serverTimestamp(),
+    };
+
+    const docRef = await addDoc(collection(db, ...path), payloadParaPersistir);
     return { ...dadosPersistidos, id: docRef.id };
   } catch (error) {
     // eslint-disable-next-line no-console
@@ -629,6 +632,7 @@ export const updateRmTipoEntidade = (id, updates) => {
 // garante que apenas o dono da biblioteca possa alterar registros.
 const RM_MUSICAS_BIBLIOTECA_COLLECTION = 'rmMusicasBiblioteca';
 const RM_MUSICAS_PASTAS_COLLECTION = 'rmMusicasPastas';
+const RM_PLAYLISTS_PASTAS_COLLECTION = 'rmPlaylistsPastas';
 const RM_PLAYLISTS_COLLECTION = 'rmPlaylists';
 
 const normalizarTexto = valor =>
@@ -687,15 +691,19 @@ const normalizarDadosPasta = pasta => {
   };
 };
 
-const normalizarDadosPlaylist = playlist => {
+const normalizarDadosPlaylist = (playlist, options = {}) => {
   const dados = { ...(playlist ?? {}) };
   const payload = {};
+  const garantirPastaId = Boolean(options.garantirPastaId);
 
   if (Object.hasOwn(dados, 'nome')) {
     payload.nome = normalizarTexto(dados.nome) || 'Nova Playlist';
   }
   if (Object.hasOwn(dados, 'descricao')) {
     payload.descricao = normalizarTexto(dados.descricao);
+  }
+  if (Object.hasOwn(dados, 'pastaId') || garantirPastaId) {
+    payload.pastaId = normalizarTexto(dados.pastaId ?? '') || null;
   }
   if (Object.hasOwn(dados, 'linkImagem') || Object.hasOwn(dados, 'imagemUrl')) {
     const imagem = normalizarTexto(dados.linkImagem ?? dados.imagemUrl ?? '');
@@ -789,10 +797,26 @@ export const updateRmMusicaPasta = (id, updates) =>
     normalizarDadosPasta(updates),
   );
 
+export const getRmPlaylistsPastasPorMestre = mestreId =>
+  getFirestoreItemsWhereAll(RM_PLAYLISTS_PASTAS_COLLECTION, [['mestreId', mestreId]]);
+export const addRmPlaylistPasta = pasta =>
+  addFirestoreItem(RM_PLAYLISTS_PASTAS_COLLECTION, normalizarDadosPasta(pasta));
+export const removeRmPlaylistPasta = id =>
+  removeFirestoreItem(RM_PLAYLISTS_PASTAS_COLLECTION, id);
+export const updateRmPlaylistPasta = (id, updates) =>
+  updateFirestoreItem(
+    RM_PLAYLISTS_PASTAS_COLLECTION,
+    id,
+    normalizarDadosPasta(updates),
+  );
+
 export const getRmPlaylistsPorMestre = mestreId =>
   getFirestoreItemsWhereAll(RM_PLAYLISTS_COLLECTION, [['mestreId', mestreId]]);
 export const addRmPlaylist = playlist =>
-  addFirestoreItem(RM_PLAYLISTS_COLLECTION, normalizarDadosPlaylist(playlist));
+  addFirestoreItem(
+    RM_PLAYLISTS_COLLECTION,
+    normalizarDadosPlaylist(playlist, { garantirPastaId: true }),
+  );
 export const removeRmPlaylist = id =>
   removeFirestoreItem(RM_PLAYLISTS_COLLECTION, id);
 export const updateRmPlaylist = (id, updates) =>

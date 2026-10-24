@@ -462,11 +462,12 @@ service cloud.firestore {
     }
 
     function playlistBibliotecaValida(data) {
-      return data.keys().hasOnly(['nome', 'descricao', 'linkImagem', 'musicas', 'mestreId', 'createdAt', 'updatedAt']) &&
+      return data.keys().hasOnly(['nome', 'descricao', 'linkImagem', 'pastaId', 'musicas', 'mestreId', 'createdAt', 'updatedAt']) &&
         data.mestreId == request.auth.uid &&
         data.nome is string && data.nome.size() > 0 && data.nome.size() <= 200 &&
         data.descricao is string && data.descricao.size() <= 2000 &&
         (data.linkImagem == null || (data.linkImagem is string && data.linkImagem.size() <= 2000)) &&
+        (data.pastaId == null || (data.pastaId is string && data.pastaId.size() <= 200)) &&
         data.musicas is list && data.musicas.size() <= 200;
     }
 
@@ -479,6 +480,14 @@ service cloud.firestore {
     }
 
     match /rmMusicasPastas/{docId} {
+      allow read: if isAdmin() || (isAuth() && resource.data.mestreId == request.auth.uid);
+      allow create: if isAuth() && request.resource.data.mestreId == request.auth.uid && musicaPastaValida(request.resource.data);
+      allow update: if isAdmin() ||
+        (isAuth() && resource.data.mestreId == request.auth.uid && request.resource.data.mestreId == request.auth.uid && musicaPastaValida(request.resource.data));
+      allow delete: if isAdmin() || (isAuth() && resource.data.mestreId == request.auth.uid);
+    }
+
+    match /rmPlaylistsPastas/{docId} {
       allow read: if isAdmin() || (isAuth() && resource.data.mestreId == request.auth.uid);
       allow create: if isAuth() && request.resource.data.mestreId == request.auth.uid && musicaPastaValida(request.resource.data);
       allow update: if isAdmin() ||

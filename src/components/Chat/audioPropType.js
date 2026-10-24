@@ -2,6 +2,7 @@ import PropTypes from 'prop-types';
 
 // Formato de `audio` (hooks/useAudioMesa.js) aceito pelo ChatSala/AudioDialog.
 export const audioPropType = PropTypes.shape({
+  videoId: PropTypes.string,
   tocando: PropTypes.bool.isRequired,
   pausado: PropTypes.bool.isRequired,
   repetir: PropTypes.bool.isRequired,
@@ -11,6 +12,9 @@ export const audioPropType = PropTypes.shape({
   podeControlar: PropTypes.bool.isRequired,
   volume: PropTypes.number.isRequired,
   mudo: PropTypes.bool.isRequired,
+  tempoAtual: PropTypes.number,
+  duracao: PropTypes.number,
+  seekTo: PropTypes.func,
   setVolume: PropTypes.func.isRequired,
   setMudo: PropTypes.func.isRequired,
   liberarSom: PropTypes.func.isRequired,

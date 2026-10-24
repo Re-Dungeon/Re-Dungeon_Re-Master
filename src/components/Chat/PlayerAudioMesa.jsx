@@ -134,6 +134,7 @@ const PlayerAudioMesa = ({
   mudo,
   controleRef,
   onStatus,
+  playerRef: playerApiRef,
 }) => {
   const hospedeiroRef = useRef(null);
   const playerRef = useRef(null);
@@ -181,6 +182,7 @@ const PlayerAudioMesa = ({
         videoId: dados.video_id || atualRef.current?.videoId || null,
         titulo: dados.title || null,
         duracao: player.getDuration?.() || 0,
+        tempoAtual: player.getCurrentTime?.() || 0,
       };
       if (estado === TOCANDO) {
         if (!silenciadoPeloNavegador(player, mudoRef.current))
@@ -233,6 +235,7 @@ const PlayerAudioMesa = ({
               }),
           },
         });
+        if (playerApiRef) playerApiRef.current = playerRef.current;
       })
       .catch(error => {
         if (!cancelado)
@@ -244,7 +247,7 @@ const PlayerAudioMesa = ({
     return () => {
       cancelado = true;
     };
-  }, [temFaixa, onStatus]);
+  }, [temFaixa, onStatus, playerApiRef]);
 
   // Desmontou (saiu da mesa): o áudio para para esta pessoa.
   useEffect(
@@ -252,8 +255,9 @@ const PlayerAudioMesa = ({
       clearTimeout(verificacaoRef.current);
       playerRef.current?.destroy?.();
       playerRef.current = null;
+      if (playerApiRef) playerApiRef.current = null;
     },
-    [],
+    [playerApiRef],
   );
 
   // Liberar o som num clique (autoplay bloqueado pelo navegador).
@@ -330,17 +334,19 @@ const PlayerAudioMesa = ({
       const dados = player.getVideoData?.() ?? {};
       if (dados.isLive || dados.video_id !== audio.videoId) return;
       if (player.getPlayerState() !== TOCANDO) return; // bloqueado/carregando
-      const posicao = posicaoAtual(
-        audio,
-        Date.now(),
-        player.getDuration() || 0,
-      );
+      const duracaoAtual = player.getDuration() || 0;
+      const posicao = posicaoAtual(audio, Date.now(), duracaoAtual);
+      onStatus({
+        videoId: audio.videoId,
+        duracao: duracaoAtual,
+        tempoAtual: player.getCurrentTime?.() || 0,
+      });
       if (Math.abs(player.getCurrentTime() - posicao) > TOLERANCIA_S) {
         player.seekTo(posicao, true);
       }
     }, INTERVALO_CORRECAO_MS);
     return () => clearInterval(intervalo);
-  }, [pronto, estadoMesa]);
+  }, [pronto, estadoMesa, onStatus]);
 
   useEffect(() => {
     const player = playerRef.current;
@@ -409,6 +415,9 @@ PlayerAudioMesa.propTypes = {
   mudo: PropTypes.bool.isRequired,
   controleRef: PropTypes.shape({ current: PropTypes.any }).isRequired,
   onStatus: PropTypes.func.isRequired,
+  playerRef: PropTypes.shape({
+    current: PropTypes.any,
+  }),
 };
 
 export default PlayerAudioMesa;
