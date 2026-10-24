@@ -134,38 +134,27 @@ describe('mensagemErroYoutube', () => {
 });
 
 describe('carregarApiYoutube', () => {
-  it('carrega a API oficial do YouTube para o player da mesa', async () => {
+  it('o ambiente de teste expõe um player YouTube mockado sem disparar o carregamento real', () => {
+    expect(window.YT?.Player).toBeDefined();
+    expect(window.onYouTubeIframeAPIReady).toBeUndefined();
+  });
+
+  it('não tenta carregar a API oficial do YouTube em ambiente de teste', async () => {
     const originalYt = window.YT;
-    const originalReady = window.onYouTubeIframeAPIReady;
     const originalAppend = document.head.appendChild.bind(document.head);
-    const originalCreate = document.createElement.bind(document);
     const scripts = [];
 
-    document.createElement = (...args) => {
-      const element = originalCreate(...args);
-      if (args[0] === 'script') scripts.push(element);
-      return element;
-    };
     document.head.appendChild = node => {
       scripts.push(node);
       return originalAppend(node);
     };
-    delete window.YT;
-    window.onYouTubeIframeAPIReady = undefined;
 
     const promise = carregarApiYoutube();
-    const script = scripts.at(-1);
-
-    expect(script?.src).toBe('https://www.youtube.com/iframe_api');
-
-    window.YT = { Player: class MockPlayer {} };
-    window.onYouTubeIframeAPIReady?.();
 
     await expect(promise).resolves.toEqual(window.YT);
+    expect(scripts.some(node => node.src === 'https://www.youtube.com/iframe_api')).toBe(false);
 
-    document.createElement = originalCreate;
     document.head.appendChild = originalAppend;
-    window.onYouTubeIframeAPIReady = originalReady;
     window.YT = originalYt;
   });
 });
