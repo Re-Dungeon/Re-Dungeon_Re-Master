@@ -18,7 +18,6 @@ import { useAuth } from 'context/AuthContext';
 import { useSnackbar } from 'context/SnackbarContext';
 import useChatCampanha from 'hooks/useChatCampanha';
 import ChatSala from 'components/Chat/ChatSala';
-import PlayerAudioMesa from 'components/Chat/PlayerAudioMesa';
 import { PERSONA_MESTRE, autorDaPersona } from './chatPersonas';
 
 const avatarSx = {
@@ -337,7 +336,6 @@ const ChatMestre = ({ campanha, npcs, criaturas, titulo }) => {
           </>
         }
       />
-      <PlayerAudioMesa {...audio.player} />
     </>
   );
 };
