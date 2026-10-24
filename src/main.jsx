@@ -6,6 +6,7 @@ import CssBaseline from '@mui/material/CssBaseline';
 import App from './App.jsx';
 import { AuthProvider } from 'context/AuthContext';
 import { CampanhaProvider } from 'context/CampanhaContext';
+import { AudioMesaProvider } from 'context/AudioMesaContext';
 import { SnackbarProvider } from 'context/SnackbarContext';
 import ErrorBoundary from 'components/ErrorBoundary/ErrorBoundary';
 import 'common/styles/global.css';
@@ -57,9 +58,11 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         <HashRouter>
           <AuthProvider>
             <CampanhaProvider>
-              <SnackbarProvider>
-                <App />
-              </SnackbarProvider>
+              <AudioMesaProvider>
+                <SnackbarProvider>
+                  <App />
+                </SnackbarProvider>
+              </AudioMesaProvider>
             </CampanhaProvider>
           </AuthProvider>
         </HashRouter>

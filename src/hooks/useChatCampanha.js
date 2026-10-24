@@ -17,6 +17,7 @@ import {
   montarMensagemTexto,
 } from 'common/utils/chat';
 import { rolarEspecificacao } from 'common/utils/dados';
+import { useAudioMesaContext } from 'context/AudioMesaContext';
 import useAudioMesa from 'hooks/useAudioMesa';
 import useMacrosCampanha from 'hooks/useMacrosCampanha';
 import useMembroDoChat from 'hooks/useMembroDoChat';
@@ -87,10 +88,12 @@ const useChatCampanha = (
     );
   }, [campanhaId, podeOuvir]);
 
-  const audio = useAudioMesa(campanhaId, {
-    ativo: podeOuvir,
+  const audioContext = useAudioMesaContext();
+  const audioFallback = useAudioMesa(campanhaId, {
+    ativo: Boolean(campanhaId) && !audioContext,
     podeControlar: ehMestreDaCampanha || isMestre,
   });
+  const audio = audioContext ?? audioFallback;
 
   const macrosApi = useMacrosCampanha(campanhaId, {
     ativo: podeOuvir,
