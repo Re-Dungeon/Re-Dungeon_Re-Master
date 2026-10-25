@@ -226,6 +226,49 @@ describe('CardFlux (baralhos agrupados a partir das cartas do cardflux)', () => 
     expect(screen.getAllByText('Emboscada').length).toBeGreaterThan(0);
   });
 
+  it('mantém a imagem de fundo separada da opacidade do grid', async () => {
+    const user = userEvent.setup();
+    const exploracao = {
+      id: 'exp-1',
+      nome: 'Grid de Teste',
+      status: 'ativa',
+      dimensoes: { linhas: 2, colunas: 2 },
+      baralhos: ['Eventos de Estrada'],
+      imagemFundo: {
+        url: 'https://example.com/fundo.jpg',
+        ajuste: 'cover',
+        opacidadeQuadrantes: 40,
+      },
+      quadrantes: [
+        [
+          { x: 0, y: 0, estado: 'oculto', cartaId: 'carta1', resultado: null, observacao: '', anotacao: '', bloqueado: false, fixo: false },
+          { x: 1, y: 0, estado: 'oculto', cartaId: null, resultado: null, observacao: '', anotacao: '', bloqueado: false, fixo: false },
+        ],
+        [
+          { x: 0, y: 1, estado: 'oculto', cartaId: null, resultado: null, observacao: '', anotacao: '', bloqueado: false, fixo: false },
+          { x: 1, y: 1, estado: 'oculto', cartaId: null, resultado: null, observacao: '', anotacao: '', bloqueado: false, fixo: false },
+        ],
+      ],
+      configuracao: { densidade: 50, modo: 'predefinida' },
+    };
+
+    render(
+      <MemoryRouter initialEntries={[{ pathname: '/cardflux/exploracao/exp-1', state: { exploracao } }]}>
+        <CardFluxExploracaoPage />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => expect(screen.getByText('Grid de Teste')).toBeInTheDocument());
+
+    const fundo = screen.getByAltText('Imagem de fundo da exploração');
+    expect(fundo).toHaveStyle('opacity: 1');
+
+    await user.click(screen.getByRole('button', { name: /ocultar grid/i }));
+
+    expect(screen.getByRole('button', { name: /mostrar grid/i })).toBeInTheDocument();
+    expect(fundo).toHaveStyle('opacity: 1');
+  });
+
   it('não atribui marcador de categoria automaticamente e abre o menu contextual de marcação', async () => {
     const exploracao = {
       id: 'exp-1',
@@ -715,5 +758,90 @@ describe('CardFlux (baralhos agrupados a partir das cartas do cardflux)', () => 
     await waitFor(() => expect(screen.getByText('Grid com fundo')).toBeInTheDocument());
     expect(screen.getByAltText('Imagem de fundo da exploração')).toHaveAttribute('src', 'https://exemplo.com/mapa.png');
     expect(screen.getByRole('button', { name: /configurar fundo/i })).toBeInTheDocument();
+  });
+
+  it('faz o grid seguir a proporção da imagem no modo Ajustar', async () => {
+    const naturalWidthDescriptor = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, 'naturalWidth');
+    const naturalHeightDescriptor = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, 'naturalHeight');
+    const srcDescriptor = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, 'src');
+
+    Object.defineProperty(HTMLImageElement.prototype, 'naturalWidth', {
+      configurable: true,
+      get() {
+        return 1920;
+      },
+    });
+    Object.defineProperty(HTMLImageElement.prototype, 'naturalHeight', {
+      configurable: true,
+      get() {
+        return 1080;
+      },
+    });
+    Object.defineProperty(HTMLImageElement.prototype, 'src', {
+      configurable: true,
+      get() {
+        return this._src || '';
+      },
+      set(value) {
+        this._src = value;
+        queueMicrotask(() => {
+          if (typeof this.onload === 'function') {
+            this.onload();
+          }
+        });
+      },
+    });
+
+    try {
+      const exploracao = {
+        id: 'exp-3',
+        nome: 'Grid com proporção da imagem',
+        status: 'ativa',
+        dimensoes: { linhas: 2, colunas: 2 },
+        baralhos: ['Eventos de Estrada'],
+        quadrantes: [
+          [
+            { x: 0, y: 0, estado: 'oculto', cartaId: null, resultado: null, observacao: '', anotacao: '', bloqueado: false, fixo: false },
+            { x: 1, y: 0, estado: 'oculto', cartaId: null, resultado: null, observacao: '', anotacao: '', bloqueado: false, fixo: false },
+          ],
+          [
+            { x: 0, y: 1, estado: 'oculto', cartaId: null, resultado: null, observacao: '', anotacao: '', bloqueado: false, fixo: false },
+            { x: 1, y: 1, estado: 'oculto', cartaId: null, resultado: null, observacao: '', anotacao: '', bloqueado: false, fixo: false },
+          ],
+        ],
+        imagemFundo: {
+          url: 'https://exemplo.com/mapa-ajustar.png',
+          ajuste: 'contain',
+          opacidadeQuadrantes: 20,
+        },
+        configuracao: { densidade: 50, modo: 'predefinida' },
+      };
+
+      render(
+        <MemoryRouter initialEntries={[{ pathname: '/cardflux/exploracao/exp-3', state: { exploracao } }]}>
+          <CardFluxExploracaoPage />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => expect(screen.getByText('Grid com proporção da imagem')).toBeInTheDocument());
+      const stage = screen.getByTestId('exploracao-grid-stage');
+      expect(window.getComputedStyle(stage).aspectRatio).toBe('1920/1080');
+    } finally {
+      if (naturalWidthDescriptor) {
+        Object.defineProperty(HTMLImageElement.prototype, 'naturalWidth', naturalWidthDescriptor);
+      } else {
+        delete HTMLImageElement.prototype.naturalWidth;
+      }
+      if (naturalHeightDescriptor) {
+        Object.defineProperty(HTMLImageElement.prototype, 'naturalHeight', naturalHeightDescriptor);
+      } else {
+        delete HTMLImageElement.prototype.naturalHeight;
+      }
+      if (srcDescriptor) {
+        Object.defineProperty(HTMLImageElement.prototype, 'src', srcDescriptor);
+      } else {
+        delete HTMLImageElement.prototype.src;
+      }
+    }
   });
 });
