@@ -647,7 +647,9 @@ const CardFluxExploracaoPage = () => {
   const [savingAction, setSavingAction] = useState(null);
   const [feedback, setFeedback] = useState({ open: false, severity: 'success', message: '' });
   const [zoom, setZoom] = useState(1);
+  const [mostrarGrid, setMostrarGrid] = useState(true);
   const [imagemFundoModalAberta, setImagemFundoModalAberta] = useState(false);
+  const [imagemFundoSize, setImagemFundoSize] = useState(null);
   const [mapasDisponiveis, setMapasDisponiveis] = useState([]);
   const [pastasDisponiveis, setPastasDisponiveis] = useState([]);
   const [loadingMapas, setLoadingMapas] = useState(true);
@@ -808,11 +810,39 @@ const CardFluxExploracaoPage = () => {
     if (!url.trim()) return null;
     try {
       const parsed = new URL(url.trim());
-      return ['http:', 'https:'].includes(parsed.protocol) ? { ...exploracao.imagemFundo, url: parsed.href } : null;
+      return ['http:', 'https:'].includes(parsed.protocol) ? { ...(exploracao?.imagemFundo || exploracao?.configuracao?.imagemFundo || {}), url: parsed.href } : null;
     } catch {
       return null;
     }
   })();
+
+  useEffect(() => {
+    if (!imagemFundoAtiva?.url) return undefined;
+
+    let isMounted = true;
+    const image = document.createElement('img');
+
+    image.onload = () => {
+      if (!isMounted) return;
+      setImagemFundoSize({
+        width: Number.isFinite(image.naturalWidth) && image.naturalWidth > 0 ? image.naturalWidth : 1,
+        height: Number.isFinite(image.naturalHeight) && image.naturalHeight > 0 ? image.naturalHeight : 1,
+      });
+    };
+
+    image.onerror = () => {
+      if (!isMounted) return;
+      setImagemFundoSize(null);
+    };
+
+    image.src = imagemFundoAtiva.url;
+
+    return () => {
+      isMounted = false;
+    };
+  }, [imagemFundoAtiva?.url]);
+
+  const opacidadeGrid = Number(imagemFundoAtiva?.opacidadeQuadrantes ?? 20) / 100;
   const universoAtualNome =
     universos.find(universo => universo.id === campanhaAtiva?.universoId)?.Nome ||
     campanhaAtiva?.universoId ||
@@ -1307,6 +1337,22 @@ const CardFluxExploracaoPage = () => {
                 <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
                   <Button type="button" onClick={handleZoomOut} aria-label="Zoom -" size="small" sx={{ minWidth: 40, borderRadius: 2 }}>-</Button>
                   <Button type="button" onClick={handleZoomIn} aria-label="Zoom +" size="small" sx={{ minWidth: 40, borderRadius: 2 }}>+</Button>
+                  <Button
+                    type="button"
+                    onClick={() => setMostrarGrid(prev => !prev)}
+                    aria-label={mostrarGrid ? 'Ocultar Grid' : 'Mostrar Grid'}
+                    size="small"
+                    sx={{
+                      borderRadius: 2,
+                      minHeight: 32,
+                      minWidth: 138,
+                      border: mostrarGrid ? '1px solid rgba(89,171,255,0.4)' : '1px solid rgba(148,163,184,0.24)',
+                      background: mostrarGrid ? 'rgba(89,171,255,0.08)' : 'rgba(15,23,42,0.82)',
+                      color: 'var(--text-primary)',
+                    }}
+                  >
+                    {mostrarGrid ? 'Grid: ON' : 'Grid: OFF'}
+                  </Button>
                   <Button type="button" onClick={handleAjustarTela} aria-label="Ajustar à tela" size="small" sx={{ borderRadius: 2, minHeight: 32 }}>
                     Ajustar à tela
                   </Button>
@@ -1329,7 +1375,9 @@ const CardFluxExploracaoPage = () => {
                   border: '1px solid rgba(255,255,255,0.05)',
                   borderRadius: 3,
                   p: 1.5,
-                  display: 'block',
+                  display: 'flex',
+                  alignItems: 'stretch',
+                  justifyContent: 'center',
                 }}
               >
                 <Box
@@ -1338,14 +1386,18 @@ const CardFluxExploracaoPage = () => {
                   data-grid-height={Math.max(1, Math.round(mapSurfaceSize.height))}
                   sx={{
                     position: 'relative',
-                    width: '100%',
-                    height: '100%',
+                    width: imagemFundoSize ? '100%' : '100%',
+                    height: imagemFundoSize ? 'auto' : '100%',
+                    aspectRatio: imagemFundoSize ? `${imagemFundoSize.width} / ${imagemFundoSize.height}` : undefined,
                     minWidth: 0,
                     minHeight: 0,
+                    maxWidth: '100%',
                     transform: `scale(${zoom})`,
                     transformOrigin: 'top left',
                     transition: 'transform 0.2s ease',
                     flexShrink: 0,
+                    overflow: 'hidden',
+                    borderRadius: 2,
                   }}
                 >
                   {imagemFundoAtiva && (
@@ -1358,11 +1410,12 @@ const CardFluxExploracaoPage = () => {
                         inset: 0,
                         width: '100%',
                         height: '100%',
-                        objectFit: imagemFundoAtiva.ajuste === 'contain' ? 'contain' : imagemFundoAtiva.ajuste === 'fill' ? '100% 100%' : 'cover',
+                        objectFit: 'contain',
                         objectPosition: 'center',
                         display: 'block',
                         borderRadius: 2,
                         pointerEvents: 'none',
+                        opacity: 1,
                       }}
                     />
                   )}
@@ -1380,6 +1433,9 @@ const CardFluxExploracaoPage = () => {
                       gap: 1,
                       alignItems: 'stretch',
                       justifyItems: 'stretch',
+                      opacity: mostrarGrid ? 1 : 0,
+                      pointerEvents: mostrarGrid ? 'auto' : 'none',
+                      transition: 'opacity 0.2s ease',
                     }}
                   >
                   {exploracao.quadrantes?.flat().map(quadrante => {
@@ -1461,11 +1517,13 @@ const CardFluxExploracaoPage = () => {
                           fontSize: 'clamp(0.9rem, 1vw, 1.3rem)',
                           fontWeight: 800,
                           boxShadow: selectedNow ? '0 10px 24px rgba(89,171,255,0.14)' : '0 0 0 1px rgba(255,255,255,0.02)',
-                          transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
+                          opacity: mostrarGrid ? 1 : 0,
+                          transition: 'border-color 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease',
                           overflow: 'hidden',
                           touchAction: 'manipulation',
                           userSelect: 'none',
                           WebkitTapHighlightColor: 'transparent',
+                          pointerEvents: mostrarGrid ? 'auto' : 'none',
                           '&:hover': {
                             borderColor: selectedNow ? 'rgba(89,171,255,0.9)' : visual.badgeBorder,
                             boxShadow: selectedNow ? '0 12px 28px rgba(89,171,255,0.16)' : '0 6px 18px rgba(15,23,42,0.2)',
@@ -1477,7 +1535,7 @@ const CardFluxExploracaoPage = () => {
                             position: 'absolute',
                             inset: 0,
                             background: cellTone,
-                            opacity: imagemFundoAtiva ? Number(imagemFundoAtiva.opacidadeQuadrantes ?? 20) / 100 : 0.96,
+                            opacity: mostrarGrid ? opacidadeGrid : 0,
                             zIndex: 0,
                           }}
                         />

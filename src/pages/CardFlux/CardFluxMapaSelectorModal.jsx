@@ -385,7 +385,16 @@ const CardFluxMapaSelectorModal = ({
         </IconButton>
       </DialogTitle>
 
-      <DialogContent dividers sx={{ background: 'rgba(8,11,17,0.4)', p: 2, overflow: 'hidden' }}>
+      <DialogContent
+        dividers
+        sx={{
+          background: 'rgba(8,11,17,0.4)',
+          p: 2,
+          overflowY: 'auto',
+          overflowX: 'hidden',
+          maxHeight: 'calc(90vh - 140px)',
+        }}
+      >
         <Box sx={{ display: 'grid', gap: 2, maxHeight: '100%' }}>
           <Box sx={{ display: 'flex', gap: 1, p: 0.5, borderRadius: 2, background: 'rgba(15,23,42,0.8)', border: '1px solid rgba(148,163,184,0.16)' }}>
             {['mapa', 'url'].map(origem => (
