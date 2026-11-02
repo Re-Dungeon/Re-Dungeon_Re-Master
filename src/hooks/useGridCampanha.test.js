@@ -3,9 +3,12 @@ import { act, renderHook } from '@testing-library/react';
 
 import {
   moverGridToken,
+  setGridPing,
   subscribeGridCena,
   subscribeGridCenaAtiva,
+  subscribeGridPings,
   subscribeGridTokens,
+  subscribePersonagem,
 } from 'service/storage';
 import useGridCampanha from './useGridCampanha';
 
@@ -14,6 +17,9 @@ vi.mock('service/storage', () => ({
   subscribeGridCena: vi.fn(),
   subscribeGridCenaAtiva: vi.fn(),
   subscribeGridTokens: vi.fn(),
+  subscribeGridPings: vi.fn(() => () => {}),
+  setGridPing: vi.fn(),
+  subscribePersonagem: vi.fn(() => () => {}),
 }));
 vi.mock('hooks/useMembroDoChat', () => ({ default: vi.fn(() => true) }));
 
@@ -375,5 +381,112 @@ describe('useGridCampanha — rastros', () => {
     await act(() => result.current.mover(OGRO, 5, 1));
     expect(moverGridToken).not.toHaveBeenCalled();
     expect(result.current.rastrosAtivos).toEqual([]);
+  });
+});
+
+describe('useGridCampanha — sinais e detalhes dos tokens', () => {
+  const ALDRIC_JOGADOR = { ...ALDRIC, refId: 'p1' };
+  const OGRO_NPC = {
+    ...OGRO,
+    pv: { atual: 10, max: 20 },
+    mostrarRecursos: 'barra',
+  };
+  const FICHA = {
+    status: { hp: { atual: 4 } },
+    statusMaximos: { hp: 8 },
+    condicoesAtivas: [{ condicaoId: 'c1', stack: 2 }],
+  };
+  const CATALOGO = [{ id: 'c1', nome: 'Envenenado' }];
+  let emitirPings;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    subscribeGridCenaAtiva.mockImplementation((_campanhaId, onChange) => {
+      onChange('cena-1');
+      return vi.fn();
+    });
+    subscribeGridCena.mockImplementation((_campanhaId, cenaId, onChange) => {
+      onChange({ id: cenaId, nome: cenaId, celula: 50 });
+      return vi.fn();
+    });
+    subscribeGridTokens.mockImplementation(
+      (_campanhaId, _cenaId, _opcoes, onChange) => {
+        onChange([ALDRIC_JOGADOR, OGRO_NPC]);
+        return vi.fn();
+      },
+    );
+    subscribePersonagem.mockImplementation((_id, onChange) => {
+      onChange(FICHA);
+      return vi.fn();
+    });
+    subscribeGridPings.mockImplementation((_campanhaId, _cenaId, onChange) => {
+      emitirPings = onChange;
+      onChange([]);
+      return vi.fn();
+    });
+    setGridPing.mockResolvedValue();
+  });
+
+  it('detalhes: token jogador a partir da ficha ao vivo, npc pelo modo do token', () => {
+    const { result } = renderGrid({ catalogoCondicoes: CATALOGO });
+    expect(subscribePersonagem).toHaveBeenCalledTimes(1);
+    expect(subscribePersonagem).toHaveBeenCalledWith(
+      'p1',
+      expect.any(Function),
+      expect.any(Function),
+    );
+    expect(result.current.detalhes.t1).toEqual({
+      recursos: {
+        pv: { atual: 4, max: 8 },
+        energia: null,
+        fadiga: null,
+        numeros: true,
+      },
+      condicoes: [{ id: 'c1', nome: 'Envenenado', icone: null, stack: 2 }],
+    });
+    // 'barra': o jogador vê a barra, sem números.
+    expect(result.current.detalhes.t2.recursos.numeros).toBe(false);
+    expect(result.current.veTudo).toBe(false);
+  });
+
+  it('mestre vê os números do npc', () => {
+    const { result } = renderGrid({ isMestre: true });
+    expect(result.current.detalhes.t2.recursos.numeros).toBe(true);
+    expect(result.current.veTudo).toBe(true);
+  });
+
+  it('expõe os sinais recebidos e pingar grava o meu', () => {
+    const { result } = renderGrid({ nome: 'Aldric', mestreId: 'm1' });
+    expect(subscribeGridPings).toHaveBeenCalledWith(
+      'camp-1',
+      'cena-1',
+      expect.any(Function),
+      expect.any(Function),
+    );
+    act(() =>
+      emitirPings([
+        { uid: 'm1', x: 5, y: 6, puxar: true, criadoEm: horario(3) },
+      ]),
+    );
+    expect(result.current.pings).toEqual([
+      expect.objectContaining({
+        uid: 'm1',
+        x: 5,
+        y: 6,
+        puxar: true,
+        cor: '#e8cb85',
+      }),
+    ]);
+
+    act(() => {
+      result.current.pingar({ x: 10, y: 20, puxar: true });
+    });
+    // Jogador não puxa a vista.
+    expect(setGridPing).toHaveBeenCalledWith('camp-1', 'cena-1', 'u1', {
+      x: 10,
+      y: 20,
+      puxar: false,
+      nome: 'Aldric',
+    });
   });
 });

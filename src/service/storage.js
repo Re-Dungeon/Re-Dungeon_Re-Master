@@ -1047,6 +1047,9 @@ export const removeChatMacro = (campanhaId, macroId) =>
 // deixam o jogador mudar `col`/`lin` e o rastro do movimento
 // (`rastro`/`movidoEm`) dos tokens em que está em `donos`;
 // tokens `oculto` só o mestre lê. Limites em common/utils/grid.js.
+// Sinais no mapa (`gridCenas/{cenaId}/pings/{uid}`, setGridPing) são gravados
+// por todos (cada um o próprio); PV/Energia/Fadiga, condições e aura dos
+// tokens (updateGridToken) só o mestre.
 const gridRef = campanhaId =>
   doc(db, RM_CAMPANHAS_COLLECTION, campanhaId, 'grid', 'atual');
 const gridCenasRef = campanhaId =>
@@ -1135,6 +1138,54 @@ export const moverGridToken = (
     updatedAt: serverTimestamp(),
   });
 
+const gridPingsRef = (campanhaId, cenaId) =>
+  collection(gridCenaRef(campanhaId, cenaId), 'pings');
+
+// Chama `onChange([{ uid, x, y, puxar, nome, criadoEm }])`. serverTimestamps
+// 'none' (padrão): o meu sinal pendente chega com `criadoEm` null
+// (detectarPings ignora).
+export const subscribeGridPings = (campanhaId, cenaId, onChange, onError) =>
+  onSnapshot(
+    gridPingsRef(campanhaId, cenaId),
+    snapshot =>
+      onChange(
+        snapshot.docs.map(docSnapshot => ({
+          uid: docSnapshot.id,
+          ...docSnapshot.data(),
+        })),
+      ),
+    onError,
+  );
+
+// Um doc por pessoa (id = uid), sobrescrito a cada sinal (sem acúmulo/TTL).
+// `puxar` (centralizar a vista de todos) só o mestre — a regra garante.
+export const setGridPing = (
+  campanhaId,
+  cenaId,
+  uid,
+  { x, y, puxar = false, nome = null },
+) =>
+  setDoc(doc(gridPingsRef(campanhaId, cenaId), uid), {
+    x,
+    y,
+    puxar: Boolean(puxar),
+    ...(nome ? { nome } : {}),
+    criadoEm: serverTimestamp(),
+  });
+
+// Ficha ao vivo (somente leitura — `personagens` é do Re-Dungeon), para as
+// barras de PV/Energia/Fadiga dos tokens de jogador. Chama
+// `onChange({ id, ...dados } | null)`.
+export const subscribePersonagem = (personagemId, onChange, onError) =>
+  onSnapshot(
+    doc(db, PERSONAGENS_COLLECTION, personagemId),
+    snapshot =>
+      onChange(
+        snapshot.exists() ? { id: snapshot.id, ...snapshot.data() } : null,
+      ),
+    onError,
+  );
+
 // null = nenhuma cena visível aos jogadores.
 export const setGridCenaAtiva = (campanhaId, cenaId) =>
   setDoc(gridRef(campanhaId), {
@@ -1197,11 +1248,16 @@ export const duplicarGridCena = async (campanhaId, cenaId, nome) => {
   );
 };
 
-// Apaga os tokens e a cena numa escrita só (até 200 tokens por cena).
+// Apaga os tokens, os sinais (pings) e a cena numa escrita só (até 200
+// tokens por cena).
 export const removeGridCena = async (campanhaId, cenaId) => {
-  const tokensSnapshot = await getDocs(gridTokensRef(campanhaId, cenaId));
+  const [tokensSnapshot, pingsSnapshot] = await Promise.all([
+    getDocs(gridTokensRef(campanhaId, cenaId)),
+    getDocs(gridPingsRef(campanhaId, cenaId)),
+  ]);
   const batch = writeBatch(db);
   tokensSnapshot.docs.forEach(docSnapshot => batch.delete(docSnapshot.ref));
+  pingsSnapshot.docs.forEach(docSnapshot => batch.delete(docSnapshot.ref));
   batch.delete(gridCenaRef(campanhaId, cenaId));
   await batch.commit();
 };

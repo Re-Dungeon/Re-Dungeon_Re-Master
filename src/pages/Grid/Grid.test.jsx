@@ -19,6 +19,10 @@ const removeGridToken = vi.fn();
 const moverGridToken = vi.fn();
 const getPersonagens = vi.fn();
 const getPersonagensJogaveis = vi.fn();
+const getCondicoes = vi.fn();
+const subscribeGridPings = vi.fn(() => () => {});
+const setGridPing = vi.fn(() => Promise.resolve());
+const subscribePersonagem = vi.fn(() => () => {});
 const subscribeAudioMesa = vi.fn((_id, onChange) => {
   onChange(null);
   return vi.fn();
@@ -38,6 +42,10 @@ vi.mock('service/storage', () => ({
   updateGridToken: (...args) => updateGridToken(...args),
   removeGridToken: (...args) => removeGridToken(...args),
   moverGridToken: (...args) => moverGridToken(...args),
+  subscribeGridPings: (...args) => subscribeGridPings(...args),
+  setGridPing: (...args) => setGridPing(...args),
+  subscribePersonagem: (...args) => subscribePersonagem(...args),
+  getCondicoes: (...args) => getCondicoes(...args),
   getRmMapasPorCampanha: vi.fn(() =>
     Promise.resolve([
       {
@@ -208,6 +216,11 @@ describe('Grid (Re:Master)', () => {
     updateGridToken.mockResolvedValue();
     removeGridToken.mockResolvedValue();
     moverGridToken.mockResolvedValue();
+    subscribePersonagem.mockImplementation(() => () => {});
+    getCondicoes.mockResolvedValue([
+      { id: 'cond1', nome: 'Envenenado' },
+      { id: 'cond2', nome: 'Atordoado' },
+    ]);
   });
 
   it('abre a cena ativa, com os tokens ocultos, e move qualquer token', async () => {
@@ -620,5 +633,180 @@ describe('Grid (Re:Master)', () => {
     renderGrid();
     await waitFor(() => expect(navigateMock).toHaveBeenCalledWith('/campanha'));
     expect(subscribeGridCenas).not.toHaveBeenCalled();
+  });
+
+  describe('combate do token (grava na hora)', () => {
+    const OGRO_COM_PV = {
+      ...TOKENS_POR_CENA['cena-1'][1],
+      pv: { atual: 10, max: 20 },
+      energia: { atual: 0, max: 5 },
+    };
+
+    const abrirOgro = async user => {
+      subscribeGridTokens.mockImplementation(
+        (_id, cenaId, _opcoes, onChange) => {
+          onChange(
+            cenaId === 'cena-1'
+              ? [TOKENS_POR_CENA['cena-1'][0], OGRO_COM_PV]
+              : [],
+          );
+          return vi.fn();
+        },
+      );
+      renderGrid();
+      (await screen.findByRole('button', { name: /Ogro/ })).focus();
+      await user.keyboard('{Enter}');
+      return screen.findByRole('region', { name: 'Token selecionado' });
+    };
+
+    it('−/+ e o campo de PV gravam o recurso limitado a 0..máx', async () => {
+      const user = userEvent.setup();
+      const painel = await abrirOgro(user);
+
+      await user.click(
+        within(painel).getByRole('button', { name: 'Aumentar PV' }),
+      );
+      await waitFor(() =>
+        expect(updateGridToken).toHaveBeenCalledWith('c1', 'cena-1', 't2', {
+          pv: { atual: 11, max: 20 },
+        }),
+      );
+      // Energia já em 0: não desce mais.
+      expect(
+        within(painel).getByRole('button', { name: 'Diminuir Energia' }),
+      ).toBeDisabled();
+
+      const atual = within(painel).getByLabelText('PV atual');
+      await user.clear(atual);
+      await user.type(atual, '35{Enter}');
+      await waitFor(() =>
+        expect(updateGridToken).toHaveBeenLastCalledWith('c1', 'cena-1', 't2', {
+          pv: { atual: 20, max: 20 },
+        }),
+      );
+      expect(
+        within(painel).getByRole('button', { name: 'Definir Fadiga' }),
+      ).toBeInTheDocument();
+      expect(notifySuccess).not.toHaveBeenCalled();
+    });
+
+    it('condições, visibilidade dos recursos e aura', async () => {
+      const user = userEvent.setup();
+      const painel = await abrirOgro(user);
+
+      await user.type(
+        within(painel).getByRole('combobox', { name: 'Condições' }),
+        'Enven',
+      );
+      await user.click(
+        await screen.findByRole('option', { name: 'Envenenado' }),
+      );
+      await waitFor(() =>
+        expect(updateGridToken).toHaveBeenCalledWith('c1', 'cena-1', 't2', {
+          condicoes: ['cond1'],
+        }),
+      );
+
+      await user.click(
+        within(painel).getByLabelText('Jogadores veem os recursos'),
+      );
+      await user.click(
+        await screen.findByRole('option', { name: 'Barras e números' }),
+      );
+      await waitFor(() =>
+        expect(updateGridToken).toHaveBeenCalledWith('c1', 'cena-1', 't2', {
+          mostrarRecursos: 'numeros',
+        }),
+      );
+
+      await user.click(within(painel).getByLabelText('Aura'));
+      await user.click(await screen.findByRole('option', { name: 'Vermelho' }));
+      await waitFor(() =>
+        expect(updateGridToken).toHaveBeenCalledWith('c1', 'cena-1', 't2', {
+          aura: { raio: 1, cor: '#e05555' },
+        }),
+      );
+    });
+
+    it('token de jogador mostra o resumo da ficha (só leitura)', async () => {
+      const user = userEvent.setup();
+      subscribePersonagem.mockImplementation((_id, onChange) => {
+        onChange({
+          id: 'pj1',
+          status: { hp: { atual: 7 } },
+          statusMaximos: { hp: 12 },
+        });
+        return () => {};
+      });
+      renderGrid();
+      (await screen.findByRole('button', { name: /Aldric, coluna/ })).focus();
+      await user.keyboard('{Enter}');
+      const painel = await screen.findByRole('region', {
+        name: 'Token selecionado',
+      });
+
+      expect(within(painel).getByText('Da ficha do jogador')).toBeVisible();
+      expect(within(painel).getByText('PV 7/12')).toBeInTheDocument();
+      expect(
+        within(painel).queryByRole('button', { name: 'Aumentar PV' }),
+      ).not.toBeInTheDocument();
+      expect(subscribePersonagem).toHaveBeenCalledWith(
+        'pj1',
+        expect.any(Function),
+        expect.any(Function),
+      );
+    });
+  });
+
+  it('NPC com status na ficha entra com PV/Energia/Fadiga cheios', async () => {
+    const user = userEvent.setup();
+    getPersonagens.mockResolvedValue([
+      {
+        id: 'n1',
+        tipo: 'NPC',
+        nome: 'Bartolomeu',
+        universo: 'u1',
+        campanhas: ['c1'],
+        statusMaximos: { hp: 30, energia: 10, fadiga: { maximo: 4 } },
+      },
+    ]);
+    renderGrid();
+    await screen.findByRole('button', { name: /Aldric, coluna/ });
+
+    await user.click(screen.getByRole('button', { name: 'Adicionar token' }));
+    const dialogo = await screen.findByRole('dialog');
+    await user.click(within(dialogo).getByRole('tab', { name: 'NPCs' }));
+    await user.click(
+      await within(dialogo).findByRole('button', {
+        name: 'Adicionar Bartolomeu',
+      }),
+    );
+    await waitFor(() =>
+      expect(addGridTokens).toHaveBeenCalledWith('c1', 'cena-1', [
+        expect.objectContaining({
+          nome: 'Bartolomeu',
+          tipo: 'npc',
+          pv: { atual: 30, max: 30 },
+          energia: { atual: 10, max: 10 },
+          fadiga: { atual: 4, max: 4 },
+        }),
+      ]),
+    );
+  });
+
+  it('o mestre tem o botão "Puxar vista" e escuta os sinais da cena', async () => {
+    renderGrid();
+    expect(
+      await screen.findByRole('button', { name: 'Puxar vista' }),
+    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(subscribeGridPings).toHaveBeenCalledWith(
+        'c1',
+        'cena-1',
+        expect.any(Function),
+        expect.any(Function),
+      ),
+    );
+    expect(getCondicoes).toHaveBeenCalledWith('u1');
   });
 });

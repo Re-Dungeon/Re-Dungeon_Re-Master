@@ -17,15 +17,27 @@ import {
   validarToken,
 } from 'common/utils/grid';
 import { OPCOES_TAMANHO_TOKEN, opcoesDeDonos } from './gridMestre';
+import TokenCombate from './TokenCombate';
 import { painelCabecalhoSx, painelSx } from './styles';
 
 /**
  * Edição do token selecionado no Grid: nome/imagem (cópias feitas na
  * criação), tamanho em células, jogadores que podem movê-lo e se está oculto
- * para os jogadores. Quem monta usa `key={token.id}` para recomeçar o
+ * para os jogadores (esses só gravam em "Salvar token"). Em cima, o combate
+ * (TokenCombate: PV/Energia/Fadiga, condições, aura), que grava na hora via
+ * `onAlterar(patch)`. Quem monta usa `key={token.id}` para recomeçar o
  * formulário ao trocar de token.
  */
-const TokenPainel = ({ token, jogadores, onSalvar, onRemover, onFechar }) => {
+const TokenPainel = ({
+  token,
+  jogadores,
+  condicoes,
+  detalhe,
+  onSalvar,
+  onAlterar,
+  onRemover,
+  onFechar,
+}) => {
   const [valores, setValores] = useState({
     nome: token.nome ?? '',
     imagemUrl: token.imagemUrl ?? '',
@@ -88,6 +100,13 @@ const TokenPainel = ({ token, jogadores, onSalvar, onRemover, onFechar }) => {
           <CloseIcon fontSize="small" />
         </IconButton>
       </Box>
+
+      <TokenCombate
+        token={token}
+        condicoes={condicoes}
+        detalhe={detalhe}
+        onAlterar={onAlterar}
+      />
 
       <TextField
         size="small"
@@ -189,11 +208,33 @@ TokenPainel.propTypes = {
     tamanho: PropTypes.number,
     donos: PropTypes.arrayOf(PropTypes.string),
     oculto: PropTypes.bool,
+    pv: PropTypes.shape({ atual: PropTypes.number, max: PropTypes.number }),
+    energia: PropTypes.shape({
+      atual: PropTypes.number,
+      max: PropTypes.number,
+    }),
+    fadiga: PropTypes.shape({
+      atual: PropTypes.number,
+      max: PropTypes.number,
+    }),
+    mostrarRecursos: PropTypes.string,
+    condicoes: PropTypes.arrayOf(PropTypes.string),
+    aura: PropTypes.shape({ raio: PropTypes.number, cor: PropTypes.string }),
   }).isRequired,
   jogadores: PropTypes.arrayOf(
     PropTypes.shape({ uid: PropTypes.string, label: PropTypes.string }),
   ).isRequired,
+  // Catálogo de condições do universo ({ id, nome|Nome, linkImagem }).
+  condicoes: PropTypes.arrayOf(
+    PropTypes.shape({ id: PropTypes.string.isRequired }),
+  ).isRequired,
+  // detalhes[token.id] de useGridCampanha (resumo do token de jogador).
+  detalhe: PropTypes.shape({
+    recursos: PropTypes.object,
+    condicoes: PropTypes.arrayOf(PropTypes.object),
+  }),
   onSalvar: PropTypes.func.isRequired,
+  onAlterar: PropTypes.func.isRequired,
   onRemover: PropTypes.func.isRequired,
   onFechar: PropTypes.func.isRequired,
 };

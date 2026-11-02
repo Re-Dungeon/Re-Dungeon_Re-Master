@@ -11,29 +11,42 @@ import Tooltip from '@mui/material/Tooltip';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import AddIcon from '@mui/icons-material/Add';
 import RemoveIcon from '@mui/icons-material/Remove';
+import CampaignIcon from '@mui/icons-material/Campaign';
 import CenterFocusStrongIcon from '@mui/icons-material/CenterFocusStrong';
+import MyLocationIcon from '@mui/icons-material/MyLocation';
 import StraightenIcon from '@mui/icons-material/Straighten';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 
 import {
+  PING_PRESSAO_MS,
   RASTRO_FADE_MS,
+  TOQUE_DETALHE_MS,
+  areaDaAura,
   avancarCaminho,
   celulaMaisProxima,
   celulaNoPonto,
+  centralizarVista,
   centroDaCelula,
   dimensoesDoMundo,
   distanciaChebyshev,
   distanciaDoRastro,
+  distanciaEntreTokens,
+  escolherReferencia,
   formatarDistancia,
   limitarPosicao,
   mesmaCelula,
   montarRastro,
+  normalizarAura,
   ordenarTokens,
   posicaoEmPx,
   vistaFocadaNoToken,
 } from 'common/utils/grid';
 
+import SinaisPing from './SinaisPing';
+import TokenDetalhe from './TokenDetalhe';
+import TokenEstado from './TokenEstado';
 import {
+  AuraArea,
   COR_TIPO_TOKEN,
   GridAviso,
   GridControles,
@@ -62,6 +75,17 @@ import {
 // `rastros` são os rastros dos últimos movimentos (useGridCampanha). Régua
 // local (botão ou Shift+arrastar): mede de centro a centro, fica na tela até
 // o próximo toque ou Esc.
+// Fase 2: com `onPing`, segurar PING_PRESSAO_MS sem mover (mapa ou token; o
+// mesmo LIMIAR_ARRASTE cancela) ou Alt+clique chama `onPing({ x, y, puxar })`
+// (px do mundo); `puxar` só com `mestre` (botão "Puxar vista" ou
+// Shift+Alt+clique). `pings` (useGridCampanha) são os anéis na tela; um de
+// outra pessoa com `puxar` centraliza a vista (zoom mantido). `detalhes`
+// ({ [tokenId]: { recursos, condicoes } }) desenha as barras e os ícones
+// (TokenEstado) e o cartão do token no hover/toque (TokenDetalhe), com a
+// distância borda a borda a partir do token de referência
+// (escolherReferencia), que o botão "Seguir token" acompanha. `token.aura`
+// pinta a área em volta do token. Tokens NÃO usam MUI Tooltip (o atraso de
+// toque dele brigaria com a pressão longa).
 
 const ZOOM_MIN = 0.1;
 const ZOOM_MAX = 4;
@@ -110,6 +134,13 @@ const zoomEmTorno = (vista, fator, px, py) => {
 const distancia = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 
 const SEM_RASTROS = [];
+const SEM_PINGS = [];
+const SEM_DETALHES = {};
+// Folga (px de tela) entre o token e o cartão de detalhes.
+const FOLGA_DETALHE = 6;
+// Metade da largura máxima do cartão (centralizado no token): mantém ele
+// dentro do viewport.
+const MEIA_LARGURA_DETALHE = 120;
 // Folga (px de tela) entre o rótulo de distância e o topo do token.
 const FOLGA_ROTULO = 6;
 
@@ -132,6 +163,10 @@ const GridMapa = ({
   onImagemCarregada,
   aviso = null,
   rastros = SEM_RASTROS,
+  mestre = false,
+  onPing,
+  pings = SEM_PINGS,
+  detalhes = SEM_DETALHES,
 }) => {
   const viewportRef = useRef(null);
   const idPadrao = `grade-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`;
@@ -144,6 +179,7 @@ const GridMapa = ({
   });
   // Zoom/pan feitos pelo usuário, ligados à imagem em que foram feitos —
   // sem vista manual (ou trocou a imagem) o mapa fica encaixado no viewport.
+  // `suave`: vista movida pelo app (seguir/puxar), com transição.
   const [vistaManual, setVistaManual] = useState(null);
   // Token sendo arrastado: { tokenId, x, y, caminho } em px do mundo;
   // `soltando` (com col/lin) segura a posição final até o snapshot do
@@ -154,6 +190,21 @@ const GridMapa = ({
   const [medicao, setMedicao] = useState(null);
   const gesto = useRef(null);
   const ponteiros = useRef(new Map());
+  // Sinal: "Puxar vista" ligado (mestre) — o próximo sinal centraliza todos.
+  const [modoPuxar, setModoPuxar] = useState(false);
+  // "Seguir token": `seguido` = onde o token de referência estava quando a
+  // vista foi centralizada nele (recentraliza quando muda).
+  const [seguindo, setSeguindo] = useState(false);
+  const [seguido, setSeguido] = useState(null);
+  // Chave do último sinal de "puxar vista" já aplicado.
+  const [puxadaAplicada, setPuxadaAplicada] = useState(null);
+  // Último token que a pessoa moveu/tocou (referência da distância).
+  const [referenciaId, setReferenciaId] = useState(null);
+  // Cartão do token: sob o mouse (desktop) ou tocado (celular, por um tempo).
+  const [hoverId, setHoverId] = useState(null);
+  const [toqueId, setToqueId] = useState(null);
+  // Timers da pressão longa e do cartão por toque.
+  const temporizadores = useRef({ pressao: null, toque: null });
   // Celular (abaixo do `sm`): o mapa abre focado no primeiro token que a
   // pessoa pode mover, com célula ≥ 44px. A posição do foco é a do token
   // quando ele apareceu — mover o token depois não arrasta a vista junto.
@@ -190,7 +241,62 @@ const GridMapa = ({
   const vista =
     vistaManual?.chave === config.imagemUrl ? vistaManual : vistaPadrao;
   const definirVista = novaVista =>
-    setVistaManual({ ...novaVista, chave: config.imagemUrl });
+    setVistaManual({ ...novaVista, chave: config.imagemUrl, suave: false });
+
+  // Token de referência (distância no cartão, "Seguir token"): o selecionado
+  // (mestre), senão o último movido/tocado, senão o primeiro do jogador.
+  const referencia = escolherReferencia(tokens, {
+    selecionadoId: onSelecionar ? selecionadoId : null,
+    ultimoId: referenciaId,
+    mestre,
+    podeMover,
+  });
+  // Puxar vista e seguir token mexem na vista durante o render, com guarda
+  // (como o foco do celular): cada sinal é aplicado uma vez, e o seguir só
+  // recentraliza quando o token sai de onde estava. Mapa sem tamanho (oculto
+  // no celular) espera aparecer.
+  const puxada =
+    [...pings].reverse().find(ping => ping.puxar && !ping.proprio) ?? null;
+  if (puxada && puxada.chave !== puxadaAplicada && viewport.largura > 0) {
+    setPuxadaAplicada(puxada.chave);
+    setSeguindo(false);
+    setVistaManual({
+      ...centralizarVista(vista, puxada, viewport),
+      chave: config.imagemUrl,
+      suave: true,
+    });
+  } else if (
+    seguindo &&
+    referencia &&
+    viewport.largura > 0 &&
+    !(
+      seguido?.id === referencia.id &&
+      seguido.col === referencia.col &&
+      seguido.lin === referencia.lin &&
+      seguido.chave === config.imagemUrl
+    )
+  ) {
+    setSeguido({
+      id: referencia.id,
+      col: referencia.col,
+      lin: referencia.lin,
+      chave: config.imagemUrl,
+    });
+    setVistaManual({
+      ...centralizarVista(
+        vista,
+        centroDaCelula(
+          config,
+          referencia.col,
+          referencia.lin,
+          referencia.tamanho ?? 1,
+        ),
+        viewport,
+      ),
+      chave: config.imagemUrl,
+      suave: true,
+    });
+  }
 
   // A roda do mouse precisa de listener não-passivo (preventDefault) — lê a
   // vista atual por ref para registrar o listener uma vez só.
@@ -249,6 +355,14 @@ const GridMapa = ({
     return () => window.removeEventListener('keydown', aoTeclar);
   }, [reguaAtiva]);
 
+  useEffect(() => {
+    const timers = temporizadores.current;
+    return () => {
+      clearTimeout(timers.pressao);
+      clearTimeout(timers.toque);
+    };
+  }, []);
+
   const pontoNoViewport = event => {
     const retangulo = viewportRef.current.getBoundingClientRect();
     return {
@@ -268,7 +382,61 @@ const GridMapa = ({
 
   const moverPara = (token, col, lin, caminho) => {
     if (col === token.col && lin === token.lin) return null;
+    setReferenciaId(token.id);
     return Promise.resolve(onMover(token, col, lin, caminho));
+  };
+
+  const pontoNoMundo = ponto => ({
+    x: (ponto.x - vista.x) / vista.zoom,
+    y: (ponto.y - vista.y) / vista.zoom,
+  });
+
+  // Sinal no ponto (px do mundo); `atalho` = Shift+Alt. Puxar só o mestre, e
+  // o modo "Puxar vista" vale para um sinal.
+  const emitirPing = (ponto, atalho, puxarNoInicio = modoPuxar) => {
+    const puxar = Boolean(mestre && (puxarNoInicio || atalho));
+    const saiu = onPing({
+      x: Math.round(Math.min(Math.max(ponto.x, 0), mundo.largura)),
+      y: Math.round(Math.min(Math.max(ponto.y, 0), mundo.altura)),
+      puxar,
+    });
+    // `false` = sinal recusado (1 por segundo): o modo continua ligado.
+    if (puxar && saiu !== false) setModoPuxar(false);
+  };
+
+  const cancelarPressao = () => {
+    clearTimeout(temporizadores.current.pressao);
+    temporizadores.current.pressao = null;
+  };
+
+  // Pressão longa: se o gesto ainda não andou (nem virou pinça) quando o
+  // tempo acaba, vira sinal — o arraste/pan/régua que estava começando para.
+  const iniciarPressao = (ponto, puxarNoInicio) => {
+    cancelarPressao();
+    temporizadores.current.pressao = setTimeout(() => {
+      temporizadores.current.pressao = null;
+      const atual = gesto.current;
+      if (
+        !atual ||
+        atual.moveu ||
+        atual.tipo === 'pinca' ||
+        atual.tipo === 'ping'
+      )
+        return;
+      gesto.current = { tipo: 'ping' };
+      setArraste(null);
+      navigator.vibrate?.(30);
+      emitirPing(ponto, false, puxarNoInicio);
+    }, PING_PRESSAO_MS);
+  };
+
+  // Cartão do token tocado (celular) por TOQUE_DETALHE_MS; null fecha.
+  const mostrarToque = tokenId => {
+    clearTimeout(temporizadores.current.toque);
+    setToqueId(tokenId);
+    temporizadores.current.toque = tokenId
+      ? setTimeout(() => setToqueId(null), TOQUE_DETALHE_MS)
+      : null;
   };
 
   const handlePointerDown = event => {
@@ -278,11 +446,19 @@ const GridMapa = ({
     viewportRef.current.setPointerCapture?.(event.pointerId);
 
     if (ponteiros.current.size === 2) {
+      cancelarPressao();
       const [a, b] = [...ponteiros.current.values()];
       // Pinça cancela a medição que estava começando.
       if (gesto.current?.tipo === 'regua') setMedicao(null);
       gesto.current = { tipo: 'pinca', distancia: distancia(a, b) || 1, vista };
       setArraste(null);
+      return;
+    }
+    // Alt+clique (desktop): sinal na hora — antes do Shift da régua, para
+    // Shift+Alt puxar a vista em vez de medir.
+    if (onPing && event.pointerType === 'mouse' && event.altKey) {
+      emitirPing(pontoNoMundo(ponto), event.shiftKey);
+      gesto.current = { tipo: 'ping' };
       return;
     }
     const tokenId = event.target.closest?.('[data-token-id]')?.dataset.tokenId;
@@ -309,6 +485,7 @@ const GridMapa = ({
     } else {
       gesto.current = { tipo: 'pan', token, ponto, vista, moveu: false };
     }
+    if (onPing) iniciarPressao(pontoNoMundo(ponto), modoPuxar);
   };
 
   const posicaoArrastada = (atual, ponto) => ({
@@ -321,7 +498,7 @@ const GridMapa = ({
     const ponto = pontoNoViewport(event);
     ponteiros.current.set(event.pointerId, ponto);
     const atual = gesto.current;
-    if (!atual) return;
+    if (!atual || atual.tipo === 'ping') return;
 
     if (atual.tipo === 'pinca') {
       const [a, b] = [...ponteiros.current.values()];
@@ -339,6 +516,8 @@ const GridMapa = ({
     const dx = ponto.x - atual.ponto.x;
     const dy = ponto.y - atual.ponto.y;
     if (!atual.moveu && Math.hypot(dx, dy) < LIMIAR_ARRASTE) return;
+    // Andou: não é mais pressão longa.
+    if (!atual.moveu) cancelarPressao();
     atual.moveu = true;
     if (atual.tipo === 'token') {
       const posicao = posicaoArrastada(atual, ponto);
@@ -367,6 +546,8 @@ const GridMapa = ({
           : { de: atual.de, ate },
       );
     } else {
+      // Arrastar o mapa desliga o "Seguir token" (pinça e roda não).
+      setSeguindo(false);
       definirVista({
         ...atual.vista,
         x: atual.vista.x + dx,
@@ -377,9 +558,11 @@ const GridMapa = ({
 
   const encerrarGesto = (event, cancelado) => {
     if (!ponteiros.current.delete(event.pointerId)) return;
+    cancelarPressao();
     const atual = gesto.current;
     gesto.current = null;
-    if (!atual || atual.tipo === 'pinca') return;
+    // Sinal já emitido: soltar não seleciona nem limpa a régua.
+    if (!atual || atual.tipo === 'pinca' || atual.tipo === 'ping') return;
 
     if (atual.tipo === 'token' && atual.moveu) {
       const { token } = atual;
@@ -415,6 +598,9 @@ const GridMapa = ({
     // Medição feita fica na tela (até o próximo toque ou Esc).
     if (atual.moveu || cancelado) return;
     setMedicao(null);
+    if (atual.token && podeMover(atual.token)) setReferenciaId(atual.token.id);
+    // Celular: tocar mostra o cartão do token (tocar fora fecha).
+    if (event.pointerType !== 'mouse') mostrarToque(atual.token?.id ?? null);
     onSelecionar?.(atual.token);
   };
 
@@ -522,12 +708,50 @@ const GridMapa = ({
   const medicaoAte =
     medicao && centroDaCelula(config, medicao.ate.col, medicao.ate.lin);
 
+  // ── Auras e cartão do token ──
+  const auras = tokens
+    .map(token => ({ token, aura: normalizarAura(token.aura) }))
+    .filter(({ aura }) => aura);
+  // Cartão: token tocado (celular) ou sob o mouse; some durante o arraste.
+  const alvoId = tokenArrastado ? null : (toqueId ?? hoverId);
+  const alvo = alvoId ? (tokensPorId.get(alvoId) ?? null) : null;
+  let cartao = null;
+  if (alvo) {
+    const canto = posicaoEmPx(config, alvo.col, alvo.lin);
+    const lado = (alvo.tamanho ?? 1) * celula;
+    // Abaixo do token e do nome dele (o nome fica sob o círculo).
+    const alturaNome = Math.max(10, celula * 0.24) * 1.4;
+    const centro = vista.x + (canto.x + lado / 2) * vista.zoom;
+    const limite = viewport.largura - MEIA_LARGURA_DETALHE;
+    const quadrados =
+      referencia && referencia.id !== alvo.id
+        ? distanciaEntreTokens(referencia, alvo)
+        : null;
+    cartao = {
+      token: alvo,
+      distancia:
+        quadrados === null
+          ? null
+          : `${formatarDistancia(quadrados, metrosPorQuadrado)} de ${referencia.nome}`,
+      style: {
+        left:
+          limite > MEIA_LARGURA_DETALHE
+            ? Math.min(Math.max(centro, MEIA_LARGURA_DETALHE), limite)
+            : centro,
+        top:
+          vista.y + (canto.y + lado + alturaNome) * vista.zoom + FOLGA_DETALHE,
+      },
+    };
+  }
+
   return (
     <GridViewport
       ref={viewportRef}
       role="application"
       aria-label="Grid da campanha"
       $regua={modoRegua}
+      // Segurar = sinal: sem o menu de contexto do navegador.
+      onContextMenu={event => event.preventDefault()}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={event => encerrarGesto(event, false)}
@@ -538,6 +762,8 @@ const GridMapa = ({
           width: mundo.largura,
           height: mundo.altura,
           transform: `translate(${vista.x}px, ${vista.y}px) scale(${vista.zoom})`,
+          // Só a vista movida pelo app (seguir/puxar) desliza.
+          transition: vista.suave ? 'transform 0.35s ease' : undefined,
         }}
       >
         {config.imagemUrl && (
@@ -608,6 +834,24 @@ const GridMapa = ({
             />
           </GridGrade>
         )}
+
+        {auras.map(({ token, aura }) => {
+          const area = areaDaAura(token, aura, mundo);
+          const canto = posicaoEmPx(config, area.col, area.lin);
+          return (
+            <AuraArea
+              key={token.id}
+              data-aura={token.id}
+              style={{
+                left: canto.x,
+                top: canto.y,
+                width: area.colunas * celula,
+                height: area.linhas * celula,
+                '--cor': aura.cor,
+              }}
+            />
+          );
+        })}
 
         {(rastrosVisiveis.length > 0 || caminhoArraste || medicao) && (
           <GridRastros
@@ -726,6 +970,13 @@ const GridMapa = ({
               aria-label={`${token.nome}, coluna ${token.col + 1}, linha ${token.lin + 1}${token.oculto ? ', oculto' : ''}`}
               aria-pressed={onSelecionar ? selecionado : undefined}
               onKeyDown={event => handleTokenKeyDown(event, token)}
+              onPointerEnter={event => {
+                if (event.pointerType === 'mouse') setHoverId(token.id);
+              }}
+              onPointerLeave={event => {
+                if (event.pointerType === 'mouse')
+                  setHoverId(atual => (atual === token.id ? null : atual));
+              }}
               $movel={podeMover(token)}
               $arrastando={emArraste && !arraste.soltando}
               $selecionado={selecionado}
@@ -747,6 +998,11 @@ const GridMapa = ({
               >
                 {conteudoDoToken(token)}
               </TokenCirculo>
+              <TokenEstado
+                recursos={detalhes[token.id]?.recursos ?? null}
+                condicoes={detalhes[token.id]?.condicoes ?? null}
+                lado={lado}
+              />
               <TokenNome style={{ fontSize: Math.max(10, celula * 0.24) }}>
                 {token.nome}
               </TokenNome>
@@ -807,6 +1063,18 @@ const GridMapa = ({
         </RotuloDistancia>
       )}
 
+      <SinaisPing pings={pings} vista={vista} />
+
+      {cartao && (
+        <TokenDetalhe
+          nome={cartao.token.nome}
+          recursos={detalhes[cartao.token.id]?.recursos ?? null}
+          condicoes={detalhes[cartao.token.id]?.condicoes ?? null}
+          distancia={cartao.distancia}
+          style={cartao.style}
+        />
+      )}
+
       {(aviso || avisoImagem) && (
         <GridAviso role="status">{aviso || avisoImagem}</GridAviso>
       )}
@@ -857,10 +1125,51 @@ const GridMapa = ({
             <StraightenIcon fontSize="small" />
           </IconButton>
         </Tooltip>
+        <Tooltip title="Seguir token" placement="left">
+          {/* span: o Tooltip precisa de um filho que receba eventos mesmo com
+              o botão desabilitado. */}
+          <span>
+            <IconButton
+              size="small"
+              aria-label="Seguir token"
+              aria-pressed={seguindo}
+              disabled={!referencia}
+              onClick={() => {
+                setSeguindo(ligado => !ligado);
+                // Ligar centraliza na hora.
+                setSeguido(null);
+              }}
+              sx={{ color: seguindo ? 'var(--color-primary)' : undefined }}
+            >
+              <MyLocationIcon fontSize="small" />
+            </IconButton>
+          </span>
+        </Tooltip>
+        {mestre && onPing && (
+          <Tooltip
+            title="Puxar a vista dos jogadores (Shift+Alt+clique)"
+            placement="left"
+          >
+            <IconButton
+              size="small"
+              aria-label="Puxar vista"
+              aria-pressed={modoPuxar}
+              onClick={() => setModoPuxar(ligado => !ligado)}
+              sx={{ color: modoPuxar ? 'var(--color-primary)' : undefined }}
+            >
+              <CampaignIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        )}
       </GridControles>
     </GridViewport>
   );
 };
+
+const recursoShape = PropTypes.shape({
+  atual: PropTypes.number,
+  max: PropTypes.number,
+});
 
 GridMapa.propTypes = {
   config: PropTypes.shape({
@@ -884,6 +1193,13 @@ GridMapa.propTypes = {
       tamanho: PropTypes.number,
       oculto: PropTypes.bool,
       donos: PropTypes.arrayOf(PropTypes.string),
+      refId: PropTypes.string,
+      pv: recursoShape,
+      energia: recursoShape,
+      fadiga: recursoShape,
+      mostrarRecursos: PropTypes.string,
+      condicoes: PropTypes.arrayOf(PropTypes.string),
+      aura: PropTypes.shape({ raio: PropTypes.number, cor: PropTypes.string }),
     }),
   ).isRequired,
   podeMover: PropTypes.func.isRequired,
@@ -903,6 +1219,30 @@ GridMapa.propTypes = {
         PropTypes.shape({ col: PropTypes.number, lin: PropTypes.number }),
       ).isRequired,
       saindo: PropTypes.bool,
+    }),
+  ),
+  // Mestre: botão "Puxar vista" e sinais com `puxar`.
+  mestre: PropTypes.bool,
+  // Recebe { x, y, puxar } (px do mundo) — sem ele, não há sinal.
+  onPing: PropTypes.func,
+  // Sinais na tela (useGridCampanha → pings).
+  pings: PropTypes.arrayOf(
+    PropTypes.shape({
+      chave: PropTypes.string.isRequired,
+      uid: PropTypes.string.isRequired,
+      x: PropTypes.number.isRequired,
+      y: PropTypes.number.isRequired,
+      nome: PropTypes.string,
+      cor: PropTypes.string,
+      puxar: PropTypes.bool,
+      proprio: PropTypes.bool,
+    }),
+  ),
+  // { [tokenId]: { recursos, condicoes } } (useGridCampanha → detalhes).
+  detalhes: PropTypes.objectOf(
+    PropTypes.shape({
+      recursos: PropTypes.object,
+      condicoes: PropTypes.arrayOf(PropTypes.object),
     }),
   ),
 };

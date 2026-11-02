@@ -652,8 +652,10 @@ service cloud.firestore {
     // CENAS: `gridCenas/{cenaId}` (imagem + grade) com os próprios tokens em
     // `gridCenas/{cenaId}/tokens`; `grid/atual` = {cenaAtivaId}. O mestre
     // cria/edita/apaga tudo (Re:Master) e prepara cenas em segredo: o jogador
-    // só lê a cena ATIVA e os tokens dela, e só MOVE os tokens em que o uid
-    // dele está em `donos` (col/lin + o rastro do movimento, rastro/movidoEm).
+    // só lê a cena ATIVA e os tokens dela, só MOVE os tokens em que o uid
+    // dele está em `donos` (col/lin + o rastro do movimento, rastro/movidoEm) e
+    // grava o próprio sinal (`pings/{uid}`). PV/condições/aura dos tokens são
+    // só do mestre.
     // Tokens `oculto` só o mestre lê — a consulta do jogador filtra
     // `oculto == false` (senão é recusada).
     // ═══════════════════════════════════════════════════════════════════════
@@ -708,9 +710,41 @@ service cloud.firestore {
         depois.movidoEm == request.time;
     }
 
+    // Recursos do token (common/utils/grid.js — normalizarRecurso): {atual, max}
+    // inteiros, 0 ≤ atual ≤ max, 1 ≤ max ≤ 99999; null = sem barra.
+    function gridRecursoValido(valor) {
+      return valor == null ||
+        (valor is map && valor.keys().hasOnly(['atual', 'max']) &&
+         valor.keys().hasAll(['atual', 'max']) &&
+         valor.atual is int && valor.max is int &&
+         valor.max >= 1 && valor.max <= 99999 &&
+         valor.atual >= 0 && valor.atual <= valor.max);
+    }
+
+    // Aura (normalizarAura): raio em células 1–999 e cor #RRGGBB; null = sem.
+    function gridAuraValida(aura) {
+      return aura == null ||
+        (aura is map && aura.keys().hasOnly(['raio', 'cor']) && aura.keys().hasAll(['raio', 'cor']) &&
+         aura.raio is int && aura.raio >= 1 && aura.raio <= 999 &&
+         aura.cor is string && aura.cor.matches('#[0-9a-fA-F]{6}'));
+    }
+
+    // Campos de combate (só o mestre grava; o jogador nunca os altera).
+    // `condicoes` = ids do catálogo — sem laços, só o tamanho é limitado
+    // (quem lê sanitiza: normalizarCondicoesDoToken).
+    function gridCombateValido(data) {
+      return gridRecursoValido(data.get('pv', null)) &&
+        gridRecursoValido(data.get('energia', null)) &&
+        gridRecursoValido(data.get('fadiga', null)) &&
+        data.get('mostrarRecursos', 'oculto') in ['oculto', 'barra', 'numeros'] &&
+        data.get('condicoes', []) is list && data.get('condicoes', []).size() <= 20 &&
+        gridAuraValida(data.get('aura', null));
+    }
+
     function gridTokenValido(data) {
       return data.keys().hasOnly(['nome', 'imagemUrl', 'tipo', 'refId', 'col', 'lin', 'tamanho',
                                   'donos', 'oculto', 'rastro', 'movidoEm',
+                                  'pv', 'energia', 'fadiga', 'mostrarRecursos', 'condicoes', 'aura',
                                   'createdAt', 'updatedAt']) &&
         data.keys().hasAll(['nome', 'tipo', 'col', 'lin', 'tamanho', 'donos', 'oculto']) &&
         data.nome is string && data.nome.size() > 0 && data.nome.size() <= 100 &&
@@ -722,7 +756,8 @@ service cloud.firestore {
         data.tamanho is int && data.tamanho >= 1 && data.tamanho <= 10 &&
         data.donos is list && data.donos.size() <= 20 &&
         data.oculto is bool &&
-        gridRastroValido(data);
+        gridRastroValido(data) &&
+        gridCombateValido(data);
     }
 
     // Ponteiro da cena ativa (null = nenhuma cena visível aos jogadores).
@@ -759,6 +794,28 @@ service cloud.firestore {
          gridMovidoEmValido(resource.data, request.resource.data) &&
          veCenaDoGrid(campanhaId, cenaId));
       allow delete: if isMestreDaCampanha(campanhaId);
+    }
+
+    // Sinal no mapa: um doc por pessoa (id = uid), sobrescrito a cada sinal —
+    // x/y em px do mundo (common/utils/grid.js — PING_COORDENADA_MAX);
+    // `puxar` (centraliza a vista de todos) só o mestre; criadoEm = servidor.
+    function gridPingValido(campanhaId, data) {
+      return data.keys().hasOnly(['x', 'y', 'puxar', 'nome', 'criadoEm']) &&
+        data.keys().hasAll(['x', 'y', 'puxar', 'criadoEm']) &&
+        data.x is int && data.x >= 0 && data.x <= 250000 &&
+        data.y is int && data.y >= 0 && data.y <= 250000 &&
+        data.puxar is bool && (data.puxar == false || isMestreDaCampanha(campanhaId)) &&
+        (!('nome' in data) || (data.nome is string && data.nome.size() <= 100)) &&
+        data.criadoEm == request.time;
+    }
+
+    match /rmCampanhas/{campanhaId}/gridCenas/{cenaId}/pings/{pingUid} {
+      allow read: if isMestreDaCampanha(campanhaId) || veCenaDoGrid(campanhaId, cenaId);
+      allow create, update: if isAuth() && pingUid == request.auth.uid &&
+        (isMestreDaCampanha(campanhaId) || veCenaDoGrid(campanhaId, cenaId)) &&
+        gridPingValido(campanhaId, request.resource.data);
+      allow delete: if isAuth() &&
+        (pingUid == request.auth.uid || isMestreDaCampanha(campanhaId));
     }
 
     // ═══════════════════════════════════════════════════════════════════════

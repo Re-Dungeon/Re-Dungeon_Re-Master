@@ -1,6 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import {
   OPCOES_TAMANHO_TOKEN,
+  ajustarRecurso,
+  auraEscolhida,
+  recursoDigitado,
   opcoesDeDonos,
   tokensDeJogadoresFaltantes,
 } from './gridMestre';
@@ -80,5 +83,44 @@ describe('tokensDeJogadoresFaltantes', () => {
     expect(
       tokensDeJogadoresFaltantes(JOGADORES, cheia, { colunas: 30, linhas: 20 }),
     ).toHaveLength(1);
+  });
+});
+
+describe('combate do token', () => {
+  const pv = { atual: 10, max: 20 };
+
+  it('ajustarRecurso fica entre 0 e o máximo', () => {
+    expect(ajustarRecurso(pv, 1)).toEqual({ atual: 11, max: 20 });
+    expect(ajustarRecurso({ atual: 0, max: 20 }, -1)).toEqual({
+      atual: 0,
+      max: 20,
+    });
+    expect(ajustarRecurso({ atual: 20, max: 20 }, 1)).toEqual({
+      atual: 20,
+      max: 20,
+    });
+    expect(ajustarRecurso(null, 1)).toBeNull();
+  });
+
+  it('recursoDigitado: max vazio ou 0 remove; max novo cria cheio', () => {
+    expect(recursoDigitado(pv, 'max', '')).toBeNull();
+    expect(recursoDigitado(pv, 'max', '0')).toBeNull();
+    expect(recursoDigitado(null, 'max', '15')).toEqual({ atual: 15, max: 15 });
+    expect(recursoDigitado(pv, 'max', '5')).toEqual({ atual: 5, max: 5 });
+    expect(recursoDigitado(pv, 'atual', '7')).toEqual({ atual: 7, max: 20 });
+    expect(recursoDigitado(pv, 'atual', '99')).toEqual({ atual: 20, max: 20 });
+    expect(recursoDigitado(pv, 'atual', 'abc')).toBe(pv);
+    expect(recursoDigitado(null, 'atual', '3')).toBeNull();
+  });
+
+  it('auraEscolhida: sem cor = sem aura; raio limitado', () => {
+    expect(auraEscolhida('', 3)).toBeNull();
+    expect(auraEscolhida('#e05555', '2')).toEqual({ raio: 2, cor: '#e05555' });
+    expect(auraEscolhida('#e05555', '0')).toEqual({ raio: 1, cor: '#e05555' });
+    expect(auraEscolhida('#e05555', '5000')).toEqual({
+      raio: 999,
+      cor: '#e05555',
+    });
+    expect(auraEscolhida('#e05555', 'x')).toEqual({ raio: 1, cor: '#e05555' });
   });
 });

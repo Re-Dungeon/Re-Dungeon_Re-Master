@@ -1,9 +1,14 @@
 // Ajudas puras da tela Grid do mestre (o modelo do grid em si fica em
 // common/utils/grid.js, compartilhado com o site dos jogadores).
 import {
+  AURA_RAIO_MAX,
+  AURA_RAIO_MIN,
+  MODOS_RECURSOS,
   GRID_TOKENS_POR_CENA_MAX,
   TIPOS_TOKEN,
   montarToken,
+  normalizarAura,
+  normalizarRecurso,
   primeiraCelulaLivre,
 } from 'common/utils/grid';
 
@@ -64,4 +69,47 @@ export const tokensDeJogadoresFaltantes = (jogadores, tokens, limites) => {
       ocupados.push(token);
       return token;
     });
+};
+
+// ── Combate do token (TokenCombate) ─────────────────────────────────────
+// PV/Energia/Fadiga de npc/criatura/avulso ficam no token como
+// `{atual, max}` (common/utils/grid.js — normalizarRecurso); null = sem barra.
+
+// Botões −/+: muda `atual` e mantém dentro de 0..max.
+export const ajustarRecurso = (recurso, delta) =>
+  recurso
+    ? normalizarRecurso({ ...recurso, atual: recurso.atual + delta })
+    : null;
+
+// Campo `atual` ou `max` digitado → recurso novo. `max` vazio ou 0 remove a
+// barra (null); `atual` vazio = cheio. `max` menor que `atual` puxa o atual.
+export const recursoDigitado = (recurso, campo, texto) => {
+  const valor = String(texto ?? '').trim();
+  // Texto que não é número não muda nada.
+  if (valor !== '' && !Number.isFinite(Number(valor))) return recurso ?? null;
+  if (campo === 'max') {
+    if (valor === '' || Number(valor) === 0) return null;
+    return normalizarRecurso({ atual: recurso?.atual ?? valor, max: valor });
+  }
+  if (!recurso) return null;
+  return normalizarRecurso({ ...recurso, atual: valor });
+};
+
+export const OPCOES_MOSTRAR_RECURSOS = [
+  { value: MODOS_RECURSOS.OCULTO, label: 'Ocultos' },
+  { value: MODOS_RECURSOS.BARRA, label: 'Só barras' },
+  { value: MODOS_RECURSOS.NUMEROS, label: 'Barras e números' },
+];
+
+// Aura escolhida no painel: cor '' = sem aura (null); raio digitado é
+// limitado a AURA_RAIO_MIN..AURA_RAIO_MAX (vazio/inválido = 1).
+export const auraEscolhida = (cor, raioTexto) => {
+  if (!cor) return null;
+  const raio = Math.round(Number(raioTexto));
+  return normalizarAura({
+    cor,
+    raio: Number.isFinite(raio)
+      ? Math.min(Math.max(raio, AURA_RAIO_MIN), AURA_RAIO_MAX)
+      : AURA_RAIO_MIN,
+  });
 };

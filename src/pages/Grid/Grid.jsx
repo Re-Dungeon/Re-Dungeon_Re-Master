@@ -14,6 +14,7 @@ import {
   addGridCena,
   addGridTokens,
   duplicarGridCena,
+  getCondicoes,
   getRmMapasPorCampanha,
   removeGridCena,
   removeGridToken,
@@ -47,6 +48,8 @@ import { jogadoresSemToken, tokensDeJogadoresFaltantes } from './gridMestre';
 import useCenasDoGrid from './useCenasDoGrid';
 
 const MAPAS_VAZIOS = { campanhaId: null, lista: [] };
+const SEM_CONDICOES = [];
+const CONDICOES_VAZIAS = { universoId: null, lista: SEM_CONDICOES };
 
 /**
  * Grid (mapa tático) da Campanha ativa, em CENAS, compartilhado em tempo real
@@ -84,11 +87,25 @@ const Grid = () => {
   else if (existe(cenaAtivaId)) cenaAbertaId = cenaAtivaId;
   const cenaAberta = cenas.find(cena => cena.id === cenaAbertaId) ?? null;
 
+  // Catálogo de condições do universo (ícones/nomes nos tokens e no painel),
+  // guardado com o universo a que pertence.
+  const [condicoesCarregadas, setCondicoesCarregadas] =
+    useState(CONDICOES_VAZIAS);
+  const universoId = campanhaAtiva?.universoId ?? null;
+  const catalogoCondicoes =
+    condicoesCarregadas.universoId === universoId
+      ? condicoesCarregadas.lista
+      : SEM_CONDICOES;
+
   const grid = useGridCampanha(campanhaId, {
     uid: currentUser.uid,
     isMestre: true,
     ehMestreDaCampanha: true,
     cenaId: cenaAbertaId,
+    // Nome no sinal do mapa; `mestreId` pinta o meu sinal de dourado.
+    nome: 'Mestre',
+    mestreId: currentUser.uid,
+    catalogoCondicoes,
   });
   const { erro: erroGrid, limparErro: limparErroGrid } = grid;
 
@@ -127,6 +144,24 @@ const Grid = () => {
       active = false;
     };
   }, [campanhaAtiva]);
+
+  // Falha não é erro para o mestre: os tokens só ficam sem as condições.
+  useEffect(() => {
+    if (!universoId) return undefined;
+    let active = true;
+    getCondicoes(universoId)
+      .then(lista => {
+        if (!active) return;
+        setCondicoesCarregadas({ universoId, lista: lista ?? SEM_CONDICOES });
+      })
+      .catch(error => {
+        // eslint-disable-next-line no-console
+        console.error('Falha ao carregar o catálogo de condições:', error);
+      });
+    return () => {
+      active = false;
+    };
+  }, [universoId]);
 
   // Erros das escutas vão para o Snackbar global.
   useEffect(() => {
@@ -306,6 +341,16 @@ const Grid = () => {
     if (ok) notifySuccess('Token atualizado.');
   };
 
+  // Combate (TokenCombate): grava na hora, sem aviso de sucesso.
+  const handleAlterarToken = patch =>
+    tentar(
+      () =>
+        updateGridToken(campanhaId, cenaAbertaId, selecionado.id, patch).then(
+          () => true,
+        ),
+      'Não foi possível atualizar o token.',
+    );
+
   const handleRemoverToken = async () => {
     if (!window.confirm(`Remover "${selecionado.nome}" da cena?`)) return;
     const ok = await tentar(
@@ -449,13 +494,20 @@ const Grid = () => {
             onSelecionar={token => setSelecionadoId(token?.id ?? null)}
             onImagemCarregada={setImagemCarregada}
             aviso={aviso}
+            mestre
+            onPing={grid.pingar}
+            pings={grid.pings}
+            detalhes={grid.detalhes}
           />
           {selecionado && (
             <TokenPainel
               key={selecionado.id}
               token={selecionado}
               jogadores={fontes.jogadores}
+              condicoes={catalogoCondicoes}
+              detalhe={grid.detalhes[selecionado.id] ?? null}
               onSalvar={handleSalvarToken}
+              onAlterar={handleAlterarToken}
               onRemover={handleRemoverToken}
               onFechar={() => setSelecionadoId(null)}
             />

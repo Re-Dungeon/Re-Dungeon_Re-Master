@@ -1,4 +1,4 @@
-import styled, { css } from 'styled-components';
+import styled, { css, keyframes } from 'styled-components';
 
 import { RASTRO_FADE_MS } from 'common/utils/grid';
 
@@ -21,6 +21,10 @@ export const GridViewport = styled.div`
   border: 1px solid var(--border-primary);
   border-radius: 12px;
   touch-action: none;
+  /* Segurar para sinalizar: sem seleção de texto nem o menu/callout do
+     navegador (iOS). */
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
   user-select: none;
   cursor: grab;
 
@@ -149,6 +153,7 @@ export const TokenCirculo = styled.span`
     height: 100%;
     object-fit: cover;
     pointer-events: none;
+    -webkit-touch-callout: none;
   }
 `;
 
@@ -194,8 +199,20 @@ export const GridControles = styled.div`
   cursor: default;
   z-index: 30;
 
-  /* Celular: alvos de toque de 44px. */
+  /* Celular: alvos de toque de 44px. Em mapas baixos (o do Re:Master divide a
+     tela com o chat) os botões passam para uma coluna extra à esquerda em vez
+     de vazar por cima do mapa. A escrita vertical faz a quebra do flex virar
+     colunas, e a largura acompanha quantas colunas existem. */
   @media (max-width: 599.95px) {
+    writing-mode: vertical-lr;
+    flex-direction: row;
+    flex-wrap: wrap-reverse;
+    max-height: calc(100% - 30px);
+
+    & > * {
+      writing-mode: horizontal-tb;
+    }
+
     & .MuiIconButton-root {
       width: 44px;
       height: 44px;
@@ -218,4 +235,155 @@ export const GridAviso = styled.div`
   text-align: center;
   pointer-events: none;
   z-index: 25;
+`;
+
+// Aura de um token (px do mundo): quadrado de células abaixo dos tokens e dos
+// rastros. Cor em `--cor` (style).
+export const AuraArea = styled.div`
+  position: absolute;
+  box-sizing: border-box;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--cor) 18%, transparent);
+  border: 1px solid color-mix(in srgb, var(--cor) 60%, transparent);
+  pointer-events: none;
+`;
+
+// Barras de PV/Energia/Fadiga empilhadas sobre a base do círculo do token.
+export const TokenBarras = styled.span`
+  position: absolute;
+  left: 14%;
+  right: 14%;
+  bottom: 2%;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  pointer-events: none;
+`;
+
+export const TokenBarra = styled.span`
+  display: block;
+  overflow: hidden;
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.7);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5);
+
+  & > span {
+    display: block;
+    height: 100%;
+  }
+`;
+
+// Ícones das condições no canto superior esquerdo (o de oculto fica no
+// direito).
+export const TokenCondicoes = styled.span`
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  gap: 1px;
+  pointer-events: none;
+`;
+
+export const TokenCondicaoIcone = styled.span`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  overflow: hidden;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  background: rgba(10, 9, 19, 0.85);
+  color: var(--text-primary);
+  font-weight: 700;
+  line-height: 1;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    -webkit-touch-callout: none;
+  }
+`;
+
+const pulsoDoPing = keyframes`
+  from {
+    transform: translate(-50%, -50%) scale(0.3);
+    opacity: 1;
+  }
+  to {
+    transform: translate(-50%, -50%) scale(2.4);
+    opacity: 0;
+  }
+`;
+
+// Sinal no mapa, em px do VIEWPORT (left/top = o ponto). Cor em `--cor`.
+export const SinalPing = styled.div`
+  position: absolute;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  z-index: 26;
+
+  &::before,
+  &::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 36px;
+    height: 36px;
+    box-sizing: border-box;
+    border-radius: 50%;
+    border: 3px solid var(--cor);
+    box-shadow: 0 0 6px rgba(0, 0, 0, 0.6);
+    animation: ${pulsoDoPing} 1s ease-out 3 both;
+  }
+
+  &::after {
+    animation-delay: 0.3s;
+  }
+`;
+
+export const SinalPingNome = styled.span`
+  position: absolute;
+  left: 0;
+  top: 24px;
+  transform: translateX(-50%);
+  padding: 1px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--cor);
+  background: rgba(0, 0, 0, 0.8);
+  color: var(--text-primary);
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+`;
+
+// Cartão de detalhes do token (hover/toque), em px do VIEWPORT, abaixo dele.
+export const TokenDetalheCaixa = styled.div`
+  position: absolute;
+  transform: translateX(-50%);
+  max-width: 240px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border-primary);
+  background: rgba(10, 9, 19, 0.92);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  line-height: 1.45;
+  pointer-events: none;
+  z-index: 27;
+
+  & strong {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text-primary);
+  }
+
+  @media (max-width: 599.95px) {
+    font-size: 0.9rem;
+  }
 `;

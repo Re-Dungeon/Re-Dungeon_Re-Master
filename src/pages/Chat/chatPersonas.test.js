@@ -72,6 +72,7 @@ describe('montarPersonasDoMestre', () => {
         label: 'Rato Gigante',
         avatar: null,
         persona: 'criatura',
+        recursos: null,
       },
     ]);
   });
@@ -98,6 +99,7 @@ describe('montarPersonasDoMestre', () => {
         label: 'Bartolomeu, o taverneiro',
         avatar: 'https://ex.com/bart.png',
         persona: 'npc',
+        recursos: null,
       },
       {
         id: 'npc:n1',
@@ -105,6 +107,7 @@ describe('montarPersonasDoMestre', () => {
         label: 'Zelda',
         avatar: 'https://ex.com/z.png',
         persona: 'npc',
+        recursos: null,
       },
     ]);
   });
@@ -151,8 +154,30 @@ describe('montarJogadoresDaMesa', () => {
         label: 'Aldric, o Bravo',
         avatar: null,
         persona: 'jogador',
+        recursos: null,
         uid: 'jogador-1',
       },
     ]);
+  });
+});
+
+describe('recursos das personas (tokens do Grid)', () => {
+  it('NPC com status na ficha começa com PV/Energia/Fadiga cheios', () => {
+    const { npcs } = montarPersonasDoMestre({
+      personagens: [
+        {
+          ...PERSONAGENS[0],
+          statusMaximos: { hp: 20, energia: '8' },
+          status: { hp: { atual: 3 } },
+        },
+      ],
+      npcClones: [],
+      criaturaClones: [],
+      campanha: CAMPANHA,
+    });
+    expect(npcs[0].recursos).toEqual({
+      pv: { atual: 20, max: 20 },
+      energia: { atual: 8, max: 8 },
+    });
   });
 });

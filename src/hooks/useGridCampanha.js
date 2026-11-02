@@ -9,7 +9,9 @@ import {
 import {
   RASTRO_DURACAO_MS,
   RASTRO_FADE_MS,
+  TIPOS_TOKEN,
   configDoGrid,
+  detalhesDosTokens,
   detectarMovimentos,
   mesmaCelula,
   montarRastro,
@@ -18,6 +20,8 @@ import {
   podeMoverToken,
   rastrosIguais,
 } from 'common/utils/grid';
+import useFichasDoGrid from 'hooks/useFichasDoGrid';
+import useGridPings from 'hooks/useGridPings';
 import useMembroDoChat from 'hooks/useMembroDoChat';
 
 // Liga um componente a uma cena do grid da campanha em tempo real: a cena
@@ -37,7 +41,13 @@ import useMembroDoChat from 'hooks/useMembroDoChat';
 // ainda visível termina (setas, arrastos seguidos) continua o mesmo rastro.
 // Token oculto só tem rastro local (na tela do mestre). Se a regra do
 // Firestore ainda não aceitar o rastro, regrava só col/lin.
+// Fase 2: sinais no mapa (useGridPings — `nome` assina o meu, `mestreId` pinta
+// o do mestre de dourado; só quem vê tudo puxa a vista) e `detalhes` dos
+// tokens (barras de PV/Energia/Fadiga e condições — common/utils/grid.js,
+// detalhesDosTokens): token de jogador lê a ficha ao vivo (useFichasDoGrid),
+// os demais o próprio token; `catalogoCondicoes` = catálogo do universo.
 const SEM_TOKENS = [];
+const SEM_CATALOGO = [];
 const SEM_RASTROS = [];
 const RASTROS_VAZIOS = { chave: null, porToken: {} };
 
@@ -49,6 +59,9 @@ const useGridCampanha = (
     isMestre = false,
     ehMestreDaCampanha = false,
     cenaId: cenaEscolhida,
+    nome = null,
+    mestreId = null,
+    catalogoCondicoes = SEM_CATALOGO,
   },
 ) => {
   const [erro, setErro] = useState(null);
@@ -360,6 +373,15 @@ const useGridCampanha = (
 
   const limparErro = useCallback(() => setErro(null), []);
 
+  const { pings, pingar } = useGridPings(campanhaId, cenaId, {
+    ativo: Boolean(podeOuvir && chave),
+    uid,
+    nome,
+    mestreId,
+    podePuxar: veTudo,
+    onErro: setErro,
+  });
+
   const carregando =
     !ponteiroCarregado ||
     (chave !== null &&
@@ -370,6 +392,31 @@ const useGridCampanha = (
     chave && tokensRecebidos.chave === chave
       ? tokensRecebidos.tokens
       : SEM_TOKENS;
+  // Ids das fichas dos tokens de jogador (string estável para o hook).
+  const idsDasFichas = useMemo(
+    () =>
+      [
+        ...new Set(
+          tokens
+            .filter(token => token.tipo === TIPOS_TOKEN.JOGADOR && token.refId)
+            .map(token => token.refId),
+        ),
+      ]
+        .sort()
+        .join('|'),
+    [tokens],
+  );
+  const fichas = useFichasDoGrid(idsDasFichas, {
+    ativo: Boolean(podeOuvir && chave),
+  });
+  const catalogoPorId = useMemo(
+    () => new Map(catalogoCondicoes.map(condicao => [condicao.id, condicao])),
+    [catalogoCondicoes],
+  );
+  const detalhes = useMemo(
+    () => detalhesDosTokens(tokens, { fichas, catalogoPorId, uid, veTudo }),
+    [tokens, fichas, catalogoPorId, uid, veTudo],
+  );
   const rastrosAtivos = useMemo(
     () =>
       chave && rastros.chave === chave
@@ -400,6 +447,14 @@ const useGridCampanha = (
     // Rastros do último movimento na tela: { tokenId, chave, pontos, saindo }[]
     // (GridMapa, prop `rastros`).
     rastrosAtivos,
+    // Sinais na tela ({ chave, uid, x, y, nome, cor, puxar, proprio }[]) e
+    // `pingar({ x, y, puxar })` (GridMapa, props `pings`/`onPing`).
+    pings,
+    pingar,
+    // { [tokenId]: { recursos, condicoes } } (GridMapa, prop `detalhes`).
+    detalhes,
+    // Mestre (vê tudo, puxa a vista) — GridMapa, prop `mestre`.
+    veTudo,
   };
 };
 

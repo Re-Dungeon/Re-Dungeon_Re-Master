@@ -65,6 +65,9 @@ const AdicionarTokenDialog = ({
       tipo: aba,
       refId: origem.refId ?? null,
       donos: aba === TIPOS_TOKEN.JOGADOR && origem.uid ? [origem.uid] : [],
+      // Jogador lê PV/Energia/Fadiga da ficha ao vivo; NPC/Criatura guarda
+      // no token, cheios, a partir da ficha.
+      recursos: aba === TIPOS_TOKEN.JOGADOR ? null : (origem.recursos ?? null),
       tamanho,
       oculto,
     });
@@ -223,6 +226,7 @@ const origemShape = PropTypes.shape({
   label: PropTypes.string.isRequired,
   avatar: PropTypes.string,
   uid: PropTypes.string,
+  recursos: PropTypes.object,
 });
 
 AdicionarTokenDialog.propTypes = {
