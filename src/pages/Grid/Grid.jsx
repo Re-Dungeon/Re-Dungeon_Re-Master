@@ -35,6 +35,7 @@ import {
   dimensoesDoMundo,
   limitarPosicao,
   montarCena,
+  corDoPing,
   montarToken,
   nomeDaCena,
   nomeDaCopia,
@@ -43,7 +44,10 @@ import {
   validarToken,
 } from 'common/utils/grid';
 import useGridCampanha from 'hooks/useGridCampanha';
+import useRolarDoToken from 'hooks/useRolarDoToken';
+import { autorDoToken } from 'common/utils/gridRolagem';
 import GridMapa from 'components/Grid/GridMapa';
+import RolarDoTokenDialog from 'components/Grid/RolarDoTokenDialog';
 import ChatMestre from 'pages/Chat/ChatMestre';
 import { PERSONA_MESTRE, autorDaPersona } from 'pages/Chat/chatPersonas';
 import useFontesDaMesa from 'pages/Chat/useFontesDaMesa';
@@ -70,6 +74,11 @@ import useCenasDoGrid from './useCenasDoGrid';
 const MAPAS_VAZIOS = { campanhaId: null, lista: [] };
 const SEM_CONDICOES = [];
 const CONDICOES_VAZIAS = { universoId: null, lista: SEM_CONDICOES };
+// O mestre vê (e edita) as áreas de todo mundo.
+const podeEditarAreaMestre = () => true;
+// O mestre rola por NPC/criatura/avulso; o token de jogador é do jogador.
+const podeRolarTokenMestre = token => token.tipo !== 'jogador';
+const SEM_GRUPOS_DE_ROLAGEM = [];
 
 /**
  * Grid (mapa tático) da Campanha ativa, em CENAS, compartilhado em tempo real
@@ -145,6 +154,7 @@ const Grid = () => {
   const [iniciarAberto, setIniciarAberto] = useState(false);
   const [participantesAberto, setParticipantesAberto] = useState(false);
   const [chatAberto, setChatAberto] = useState(true);
+  const [tokenRolando, setTokenRolando] = useState(null);
   // Ferramenta do mapa (Fase 3B) e suas opções; marcador em criação/edição:
   // { marcador } | { celula } | null.
   const [ferramenta, setFerramenta] = useState(FERRAMENTAS.MOVER);
@@ -219,6 +229,23 @@ const Grid = () => {
   );
   const selecionado =
     grid.tokens.find(token => token.id === selecionadoId) ?? null;
+
+  // "Rolar…" de um token: a rolagem sai no chat como o NPC/criatura (persona
+  // do tipo), com o rótulo de onde veio. O mestre não tem opções prontas aqui
+  // (as fichas de NPC não têm ataques/artes) — só a rolagem livre.
+  const rolarDoToken = useRolarDoToken(campanhaId, { onErro: notifyError });
+  const personasDaMesa = useMemo(
+    () => [...fontes.npcs, ...fontes.criaturas],
+    [fontes.npcs, fontes.criaturas],
+  );
+  const handleRolarDoToken = async (expressao, rotulo) => {
+    const autor = autorDoToken(tokenRolando, {
+      uid: currentUser.uid,
+      mestre: true,
+      personas: personasDaMesa,
+    });
+    return rolarDoToken({ autor, expressao, rotulo });
+  };
   const mapas =
     mapasCarregados.campanhaId === campanhaId ? mapasCarregados.lista : [];
   const jogadoresFaltando = useMemo(
@@ -692,6 +719,12 @@ const Grid = () => {
                 apagarMeus: grid.apagarMeusDesenhos,
                 apagarTodos: grid.apagarTodosDesenhos,
               }}
+              areas={grid.areas}
+              corAreaPadrao={corDoPing(currentUser.uid, currentUser.uid)}
+              acoesAreas={grid.acoesAreas}
+              podeEditarArea={podeEditarAreaMestre}
+              podeRolarToken={podeRolarTokenMestre}
+              onRolarToken={setTokenRolando}
             />
             {selecionado && ferramenta === FERRAMENTAS.MOVER && (
               <TokenPainel
@@ -704,6 +737,11 @@ const Grid = () => {
                 onAlterar={handleAlterarToken}
                 onRemover={handleRemoverToken}
                 onFechar={() => setSelecionadoId(null)}
+                onRolar={
+                  podeRolarTokenMestre(selecionado)
+                    ? () => setTokenRolando(selecionado)
+                    : undefined
+                }
                 abaixoDaFaixa={Boolean(grid.combate)}
               />
             )}
@@ -742,6 +780,14 @@ const Grid = () => {
           />
         </Box>
       </Box>
+
+      <RolarDoTokenDialog
+        open={Boolean(tokenRolando)}
+        token={tokenRolando}
+        grupos={SEM_GRUPOS_DE_ROLAGEM}
+        onRolar={handleRolarDoToken}
+        onClose={() => setTokenRolando(null)}
+      />
 
       <AdicionarTokenDialog
         open={adicionarAberto}

@@ -15,6 +15,8 @@ import AddIcon from '@mui/icons-material/Add';
 import RemoveIcon from '@mui/icons-material/Remove';
 import CampaignIcon from '@mui/icons-material/Campaign';
 import CenterFocusStrongIcon from '@mui/icons-material/CenterFocusStrong';
+import ChangeHistoryIcon from '@mui/icons-material/ChangeHistory';
+import CloseIcon from '@mui/icons-material/Close';
 import DrawIcon from '@mui/icons-material/Draw';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import MyLocationIcon from '@mui/icons-material/MyLocation';
@@ -74,7 +76,20 @@ import {
   ajustarTraco,
 } from 'common/utils/gridDesenho';
 
+import {
+  AREA_FORMAS,
+  CORES_AREA,
+  ROTULOS_AREA,
+  celulasDaArea,
+  descreverAtingidos,
+  rotuloDaArea,
+  tokensAtingidos,
+} from 'common/utils/gridAreas';
+
 import AlcanceMovimento from './AlcanceMovimento';
+import AreaPopover from './AreaPopover';
+import AreaRotulos from './AreaRotulos';
+import AreasGrid from './AreasGrid';
 import CamadaAnotacoes from './CamadaAnotacoes';
 import FaixaIniciativa from './FaixaIniciativa';
 import MarcadorCartao from './MarcadorCartao';
@@ -83,8 +98,10 @@ import NevoaCamada from './NevoaCamada';
 import PaletaDesenho from './PaletaDesenho';
 import ParedesCamada from './ParedesCamada';
 import SinaisPing from './SinaisPing';
+import TokenAcoes from './TokenAcoes';
 import TokenDetalhe from './TokenDetalhe';
 import TokenEstado from './TokenEstado';
+import { ChipModoArea } from './stylesAcoes';
 import {
   AuraArea,
   COR_TIPO_TOKEN,
@@ -147,6 +164,16 @@ import {
 // gesto: paredes/névoa pintam com `opcoesFerramenta` ({ forma, acao, tamanho
 // }) e chamam `onEditarCamada({ camada, acao, celulas })` uma vez ao soltar;
 // marcadores chamam `onCelulaMarcador(celula)` / `onMarcadorClique(marcador)`.
+// Fase 3C (ações): `areas` (useGridCampanha; templates Raio/Linha/Cone/Quadrado
+// de todos, sobre a névoa e sob os tokens) e `acoesAreas` ({ criar, atualizar,
+// remover, removerTodas }; sem `criar` não há botão "Área"). "Área" arma o
+// modo (popover: forma, metros, cor): arrastar no mapa posiciona (origem → alvo),
+// Esc/✕ cancela; o chip de cada área mostra "Atinge: …" (os tokens que este
+// mapa mostra) e, selecionado, a lixeira e as alças que movem/giram
+// (`podeEditarArea(area)`). `corAreaPadrao` = cor inicial do popover.
+// `podeRolarToken(token)` + `onRolarToken(token)` mostram "Rolar…" acima do
+// token selecionado (com `onSelecionar`) ou tocado (sem ele), e a tecla R no
+// token focado; quem abre o diálogo de rolagem é a página.
 // Pinça também desloca (dois dedos); botão do meio do mouse arrasta o mapa em
 // qualquer modo.
 
@@ -202,6 +229,7 @@ const SEM_DETALHES = {};
 const SEM_ACOES = {};
 const SEM_MARCADORES = [];
 const SEM_DESENHOS = [];
+const SEM_AREAS = [];
 const OPCOES_PADRAO = {
   forma: 'pincel',
   acao: ACOES_CAMADA.ADICIONAR,
@@ -267,6 +295,12 @@ const GridMapa = ({
   onMarcadorClique,
   onDesenhar,
   acoesDesenho = SEM_ACOES,
+  areas = SEM_AREAS,
+  acoesAreas = SEM_ACOES,
+  podeEditarArea,
+  corAreaPadrao = CORES_AREA[0],
+  podeRolarToken,
+  onRolarToken,
 }) => {
   const ehMeu = ehMeuToken ?? podeMover;
   const bloqueadas = camadas?.bloqueadas ?? null;
@@ -306,12 +340,24 @@ const GridMapa = ({
   // Prévia do pincel/retângulo de paredes e névoa ({ celulas: Set, acao });
   // fica até a gravação terminar.
   const [previa, setPrevia] = useState(null);
+  // Áreas: modo armado ({ forma, metros, cor }), a prévia sob o dedo, a área
+  // selecionada (alças), a edição em curso pelas alças ({ id, origem, alvo }) e
+  // o botão que ancora o popover.
+  const [modoArea, setModoArea] = useState(null);
+  const [previaArea, setPreviaArea] = useState(null);
+  const [areaSelId, setAreaSelId] = useState(null);
+  const [edicaoArea, setEdicaoArea] = useState(null);
+  const [popoverAreaEl, setPopoverAreaEl] = useState(null);
+  // Token tocado cujas ações ("Rolar…") aparecem (sem `onSelecionar`).
+  const [acaoId, setAcaoId] = useState(null);
   const [marcadorAbertoId, setMarcadorAbertoId] = useState(null);
   const [avisoParede, setAvisoParede] = useState(false);
   const fecharMarcador = useCallback(() => setMarcadorAbertoId(null), []);
   const ultimoToquePino = useRef(0);
   const modoDesenhoAtivo =
     Boolean(onDesenhar) && modoDesenho && ferramenta === 'mover';
+  const modoAreaAtivo =
+    Boolean(acoesAreas.criar) && modoArea !== null && ferramenta === 'mover';
   const gesto = useRef(null);
   const ponteiros = useRef(new Map());
   // Sinal: "Puxar vista" ligado (mestre) — o próximo sinal centraliza todos.
@@ -502,15 +548,35 @@ const GridMapa = ({
     return () => window.removeEventListener('keydown', aoTeclar);
   }, [escutaEsc]);
 
-  // Esc esconde o alcance mostrado pelo toque.
+  // Esc esconde o alcance e as ações mostrados pelo toque.
   useEffect(() => {
-    if (!alcanceId) return undefined;
+    if (!alcanceId && !acaoId) return undefined;
     const aoTeclar = event => {
-      if (event.key === 'Escape') setAlcanceId(null);
+      if (event.key !== 'Escape') return;
+      setAlcanceId(null);
+      setAcaoId(null);
     };
     window.addEventListener('keydown', aoTeclar);
     return () => window.removeEventListener('keydown', aoTeclar);
-  }, [alcanceId]);
+  }, [alcanceId, acaoId]);
+
+  // Esc desarma o modo Área, descarta a prévia e solta a área selecionada.
+  const escutaEscArea =
+    modoArea !== null || previaArea !== null || areaSelId !== null;
+  useEffect(() => {
+    if (!escutaEscArea) return undefined;
+    const aoTeclar = event => {
+      if (event.key !== 'Escape') return;
+      if (gesto.current?.tipo === 'area' || gesto.current?.tipo === 'area-alca')
+        gesto.current = null;
+      setModoArea(null);
+      setPreviaArea(null);
+      setEdicaoArea(null);
+      setAreaSelId(null);
+    };
+    window.addEventListener('keydown', aoTeclar);
+    return () => window.removeEventListener('keydown', aoTeclar);
+  }, [escutaEscArea]);
 
   useEffect(() => {
     const timers = temporizadores.current;
@@ -615,6 +681,40 @@ const GridMapa = ({
       : null;
   };
 
+  // Alvo da área: raio não tem; sem arrastar (alvo = origem) aponta para o
+  // vizinho (leste, ou oeste na borda).
+  const alvoDaPrevia = (forma, origem, ate) => {
+    if (forma === AREA_FORMAS.RAIO) return null;
+    if (ate.col !== origem.col || ate.lin !== origem.lin) return ate;
+    return {
+      col:
+        origem.col + 1 < mundo.colunas
+          ? origem.col + 1
+          : Math.max(origem.col - 1, 0),
+      lin: origem.lin,
+    };
+  };
+
+  const iniciarAlca = (areaId, alca, event) => {
+    const area = areasCalculadas.find(item => item.id === areaId);
+    if (!area || !acoesAreas.atualizar || ponteiros.current.size > 0) return;
+    const ponto = pontoNoViewport(event);
+    ponteiros.current.set(event.pointerId, ponto);
+    viewportRef.current.setPointerCapture?.(event.pointerId);
+    cancelarPressao();
+    gesto.current = {
+      tipo: 'area-alca',
+      id: area.id,
+      alca,
+      forma: area.forma,
+      base: { origem: area.origem, alvo: area.alvoEfetivo },
+      ate: alca === 'alvo' ? area.alvoEfetivo : area.origem,
+      ponto,
+      moveu: false,
+      edicao: null,
+    };
+  };
+
   const handlePointerDown = event => {
     // Botão do meio do mouse arrasta o mapa em qualquer modo.
     const botaoDoMeio = event.pointerType === 'mouse' && event.button === 1;
@@ -638,9 +738,11 @@ const GridMapa = ({
         vista,
       };
       setArraste(null);
-      // Traço e pincel em curso são descartados.
+      // Traço, pincel e área em curso são descartados.
       setTracoAtual(null);
       setPrevia(null);
+      setPreviaArea(null);
+      setEdicaoArea(null);
       return;
     }
     if (botaoDoMeio) {
@@ -660,6 +762,23 @@ const GridMapa = ({
     if (onPing && event.pointerType === 'mouse' && event.altKey) {
       emitirPing(pontoNoMundo(ponto), event.shiftKey);
       gesto.current = { tipo: 'ping' };
+      return;
+    }
+    if (modoAreaAtivo) {
+      // Posicionar a área: sem pressão longa; o arraste define o alvo.
+      const origem = celulaNoViewport(ponto);
+      gesto.current = {
+        tipo: 'area',
+        config: modoArea,
+        origem,
+        ate: origem,
+        ponto,
+      };
+      setPreviaArea({
+        ...modoArea,
+        origem,
+        alvo: alvoDaPrevia(modoArea.forma, origem, origem),
+      });
       return;
     }
     if (modoDesenhoAtivo) {
@@ -821,6 +940,39 @@ const GridMapa = ({
       }
       return;
     }
+    if (atual.tipo === 'area') {
+      const celulaAtual = celulaNoViewport(ponto);
+      if (mesmaCelula(celulaAtual, atual.ate)) return;
+      atual.ate = celulaAtual;
+      setPreviaArea({
+        ...atual.config,
+        origem: atual.origem,
+        alvo: alvoDaPrevia(atual.config.forma, atual.origem, celulaAtual),
+      });
+      return;
+    }
+    if (atual.tipo === 'area-alca') {
+      const celulaAtual = celulaNoViewport(ponto);
+      if (mesmaCelula(celulaAtual, atual.ate)) return;
+      atual.ate = celulaAtual;
+      const { origem, alvo } = atual.base;
+      if (atual.alca === 'alvo') {
+        atual.edicao = { origem, alvo: celulaAtual };
+      } else {
+        // A origem leva o alvo junto (a área só se desloca).
+        const dc = celulaAtual.col - origem.col;
+        const dl = celulaAtual.lin - origem.lin;
+        atual.edicao = {
+          origem: celulaAtual,
+          alvo: alvo && {
+            col: Math.min(Math.max(alvo.col + dc, 0), mundo.colunas - 1),
+            lin: Math.min(Math.max(alvo.lin + dl, 0), mundo.linhas - 1),
+          },
+        };
+      }
+      setEdicaoArea({ id: atual.id, ...atual.edicao });
+      return;
+    }
     if (atual.tipo === 'token') {
       const posicao = posicaoArrastada(atual, ponto);
       // Mesmo snap do soltar: a célula onde o token cairia agora.
@@ -883,6 +1035,44 @@ const GridMapa = ({
         limpar,
         limpar,
       );
+      return;
+    }
+    if (atual.tipo === 'area') {
+      if (cancelado) {
+        setPreviaArea(null);
+        return;
+      }
+      const { forma, metros, cor } = atual.config;
+      const alvo = alvoDaPrevia(forma, atual.origem, atual.ate);
+      setModoArea(null);
+      const limpar = () => setPreviaArea(null);
+      Promise.resolve(
+        acoesAreas.criar({
+          forma,
+          origem: atual.origem,
+          ...(alvo ? { alvo } : {}),
+          metros,
+          cor,
+        }),
+      ).then(limpar, limpar);
+      return;
+    }
+    if (atual.tipo === 'area-alca') {
+      if (cancelado || !atual.edicao) {
+        setEdicaoArea(null);
+        return;
+      }
+      const { origem, alvo } = atual.edicao;
+      const limpar = () =>
+        setEdicaoArea(anterior =>
+          anterior?.id === atual.id ? null : anterior,
+        );
+      Promise.resolve(
+        acoesAreas.atualizar(
+          atual.id,
+          atual.forma === AREA_FORMAS.RAIO ? { origem } : { origem, alvo },
+        ),
+      ).then(limpar, limpar);
       return;
     }
     if (atual.tipo === 'pincel') {
@@ -963,9 +1153,16 @@ const GridMapa = ({
       return;
     }
     setMarcadorAbertoId(null);
+    setAreaSelId(null);
     if (atual.celulaMarcador) {
       onCelulaMarcador?.(atual.celulaMarcador);
       return;
+    }
+    // Sem seleção própria (jogador): tocar num token rolável mostra "Rolar…".
+    if (!onSelecionar && onRolarToken) {
+      setAcaoId(
+        atual.token && podeRolarToken?.(atual.token) ? atual.token.id : null,
+      );
     }
     if (atual.token && ehMeu(atual.token)) setReferenciaId(atual.token.id);
     // Em combate: tocar o próprio token mostra o alcance; o mapa vazio esconde.
@@ -1000,6 +1197,16 @@ const GridMapa = ({
         return;
       }
       moverPara(token, destino.col, destino.lin, caminho);
+    } else if (
+      (event.key === 'r' || event.key === 'R') &&
+      !event.ctrlKey &&
+      !event.metaKey &&
+      !event.altKey &&
+      onRolarToken &&
+      podeRolarToken?.(token)
+    ) {
+      event.preventDefault();
+      onRolarToken(token);
     } else if ((event.key === 'Enter' || event.key === ' ') && onSelecionar) {
       event.preventDefault();
       onSelecionar(token);
@@ -1136,6 +1343,66 @@ const GridMapa = ({
     };
   }
 
+  // ── Áreas: células, "Atinge" (mesmos tokens que o mapa mostra) e prévia ──
+  const colunasMundo = mundo.colunas;
+  const linhasMundo = mundo.linhas;
+  const areasCalculadas = areas.map(area => {
+    const editada =
+      edicaoArea?.id === area.id ? { ...area, ...edicaoArea } : area;
+    const celulasDaEditada = celulasDaArea(editada, metrosPorQuadrado, {
+      colunas: colunasMundo,
+      linhas: linhasMundo,
+    });
+    const { origem } = editada;
+    return {
+      ...editada,
+      celulas: celulasDaEditada,
+      atingidos: descreverAtingidos(tokensAtingidos(celulasDaEditada, tokens), {
+        veTudo: mestre,
+      }),
+      alvoEfetivo:
+        editada.forma === AREA_FORMAS.RAIO
+          ? null
+          : (editada.alvo ?? {
+              col:
+                origem.col + 1 < colunasMundo
+                  ? origem.col + 1
+                  : Math.max(origem.col - 1, 0),
+              lin: origem.lin,
+            }),
+    };
+  });
+  const areaPrevia = previaArea
+    ? {
+        ...previaArea,
+        id: 'previa',
+        celulas: celulasDaArea(previaArea, metrosPorQuadrado, {
+          colunas: colunasMundo,
+          linhas: linhasMundo,
+        }),
+      }
+    : null;
+  const celulaNoViewportPx = alvoCelula => {
+    const centro = centroDaCelula(config, alvoCelula.col, alvoCelula.lin);
+    return {
+      left: vista.x + centro.x * vista.zoom,
+      top: vista.y + centro.y * vista.zoom,
+    };
+  };
+  const rotulosDasAreas = areasCalculadas.map(area => ({
+    ...area,
+    rotulo: rotuloDaArea(area, metrosPorQuadrado),
+    autorNome: area.nome || undefined,
+    podeEditar: Boolean(podeEditarArea?.(area)),
+  }));
+
+  // Token com "Rolar…": o selecionado (mestre) ou o tocado (jogador).
+  const idDaAcao = onSelecionar ? selecionadoId : acaoId;
+  const tokenDaAcao =
+    onRolarToken && podeRolarToken && idDaAcao && !tokenArrastado
+      ? (tokensPorId.get(idDaAcao) ?? null)
+      : null;
+
   // Retrato da faixa: centraliza a vista no token (zoom mantido).
   const centralizarNoToken = tokenId => {
     const token = tokensPorId.get(tokenId);
@@ -1266,7 +1533,7 @@ const GridMapa = ({
       ref={viewportRef}
       role="application"
       aria-label="Grid da campanha"
-      $regua={modoRegua || modoDesenhoAtivo || pintando}
+      $regua={modoRegua || modoDesenhoAtivo || pintando || modoAreaAtivo}
       // Segurar = sinal: sem o menu de contexto do navegador.
       onContextMenu={event => event.preventDefault()}
       onPointerDown={handlePointerDown}
@@ -1419,6 +1686,16 @@ const GridMapa = ({
             nevoa={nevoa}
             mestre={mestre}
             preview={ferramenta === 'nevoa'}
+          />
+        )}
+
+        {(areasCalculadas.length > 0 || areaPrevia) && (
+          <AreasGrid
+            config={config}
+            areas={areasCalculadas}
+            previa={areaPrevia}
+            largura={mundo.largura}
+            altura={mundo.altura}
           />
         )}
 
@@ -1638,6 +1915,55 @@ const GridMapa = ({
 
       <SinaisPing pings={pings} vista={vista} />
 
+      {rotulosDasAreas.length > 0 && (
+        <AreaRotulos
+          areas={rotulosDasAreas}
+          posicaoDe={area => {
+            const canto = posicaoEmPx(config, area.origem.col, area.origem.lin);
+            return posicaoDoRotulo(canto.x, canto.y, 1);
+          }}
+          posicaoDaAlca={(area, alca) =>
+            celulaNoViewportPx(alca === 'alvo' ? area.alvoEfetivo : area.origem)
+          }
+          selecionadaId={areaSelId}
+          onSelecionar={setAreaSelId}
+          onRemover={areaId => {
+            setAreaSelId(null);
+            acoesAreas.remover?.(areaId);
+          }}
+          onAlcaPointerDown={iniciarAlca}
+        />
+      )}
+
+      {tokenDaAcao && podeRolarToken(tokenDaAcao) && (
+        <TokenAcoes
+          posicao={(() => {
+            const canto = posicaoEmPx(config, tokenDaAcao.col, tokenDaAcao.lin);
+            return posicaoDoRotulo(canto.x, canto.y, tokenDaAcao.tamanho ?? 1);
+          })()}
+          onRolar={() => onRolarToken(tokenDaAcao)}
+        />
+      )}
+
+      {modoAreaAtivo && (
+        <ChipModoArea role="status" style={{ top: faixa ? 56 : 10 }}>
+          <span>
+            {modoArea.forma === AREA_FORMAS.RAIO ? 'Toque' : 'Arraste'} no mapa
+            para posicionar o {ROTULOS_AREA[modoArea.forma]} · Esc ou ✕ cancela
+          </span>
+          <IconButton
+            size="small"
+            aria-label="Cancelar área"
+            onClick={() => {
+              setModoArea(null);
+              setPreviaArea(null);
+            }}
+          >
+            <CloseIcon fontSize="small" />
+          </IconButton>
+        </ChipModoArea>
+      )}
+
       {cartao && (
         <TokenDetalhe
           nome={cartao.token.nome}
@@ -1732,6 +2058,8 @@ const GridMapa = ({
               setModoRegua(ligado => !ligado);
               setMedicao(null);
               setModoDesenho(false);
+              setModoArea(null);
+              setPreviaArea(null);
             }}
             sx={{ color: modoRegua ? 'var(--color-primary)' : undefined }}
           >
@@ -1752,12 +2080,48 @@ const GridMapa = ({
                   setModoDesenho(ligado => !ligado);
                   setModoRegua(false);
                   setMedicao(null);
+                  setModoArea(null);
+                  setPreviaArea(null);
                 }}
                 sx={{
                   color: modoDesenhoAtivo ? 'var(--color-primary)' : undefined,
                 }}
               >
                 <DrawIcon fontSize="small" />
+              </IconButton>
+            </span>
+          </Tooltip>
+        )}
+        {acoesAreas.criar && (
+          <Tooltip
+            title={
+              ferramenta === 'mover'
+                ? 'Área (Raio, Linha, Cone, Quadrado)'
+                : 'Volte à ferramenta Mover'
+            }
+            placement="left"
+          >
+            {/* span: o Tooltip precisa de um filho que receba eventos mesmo
+                com o botão desabilitado. */}
+            <span>
+              <IconButton
+                size="small"
+                aria-label="Área"
+                aria-pressed={modoAreaAtivo}
+                disabled={ferramenta !== 'mover'}
+                onClick={event => {
+                  if (modoArea !== null) {
+                    setModoArea(null);
+                    setPreviaArea(null);
+                  } else {
+                    setPopoverAreaEl(event.currentTarget);
+                  }
+                }}
+                sx={{
+                  color: modoAreaAtivo ? 'var(--color-primary)' : undefined,
+                }}
+              >
+                <ChangeHistoryIcon fontSize="small" />
               </IconButton>
             </span>
           </Tooltip>
@@ -1797,6 +2161,26 @@ const GridMapa = ({
               <CampaignIcon fontSize="small" />
             </IconButton>
           </Tooltip>
+        )}
+        {acoesAreas.criar && (
+          <AreaPopover
+            anchorEl={popoverAreaEl}
+            open={Boolean(popoverAreaEl)}
+            onClose={() => setPopoverAreaEl(null)}
+            onPosicionar={configuracao => {
+              setModoRegua(false);
+              setMedicao(null);
+              setModoDesenho(false);
+              setModoArea(configuracao);
+            }}
+            metrosPorQuadrado={metrosPorQuadrado}
+            corPadrao={corAreaPadrao}
+            onRemoverTodas={
+              mestre && acoesAreas.removerTodas
+                ? () => acoesAreas.removerTodas()
+                : undefined
+            }
+          />
         )}
       </GridControles>
     </GridViewport>
@@ -1965,6 +2349,35 @@ GridMapa.propTypes = {
     apagarMeus: PropTypes.func,
     apagarTodos: PropTypes.func,
   }),
+  // Templates de área da cena (useGridCampanha → areas; normalizarArea).
+  areas: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.string.isRequired,
+      uid: PropTypes.string,
+      nome: PropTypes.string,
+      forma: PropTypes.oneOf(Object.values(AREA_FORMAS)).isRequired,
+      origem: PropTypes.shape({ col: PropTypes.number, lin: PropTypes.number })
+        .isRequired,
+      alvo: PropTypes.shape({ col: PropTypes.number, lin: PropTypes.number }),
+      metros: PropTypes.number.isRequired,
+      cor: PropTypes.string,
+    }),
+  ),
+  // Sem `criar` não há botão "Área".
+  acoesAreas: PropTypes.shape({
+    criar: PropTypes.func,
+    atualizar: PropTypes.func,
+    remover: PropTypes.func,
+    removerTodas: PropTypes.func,
+  }),
+  // Autor da área ou mestre: a lixeira e as alças aparecem.
+  podeEditarArea: PropTypes.func,
+  // Cor inicial do popover da área (cor do ping da pessoa).
+  corAreaPadrao: PropTypes.string,
+  // "Rolar…" no token: `podeRolarToken(token)` decide, `onRolarToken(token)` abre
+  // o diálogo (hospedado pela página).
+  podeRolarToken: PropTypes.func,
+  onRolarToken: PropTypes.func,
 };
 
 export default GridMapa;

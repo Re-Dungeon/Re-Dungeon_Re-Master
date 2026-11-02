@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 import {
   CHAT_TEXTO_MAX,
+  ROTULO_ROLAGEM_MAX,
+  normalizarRotulo,
   campanhaIdsDosPersonagens,
   descreverMensagemCombate,
   formatarIniciativa,
@@ -164,6 +166,54 @@ describe('montarMensagemRolagem', () => {
 
   it('rolagem secreta leva secreta: true', () => {
     expect(montarMensagemRolagem(autor, rolagem, true).secreta).toBe(true);
+  });
+
+  it('com rótulo, grava o rótulo normalizado', () => {
+    expect(
+      montarMensagemRolagem(autor, rolagem, false, '  Ataque:   Golpe Duplo ')
+        .rotulo,
+    ).toBe('Ataque: Golpe Duplo');
+  });
+
+  it('rótulo ausente ou vazio é omitido', () => {
+    expect(montarMensagemRolagem(autor, rolagem)).not.toHaveProperty('rotulo');
+    expect(
+      montarMensagemRolagem(autor, rolagem, false, '   '),
+    ).not.toHaveProperty('rotulo');
+    expect(
+      montarMensagemRolagem(autor, rolagem, false, null),
+    ).not.toHaveProperty('rotulo');
+  });
+
+  it('trunca o rótulo em ROTULO_ROLAGEM_MAX', () => {
+    const mensagem = montarMensagemRolagem(
+      autor,
+      rolagem,
+      false,
+      'x'.repeat(300),
+    );
+    expect(mensagem.rotulo).toHaveLength(ROTULO_ROLAGEM_MAX);
+  });
+
+  it('rótulo combinado com secreta', () => {
+    const mensagem = montarMensagemRolagem(
+      autor,
+      rolagem,
+      true,
+      'Arte: Bola de Fogo',
+    );
+    expect(mensagem).toMatchObject({
+      secreta: true,
+      rotulo: 'Arte: Bola de Fogo',
+    });
+  });
+});
+
+describe('normalizarRotulo', () => {
+  it('normaliza espaços e devolve null para vazio', () => {
+    expect(normalizarRotulo(' a  b ')).toBe('a b');
+    expect(normalizarRotulo(undefined)).toBeNull();
+    expect(normalizarRotulo('')).toBeNull();
   });
 });
 

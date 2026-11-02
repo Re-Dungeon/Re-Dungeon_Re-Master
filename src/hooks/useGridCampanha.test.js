@@ -11,7 +11,9 @@ import {
   setGridCamada,
   subscribeGridCamadas,
   subscribeGridCombate,
+  subscribeGridAreas,
   subscribeGridDesenhos,
+  removeGridAreas,
   subscribeGridMarcadores,
   subscribeGridPings,
   subscribeGridTokens,
@@ -38,6 +40,11 @@ vi.mock('service/storage', () => ({
   subscribeGridDesenhos: vi.fn(() => () => {}),
   addGridDesenho: vi.fn(() => Promise.resolve('d1')),
   removeGridDesenhos: vi.fn(() => Promise.resolve()),
+  subscribeGridAreas: vi.fn(() => () => {}),
+  addGridArea: vi.fn(() => Promise.resolve()),
+  updateGridArea: vi.fn(() => Promise.resolve()),
+  removeGridArea: vi.fn(() => Promise.resolve()),
+  removeGridAreas: vi.fn(() => Promise.resolve()),
 }));
 vi.mock('hooks/useMembroDoChat', () => ({ default: vi.fn(() => true) }));
 
@@ -704,6 +711,41 @@ describe('useGridCampanha — mapa (Fase 3B)', () => {
     expect(
       renderGrid({ isMestre: true }).result.current.apagarTodosDesenhos,
     ).toEqual(expect.any(Function));
+  });
+
+  it('expõe as áreas da cena e as ações; removerTodas só para o mestre', async () => {
+    subscribeGridAreas.mockImplementation((_campanhaId, _cenaId, onChange) => {
+      onChange([
+        {
+          id: 'a1',
+          uid: 'u1',
+          forma: 'raio',
+          origem: { col: 2, lin: 2 },
+          metros: 3,
+          cor: '#e05555',
+        },
+      ]);
+      return vi.fn();
+    });
+    const { result } = renderGrid();
+    expect(subscribeGridAreas).toHaveBeenCalledWith(
+      'camp-1',
+      'cena-1',
+      expect.any(Function),
+      expect.any(Function),
+    );
+    expect(result.current.areas).toHaveLength(1);
+    expect(result.current.areas[0]).toMatchObject({
+      id: 'a1',
+      forma: 'raio',
+      alvo: null,
+    });
+    expect(result.current.acoesAreas.criar).toEqual(expect.any(Function));
+    await act(() => result.current.acoesAreas.removerTodas());
+    expect(removeGridAreas).not.toHaveBeenCalled();
+    const mestre = renderGrid({ isMestre: true }).result;
+    await act(() => mestre.current.acoesAreas.removerTodas());
+    expect(removeGridAreas).toHaveBeenCalledWith('camp-1', 'cena-1', ['a1']);
   });
 
   it('mover: parede no caminho barra o jogador e não o mestre', async () => {

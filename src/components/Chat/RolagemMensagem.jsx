@@ -18,6 +18,7 @@ import {
   RolagemDetalhe,
   RolagemExpressao,
   RolagemLinha,
+  RolagemRotulo,
   RolagemTotal,
 } from './styles';
 
@@ -59,7 +60,7 @@ Detalhe.propTypes = {
 
 // Linha compacta: 🎲 Wesley Chase rolou 1d6 + 8 = 14 {[6] + 8}
 const RolagemMensagem = ({ mensagem, podeApagar, onApagar }) => {
-  const { rolagem, autorNome, isMestre, secreta, createdAt } = mensagem;
+  const { rolagem, autorNome, isMestre, secreta, createdAt, rotulo } = mensagem;
   const persona = rotuloPersona(mensagem);
 
   return (
@@ -78,7 +79,13 @@ const RolagemMensagem = ({ mensagem, podeApagar, onApagar }) => {
           gap), mas eles mantêm o texto legível ao copiar e para leitores de tela. */}
       <RolagemAutor $mestre={isMestre}>{autorNome}</RolagemAutor>{' '}
       {persona && <MensagemPersona>{persona}</MensagemPersona>}{' '}
-      <span>rolou</span>{' '}
+      {rotulo ? (
+        <>
+          <span>—</span> <RolagemRotulo>{rotulo}</RolagemRotulo> <span>·</span>
+        </>
+      ) : (
+        <span>rolou</span>
+      )}{' '}
       <RolagemExpressao>{resumoRolagem(rolagem)}</RolagemExpressao>{' '}
       <span>=</span> <RolagemTotal>{rolagem.total}</RolagemTotal>{' '}
       <Detalhe rolagem={rolagem} />{' '}
@@ -113,6 +120,7 @@ RolagemMensagem.propTypes = {
     isMestre: PropTypes.bool,
     persona: PropTypes.string,
     secreta: PropTypes.bool,
+    rotulo: PropTypes.string,
     createdAt: PropTypes.oneOfType([
       PropTypes.object,
       PropTypes.instanceOf(Date),

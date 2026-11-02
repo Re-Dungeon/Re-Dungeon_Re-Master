@@ -272,6 +272,12 @@ export const RolagemExpressao = styled.span`
   color: var(--color-accent);
 `;
 
+export const RolagemRotulo = styled.span`
+  color: var(--text-primary);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+`;
+
 export const RolagemTotal = styled.strong`
   color: var(--text-primary);
   font-size: 1.05rem;

@@ -37,6 +37,7 @@ const TokenPainel = ({
   onAlterar,
   onRemover,
   onFechar,
+  onRolar,
   abaixoDaFaixa = false,
 }) => {
   const [valores, setValores] = useState({
@@ -101,6 +102,11 @@ const TokenPainel = ({
             {token.col + 1}, linha {token.lin + 1}
           </Typography>
         </Box>
+        {onRolar && (
+          <Button size="small" aria-label="Rolar pelo token" onClick={onRolar}>
+            Rolar…
+          </Button>
+        )}
         <IconButton size="small" aria-label="Fechar token" onClick={onFechar}>
           <CloseIcon fontSize="small" />
         </IconButton>
@@ -244,6 +250,7 @@ TokenPainel.propTypes = {
   onAlterar: PropTypes.func.isRequired,
   onRemover: PropTypes.func.isRequired,
   onFechar: PropTypes.func.isRequired,
+  onRolar: PropTypes.func,
   // Combate em andamento: a faixa de iniciativa ocupa o topo do mapa.
   abaixoDaFaixa: PropTypes.bool,
 };

@@ -138,6 +138,7 @@ ChatMensagem.propTypes = {
     tipo: PropTypes.string,
     rolagem: PropTypes.object,
     macroNome: PropTypes.string,
+    rotulo: PropTypes.string,
     combate: PropTypes.object,
     texto: PropTypes.string,
     url: PropTypes.string,

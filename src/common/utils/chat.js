@@ -141,14 +141,34 @@ export const montarMensagemImagem = (autor, url) => ({
 // `rolagem` = resultado de rolarEspecificacao (common/utils/dados.js). Rolagens
 // secretas vão para chatSecretas/{uid}/rolagens (não para chatMensagens) e
 // levam `secreta: true` — a regra exige o campo só nesse caminho.
-export const montarMensagemRolagem = (autor, rolagem, secreta = false) => ({
-  ...camposAutor(autor),
-  tipo: TIPOS_MENSAGEM.ROLAGEM,
-  texto: '',
-  url: null,
+//
+// `rotulo` (opcional, ex.: "Ataque: Golpe Duplo") diz de onde veio a rolagem —
+// vem do "Rolar…" de um token do grid; vazio é omitido.
+export const ROTULO_ROLAGEM_MAX = 100;
+
+export const normalizarRotulo = rotulo =>
+  String(rotulo ?? '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .slice(0, ROTULO_ROLAGEM_MAX) || null;
+
+export const montarMensagemRolagem = (
+  autor,
   rolagem,
-  ...(secreta ? { secreta: true } : {}),
-});
+  secreta = false,
+  rotulo = null,
+) => {
+  const rotuloNormalizado = normalizarRotulo(rotulo);
+  return {
+    ...camposAutor(autor),
+    tipo: TIPOS_MENSAGEM.ROLAGEM,
+    texto: '',
+    url: null,
+    rolagem,
+    ...(rotuloNormalizado ? { rotulo: rotuloNormalizado } : {}),
+    ...(secreta ? { secreta: true } : {}),
+  };
+};
 
 export const montarMensagemMacro = (autor, macroNome, texto) => ({
   ...camposAutor(autor),
@@ -295,7 +315,7 @@ export const formatarHorarioMensagem = (createdAt, agora = new Date()) => {
     : `${doisDigitos(data.getDate())}/${doisDigitos(data.getMonth() + 1)} ${hora}`;
 };
 
-// Mesmo critério de pages/Jogadores/jogadoresUtils.js para "jogador
+// Mesmo critério do Re:Master (pages/Jogadores/jogadoresUtils.js) para "jogador
 // na campanha": personagem jogável (tipo ausente = jogável, docs antigos) cuja
 // lista `campanhas` contém a campanha. Companheiros ficam de fora.
 const TIPO_JOGAVEL = 'Personagem Jogável';

@@ -23,6 +23,7 @@ import {
 } from 'common/utils/grid';
 import useFichasDoGrid from 'hooks/useFichasDoGrid';
 import { caminhoBloqueado } from 'common/utils/gridCamadas';
+import useGridAreas from 'hooks/useGridAreas';
 import useGridCamadas from 'hooks/useGridCamadas';
 import useGridCombate from 'hooks/useGridCombate';
 import useGridDesenhos from 'hooks/useGridDesenhos';
@@ -58,6 +59,7 @@ import useMembroDoChat from 'hooks/useMembroDoChat';
 // Fase 3B: camadas (useGridCamadas — paredes e névoa; o `mover` do jogador é
 // barrado se o caminho cruza uma parede), marcadores (useGridMarcadores) e
 // desenhos (useGridDesenhos), todos da cena exibida.
+// Fase 3C: templates de área (useGridAreas — `areas` e `acoesAreas`).
 const SEM_TOKENS = [];
 const SEM_CATALOGO = [];
 const SEM_RASTROS = [];
@@ -367,6 +369,15 @@ const useGridCampanha = (
     cenaId,
     { ativo: ativoNaCena, uid, veTudo, onErro: setErro },
   );
+  const { areas, criar, atualizar, remover, removerTodas } = useGridAreas(
+    campanhaId,
+    cenaId,
+    { ativo: ativoNaCena, uid, nome, veTudo, onErro: setErro },
+  );
+  const acoesAreas = useMemo(
+    () => ({ criar, atualizar, remover, removerTodas }),
+    [criar, atualizar, remover, removerTodas],
+  );
   const camadas = useMemo(() => ({ bloqueadas, nevoa }), [bloqueadas, nevoa]);
 
   const podeMover = useCallback(
@@ -553,6 +564,11 @@ const useGridCampanha = (
     desenhar,
     apagarMeusDesenhos: apagarMeus,
     apagarTodosDesenhos: apagarTodos,
+    // Templates de área da cena (normalizados, por criação) e as ações
+    // { criar, atualizar, remover, removerTodas } (GridMapa, props
+    // `areas`/`acoesAreas`).
+    areas,
+    acoesAreas,
   };
 };
 

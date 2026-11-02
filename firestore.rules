@@ -595,7 +595,7 @@ service cloud.firestore {
     function chatMensagemValida(campanhaId, data, secreta) {
       return data.keys().hasOnly(['uid', 'personagemId', 'autorNome', 'autorAvatar', 'isMestre',
                                   'persona', 'tipo', 'texto', 'url', 'rolagem', 'secreta',
-                                  'macroNome', 'combate', 'createdAt']) &&
+                                  'macroNome', 'combate', 'rotulo', 'createdAt']) &&
         data.uid == request.auth.uid &&
         data.createdAt == request.time &&
         data.get('secreta', false) == secreta &&
@@ -603,18 +603,20 @@ service cloud.firestore {
         (data.autorAvatar == null || (data.autorAvatar is string && data.autorAvatar.size() <= 2000)) &&
         data.texto is string && data.texto.size() <= 4000 &&
         ((data.tipo == 'texto' && data.texto.size() > 0 && data.texto.size() <= 2000 &&
-          data.url == null && !data.keys().hasAny(['rolagem', 'macroNome', 'combate'])) ||
+          data.url == null && !data.keys().hasAny(['rolagem', 'macroNome', 'combate', 'rotulo'])) ||
          (data.tipo == 'imagem' && data.texto.size() <= 2000 && data.url is string &&
           data.url.size() <= 2000 && data.url.matches('https://.+') &&
-          !data.keys().hasAny(['rolagem', 'macroNome', 'combate'])) ||
+          !data.keys().hasAny(['rolagem', 'macroNome', 'combate', 'rotulo'])) ||
          (data.tipo == 'rolagem' && data.texto == '' && data.url == null &&
           !data.keys().hasAny(['macroNome', 'combate']) &&
-          chatRolagemValida(data.get('rolagem', null))) ||
+          chatRolagemValida(data.get('rolagem', null)) &&
+          (!('rotulo' in data) ||
+           (data.rotulo is string && data.rotulo.size() > 0 && data.rotulo.size() <= 100))) ||
          (data.tipo == 'macro' && data.texto.size() > 0 && data.url == null &&
-          !data.keys().hasAny(['rolagem', 'combate']) && data.macroNome is string &&
+          !data.keys().hasAny(['rolagem', 'combate', 'rotulo']) && data.macroNome is string &&
           data.macroNome.size() > 0 && data.macroNome.size() <= 100) ||
          (data.tipo == 'combate' && data.texto == '' && data.url == null &&
-          !data.keys().hasAny(['rolagem', 'macroNome']) &&
+          !data.keys().hasAny(['rolagem', 'macroNome', 'rotulo']) &&
           chatCombateValido(data.get('combate', null)) &&
           (data.isMestre == true || chatCombateDoJogador(campanhaId, data.combate)))) &&
         ((data.isMestre == true && data.personagemId == null &&
@@ -910,6 +912,45 @@ service cloud.firestore {
          (veCenaDoGrid(campanhaId, cenaId) &&
           gridPassaMeuTurno(campanhaId, cenaId, resource.data, request.resource.data)));
       allow delete: if isMestreDaCampanha(campanhaId);
+    }
+
+    // ── Templates de área (Fase 3C — common/utils/gridAreas.js) ───────────────
+    // Um doc por área (raio/linha/cone/quadrado) desenhada no mapa. `metros` é a
+    // verdade (os quadrados vêm da escala da cena). Qualquer um que veja a cena
+    // cria; o autor (ou o mestre) move/apaga. Só origem/alvo mudam no update.
+    function gridCelulaValida(p) {
+      return p is map && p.keys().hasOnly(['col', 'lin']) && p.keys().hasAll(['col', 'lin']) &&
+        gridPosicaoValida(p);
+    }
+
+    function gridAreaValida(data) {
+      return data.keys().hasOnly(['uid', 'nome', 'forma', 'origem', 'alvo', 'metros', 'cor',
+                                  'createdAt', 'updatedAt']) &&
+        data.keys().hasAll(['uid', 'forma', 'origem', 'metros', 'cor', 'createdAt', 'updatedAt']) &&
+        data.forma in ['raio', 'linha', 'cone', 'quadrado'] &&
+        gridCelulaValida(data.origem) &&
+        (!('alvo' in data) || data.alvo == null || gridCelulaValida(data.alvo)) &&
+        data.metros is number && data.metros > 0 && data.metros <= 1000 &&
+        data.cor is string && data.cor.matches('#[0-9a-fA-F]{6}') &&
+        (!('nome' in data) || (data.nome is string && data.nome.size() <= 100));
+    }
+
+    match /rmCampanhas/{campanhaId}/gridCenas/{cenaId}/templates/{areaId} {
+      allow read: if isMestreDaCampanha(campanhaId) || veCenaDoGrid(campanhaId, cenaId);
+      allow create: if isAuth() && request.resource.data.uid == request.auth.uid &&
+        (isMestreDaCampanha(campanhaId) || veCenaDoGrid(campanhaId, cenaId)) &&
+        gridAreaValida(request.resource.data) &&
+        request.resource.data.createdAt == request.time &&
+        request.resource.data.updatedAt == request.time;
+      allow update: if isAuth() &&
+        (resource.data.uid == request.auth.uid || isMestreDaCampanha(campanhaId)) &&
+        (isMestreDaCampanha(campanhaId) || veCenaDoGrid(campanhaId, cenaId)) &&
+        gridAreaValida(request.resource.data) &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['origem', 'alvo', 'updatedAt']) &&
+        request.resource.data.updatedAt == request.time;
+      allow delete: if isAuth() &&
+        (resource.data.uid == request.auth.uid || isMestreDaCampanha(campanhaId));
     }
 
     // ── Mapa (Fase 3B): paredes/névoa, marcadores e desenhos da cena ──────────

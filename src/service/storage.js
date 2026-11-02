@@ -4,6 +4,7 @@ import {
   getDoc,
   addDoc,
   deleteDoc,
+  deleteField,
   doc,
   updateDoc,
   setDoc,
@@ -1086,6 +1087,56 @@ export const subscribeGridCena = (campanhaId, cenaId, onChange, onError) =>
     onError,
   );
 
+const gridAreasRef = (campanhaId, cenaId) =>
+  collection(gridCenaRef(campanhaId, cenaId), 'templates');
+
+// Templates de área da cena (common/utils/gridAreas.js). Chama
+// `onChange([{ id, ...dados }])`; quem lê normaliza (normalizarArea).
+export const subscribeGridAreas = (campanhaId, cenaId, onChange, onError) =>
+  onSnapshot(
+    gridAreasRef(campanhaId, cenaId),
+    snapshot =>
+      onChange(
+        snapshot.docs.map(docSnapshot => ({
+          id: docSnapshot.id,
+          ...docSnapshot.data(),
+        })),
+      ),
+    onError,
+  );
+
+// `area` = montarArea(...) (sem timestamps). Devolve o id do novo template.
+export const addGridArea = async (campanhaId, cenaId, area) => {
+  const ref = await addDoc(gridAreasRef(campanhaId, cenaId), {
+    ...area,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+  return ref.id;
+};
+
+// Só origem/alvo mudam (a regra garante); `alvo` null apaga o campo.
+export const updateGridArea = (campanhaId, cenaId, areaId, { origem, alvo }) =>
+  updateDoc(doc(gridAreasRef(campanhaId, cenaId), areaId), {
+    origem,
+    alvo: alvo ?? deleteField(),
+    updatedAt: serverTimestamp(),
+  });
+
+export const removeGridArea = (campanhaId, cenaId, areaId) =>
+  deleteDoc(doc(gridAreasRef(campanhaId, cenaId), areaId));
+
+// "Remover todos": lotes de 400 (limite do Firestore é 500 por lote).
+export const removeGridAreas = async (campanhaId, cenaId, ids) => {
+  for (let i = 0; i < ids.length; i += 400) {
+    const lote = writeBatch(db);
+    ids
+      .slice(i, i + 400)
+      .forEach(id => lote.delete(doc(gridAreasRef(campanhaId, cenaId), id)));
+    await lote.commit();
+  }
+};
+
 // Todas as cenas (só o mestre pode listar). Ordene com `ordenarCenas`.
 export const subscribeGridCenas = (campanhaId, onChange, onError) =>
   onSnapshot(
@@ -1440,7 +1491,8 @@ const tokenParaCopia = dados => {
 };
 
 // Copia a configuração, os tokens, as camadas (paredes e névoa) e os
-// marcadores para uma cena nova. Os desenhos não vão.
+// marcadores para uma cena nova. Os desenhos e os templates de área
+// (`templates`) não vão — são efêmeros, presos à posição da cena de origem.
 export const duplicarGridCena = async (campanhaId, cenaId, nome) => {
   const [cenaSnapshot, tokensSnapshot, camadasSnapshot, marcadoresSnapshot] =
     await Promise.all([
@@ -1470,7 +1522,7 @@ export const duplicarGridCena = async (campanhaId, cenaId, nome) => {
 };
 
 // Apaga os tokens, os sinais (pings), as camadas, os marcadores, os desenhos,
-// o combate e a cena, em lotes de 450 (a cena por último).
+// os templates de área, o combate e a cena, em lotes de 450 (a cena por último).
 export const removeGridCena = async (campanhaId, cenaId) => {
   const snapshots = await Promise.all([
     getDocs(gridTokensRef(campanhaId, cenaId)),
@@ -1478,6 +1530,7 @@ export const removeGridCena = async (campanhaId, cenaId) => {
     getDocs(gridCamadasRef(campanhaId, cenaId)),
     getDocs(gridMarcadoresRef(campanhaId, cenaId)),
     getDocs(gridDesenhosRef(campanhaId, cenaId)),
+    getDocs(gridAreasRef(campanhaId, cenaId)),
   ]);
   const refs = [
     ...snapshots.flatMap(snapshot => snapshot.docs.map(item => item.ref)),

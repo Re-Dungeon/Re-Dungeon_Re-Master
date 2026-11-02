@@ -1520,3 +1520,299 @@ describe('GridMapa — mapa (Fase 3B)', () => {
     });
   });
 });
+
+describe('GridMapa — ações (Fase 3C)', () => {
+  const viewportDe = () =>
+    screen.getByRole('application', { name: 'Grid da campanha' });
+  const ponteiro = (clientX, clientY, extra = {}) => ({
+    clientX,
+    clientY,
+    pointerId: 1,
+    pointerType: 'mouse',
+    button: 0,
+    ...extra,
+  });
+  const config = { ...GRID_CONFIG_PADRAO, metrosPorQuadrado: 1.5 };
+  const mapa = props => (
+    <GridMapa
+      config={config}
+      tokens={TOKENS}
+      podeMover={podeMoverDoJogador}
+      onMover={vi.fn()}
+      {...props}
+    />
+  );
+  const raio = (extra = {}) => ({
+    id: 'a1',
+    uid: 'u1',
+    nome: 'Wesley',
+    forma: 'raio',
+    origem: { col: 2, lin: 2 },
+    alvo: null,
+    metros: 1.5,
+    cor: '#e05555',
+    ...extra,
+  });
+  const cone = (extra = {}) =>
+    raio({
+      forma: 'cone',
+      origem: { col: 1, lin: 1 },
+      alvo: { col: 3, lin: 1 },
+      ...extra,
+    });
+
+  const armarArea = (nome, metros) => {
+    fireEvent.click(screen.getByRole('button', { name: 'Área' }));
+    fireEvent.click(screen.getByRole('button', { name: nome }));
+    fireEvent.change(screen.getByLabelText('Tamanho (m)'), {
+      target: { value: metros },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Posicionar no mapa' }));
+  };
+
+  describe('templates de área', () => {
+    it('só há o botão "Área" com acoesAreas.criar; fica desabilitado fora da ferramenta Mover', () => {
+      const { rerender } = render(mapa());
+      expect(
+        screen.queryByRole('button', { name: 'Área' }),
+      ).not.toBeInTheDocument();
+      rerender(mapa({ acoesAreas: { criar: vi.fn() } }));
+      expect(screen.getByRole('button', { name: 'Área' })).toBeEnabled();
+      rerender(mapa({ acoesAreas: { criar: vi.fn() }, ferramenta: 'paredes' }));
+      expect(screen.getByRole('button', { name: 'Área' })).toBeDisabled();
+    });
+
+    it('arrastar no mapa cria a área com origem e alvo e desarma; não arrasta token', async () => {
+      const criar = vi.fn(() => Promise.resolve());
+      const onMover = vi.fn();
+      render(
+        mapa({ acoesAreas: { criar }, onMover, corAreaPadrao: '#5b7cfa' }),
+      );
+      armarArea('Cone', '4,5');
+      expect(screen.getByRole('status')).toHaveTextContent('posicionar o Cone');
+
+      // Começa em cima do token do jogador (2,3): não o move.
+      fireEvent.pointerDown(
+        screen.getByRole('button', { name: /Wesley/ }),
+        ponteiro(125, 175),
+      );
+      fireEvent.pointerMove(viewportDe(), ponteiro(275, 175));
+      await act(async () =>
+        fireEvent.pointerUp(viewportDe(), ponteiro(275, 175)),
+      );
+
+      expect(onMover).not.toHaveBeenCalled();
+      expect(criar).toHaveBeenCalledWith({
+        forma: 'cone',
+        origem: { col: 2, lin: 3 },
+        alvo: { col: 5, lin: 3 },
+        metros: 4.5,
+        cor: '#5b7cfa',
+      });
+      expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    });
+
+    it('raio não leva alvo; Esc e o ✕ cancelam; Régua desliga o modo', async () => {
+      const criar = vi.fn(() => Promise.resolve());
+      render(mapa({ acoesAreas: { criar } }));
+      armarArea('Raio', '3');
+      fireEvent.pointerDown(viewportDe(), ponteiro(25, 25));
+      await act(async () =>
+        fireEvent.pointerUp(viewportDe(), ponteiro(25, 25)),
+      );
+      expect(criar).toHaveBeenCalledTimes(1);
+      expect(criar.mock.calls[0][0]).not.toHaveProperty('alvo');
+
+      armarArea('Cone', '3');
+      fireEvent.keyDown(window, { key: 'Escape' });
+      expect(screen.queryByRole('status')).not.toBeInTheDocument();
+
+      armarArea('Cone', '3');
+      fireEvent.click(screen.getByRole('button', { name: 'Cancelar área' }));
+      expect(screen.queryByRole('status')).not.toBeInTheDocument();
+
+      armarArea('Cone', '3');
+      fireEvent.click(screen.getByRole('button', { name: 'Régua' }));
+      expect(screen.queryByRole('status')).not.toBeInTheDocument();
+      expect(criar).toHaveBeenCalledTimes(1);
+    });
+
+    it('"Atinge" lista só os tokens recebidos; o mestre também vê os ocultos', () => {
+      const area = raio({ origem: { col: 2, lin: 2 } });
+      const { rerender } = render(mapa({ areas: [area] }));
+      fireEvent.click(
+        screen.getByRole('button', { name: /Raio · 1,5 m \(1 q\)/ }),
+      );
+      expect(screen.getByRole('button', { expanded: true })).toHaveTextContent(
+        'Wesley — Raio · 1,5 m (1 q) — Atinge: Wesley Chase, Goblin',
+      );
+
+      // Sem o Goblin na lista do mapa, ele não entra no texto.
+      rerender(mapa({ areas: [area], tokens: [TOKENS[0], TOKENS[2]] }));
+      const aberto = screen.getByRole('button', { expanded: true });
+      expect(aberto).toHaveTextContent('Atinge: Wesley Chase');
+      expect(aberto).not.toHaveTextContent('Goblin');
+
+      const noOculto = raio({ origem: { col: 5, lin: 5 } });
+      rerender(mapa({ areas: [noOculto] }));
+      expect(screen.getByRole('button', { expanded: true })).toHaveTextContent(
+        'Atinge: ninguém',
+      );
+      rerender(mapa({ areas: [noOculto], mestre: true }));
+      expect(screen.getByRole('button', { expanded: true })).toHaveTextContent(
+        'Emboscada (oculto)',
+      );
+    });
+
+    it('a alça do alvo gira a área e grava origem e alvo ao soltar', async () => {
+      const atualizar = vi.fn(() => Promise.resolve());
+      render(
+        mapa({
+          areas: [cone()],
+          acoesAreas: { criar: vi.fn(), atualizar },
+          podeEditarArea: () => true,
+        }),
+      );
+      fireEvent.click(screen.getByRole('button', { name: /Cone/ }));
+      const alca = document.querySelector('[data-area-alca="alvo"]');
+      expect(alca).not.toBeNull();
+      fireEvent.pointerDown(alca, ponteiro(175, 75));
+      fireEvent.pointerMove(viewportDe(), ponteiro(275, 175));
+      await act(async () =>
+        fireEvent.pointerUp(viewportDe(), ponteiro(275, 175)),
+      );
+      expect(atualizar).toHaveBeenCalledWith('a1', {
+        origem: { col: 1, lin: 1 },
+        alvo: { col: 5, lin: 3 },
+      });
+    });
+
+    it('a alça da origem leva a área junto; quem não edita não tem alças nem lixeira', async () => {
+      const atualizar = vi.fn(() => Promise.resolve());
+      const remover = vi.fn();
+      const acoesAreas = { criar: vi.fn(), atualizar, remover };
+      const { rerender } = render(
+        mapa({ areas: [cone()], acoesAreas, podeEditarArea: () => true }),
+      );
+      fireEvent.click(screen.getByRole('button', { name: /Cone/ }));
+      const alca = document.querySelector('[data-area-alca="origem"]');
+      fireEvent.pointerDown(alca, ponteiro(75, 75));
+      fireEvent.pointerMove(viewportDe(), ponteiro(175, 125));
+      await act(async () =>
+        fireEvent.pointerUp(viewportDe(), ponteiro(175, 125)),
+      );
+      expect(atualizar).toHaveBeenCalledWith('a1', {
+        origem: { col: 3, lin: 2 },
+        alvo: { col: 5, lin: 2 },
+      });
+
+      fireEvent.click(screen.getByRole('button', { name: 'Remover área' }));
+      expect(remover).toHaveBeenCalledWith('a1');
+
+      rerender(
+        mapa({ areas: [cone()], acoesAreas, podeEditarArea: () => false }),
+      );
+      fireEvent.click(screen.getByRole('button', { name: /Cone/ }));
+      expect(document.querySelector('[data-area-alca]')).toBeNull();
+      expect(
+        screen.queryByRole('button', { name: 'Remover área' }),
+      ).not.toBeInTheDocument();
+    });
+
+    it('as áreas ficam sobre a névoa e sob os tokens', () => {
+      const { container } = render(
+        mapa({
+          areas: [raio()],
+          camadas: {
+            bloqueadas: new Set(),
+            nevoa: { ativa: true, reveladas: new Set() },
+          },
+        }),
+      );
+      const mundo = container.querySelector('[data-token-id]').parentElement;
+      const filhos = [...mundo.children];
+      const posicaoArea = filhos.findIndex(el =>
+        el.querySelector?.('[data-area="a1"]'),
+      );
+      const primeiroToken = filhos.findIndex(el =>
+        el.hasAttribute('data-token-id'),
+      );
+      expect(posicaoArea).toBeGreaterThan(-1);
+      expect(posicaoArea).toBeLessThan(primeiroToken);
+      // A névoa é a camada imediatamente anterior ao grupo das áreas.
+      expect(posicaoArea).toBeGreaterThan(1);
+    });
+  });
+
+  describe('Rolar… no token', () => {
+    const tocar = (alvo, x, y) => {
+      fireEvent.pointerDown(alvo, ponteiro(x, y));
+      fireEvent.pointerUp(viewportDe(), ponteiro(x, y));
+    };
+
+    it('jogador: tocar no próprio token mostra "Rolar…"; no alheio, não; vazio e Esc escondem', () => {
+      const onRolarToken = vi.fn();
+      render(
+        mapa({ podeRolarToken: token => token.id === 't1', onRolarToken }),
+      );
+      expect(
+        screen.queryByRole('button', { name: /Rolar/ }),
+      ).not.toBeInTheDocument();
+
+      tocar(screen.getByRole('button', { name: /Goblin/ }), 25, 25);
+      expect(
+        screen.queryByRole('button', { name: /Rolar/ }),
+      ).not.toBeInTheDocument();
+
+      tocar(screen.getByRole('button', { name: /Wesley/ }), 125, 175);
+      fireEvent.click(screen.getByRole('button', { name: 'Rolar…' }));
+      expect(onRolarToken).toHaveBeenCalledWith(TOKENS[0]);
+
+      tocar(viewportDe(), 400, 400);
+      expect(
+        screen.queryByRole('button', { name: /Rolar/ }),
+      ).not.toBeInTheDocument();
+
+      tocar(screen.getByRole('button', { name: /Wesley/ }), 125, 175);
+      expect(
+        screen.getByRole('button', { name: 'Rolar…' }),
+      ).toBeInTheDocument();
+      fireEvent.keyDown(window, { key: 'Escape' });
+      expect(
+        screen.queryByRole('button', { name: /Rolar/ }),
+      ).not.toBeInTheDocument();
+    });
+
+    it('a tecla R no token focado abre a rolagem só quando é permitido', () => {
+      const onRolarToken = vi.fn();
+      render(
+        mapa({ podeRolarToken: token => token.id === 't1', onRolarToken }),
+      );
+      fireEvent.keyDown(screen.getByRole('button', { name: /Goblin/ }), {
+        key: 'r',
+      });
+      expect(onRolarToken).not.toHaveBeenCalled();
+      fireEvent.keyDown(screen.getByRole('button', { name: /Wesley/ }), {
+        key: 'r',
+      });
+      expect(onRolarToken).toHaveBeenCalledWith(TOKENS[0]);
+    });
+
+    it('mestre: "Rolar…" no token selecionado se for rolável (NPC sim, jogador não)', () => {
+      const props = {
+        mestre: true,
+        onSelecionar: vi.fn(),
+        podeRolarToken: token => token.tipo !== 'jogador',
+        onRolarToken: vi.fn(),
+      };
+      const { rerender } = render(mapa({ ...props, selecionadoId: 't2' }));
+      expect(
+        screen.getByRole('button', { name: 'Rolar…' }),
+      ).toBeInTheDocument();
+      rerender(mapa({ ...props, selecionadoId: 't1' }));
+      expect(
+        screen.queryByRole('button', { name: /Rolar/ }),
+      ).not.toBeInTheDocument();
+    });
+  });
+});

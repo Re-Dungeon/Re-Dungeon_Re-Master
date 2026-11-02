@@ -42,6 +42,12 @@ const subscribeAudioMesa = vi.fn((_id, onChange) => {
   return vi.fn();
 });
 const setAudioMesa = vi.fn(() => Promise.resolve());
+const subscribeGridAreas = vi.fn(() => () => {});
+const addGridArea = vi.fn(() => Promise.resolve('a1'));
+const updateGridArea = vi.fn(() => Promise.resolve());
+const removeGridArea = vi.fn(() => Promise.resolve());
+const removeGridAreas = vi.fn(() => Promise.resolve());
+const addChatMensagem = vi.fn(() => Promise.resolve());
 vi.mock('service/storage', () => ({
   subscribeGridCenaAtiva: (...args) => subscribeGridCenaAtiva(...args),
   subscribeGridCenas: (...args) => subscribeGridCenas(...args),
@@ -72,6 +78,11 @@ vi.mock('service/storage', () => ({
   subscribeGridDesenhos: (...args) => subscribeGridDesenhos(...args),
   addGridDesenho: (...args) => addGridDesenho(...args),
   removeGridDesenhos: (...args) => removeGridDesenhos(...args),
+  subscribeGridAreas: (...args) => subscribeGridAreas(...args),
+  addGridArea: (...args) => addGridArea(...args),
+  updateGridArea: (...args) => updateGridArea(...args),
+  removeGridArea: (...args) => removeGridArea(...args),
+  removeGridAreas: (...args) => removeGridAreas(...args),
   getCondicoes: (...args) => getCondicoes(...args),
   getRmMapasPorCampanha: vi.fn(() =>
     Promise.resolve([
@@ -96,7 +107,7 @@ vi.mock('service/storage', () => ({
   subscribeChatSecretasDoUsuario: vi.fn(() => vi.fn()),
   subscribeAudioMesa: (...args) => subscribeAudioMesa(...args),
   setAudioMesa: (...args) => setAudioMesa(...args),
-  addChatMensagem: vi.fn(),
+  addChatMensagem: (...args) => addChatMensagem(...args),
   removeChatMensagem: vi.fn(),
   addChatRolagemSecreta: vi.fn(),
   removeChatRolagemSecreta: vi.fn(),
@@ -275,6 +286,8 @@ describe('Grid (Re:Master)', () => {
       onChange(null);
       return vi.fn();
     });
+    subscribeGridAreas.mockImplementation(() => () => {});
+    addChatMensagem.mockResolvedValue();
     alterarGridCombate.mockResolvedValue(true);
     iniciarGridCombate.mockResolvedValue();
     encerrarGridCombate.mockResolvedValue();
@@ -870,6 +883,85 @@ describe('Grid (Re:Master)', () => {
       ),
     );
     expect(getCondicoes).toHaveBeenCalledWith('u1');
+  });
+
+  describe('rolar do token (Fase 3C)', () => {
+    it('só tokens que não são de jogador têm "Rolar…"', async () => {
+      renderGrid();
+      await screen.findByRole('button', { name: /Ogro.*oculto/ });
+      const [aldric, ogro] = TOKENS_POR_CENA['cena-1'];
+      expect(propsDoMapa.podeRolarToken(aldric)).toBe(false);
+      expect(propsDoMapa.podeRolarToken(ogro)).toBe(true);
+      expect(propsDoMapa.podeEditarArea({ uid: 'qualquer' })).toBe(true);
+      expect(propsDoMapa.corAreaPadrao).toMatch(/^#/);
+    });
+
+    it('o painel do token (NPC/criatura) tem "Rolar pelo token" e abre o diálogo; o de jogador não', async () => {
+      const user = userEvent.setup();
+      renderGrid();
+
+      (await screen.findByRole('button', { name: /Ogro/ })).focus();
+      await user.keyboard('{Enter}');
+      const painel = await screen.findByRole('region', {
+        name: 'Token selecionado',
+      });
+      await user.click(
+        within(painel).getByRole('button', { name: 'Rolar pelo token' }),
+      );
+      const dialogo = await screen.findByRole('dialog');
+      expect(within(dialogo).getByLabelText('Expressão')).toBeInTheDocument();
+    });
+
+    it('rolar pelo NPC/criatura posta no chat com o nome do token, a persona e o rótulo', async () => {
+      const user = userEvent.setup();
+      renderGrid();
+      await screen.findByRole('button', { name: /Ogro.*oculto/ });
+
+      act(() => propsDoMapa.onRolarToken(TOKENS_POR_CENA['cena-1'][1]));
+      const dialogo = await screen.findByRole('dialog');
+      await user.type(within(dialogo).getByLabelText('Expressão'), '1d20+2');
+      await user.type(
+        within(dialogo).getByLabelText('Rótulo (opcional)'),
+        'Ataque: Pancada',
+      );
+      await user.click(within(dialogo).getByRole('button', { name: 'Rolar' }));
+
+      await waitFor(() =>
+        expect(addChatMensagem).toHaveBeenCalledWith(
+          'c1',
+          expect.objectContaining({
+            tipo: 'rolagem',
+            autorNome: 'Ogro',
+            persona: 'criatura',
+            isMestre: true,
+            uid: 'm1',
+            rotulo: 'Ataque: Pancada',
+          }),
+        ),
+      );
+      await waitFor(() =>
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument(),
+      );
+    });
+
+    it('expressão inválida mostra o erro no diálogo e não posta', async () => {
+      const user = userEvent.setup();
+      renderGrid();
+      await screen.findByRole('button', { name: /Ogro.*oculto/ });
+
+      act(() => propsDoMapa.onRolarToken(TOKENS_POR_CENA['cena-1'][1]));
+      const dialogo = await screen.findByRole('dialog');
+      await user.type(within(dialogo).getByLabelText('Expressão'), 'banana');
+      await user.click(within(dialogo).getByRole('button', { name: 'Rolar' }));
+
+      await waitFor(() =>
+        expect(within(dialogo).getByLabelText('Expressão')).toHaveAttribute(
+          'aria-invalid',
+          'true',
+        ),
+      );
+      expect(addChatMensagem).not.toHaveBeenCalled();
+    });
   });
 
   describe('combate da cena (Fase 3A)', () => {
