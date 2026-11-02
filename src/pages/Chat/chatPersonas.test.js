@@ -73,6 +73,7 @@ describe('montarPersonasDoMestre', () => {
         avatar: null,
         persona: 'criatura',
         recursos: null,
+        reacao: 6,
       },
     ]);
   });
@@ -100,6 +101,7 @@ describe('montarPersonasDoMestre', () => {
         avatar: 'https://ex.com/bart.png',
         persona: 'npc',
         recursos: null,
+        reacao: 6,
       },
       {
         id: 'npc:n1',
@@ -108,6 +110,7 @@ describe('montarPersonasDoMestre', () => {
         avatar: 'https://ex.com/z.png',
         persona: 'npc',
         recursos: null,
+        reacao: 6,
       },
     ]);
   });
@@ -155,6 +158,7 @@ describe('montarJogadoresDaMesa', () => {
         avatar: null,
         persona: 'jogador',
         recursos: null,
+        reacao: 6,
         uid: 'jogador-1',
       },
     ]);
@@ -179,5 +183,25 @@ describe('recursos das personas (tokens do Grid)', () => {
       pv: { atual: 20, max: 20 },
       energia: { atual: 8, max: 8 },
     });
+  });
+});
+
+describe('Reação das personas (iniciativa do combate)', () => {
+  it('vem da ficha: salva em secundariosTotais ou calculada dos atributos', () => {
+    const { npcs, criaturas } = montarPersonasDoMestre({
+      personagens: [
+        { ...PERSONAGENS[0], secundariosTotais: { reacao: 11 } },
+        {
+          ...PERSONAGENS[3],
+          // AGI 250, PER 250, SOR 250 → ceil(6) + 6.
+          atributosTotais: { agilidade: 250, percepcao: 250, sorte: 250 },
+        },
+      ],
+      npcClones: [],
+      criaturaClones: [],
+      campanha: CAMPANHA,
+    });
+    expect(npcs[0].reacao).toBe(11);
+    expect(criaturas[0].reacao).toBe(12);
   });
 });

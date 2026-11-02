@@ -5,12 +5,15 @@ import {
   AURA_RAIO_MIN,
   MODOS_RECURSOS,
   GRID_TOKENS_POR_CENA_MAX,
+  MULTIPLICADORES_CORRIDA,
   TIPOS_TOKEN,
+  TRAVAMENTOS,
   montarToken,
   normalizarAura,
   normalizarRecurso,
   primeiraCelulaLivre,
 } from 'common/utils/grid';
+import { reacaoDaFicha } from 'common/utils/gridCombate';
 
 // Jogadores que podem receber tokens: um por uid (dono da ficha), com os
 // nomes dos personagens dele na campanha. `donosAtuais` garante que um uid já
@@ -112,4 +115,33 @@ export const auraEscolhida = (cor, raioTexto) => {
       ? Math.min(Math.max(raio, AURA_RAIO_MIN), AURA_RAIO_MAX)
       : AURA_RAIO_MIN,
   });
+};
+
+// ── Combate da cena (Fase 3A) ───────────────────────────────────────────
+// "Movimento" da cena: quem pode mover tokens (também fora de combate).
+export const OPCOES_TRAVAMENTO = [
+  { value: TRAVAMENTOS.LIVRE, label: 'Livre' },
+  { value: TRAVAMENTOS.TURNO, label: 'Só na sua vez' },
+  { value: TRAVAMENTOS.CONGELADO, label: 'Congelado' },
+];
+
+// "Correr" da cena: quantas vezes o deslocamento (config do grid).
+export const OPCOES_CORRIDA = MULTIPLICADORES_CORRIDA.map(valor => ({
+  value: valor,
+  label: `${String(valor).replace('.', ',')}×`,
+}));
+
+// Reação do token para a iniciativa: jogador pela ficha ao vivo
+// (`fichas[refId]`), NPC/Criatura pela ficha do catálogo guardada na persona
+// (`fontes.npcs/criaturas/jogadores`). null = sem dados (o mestre informa).
+export const reacaoDoToken = (token, { fichas = {}, fontes = {} } = {}) => {
+  if (!token?.refId) return null;
+  const daFicha = reacaoDaFicha(fichas[token.refId]);
+  if (daFicha !== null && daFicha !== undefined) return daFicha;
+  const persona = [
+    ...(fontes.npcs ?? []),
+    ...(fontes.criaturas ?? []),
+    ...(fontes.jogadores ?? []),
+  ].find(fonte => fonte.refId === token.refId);
+  return Number.isFinite(persona?.reacao) ? persona.reacao : null;
 };

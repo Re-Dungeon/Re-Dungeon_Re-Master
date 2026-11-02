@@ -349,3 +349,60 @@ export const MensagemMacroTexto = styled.div`
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 `;
+
+// ── Combate do grid ──────────────────────────────────────────────────────
+
+// Mensagem de combate: cartão estreito e centralizado, como um aviso da mesa.
+export const CombateLinha = styled.div`
+  display: flex;
+  justify-content: center;
+`;
+
+export const CombateCartao = styled.div`
+  position: relative;
+  width: min(320px, 90%);
+  box-sizing: border-box;
+  padding: 8px 32px 6px;
+  border-radius: 10px;
+  border: 1px solid rgba(232, 203, 133, 0.6);
+  background: rgba(196, 58, 47, 0.08);
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+  text-align: center;
+
+  &:hover .chat-acoes {
+    opacity: 1;
+  }
+
+  ${MOBILE} {
+    width: 92%;
+  }
+`;
+
+export const CombateTitulo = styled.div`
+  color: var(--color-primary);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+`;
+
+export const CombateIniciativa = styled.ol`
+  margin: 6px 0 2px;
+  padding: 0;
+  list-style: none;
+  font-size: 0.82rem;
+
+  li + li {
+    margin-top: 1px;
+  }
+`;
+
+export const CombateTexto = styled.div`
+  margin-top: 2px;
+  color: var(--text-primary);
+`;
+
+export const CombateRodape = styled.div`
+  margin-top: 4px;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+`;

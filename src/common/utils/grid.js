@@ -42,6 +42,20 @@ export const GRID_SEM_IMAGEM = { colunas: 30, linhas: 20 };
 export const METROS_POR_QUADRADO_PADRAO = 1.5;
 export const METROS_POR_QUADRADO_MIN = 0.1;
 export const METROS_POR_QUADRADO_MAX = 100;
+// Correr (Fase 3A): quantas vezes o deslocamento do token, por cena (regra).
+export const MULTIPLICADORES_CORRIDA = [2, 1.5];
+export const MULTIPLICADOR_CORRIDA_PADRAO = 2;
+// Travar movimento (cena `travamento`, regra): livre; em combate, só o token
+// da vez; ou só o mestre move. Fica FORA do GRID_CONFIG_PADRAO para o "Salvar
+// grid" do mestre não sobrescrever o que ele escolheu na barra.
+export const TRAVAMENTOS = {
+  LIVRE: 'livre',
+  TURNO: 'turno',
+  CONGELADO: 'congelado',
+};
+// Deslocamento do token em metros (só o mestre grava; ausente = padrão).
+export const DESLOCAMENTO_PADRAO = 9;
+export const DESLOCAMENTO_MAX = 999; // regra
 // Rastro do último movimento: no máximo tantos vértices (espelha a regra).
 export const RASTRO_VERTICES_MAX = 50;
 // Quanto tempo o rastro fica na tela, e quanto desse tempo é o esmaecer.
@@ -57,6 +71,7 @@ export const GRID_CONFIG_PADRAO = {
   corGrade: '#ffffff',
   opacidadeGrade: 0.25,
   metrosPorQuadrado: METROS_POR_QUADRADO_PADRAO,
+  multiplicadorCorrida: MULTIPLICADOR_CORRIDA_PADRAO,
 };
 
 const COR_HEX = /^#[0-9a-fA-F]{6}$/;
@@ -73,6 +88,17 @@ const normalizarMetros = valor => {
   if (valor === undefined || valor === null) return METROS_POR_QUADRADO_PADRAO;
   return arredondar2(Number(String(valor).replace(',', '.')));
 };
+
+// "1,5"/1.5 → 1.5; fora da lista → o padrão (2×).
+export const normalizarMultiplicadorCorrida = valor => {
+  const numero = Number(String(valor ?? '').replace(',', '.'));
+  return MULTIPLICADORES_CORRIDA.includes(numero)
+    ? numero
+    : MULTIPLICADOR_CORRIDA_PADRAO;
+};
+
+export const normalizarTravamento = valor =>
+  Object.values(TRAVAMENTOS).includes(valor) ? valor : TRAVAMENTOS.LIVRE;
 
 // Doc do Firestore (ou null, grid ainda não configurado) → config completa,
 // só com os campos conhecidos.
@@ -98,6 +124,9 @@ export const normalizarConfigGrid = valores => {
     corGrade: valores.corGrade,
     opacidadeGrade: Number(valores.opacidadeGrade),
     metrosPorQuadrado: normalizarMetros(valores.metrosPorQuadrado),
+    multiplicadorCorrida: normalizarMultiplicadorCorrida(
+      valores.multiplicadorCorrida,
+    ),
   };
 };
 
@@ -121,6 +150,8 @@ export const validarConfigGrid = config => {
   const metros = config.metrosPorQuadrado ?? METROS_POR_QUADRADO_PADRAO;
   if (!(metros >= METROS_POR_QUADRADO_MIN && metros <= METROS_POR_QUADRADO_MAX))
     return 'Metros por quadrado: entre 0,1 e 100.';
+  const corrida = config.multiplicadorCorrida ?? MULTIPLICADOR_CORRIDA_PADRAO;
+  if (!MULTIPLICADORES_CORRIDA.includes(corrida)) return 'Correr: 2× ou 1,5×.';
   return null;
 };
 
@@ -246,10 +277,23 @@ export const celulaMaisProxima = (config, x, y, limites, tamanho = 1) =>
     tamanho,
   );
 
-// Mestre move qualquer token; jogador só os atribuídos a ele (`donos`).
-// A regra do Firestore impõe o mesmo.
-export const podeMoverToken = (token, uid, ehMestre) =>
-  Boolean(ehMestre) || (Boolean(uid) && (token.donos ?? []).includes(uid));
+// Mestre move qualquer token; jogador só os atribuídos a ele (`donos`), e
+// conforme o `travamento` da cena: 'congelado' = nenhum; 'turno' = em combate
+// (`tokenDaVezId`) só o token da vez, fora de combate livre. A regra do
+// Firestore impõe o mesmo.
+export const podeMoverToken = (
+  token,
+  uid,
+  ehMestre,
+  { travamento = TRAVAMENTOS.LIVRE, tokenDaVezId = null } = {},
+) => {
+  if (ehMestre) return true;
+  if (!uid || !(token.donos ?? []).includes(uid)) return false;
+  if (travamento === TRAVAMENTOS.CONGELADO) return false;
+  if (travamento === TRAVAMENTOS.TURNO && tokenDaVezId)
+    return token.id === tokenDaVezId;
+  return true;
+};
 
 const sobrepoe = (a, b) =>
   a.col < b.col + b.tamanho &&
@@ -744,8 +788,22 @@ export const condicoesDoToken = (token, ficha, catalogoPorId) => {
     });
 };
 
-// View model do GridMapa: { [tokenId]: { recursos, condicoes } }, só para os
-// tokens com algo a mostrar. `fichas` = { [refId]: ficha } (tokens jogador).
+// PP (Prontidão) da ficha → { atual, max } ou null. Mesma prioridade de
+// normalizarPersonagemCarregado (storage do site dos jogadores): as cópias
+// top-level primeiro, depois `estadoCombate`/o total da Prontidão.
+export const prontidaoDaFicha = ficha =>
+  normalizarRecurso({
+    atual: ficha?.prontidaoAtual ?? ficha?.estadoCombate?.ppAtual ?? 0,
+    max:
+      ficha?.prontidaoMaximaEfetiva ??
+      ficha?.estadoCombate?.prontidaoMaximaEfetiva ??
+      ficha?.secundariosTotais?.prontidao ??
+      ficha?.prontidao,
+  });
+
+// View model do GridMapa: { [tokenId]: { recursos, condicoes, pp? } }, só para
+// os tokens com algo a mostrar. `fichas` = { [refId]: ficha } (tokens
+// jogador). `pp` (Prontidão da ficha) só para os donos do token e o mestre.
 export const detalhesDosTokens = (
   tokens,
   { fichas = {}, catalogoPorId = null, uid = null, veTudo = false } = {},
@@ -758,8 +816,11 @@ export const detalhesDosTokens = (
         : null;
     const recursos = recursosDoToken(token, ficha, { uid, veTudo });
     const condicoes = condicoesDoToken(token, ficha, catalogoPorId);
-    if (recursos || condicoes.length)
-      detalhes[token.id] = { recursos, condicoes };
+    const dono = Boolean(uid) && (token.donos ?? []).includes(uid);
+    const pp = ficha && (veTudo || dono) ? prontidaoDaFicha(ficha) : null;
+    if (recursos || condicoes.length || pp) {
+      detalhes[token.id] = { recursos, condicoes, ...(pp ? { pp } : {}) };
+    }
   });
   return detalhes;
 };
@@ -883,6 +944,23 @@ export const detectarPings = (vistosAnteriores, pings) => {
   });
   return { vistos, novos };
 };
+
+// ── Combate (Fase 3A) ──────────────────────────────────────────────────────
+// Ordem, turnos e alcance de movimento ficam em common/utils/gridCombate.js
+// (que importa daqui — nunca o contrário).
+
+// Deslocamento em metros ("7,5" → 7.5, até 2 casas); vazio, inválido, < 0 ou
+// > DESLOCAMENTO_MAX → null.
+export const normalizarDeslocamento = valor => {
+  if (vazio(valor)) return null;
+  const numero = Number(String(valor).replace(',', '.'));
+  if (!Number.isFinite(numero) || numero < 0 || numero > DESLOCAMENTO_MAX)
+    return null;
+  return arredondar2(numero);
+};
+
+export const deslocamentoDoToken = token =>
+  normalizarDeslocamento(token?.deslocamento) ?? DESLOCAMENTO_PADRAO;
 
 // Vista com o ponto (px do mundo) no centro do viewport, mesmo zoom.
 export const centralizarVista = (vista, ponto, viewport) => ({

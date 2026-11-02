@@ -50,7 +50,14 @@ import {
   condicoesDoToken,
   corDaBarra,
   corDoPing,
+  DESLOCAMENTO_PADRAO,
+  TRAVAMENTOS,
+  deslocamentoDoToken,
   detalhesDosTokens,
+  normalizarDeslocamento,
+  normalizarMultiplicadorCorrida,
+  normalizarTravamento,
+  prontidaoDaFicha,
   detectarPings,
   distanciaEntreTokens,
   escolherReferencia,
@@ -106,6 +113,7 @@ describe('normalizarConfigGrid / validarConfigGrid', () => {
       corGrade: '#00ff00',
       opacidadeGrade: 0.5,
       metrosPorQuadrado: 1.5,
+      multiplicadorCorrida: 2,
     });
     expect(
       normalizarConfigGrid({ ...valores, imagemUrl: '   ' }).imagemUrl,
@@ -1006,5 +1014,127 @@ describe('sinais (pings)', () => {
         { largura: 800, altura: 600 },
       ),
     ).toEqual({ zoom: 2, x: 200, y: 200 });
+  });
+});
+
+describe('combate (Fase 3A): travamento, corrida, deslocamento e PP', () => {
+  const meu = { id: 't1', donos: ['u1'] };
+
+  it('podeMoverToken segue o travamento da cena', () => {
+    const { LIVRE, TURNO, CONGELADO } = TRAVAMENTOS;
+    expect(podeMoverToken(meu, 'u1', false, { travamento: LIVRE })).toBe(true);
+    expect(podeMoverToken(meu, 'u1', false, { travamento: CONGELADO })).toBe(
+      false,
+    );
+    // Só na sua vez: fora de combate (sem token da vez) é livre.
+    expect(podeMoverToken(meu, 'u1', false, { travamento: TURNO })).toBe(true);
+    expect(
+      podeMoverToken(meu, 'u1', false, {
+        travamento: TURNO,
+        tokenDaVezId: 't1',
+      }),
+    ).toBe(true);
+    expect(
+      podeMoverToken(meu, 'u1', false, {
+        travamento: TURNO,
+        tokenDaVezId: 't9',
+      }),
+    ).toBe(false);
+    // Livre ignora a vez; o mestre ignora tudo; token alheio nunca.
+    expect(podeMoverToken(meu, 'u1', false, { tokenDaVezId: 't9' })).toBe(true);
+    expect(
+      podeMoverToken({ id: 't2', donos: [] }, 'm', true, {
+        travamento: CONGELADO,
+      }),
+    ).toBe(true);
+    expect(
+      podeMoverToken({ id: 't2', donos: [] }, 'u1', false, {
+        travamento: LIVRE,
+      }),
+    ).toBe(false);
+  });
+
+  it('normalizarTravamento e normalizarMultiplicadorCorrida', () => {
+    expect(normalizarTravamento('turno')).toBe('turno');
+    expect(normalizarTravamento('x')).toBe('livre');
+    expect(normalizarTravamento(undefined)).toBe('livre');
+    expect(normalizarMultiplicadorCorrida('1,5')).toBe(1.5);
+    expect(normalizarMultiplicadorCorrida(2)).toBe(2);
+    expect(normalizarMultiplicadorCorrida(3)).toBe(2);
+    expect(normalizarMultiplicadorCorrida(null)).toBe(2);
+  });
+
+  it('config: padrão 2×; validar recusa fora da lista', () => {
+    expect(GRID_CONFIG_PADRAO.multiplicadorCorrida).toBe(2);
+    expect(
+      configDoGrid({ multiplicadorCorrida: 1.5 }).multiplicadorCorrida,
+    ).toBe(1.5);
+    expect(
+      validarConfigGrid({ ...GRID_CONFIG_PADRAO, multiplicadorCorrida: 1.5 }),
+    ).toBeNull();
+    expect(
+      validarConfigGrid({ ...GRID_CONFIG_PADRAO, multiplicadorCorrida: 3 }),
+    ).toBe('Correr: 2× ou 1,5×.');
+    // O travamento não faz parte da config ("Salvar grid" não sobrescreve).
+    expect(configDoGrid({ travamento: 'turno' })).not.toHaveProperty(
+      'travamento',
+    );
+  });
+
+  it('normalizarDeslocamento / deslocamentoDoToken', () => {
+    expect(normalizarDeslocamento('7,5')).toBe(7.5);
+    expect(normalizarDeslocamento(12.345)).toBe(12.35);
+    expect(normalizarDeslocamento(0)).toBe(0);
+    expect(normalizarDeslocamento('')).toBeNull();
+    expect(normalizarDeslocamento('abc')).toBeNull();
+    expect(normalizarDeslocamento(-1)).toBeNull();
+    expect(normalizarDeslocamento(1000)).toBeNull();
+    expect(deslocamentoDoToken({})).toBe(DESLOCAMENTO_PADRAO);
+    expect(deslocamentoDoToken({ deslocamento: 6 })).toBe(6);
+    expect(deslocamentoDoToken({ deslocamento: 'x' })).toBe(9);
+  });
+
+  it('prontidaoDaFicha: cópias top-level primeiro, depois estadoCombate/total', () => {
+    expect(
+      prontidaoDaFicha({ prontidaoAtual: 5, prontidaoMaximaEfetiva: 20 }),
+    ).toEqual({
+      atual: 5,
+      max: 20,
+    });
+    expect(
+      prontidaoDaFicha({
+        estadoCombate: { ppAtual: 7 },
+        secundariosTotais: { prontidao: 30 },
+      }),
+    ).toEqual({ atual: 7, max: 30 });
+    expect(prontidaoDaFicha({ prontidaoAtual: 50, prontidao: 10 })).toEqual({
+      atual: 10,
+      max: 10,
+    });
+    expect(prontidaoDaFicha({})).toBeNull();
+  });
+
+  it('detalhesDosTokens: PP só para o dono e o mestre', () => {
+    const tokens = [
+      { id: 'meu', tipo: 'jogador', refId: 'p1', donos: ['u1'] },
+      { id: 'outro', tipo: 'jogador', refId: 'p2', donos: ['u2'] },
+    ];
+    const fichas = {
+      p1: { prontidaoAtual: 3, prontidaoMaximaEfetiva: 10 },
+      p2: { prontidaoAtual: 4, prontidaoMaximaEfetiva: 10 },
+    };
+    const doJogador = detalhesDosTokens(tokens, { fichas, uid: 'u1' });
+    expect(doJogador.meu).toEqual({
+      recursos: null,
+      condicoes: [],
+      pp: { atual: 3, max: 10 },
+    });
+    expect(doJogador.outro).toBeUndefined();
+    const doMestre = detalhesDosTokens(tokens, {
+      fichas,
+      uid: 'm',
+      veTudo: true,
+    });
+    expect(doMestre.outro.pp).toEqual({ atual: 4, max: 10 });
   });
 });

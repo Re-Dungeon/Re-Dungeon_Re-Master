@@ -18,7 +18,7 @@ import {
 } from 'common/utils/grid';
 import { OPCOES_TAMANHO_TOKEN, opcoesDeDonos } from './gridMestre';
 import TokenCombate from './TokenCombate';
-import { painelCabecalhoSx, painelSx } from './styles';
+import { painelAbaixoDaFaixaSx, painelCabecalhoSx, painelSx } from './styles';
 
 /**
  * Edição do token selecionado no Grid: nome/imagem (cópias feitas na
@@ -37,6 +37,7 @@ const TokenPainel = ({
   onAlterar,
   onRemover,
   onFechar,
+  abaixoDaFaixa = false,
 }) => {
   const [valores, setValores] = useState({
     nome: token.nome ?? '',
@@ -82,7 +83,11 @@ const TokenPainel = ({
 
   return (
     <Box
-      sx={{ ...painelSx, left: 12 }}
+      sx={{
+        ...painelSx,
+        left: 12,
+        ...(abaixoDaFaixa ? painelAbaixoDaFaixaSx : {}),
+      }}
       role="region"
       aria-label="Token selecionado"
     >
@@ -220,6 +225,7 @@ TokenPainel.propTypes = {
     mostrarRecursos: PropTypes.string,
     condicoes: PropTypes.arrayOf(PropTypes.string),
     aura: PropTypes.shape({ raio: PropTypes.number, cor: PropTypes.string }),
+    deslocamento: PropTypes.number,
   }).isRequired,
   jogadores: PropTypes.arrayOf(
     PropTypes.shape({ uid: PropTypes.string, label: PropTypes.string }),
@@ -232,11 +238,14 @@ TokenPainel.propTypes = {
   detalhe: PropTypes.shape({
     recursos: PropTypes.object,
     condicoes: PropTypes.arrayOf(PropTypes.object),
+    pp: PropTypes.shape({ atual: PropTypes.number, max: PropTypes.number }),
   }),
   onSalvar: PropTypes.func.isRequired,
   onAlterar: PropTypes.func.isRequired,
   onRemover: PropTypes.func.isRequired,
   onFechar: PropTypes.func.isRequired,
+  // Combate em andamento: a faixa de iniciativa ocupa o topo do mapa.
+  abaixoDaFaixa: PropTypes.bool,
 };
 
 export default TokenPainel;

@@ -122,6 +122,8 @@ export const TokenWrapper = styled.div`
   &:focus-visible > span:first-child {
     box-shadow: 0 0 0 3px var(--color-accent);
   }
+
+  ${({ $daVez }) => $daVez && anelDaVez}
 `;
 
 export const TokenCirculo = styled.span`
@@ -223,7 +225,8 @@ export const GridControles = styled.div`
 export const GridAviso = styled.div`
   position: absolute;
   left: 50%;
-  top: 16px;
+  /* Abaixo da faixa de iniciativa quando há combate. */
+  top: ${({ $abaixoDaFaixa }) => ($abaixoDaFaixa ? '72px' : '16px')};
   transform: translateX(-50%);
   max-width: calc(100% - 32px);
   padding: 8px 14px;
@@ -386,4 +389,233 @@ export const TokenDetalheCaixa = styled.div`
   @media (max-width: 599.95px) {
     font-size: 0.9rem;
   }
+`;
+
+// ── Combate (Fase 3A) ──────────────────────────────────────────────────────
+
+const pulsoDaVez = keyframes`
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.08);
+    opacity: 0.55;
+  }
+`;
+
+// Anel pulsante do token da vez (::before do TokenWrapper — o primeiro filho
+// continua sendo o círculo, que o foco do teclado destaca).
+export const anelDaVez = css`
+  &::before {
+    content: '';
+    position: absolute;
+    inset: -4%;
+    box-sizing: border-box;
+    border-radius: 50%;
+    border: 3px solid #e8cb85;
+    box-shadow: 0 0 12px rgba(232, 203, 133, 0.85);
+    pointer-events: none;
+    animation: ${pulsoDaVez} 1.6s ease-in-out infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    &::before {
+      animation: none;
+    }
+  }
+`;
+
+// Alcance de movimento (px do mundo): entre as auras e os rastros.
+export const GridAlcance = styled.svg`
+  position: absolute;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+`;
+
+// Faixa de iniciativa no topo do mapa (px do VIEWPORT).
+export const FaixaCaixa = styled.div`
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  right: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 10px;
+  background: rgba(10, 9, 19, 0.85);
+  border: 1px solid var(--border-primary);
+  cursor: default;
+  z-index: 29;
+
+  @media (max-width: 599.95px) {
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 4px 6px;
+  }
+`;
+
+export const FaixaRodada = styled.span`
+  flex-shrink: 0;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(232, 203, 133, 0.6);
+  color: var(--color-primary);
+  font-size: 0.78rem;
+  font-weight: 700;
+  white-space: nowrap;
+`;
+
+export const FaixaLista = styled.ol`
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: 2px;
+  list-style: none;
+  overflow-x: auto;
+  scrollbar-width: thin;
+
+  & > li {
+    flex-shrink: 0;
+  }
+
+  @media (max-width: 599.95px) {
+    order: 3;
+    flex-basis: 100%;
+    scroll-snap-type: x proximity;
+
+    & > li {
+      scroll-snap-align: start;
+    }
+  }
+`;
+
+export const FaixaRetrato = styled.button`
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--text-secondary);
+  font: inherit;
+  cursor: pointer;
+
+  & > span:first-child {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    box-sizing: border-box;
+    overflow: hidden;
+    border-radius: 50%;
+    border: 2px ${({ $oculto }) => ($oculto ? 'dashed' : 'solid')}
+      ${({ $cor }) => $cor};
+    background: #2a2638;
+    color: var(--text-primary);
+    font-weight: 700;
+    opacity: ${({ $oculto }) => ($oculto ? 0.6 : 1)};
+    box-shadow: ${({ $atual }) =>
+      $atual ? '0 0 0 2px #e8cb85, 0 0 10px rgba(232, 203, 133, 0.8)' : 'none'};
+  }
+
+  & img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    -webkit-touch-callout: none;
+  }
+
+  &:focus-visible {
+    outline: none;
+  }
+
+  &:focus-visible > span:first-child {
+    box-shadow: 0 0 0 3px var(--color-accent);
+  }
+
+  @media (max-width: 599.95px) {
+    & > span:first-child {
+      width: 36px;
+      height: 36px;
+    }
+  }
+`;
+
+export const FaixaValor = styled.span`
+  min-width: 1.5em;
+  color: ${({ $atual }) => ($atual ? 'var(--color-primary)' : 'var(--text-secondary)')};
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1.1;
+  text-align: center;
+`;
+
+export const FaixaOcultoIcone = styled.span`
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  display: flex;
+  padding: 1px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.8);
+  color: var(--text-primary);
+`;
+
+export const FaixaPilula = styled.span`
+  flex-shrink: 0;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(224, 85, 85, 0.18);
+  border: 1px solid rgba(224, 85, 85, 0.6);
+  color: var(--text-primary);
+  font-size: 0.78rem;
+  white-space: nowrap;
+`;
+
+export const FaixaAcoes = styled.div`
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 4px;
+
+  /* Celular: linha própria; os botões quebram em mais linhas se não couberem. */
+  @media (max-width: 599.95px) {
+    flex-basis: 100%;
+    flex-shrink: 1;
+    flex-wrap: wrap;
+    min-width: 0;
+
+    & > * {
+      flex: 1 1 auto;
+    }
+  }
+`;
+
+// "Movimento congelado pelo mestre" / "Movimento só na sua vez" (jogador).
+export const ChipTravamento = styled.div`
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  max-width: calc(100% - 90px);
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(10, 9, 19, 0.85);
+  border: 1px solid var(--border-primary);
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  pointer-events: none;
+  z-index: 25;
 `;

@@ -8,7 +8,8 @@ import { TokenDetalheCaixa } from './styles';
 // Cartão de um token no mapa (hover no desktop, toque no celular — cópia nos
 // dois sites, mudou um, mude o outro): nome, PV/Energia/Fadiga (só com
 // `recursos.numeros`), condições e a distância (`distancia`, texto pronto) até
-// o token de referência. Sem nada além do nome, não aparece. `style` traz a
+// o token de referência. `pp` (Prontidão, só para o dono e o mestre) vira
+// "PP a/m". Sem nada além do nome, não aparece. `style` traz a
 // posição em px do viewport. Sem role="status": o cartão não é anunciado a
 // cada hover.
 const TokenDetalhe = ({
@@ -16,6 +17,7 @@ const TokenDetalhe = ({
   recursos = null,
   condicoes = null,
   distancia = null,
+  pp = null,
   style,
 }) => {
   const linhas = [];
@@ -26,6 +28,7 @@ const TokenDetalhe = ({
         linhas.push(`${ROTULOS_RECURSO[id]} ${recurso.atual}/${recurso.max}`);
     });
   }
+  if (pp) linhas.push(`PP ${pp.atual}/${pp.max}`);
   if (condicoes?.length) {
     linhas.push(
       condicoes
@@ -56,6 +59,7 @@ TokenDetalhe.propTypes = {
     PropTypes.shape({ nome: PropTypes.string, stack: PropTypes.number }),
   ),
   distancia: PropTypes.string,
+  pp: PropTypes.shape({ atual: PropTypes.number, max: PropTypes.number }),
   style: PropTypes.object,
 };
 

@@ -3,10 +3,13 @@ import { describe, expect, it } from 'vitest';
 import {
   CHAT_TEXTO_MAX,
   campanhaIdsDosPersonagens,
+  descreverMensagemCombate,
+  formatarIniciativa,
   formatarHorarioMensagem,
   isTextoMensagemValido,
   isUrlImagemValida,
   mesclarMensagens,
+  montarMensagemCombate,
   montarMensagemImagem,
   montarMensagemMacro,
   montarMensagemRolagem,
@@ -266,5 +269,119 @@ describe('personagensNaCampanha / campanhaIdsDosPersonagens', () => {
 
   it('lista ids únicos de campanhas dos personagens jogáveis', () => {
     expect(campanhaIdsDosPersonagens(personagens)).toEqual(['c1', 'c2']);
+  });
+});
+
+describe('mensagens de combate', () => {
+  const mestre = { uid: 'm1', autorNome: 'Mestre', isMestre: true };
+
+  it('montarMensagemCombate: tipo combate, texto vazio e o evento com a cena', () => {
+    expect(
+      montarMensagemCombate(mestre, {
+        evento: 'inicio',
+        cenaId: 'cena-1',
+        rodada: 1,
+        nome: 'Wesley',
+        iniciativa: [
+          { nome: 'Wesley', total: 17, d20: 12, reacao: 5, lixo: 1 },
+        ],
+      }),
+    ).toEqual({
+      uid: 'm1',
+      personagemId: null,
+      autorNome: 'Mestre',
+      autorAvatar: null,
+      isMestre: true,
+      persona: 'mestre',
+      tipo: 'combate',
+      texto: '',
+      url: null,
+      combate: {
+        evento: 'inicio',
+        cenaId: 'cena-1',
+        rodada: 1,
+        nome: 'Wesley',
+        oculto: false,
+        iniciativa: [{ nome: 'Wesley', total: 17, d20: 12, reacao: 5 }],
+      },
+    });
+  });
+
+  it('corta nome (100) e iniciativa (200); sem nome = oculto; fim sem nome nem rodada', () => {
+    const longa = Array.from({ length: 250 }, (_, i) => ({
+      nome: `T${i}`,
+      total: i,
+      d20: 1,
+      reacao: 0,
+    }));
+    const inicio = montarMensagemCombate(mestre, {
+      evento: 'inicio',
+      cenaId: 'c',
+      rodada: 1,
+      nome: 'x'.repeat(150),
+      iniciativa: longa,
+    });
+    expect(inicio.combate.nome).toHaveLength(100);
+    expect(inicio.combate.iniciativa).toHaveLength(200);
+    expect(
+      montarMensagemCombate(mestre, { evento: 'turno', cenaId: 'c', rodada: 2 })
+        .combate,
+    ).toEqual({
+      evento: 'turno',
+      cenaId: 'c',
+      rodada: 2,
+      nome: null,
+      oculto: true,
+    });
+    expect(
+      montarMensagemCombate(mestre, { evento: 'fim', cenaId: 'c' }).combate,
+    ).toEqual({
+      evento: 'fim',
+      cenaId: 'c',
+    });
+  });
+
+  it('formatarIniciativa mostra a Reação com sinal', () => {
+    expect(
+      formatarIniciativa({ nome: 'Wesley', total: 17, d20: 12, reacao: 5 }),
+    ).toBe('Wesley 17 (d20 12 + Reação 5)');
+    expect(
+      formatarIniciativa({ nome: 'Goblin', total: 9, d20: 11, reacao: -2 }),
+    ).toBe('Goblin 9 (d20 11 − Reação 2)');
+  });
+
+  it('descreverMensagemCombate: os quatro eventos e o oponente oculto', () => {
+    expect(
+      descreverMensagemCombate({
+        evento: 'inicio',
+        rodada: 1,
+        nome: 'Wesley',
+        iniciativa: [{ nome: 'Wesley', total: 17, d20: 12, reacao: 5 }],
+      }),
+    ).toEqual({
+      titulo: 'Combate iniciado',
+      iniciativa: ['Wesley 17 (d20 12 + Reação 5)'],
+      linhas: ['Rodada 1 · Turno de Wesley'],
+    });
+    expect(
+      descreverMensagemCombate({
+        evento: 'rodada',
+        rodada: 3,
+        nome: null,
+        oculto: true,
+      }),
+    ).toEqual({
+      titulo: 'Rodada 3',
+      iniciativa: null,
+      linhas: ['Turno de um oponente oculto'],
+    });
+    expect(
+      descreverMensagemCombate({ evento: 'turno', nome: 'Brina' }).titulo,
+    ).toBe('Turno de Brina');
+    expect(descreverMensagemCombate({ evento: 'fim' })).toEqual({
+      titulo: 'Combate encerrado',
+      iniciativa: null,
+      linhas: [],
+    });
   });
 });

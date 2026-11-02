@@ -17,10 +17,12 @@ import {
   montarRastro,
   nomeDaCena,
   normalizarRastro,
+  normalizarTravamento,
   podeMoverToken,
   rastrosIguais,
 } from 'common/utils/grid';
 import useFichasDoGrid from 'hooks/useFichasDoGrid';
+import useGridCombate from 'hooks/useGridCombate';
 import useGridPings from 'hooks/useGridPings';
 import useMembroDoChat from 'hooks/useMembroDoChat';
 
@@ -46,6 +48,9 @@ import useMembroDoChat from 'hooks/useMembroDoChat';
 // tokens (barras de PV/Energia/Fadiga e condições — common/utils/grid.js,
 // detalhesDosTokens): token de jogador lê a ficha ao vivo (useFichasDoGrid),
 // os demais o próprio token; `catalogoCondicoes` = catálogo do universo.
+// Fase 3A: combate da cena (useGridCombate — ordem, token da vez, passar o
+// turno; `autorCombate` assina as mensagens de combate) e o `travamento` da
+// cena, que o `podeMover` segue ('turno': em combate, só o token da vez).
 const SEM_TOKENS = [];
 const SEM_CATALOGO = [];
 const SEM_RASTROS = [];
@@ -62,6 +67,7 @@ const useGridCampanha = (
     nome = null,
     mestreId = null,
     catalogoCondicoes = SEM_CATALOGO,
+    autorCombate = null,
   },
 ) => {
   const [erro, setErro] = useState(null);
@@ -308,7 +314,35 @@ const useGridCampanha = (
     definirRastros,
   ]);
 
+  const carregando =
+    !ponteiroCarregado ||
+    (chave !== null &&
+      (cenaRecebida.chave !== chave || tokensRecebidos.chave !== chave));
+  const cena = chave && cenaRecebida.chave === chave ? cenaRecebida.cena : null;
+  const config = useMemo(() => configDoGrid(cena), [cena]);
+  const tokens =
+    chave && tokensRecebidos.chave === chave
+      ? tokensRecebidos.tokens
+      : SEM_TOKENS;
+  const travamento = normalizarTravamento(cena?.travamento);
+
+  const { combate, tokenDaVez, meuTurno, mudarTurno, encerrarTurno } =
+    useGridCombate(campanhaId, cenaId, {
+      ativo: Boolean(podeOuvir && chave),
+      uid,
+      veTudo,
+      tokens,
+      autor: autorCombate,
+      onErro: setErro,
+    });
+  const tokenDaVezId = combate?.tokenDaVezId ?? null;
+
   const podeMover = useCallback(
+    token => podeMoverToken(token, uid, veTudo, { travamento, tokenDaVezId }),
+    [uid, veTudo, travamento, tokenDaVezId],
+  );
+  // Tokens da pessoa, mesmo com o movimento travado (GridMapa, prop `ehMeu`).
+  const ehMeu = useCallback(
     token => podeMoverToken(token, uid, veTudo),
     [uid, veTudo],
   );
@@ -382,16 +416,6 @@ const useGridCampanha = (
     onErro: setErro,
   });
 
-  const carregando =
-    !ponteiroCarregado ||
-    (chave !== null &&
-      (cenaRecebida.chave !== chave || tokensRecebidos.chave !== chave));
-  const cena = chave && cenaRecebida.chave === chave ? cenaRecebida.cena : null;
-  const config = useMemo(() => configDoGrid(cena), [cena]);
-  const tokens =
-    chave && tokensRecebidos.chave === chave
-      ? tokensRecebidos.tokens
-      : SEM_TOKENS;
   // Ids das fichas dos tokens de jogador (string estável para o hook).
   const idsDasFichas = useMemo(
     () =>
@@ -443,6 +467,7 @@ const useGridCampanha = (
     erro,
     limparErro,
     podeMover,
+    ehMeu,
     mover,
     // Rastros do último movimento na tela: { tokenId, chave, pontos, saindo }[]
     // (GridMapa, prop `rastros`).
@@ -455,6 +480,17 @@ const useGridCampanha = (
     detalhes,
     // Mestre (vê tudo, puxa a vista) — GridMapa, prop `mestre`.
     veTudo,
+    // Fichas ao vivo dos tokens de jogador ({ [refId]: ficha }).
+    fichas,
+    // Combate (GridMapa, prop `combate`): normalizado ou null; o token da vez,
+    // se é a vez de um token meu, `mudarTurno(±1)` e `encerrarTurno()`.
+    combate,
+    tokenDaVez,
+    meuTurno,
+    mudarTurno,
+    encerrarTurno,
+    // 'livre' | 'turno' | 'congelado' (GridMapa, prop `travamento`).
+    travamento,
   };
 };
 

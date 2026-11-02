@@ -1,8 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import {
+  OPCOES_CORRIDA,
   OPCOES_TAMANHO_TOKEN,
+  OPCOES_TRAVAMENTO,
   ajustarRecurso,
   auraEscolhida,
+  reacaoDoToken,
   recursoDigitado,
   opcoesDeDonos,
   tokensDeJogadoresFaltantes,
@@ -122,5 +125,42 @@ describe('combate do token', () => {
       cor: '#e05555',
     });
     expect(auraEscolhida('#e05555', 'x')).toEqual({ raio: 1, cor: '#e05555' });
+  });
+});
+
+describe('combate (Fase 3A)', () => {
+  it('OPCOES_TRAVAMENTO e OPCOES_CORRIDA têm os valores da regra', () => {
+    expect(OPCOES_TRAVAMENTO.map(o => o.value)).toEqual([
+      'livre',
+      'turno',
+      'congelado',
+    ]);
+    expect(OPCOES_CORRIDA).toEqual([
+      { value: 2, label: '2×' },
+      { value: 1.5, label: '1,5×' },
+    ]);
+  });
+
+  describe('reacaoDoToken', () => {
+    const fichas = { pj1: { secundariosTotais: { reacao: 9 } } };
+    const fontes = {
+      npcs: [{ refId: 'n1', reacao: 7 }],
+      criaturas: [{ refId: 'cr1', reacao: null }],
+      jogadores: [{ refId: 'pj1', reacao: 6 }],
+    };
+
+    it('jogador usa a ficha ao vivo', () => {
+      expect(reacaoDoToken({ refId: 'pj1' }, { fichas, fontes })).toBe(9);
+    });
+
+    it('NPC usa a Reação da persona da mesa', () => {
+      expect(reacaoDoToken({ refId: 'n1' }, { fichas, fontes })).toBe(7);
+    });
+
+    it('sem refId ou sem dados: null (o mestre informa)', () => {
+      expect(reacaoDoToken({ refId: null }, { fichas, fontes })).toBeNull();
+      expect(reacaoDoToken({ refId: 'cr1' }, { fichas, fontes })).toBeNull();
+      expect(reacaoDoToken({ refId: 'x' })).toBeNull();
+    });
   });
 });

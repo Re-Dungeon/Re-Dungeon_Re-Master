@@ -737,3 +737,318 @@ describe('GridMapa — sinais, estado dos tokens, auras e seguir', () => {
     expect(screen.getByRole('button', { name: 'Seguir token' })).toBeDisabled();
   });
 });
+
+describe('GridMapa — combate (Fase 3A)', () => {
+  const viewportDe = () =>
+    screen.getByRole('application', { name: 'Grid da campanha' });
+  const ponteiro = (clientX, clientY, extra = {}) => ({
+    clientX,
+    clientY,
+    pointerId: 1,
+    pointerType: 'mouse',
+    button: 0,
+    ...extra,
+  });
+  // Já normalizado (useGridCampanha → combate).
+  const combate = ({
+    indice = 0,
+    rodada = 2,
+    inicioTurno = null,
+    ordem,
+  } = {}) => {
+    const lista = ordem ?? [
+      { tokenId: 't1', iniciativa: 18, d20: 13, reacao: 5 },
+      { tokenId: 't2', iniciativa: 12, d20: 10, reacao: 2 },
+      { tokenId: 't3', iniciativa: 7, d20: 5, reacao: 2 },
+    ];
+    return {
+      ordem: lista,
+      indice,
+      rodada,
+      inicioTurno,
+      chaveTurno: '1:0',
+      tokenDaVezId: lista[indice].tokenId,
+    };
+  };
+  const mapa = props => (
+    <GridMapa
+      config={GRID_CONFIG_PADRAO}
+      tokens={TOKENS}
+      podeMover={podeMoverDoJogador}
+      onMover={vi.fn()}
+      {...props}
+    />
+  );
+  const comViewport = () => {
+    class ResizeObserverDeTeste {
+      constructor(callback) {
+        this.callback = callback;
+      }
+
+      observe() {
+        this.callback([{ contentRect: { width: 800, height: 600 } }]);
+      }
+
+      disconnect() {}
+    }
+    vi.stubGlobal('ResizeObserver', ResizeObserverDeTeste);
+  };
+  const transformDe = container => {
+    const [, x, y, zoom] = container
+      .querySelector('[data-token-id]')
+      .parentElement.style.transform.match(
+        /translate\((.+)px, (.+)px\) scale\((.+)\)/,
+      )
+      .map(Number);
+    return { x, y, zoom };
+  };
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('sem combate não há faixa, anel nem alcance', () => {
+    const { container } = render(mapa());
+    expect(container.querySelector('[data-faixa-iniciativa]')).toBeNull();
+    expect(container.querySelector('[data-da-vez]')).toBeNull();
+    fireEvent.pointerDown(
+      screen.getByRole('button', { name: /^Wesley Chase, coluna/ }),
+      ponteiro(110, 160),
+    );
+    fireEvent.pointerMove(viewportDe(), ponteiro(160, 160));
+    expect(container.querySelector('[data-alcance]')).toBeNull();
+    expect(screen.getByText('1 q · 1,5 m')).not.toHaveAttribute('data-faixa');
+  });
+
+  it('faixa: rodada, retratos na ordem (jogador não vê o oculto) e o da vez marcado', () => {
+    const { container } = render(mapa({ combate: combate() }));
+    expect(screen.getByText('Rodada 2')).toBeInTheDocument();
+    const lista = screen.getByRole('list', { name: 'Ordem de iniciativa' });
+    const retratos = lista.querySelectorAll('button');
+    expect(
+      [...retratos].map(botao => botao.getAttribute('aria-label')),
+    ).toEqual(['Centralizar em Wesley Chase', 'Centralizar em Goblin']);
+    expect(retratos[0]).toHaveAttribute('aria-current', 'true');
+    expect(retratos[1]).not.toHaveAttribute('aria-current');
+    expect(retratos[0]).toHaveTextContent('18');
+    // Anel no token da vez.
+    const daVez = container.querySelector('[data-da-vez]');
+    expect(daVez).toHaveAttribute('data-token-id', 't1');
+    expect(
+      screen.getByRole('button', {
+        name: 'Wesley Chase, coluna 3, linha 4, turno atual',
+      }),
+    ).toBeInTheDocument();
+    // A faixa não é anunciada (o aviso continua o único status).
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    expect(screen.queryByText('Vez do mestre')).not.toBeInTheDocument();
+  });
+
+  it('mestre vê o oculto na faixa; jogador, na vez do oculto, vê "Vez do mestre"', () => {
+    const { rerender } = render(
+      mapa({ combate: combate({ indice: 2 }), mestre: true }),
+    );
+    expect(
+      screen.getByRole('button', { name: 'Centralizar em Emboscada' }),
+    ).toHaveAttribute('aria-current', 'true');
+    expect(screen.queryByText('Vez do mestre')).not.toBeInTheDocument();
+
+    rerender(mapa({ combate: combate({ indice: 2 }) }));
+    expect(
+      screen.queryByRole('button', { name: 'Centralizar em Emboscada' }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText('Vez do mestre')).toBeInTheDocument();
+  });
+
+  it('clicar no retrato centraliza no token mantendo o zoom', () => {
+    comViewport();
+    const { container } = render(mapa({ combate: combate() }));
+    const { zoom } = transformDe(container);
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Centralizar em Goblin' }),
+    );
+    // Goblin 2×2 em (0,0): centro (50, 50).
+    const vista = transformDe(container);
+    expect(vista.zoom).toBe(zoom);
+    expect(vista.x).toBeCloseTo(400 - 50 * zoom);
+    expect(vista.y).toBeCloseTo(300 - 50 * zoom);
+  });
+
+  it('cada botão da faixa só aparece com a função, e chama ela', async () => {
+    const { rerender } = render(mapa({ combate: combate() }));
+    const rotulos = [
+      'Anterior',
+      'Próximo turno',
+      'Encerrar meu turno',
+      'Seu turno! Restaurar PP',
+    ];
+    rotulos.forEach(rotulo =>
+      expect(
+        screen.queryByRole('button', { name: rotulo }),
+      ).not.toBeInTheDocument(),
+    );
+
+    const acoes = {
+      anterior: vi.fn(),
+      proximo: vi.fn(),
+      encerrarTurno: vi.fn(() => Promise.resolve(true)),
+      restaurarPp: vi.fn(),
+    };
+    rerender(mapa({ combate: combate(), acoesCombate: acoes }));
+    for (const rotulo of rotulos) {
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: rotulo }));
+      });
+    }
+    expect(acoes.anterior).toHaveBeenCalledTimes(1);
+    expect(acoes.proximo).toHaveBeenCalledTimes(1);
+    expect(acoes.encerrarTurno).toHaveBeenCalledTimes(1);
+    expect(acoes.restaurarPp).toHaveBeenCalledTimes(1);
+
+    rerender(
+      mapa({ combate: combate(), acoesCombate: { encerrarTurno: vi.fn() } }),
+    );
+    expect(
+      screen.queryByRole('button', { name: 'Próximo turno' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Encerrar meu turno' }),
+    ).toBeInTheDocument();
+  });
+
+  it('arrastar o próprio token em combate mostra o alcance (9 m, 1,5 m/q, 2×)', async () => {
+    const { container } = render(mapa({ combate: combate() }));
+    fireEvent.pointerDown(
+      screen.getByRole('button', { name: /^Wesley Chase, coluna/ }),
+      ponteiro(110, 160),
+    );
+    fireEvent.pointerMove(viewportDe(), ponteiro(160, 160));
+    const mover = container.querySelectorAll('[data-alcance="mover"]');
+    const correr = container.querySelectorAll('[data-alcance="correr"]');
+    // Wesley (2,3): Mover 6 → linhas 0–9, colunas 0–8 (recortado à esquerda).
+    expect(mover).toHaveLength(10);
+    expect(mover[0]).toHaveAttribute('width', String(9 * 50));
+    expect(mover[0]).toHaveAttribute('x', '0');
+    // Correr 12 → linhas 0–15.
+    expect(correr).toHaveLength(16);
+
+    await act(async () =>
+      fireEvent.pointerUp(viewportDe(), ponteiro(160, 160)),
+    );
+    expect(container.querySelector('[data-alcance]')).toBeNull();
+  });
+
+  it('token alheio não mostra alcance; tocar o próprio mostra até Esc ou o mapa vazio', () => {
+    const { container } = render(mapa({ combate: combate() }));
+    const goblin = screen.getByRole('button', { name: /^Goblin, coluna/ });
+    fireEvent.pointerDown(goblin, ponteiro(40, 40));
+    fireEvent.pointerUp(viewportDe(), ponteiro(40, 40));
+    expect(container.querySelector('[data-alcance]')).toBeNull();
+
+    const wesley = screen.getByRole('button', {
+      name: /^Wesley Chase, coluna/,
+    });
+    fireEvent.pointerDown(wesley, ponteiro(110, 160));
+    fireEvent.pointerUp(viewportDe(), ponteiro(110, 160));
+    expect(container.querySelector('[data-alcance="mover"]')).not.toBeNull();
+
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(container.querySelector('[data-alcance]')).toBeNull();
+
+    fireEvent.pointerDown(wesley, ponteiro(110, 160));
+    fireEvent.pointerUp(viewportDe(), ponteiro(110, 160));
+    expect(container.querySelector('[data-alcance]')).not.toBeNull();
+    fireEvent.pointerDown(viewportDe(), ponteiro(700, 700));
+    fireEvent.pointerUp(viewportDe(), ponteiro(700, 700));
+    expect(container.querySelector('[data-alcance]')).toBeNull();
+  });
+
+  it('rótulo do arraste conta desde o início do turno, verde → amarelo → vermelho', () => {
+    render(mapa({ combate: combate({ inicioTurno: { col: 0, lin: 3 } }) }));
+    fireEvent.pointerDown(
+      screen.getByRole('button', { name: /^Wesley Chase, coluna/ }),
+      ponteiro(110, 160),
+    );
+    fireEvent.pointerMove(viewportDe(), ponteiro(160, 160)); // → (3,3): 3 desde (0,3)
+    expect(screen.getByText('3 q · 4,5 m')).toHaveAttribute(
+      'data-faixa',
+      'mover',
+    );
+    fireEvent.pointerMove(viewportDe(), ponteiro(410, 160)); // → (8,3): 8
+    expect(screen.getByText('8 q · 12 m')).toHaveAttribute(
+      'data-faixa',
+      'correr',
+    );
+    fireEvent.pointerMove(viewportDe(), ponteiro(760, 160)); // → (15,3): 15
+    expect(screen.getByText('15 q · 22,5 m')).toHaveAttribute(
+      'data-faixa',
+      'alem',
+    );
+  });
+
+  it('usa o deslocamento do token e o multiplicador de corrida da cena', () => {
+    const { container } = render(
+      mapa({
+        combate: combate(),
+        config: { ...GRID_CONFIG_PADRAO, multiplicadorCorrida: 1.5 },
+        tokens: [{ ...TOKENS[0], deslocamento: 3 }, TOKENS[1], TOKENS[2]],
+      }),
+    );
+    fireEvent.pointerDown(
+      screen.getByRole('button', { name: /^Wesley Chase, coluna/ }),
+      ponteiro(110, 160),
+    );
+    fireEvent.pointerMove(viewportDe(), ponteiro(160, 160));
+    // 3 m → Mover 2 (linhas 1–5); 1,5× → Correr 3 (linhas 0–6).
+    expect(container.querySelectorAll('[data-alcance="mover"]')).toHaveLength(
+      5,
+    );
+    expect(container.querySelectorAll('[data-alcance="correr"]')).toHaveLength(
+      7,
+    );
+  });
+
+  it('aviso do travamento só para o jogador; o aviso de status continua com a faixa', () => {
+    const { container, rerender } = render(mapa({ travamento: 'congelado' }));
+    expect(container.querySelector('[data-travamento]')).toHaveTextContent(
+      'Movimento congelado pelo mestre',
+    );
+    rerender(mapa({ travamento: 'turno' }));
+    expect(container.querySelector('[data-travamento]')).toHaveTextContent(
+      'Movimento só na sua vez',
+    );
+    rerender(mapa({ travamento: 'livre' }));
+    expect(container.querySelector('[data-travamento]')).toBeNull();
+    rerender(mapa({ travamento: 'congelado', mestre: true }));
+    expect(container.querySelector('[data-travamento]')).toBeNull();
+
+    rerender(mapa({ aviso: 'Carregando…', combate: combate() }));
+    expect(screen.getByRole('status')).toHaveTextContent('Carregando…');
+  });
+
+  it('com o movimento travado, o token continua sendo a referência ("Seguir token")', () => {
+    render(mapa({ podeMover: () => false, ehMeu: podeMoverDoJogador }));
+    expect(
+      screen.getByRole('button', { name: 'Seguir token' }),
+    ).not.toBeDisabled();
+  });
+
+  it('cartão do token mostra o PP (quando o detalhe traz)', () => {
+    const { container } = render(
+      mapa({
+        detalhes: {
+          t1: { recursos: null, condicoes: [], pp: { atual: 3, max: 10 } },
+        },
+      }),
+    );
+    fireEvent.pointerOver(
+      screen.getByRole('button', { name: /^Wesley Chase, coluna/ }),
+      {
+        pointerType: 'mouse',
+      },
+    );
+    expect(container.querySelector('[data-detalhe]')).toHaveTextContent(
+      'PP 3/10',
+    );
+  });
+});

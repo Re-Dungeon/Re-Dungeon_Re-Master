@@ -17,9 +17,11 @@ import {
   ROTULOS_RECURSO,
   TIPOS_TOKEN,
   TOKEN_CONDICOES_MAX,
+  deslocamentoDoToken,
   nomeDaCondicao,
   normalizarAura,
   normalizarCondicoesDoToken,
+  normalizarDeslocamento,
   normalizarModoRecursos,
   normalizarRecurso,
 } from 'common/utils/grid';
@@ -36,7 +38,13 @@ const igual = (a, b) =>
 
 // Campo numérico com rascunho local: mostra o valor do token e só grava no
 // blur/Enter (cada tecla não vira uma escrita no Firestore).
-const CampoNumero = ({ label, valor, onConfirmar, disabled }) => {
+const CampoNumero = ({
+  label,
+  valor,
+  onConfirmar,
+  disabled,
+  inputMode = 'numeric',
+}) => {
   const [texto, setTexto] = useState(null);
   const confirmar = () => {
     if (texto !== null) onConfirmar(texto);
@@ -54,7 +62,7 @@ const CampoNumero = ({ label, valor, onConfirmar, disabled }) => {
       onKeyDown={event => {
         if (event.key === 'Enter') event.target.blur();
       }}
-      slotProps={{ htmlInput: { inputMode: 'numeric' } }}
+      slotProps={{ htmlInput: { inputMode } }}
       sx={{ flex: 1, minWidth: 0 }}
     />
   );
@@ -65,6 +73,7 @@ CampoNumero.propTypes = {
   valor: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
   onConfirmar: PropTypes.func.isRequired,
   disabled: PropTypes.bool,
+  inputMode: PropTypes.string,
 };
 
 // `[−] [atual] / [max] [+]` de um recurso; sem recurso, "Definir PV".
@@ -147,6 +156,7 @@ const ResumoDoJogador = ({ detalhe }) => {
       id =>
         `${ROTULOS_RECURSO[id]} ${detalhe.recursos[id].atual}/${detalhe.recursos[id].max}`,
     ),
+    ...(detalhe?.pp ? [`PP ${detalhe.pp.atual}/${detalhe.pp.max}`] : []),
     ...(detalhe?.condicoes?.length
       ? [
           detalhe.condicoes
@@ -183,6 +193,7 @@ ResumoDoJogador.propTypes = {
   detalhe: PropTypes.shape({
     recursos: PropTypes.object,
     condicoes: PropTypes.arrayOf(PropTypes.object),
+    pp: PropTypes.shape({ atual: PropTypes.number, max: PropTypes.number }),
   }),
 };
 
@@ -204,6 +215,7 @@ const TokenCombate = ({ token, condicoes, detalhe, onAlterar }) => {
   const conhecidas = idsDoToken.filter(id => catalogoPorId.has(id));
   const desconhecidas = idsDoToken.filter(id => !catalogoPorId.has(id));
   const aura = normalizarAura(token.aura);
+  const deslocamento = deslocamentoDoToken(token);
 
   return (
     <Box
@@ -268,6 +280,18 @@ const TokenCombate = ({ token, condicoes, detalhe, onAlterar }) => {
           />
         </>
       )}
+
+      <CampoNumero
+        label="Deslocamento (m)"
+        valor={String(deslocamento).replace('.', ',')}
+        inputMode="decimal"
+        onConfirmar={texto => {
+          const novo = normalizarDeslocamento(texto);
+          if (novo !== null && novo !== deslocamento) {
+            onAlterar({ deslocamento: novo });
+          }
+        }}
+      />
 
       <Box sx={{ display: 'flex', gap: 1 }}>
         <TextField
@@ -337,6 +361,7 @@ TokenCombate.propTypes = {
     mostrarRecursos: PropTypes.string,
     condicoes: PropTypes.arrayOf(PropTypes.string),
     aura: PropTypes.shape({ raio: PropTypes.number, cor: PropTypes.string }),
+    deslocamento: PropTypes.number,
   }).isRequired,
   condicoes: PropTypes.arrayOf(
     PropTypes.shape({ id: PropTypes.string.isRequired }),
@@ -344,6 +369,7 @@ TokenCombate.propTypes = {
   detalhe: PropTypes.shape({
     recursos: PropTypes.object,
     condicoes: PropTypes.arrayOf(PropTypes.object),
+    pp: PropTypes.shape({ atual: PropTypes.number, max: PropTypes.number }),
   }),
   onAlterar: PropTypes.func.isRequired,
 };

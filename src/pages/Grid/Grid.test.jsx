@@ -23,6 +23,10 @@ const getCondicoes = vi.fn();
 const subscribeGridPings = vi.fn(() => () => {});
 const setGridPing = vi.fn(() => Promise.resolve());
 const subscribePersonagem = vi.fn(() => () => {});
+const subscribeGridCombate = vi.fn();
+const alterarGridCombate = vi.fn();
+const iniciarGridCombate = vi.fn();
+const encerrarGridCombate = vi.fn();
 const subscribeAudioMesa = vi.fn((_id, onChange) => {
   onChange(null);
   return vi.fn();
@@ -45,6 +49,10 @@ vi.mock('service/storage', () => ({
   subscribeGridPings: (...args) => subscribeGridPings(...args),
   setGridPing: (...args) => setGridPing(...args),
   subscribePersonagem: (...args) => subscribePersonagem(...args),
+  subscribeGridCombate: (...args) => subscribeGridCombate(...args),
+  alterarGridCombate: (...args) => alterarGridCombate(...args),
+  iniciarGridCombate: (...args) => iniciarGridCombate(...args),
+  encerrarGridCombate: (...args) => encerrarGridCombate(...args),
   getCondicoes: (...args) => getCondicoes(...args),
   getRmMapasPorCampanha: vi.fn(() =>
     Promise.resolve([
@@ -217,6 +225,14 @@ describe('Grid (Re:Master)', () => {
     removeGridToken.mockResolvedValue();
     moverGridToken.mockResolvedValue();
     subscribePersonagem.mockImplementation(() => () => {});
+    // Sem combate por padrão; os testes de combate emitem o estado.
+    subscribeGridCombate.mockImplementation((_id, _cenaId, onChange) => {
+      onChange(null);
+      return vi.fn();
+    });
+    alterarGridCombate.mockResolvedValue(true);
+    iniciarGridCombate.mockResolvedValue();
+    encerrarGridCombate.mockResolvedValue();
     getCondicoes.mockResolvedValue([
       { id: 'cond1', nome: 'Envenenado' },
       { id: 'cond2', nome: 'Atordoado' },
@@ -537,6 +553,7 @@ describe('Grid (Re:Master)', () => {
         corGrade: '#ffffff',
         opacidadeGrade: 0.25,
         metrosPorQuadrado: 1.5,
+        multiplicadorCorrida: 2,
       }),
     );
     expect(
@@ -808,5 +825,291 @@ describe('Grid (Re:Master)', () => {
       ),
     );
     expect(getCondicoes).toHaveBeenCalledWith('u1');
+  });
+
+  describe('combate da cena (Fase 3A)', () => {
+    const ORDEM = [
+      { tokenId: 't1', iniciativa: 12, d20: 6, reacao: 6 },
+      { tokenId: 't2', iniciativa: 9, d20: 9, reacao: 0 },
+    ];
+    const COMBATE = {
+      ordem: ORDEM,
+      indice: 0,
+      rodada: 1,
+      inicioTurno: { col: 1, lin: 1 },
+      turnoEm: { seconds: 10, nanoseconds: 0 },
+    };
+
+    const emitirCombate = doc => {
+      subscribeGridCombate.mockImplementation((_id, _cenaId, onChange) => {
+        onChange(doc);
+        return vi.fn();
+      });
+    };
+
+    it('"Iniciar combate" rola 1d20 + Reação, grava o estado e anuncia no chat', async () => {
+      const user = userEvent.setup();
+      // [d20, sorteio] por participante: Aldric 5 + Reação 6 = 11; Ogro 10 + 0.
+      const sequencia = [4, 0, 9, 0];
+      const sorteio = vi
+        .spyOn(globalThis.crypto, 'getRandomValues')
+        .mockImplementation(buffer => {
+          buffer[0] = sequencia.shift() ?? 0;
+          return buffer;
+        });
+      renderGrid();
+      await screen.findByRole('button', { name: /Aldric, coluna/ });
+
+      await user.click(screen.getByRole('button', { name: 'Iniciar combate' }));
+      const dialogo = await screen.findByRole('dialog');
+      // Aldric: Reação vem da ficha; Ogro (oculto) sem ficha: o mestre informa.
+      expect(
+        await within(dialogo).findByText('Reação 6 (da ficha)'),
+      ).toBeInTheDocument();
+      expect(
+        within(dialogo).getByRole('checkbox', { name: /Ogro/ }),
+      ).toBeChecked();
+      expect(within(dialogo).getByLabelText('Reação de Ogro')).toHaveValue('0');
+      await user.click(
+        within(dialogo).getByRole('button', {
+          name: 'Rolar iniciativa e iniciar',
+        }),
+      );
+
+      await waitFor(() =>
+        expect(iniciarGridCombate).toHaveBeenCalledWith(
+          'c1',
+          'cena-1',
+          {
+            ordem: [
+              { tokenId: 't1', iniciativa: 11, d20: 5, reacao: 6 },
+              { tokenId: 't2', iniciativa: 10, d20: 10, reacao: 0 },
+            ],
+            indice: 0,
+            rodada: 1,
+            inicioTurno: { col: 1, lin: 1 },
+          },
+          expect.objectContaining({
+            tipo: 'combate',
+            isMestre: true,
+            autorNome: 'Mestre',
+            combate: {
+              evento: 'inicio',
+              cenaId: 'cena-1',
+              rodada: 1,
+              nome: 'Aldric',
+              oculto: false,
+              // O Ogro (oculto) fica fora da lista pública.
+              iniciativa: [{ nome: 'Aldric', total: 11, d20: 5, reacao: 6 }],
+            },
+          }),
+        ),
+      );
+      sorteio.mockRestore();
+    });
+
+    it('mostra a faixa, passa o turno (Próximo/Anterior) e encerra', async () => {
+      const user = userEvent.setup();
+      emitirCombate(COMBATE);
+      renderGrid();
+
+      expect(await screen.findByText('Rodada 1')).toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: 'Centralizar em Aldric' }),
+      ).toHaveAttribute('aria-current', 'true');
+      expect(
+        screen.queryByRole('button', { name: 'Iniciar combate' }),
+      ).not.toBeInTheDocument();
+
+      await user.click(screen.getByRole('button', { name: 'Próximo turno' }));
+      await waitFor(() =>
+        expect(alterarGridCombate).toHaveBeenCalledWith(
+          'c1',
+          'cena-1',
+          expect.any(Function),
+        ),
+      );
+      // O calcular devolve o patch e a mensagem do mestre.
+      const calcular = alterarGridCombate.mock.calls[0][2];
+      expect(calcular(COMBATE)).toEqual({
+        patch: { indice: 1, rodada: 1, inicioTurno: { col: 4, lin: 1 } },
+        mudouTurno: true,
+        mensagem: expect.objectContaining({
+          tipo: 'combate',
+          isMestre: true,
+          combate: expect.objectContaining({
+            evento: 'turno',
+            cenaId: 'cena-1',
+            // O Ogro está oculto: o chat não revela o nome.
+            nome: null,
+            oculto: true,
+          }),
+        }),
+      });
+
+      await user.click(screen.getByRole('button', { name: 'Anterior' }));
+      await waitFor(() => expect(alterarGridCombate).toHaveBeenCalledTimes(2));
+
+      vi.spyOn(window, 'confirm').mockReturnValue(true);
+      await user.click(
+        screen.getByRole('button', { name: 'Encerrar combate' }),
+      );
+      await waitFor(() =>
+        expect(encerrarGridCombate).toHaveBeenCalledWith(
+          'c1',
+          'cena-1',
+          expect.objectContaining({
+            tipo: 'combate',
+            combate: { evento: 'fim', cenaId: 'cena-1' },
+          }),
+        ),
+      );
+    });
+
+    it('"Participantes" sobe, desce, tira e acrescenta sem mensagem no chat', async () => {
+      const user = userEvent.setup();
+      const ogro = TOKENS_POR_CENA['cena-1'][1];
+      const goblin = {
+        id: 't3',
+        nome: 'Goblin',
+        tipo: 'npc',
+        refId: null,
+        col: 6,
+        lin: 3,
+        tamanho: 1,
+        donos: [],
+        oculto: false,
+      };
+      subscribeGridTokens.mockImplementation(
+        (_id, cenaId, _opcoes, onChange) => {
+          onChange(
+            cenaId === 'cena-1'
+              ? [TOKENS_POR_CENA['cena-1'][0], ogro, goblin]
+              : [],
+          );
+          return vi.fn();
+        },
+      );
+      emitirCombate(COMBATE);
+      renderGrid();
+
+      await user.click(
+        await screen.findByRole('button', { name: 'Participantes' }),
+      );
+      const dialogo = await screen.findByRole('dialog');
+      expect(
+        within(dialogo).getByRole('button', { name: 'Subir Aldric' }),
+      ).toBeDisabled();
+
+      await user.click(
+        within(dialogo).getByRole('button', { name: 'Descer Aldric' }),
+      );
+      await user.click(
+        within(dialogo).getByRole('button', { name: 'Tirar Ogro do combate' }),
+      );
+      await waitFor(() => expect(alterarGridCombate).toHaveBeenCalledTimes(2));
+      const [descer, tirar] = alterarGridCombate.mock.calls.map(c => c[2]);
+      expect(descer(COMBATE)).toEqual({
+        patch: { ordem: [ORDEM[1], ORDEM[0]], indice: 1 },
+        mudouTurno: false,
+      });
+      expect(tirar(COMBATE).mensagem).toBeUndefined();
+
+      // Quem estava fora entra com a iniciativa rolada na hora (Reação 3).
+      const reacao = within(dialogo).getByLabelText('Reação de Goblin');
+      await user.clear(reacao);
+      await user.type(reacao, '3');
+      await user.click(
+        within(dialogo).getByRole('button', { name: 'Adicionar Goblin' }),
+      );
+      await waitFor(() => expect(alterarGridCombate).toHaveBeenCalledTimes(3));
+      const adicionar = alterarGridCombate.mock.calls[2][2](COMBATE);
+      expect(adicionar.mensagem).toBeUndefined();
+      expect(adicionar.patch.ordem.map(e => e.tokenId)).toContain('t3');
+      await waitFor(() =>
+        expect(notifySuccess).toHaveBeenCalledWith(
+          expect.stringContaining('Goblin entrou no combate'),
+        ),
+      );
+    });
+
+    it('remover o token da cena também o tira do combate', async () => {
+      const user = userEvent.setup();
+      emitirCombate(COMBATE);
+      vi.spyOn(window, 'confirm').mockReturnValue(true);
+      renderGrid();
+
+      (await screen.findByRole('button', { name: /Ogro, coluna/ })).focus();
+      await user.keyboard('{Enter}');
+      const painel = await screen.findByRole('region', {
+        name: 'Token selecionado',
+      });
+      await user.click(within(painel).getByRole('button', { name: 'Remover' }));
+      await waitFor(() =>
+        expect(removeGridToken).toHaveBeenCalledWith('c1', 'cena-1', 't2'),
+      );
+      expect(alterarGridCombate).toHaveBeenCalledTimes(1);
+      const resultado = alterarGridCombate.mock.calls[0][2](COMBATE);
+      expect(resultado.patch.ordem).toEqual([ORDEM[0]]);
+    });
+
+    it('o seletor "Movimento" grava o travamento da cena', async () => {
+      const user = userEvent.setup();
+      renderGrid();
+      await screen.findByRole('button', { name: /Aldric, coluna/ });
+
+      await user.click(screen.getByLabelText('Movimento'));
+      await user.click(
+        await screen.findByRole('option', { name: 'Só na sua vez' }),
+      );
+      await waitFor(() =>
+        expect(updateGridCena).toHaveBeenCalledWith('c1', 'cena-1', {
+          travamento: 'turno',
+        }),
+      );
+    });
+
+    it('o painel do grid escolhe quanto "Correr" rende e salva junto', async () => {
+      const user = userEvent.setup();
+      renderGrid();
+      await screen.findByRole('button', { name: /Aldric, coluna/ });
+      await user.click(screen.getByRole('button', { name: 'Configurar grid' }));
+      const painel = await screen.findByRole('region', {
+        name: 'Configurar grid',
+      });
+
+      await user.click(within(painel).getByLabelText('Correr'));
+      await user.click(await screen.findByRole('option', { name: '1,5×' }));
+      await user.click(
+        within(painel).getByRole('button', { name: 'Salvar grid' }),
+      );
+      await waitFor(() =>
+        expect(updateGridCena).toHaveBeenCalledWith(
+          'c1',
+          'cena-1',
+          expect.objectContaining({ multiplicadorCorrida: 1.5 }),
+        ),
+      );
+    });
+
+    it('o campo "Deslocamento (m)" do token grava na hora', async () => {
+      const user = userEvent.setup();
+      renderGrid();
+      (await screen.findByRole('button', { name: /Ogro, coluna/ })).focus();
+      await user.keyboard('{Enter}');
+      const painel = await screen.findByRole('region', {
+        name: 'Token selecionado',
+      });
+
+      const campo = within(painel).getByLabelText('Deslocamento (m)');
+      expect(campo).toHaveValue('9');
+      await user.clear(campo);
+      await user.type(campo, '7,5{Enter}');
+      await waitFor(() =>
+        expect(updateGridToken).toHaveBeenCalledWith('c1', 'cena-1', 't2', {
+          deslocamento: 7.5,
+        }),
+      );
+    });
   });
 });

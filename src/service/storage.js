@@ -14,6 +14,7 @@ import {
   limit,
   onSnapshot,
   writeBatch,
+  runTransaction,
 } from 'firebase/firestore';
 import {
   recuperarExploracaoGrid,
@@ -1050,6 +1051,10 @@ export const removeChatMacro = (campanhaId, macroId) =>
 // Sinais no mapa (`gridCenas/{cenaId}/pings/{uid}`, setGridPing) são gravados
 // por todos (cada um o próprio); PV/Energia/Fadiga, condições e aura dos
 // tokens (updateGridToken) só o mestre.
+// Combate (Fase 3A): `gridCenas/{cenaId}/combate/atual` existe enquanto há
+// combate — o mestre inicia (iniciarGridCombate), encerra (encerrarGridCombate)
+// e altera tudo por alterarGridCombate; o jogador só passa o próprio turno. O
+// `travamento` da cena limita quando o jogador move.
 const gridRef = campanhaId =>
   doc(db, RM_CAMPANHAS_COLLECTION, campanhaId, 'grid', 'atual');
 const gridCenasRef = campanhaId =>
@@ -1118,6 +1123,79 @@ export const subscribeGridTokens = (
       ),
     onError,
   );
+};
+
+// Combate da cena (common/utils/gridCombate.js): existe enquanto há combate.
+const gridCombateRef = (campanhaId, cenaId) =>
+  doc(gridCenaRef(campanhaId, cenaId), 'combate', 'atual');
+
+// Chama `onChange(dados | null)`. serverTimestamps 'none' (padrão): a minha
+// troca de turno pendente chega com `turnoEm` null.
+export const subscribeGridCombate = (campanhaId, cenaId, onChange, onError) =>
+  onSnapshot(
+    gridCombateRef(campanhaId, cenaId),
+    snapshot => onChange(snapshot.exists() ? snapshot.data() : null),
+    onError,
+  );
+
+// Transação sobre o combate: `calcular(docAtual)` → null (nada a fazer) |
+// { patch, mensagem = null, mudouTurno = false }. `mudouTurno` grava
+// `turnoEm` (horário do servidor); `mensagem` (montarMensagemCombate) entra
+// no chat na mesma escrita — a regra confere isso para o jogador. Resolve
+// true se gravou.
+export const alterarGridCombate = (campanhaId, cenaId, calcular) =>
+  runTransaction(db, async transacao => {
+    const ref = gridCombateRef(campanhaId, cenaId);
+    const snapshot = await transacao.get(ref);
+    const resultado = snapshot.exists() ? calcular(snapshot.data()) : null;
+    if (!resultado) return false;
+    transacao.update(ref, {
+      ...resultado.patch,
+      ...(resultado.mudouTurno ? { turnoEm: serverTimestamp() } : {}),
+      updatedAt: serverTimestamp(),
+    });
+    if (resultado.mensagem) {
+      transacao.set(
+        doc(
+          collection(db, RM_CAMPANHAS_COLLECTION, campanhaId, 'chatMensagens'),
+        ),
+        { ...resultado.mensagem, createdAt: serverTimestamp() },
+      );
+    }
+    return true;
+  });
+
+// Só o mestre: começa o combate (estado de montarInicioDoCombate) e anuncia
+// na mesma escrita atômica.
+export const iniciarGridCombate = async (
+  campanhaId,
+  cenaId,
+  estado,
+  mensagem,
+) => {
+  const batch = writeBatch(db);
+  batch.set(gridCombateRef(campanhaId, cenaId), {
+    ...estado,
+    turnoEm: serverTimestamp(),
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+  batch.set(
+    doc(collection(db, RM_CAMPANHAS_COLLECTION, campanhaId, 'chatMensagens')),
+    { ...mensagem, createdAt: serverTimestamp() },
+  );
+  await batch.commit();
+};
+
+// Só o mestre: apaga o combate e anuncia o fim na mesma escrita atômica.
+export const encerrarGridCombate = async (campanhaId, cenaId, mensagem) => {
+  const batch = writeBatch(db);
+  batch.delete(gridCombateRef(campanhaId, cenaId));
+  batch.set(
+    doc(collection(db, RM_CAMPANHAS_COLLECTION, campanhaId, 'chatMensagens')),
+    { ...mensagem, createdAt: serverTimestamp() },
+  );
+  await batch.commit();
 };
 
 // Com `rastro` ([{col, lin}], common/utils/grid.js — montarRastro), grava
@@ -1248,8 +1326,8 @@ export const duplicarGridCena = async (campanhaId, cenaId, nome) => {
   );
 };
 
-// Apaga os tokens, os sinais (pings) e a cena numa escrita só (até 200
-// tokens por cena).
+// Apaga os tokens, os sinais (pings), o combate e a cena numa escrita só (até
+// 200 tokens por cena).
 export const removeGridCena = async (campanhaId, cenaId) => {
   const [tokensSnapshot, pingsSnapshot] = await Promise.all([
     getDocs(gridTokensRef(campanhaId, cenaId)),
@@ -1258,6 +1336,7 @@ export const removeGridCena = async (campanhaId, cenaId) => {
   const batch = writeBatch(db);
   tokensSnapshot.docs.forEach(docSnapshot => batch.delete(docSnapshot.ref));
   pingsSnapshot.docs.forEach(docSnapshot => batch.delete(docSnapshot.ref));
+  batch.delete(gridCombateRef(campanhaId, cenaId));
   batch.delete(gridCenaRef(campanhaId, cenaId));
   await batch.commit();
 };

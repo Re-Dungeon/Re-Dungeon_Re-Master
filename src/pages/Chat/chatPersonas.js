@@ -1,5 +1,6 @@
 import { PERSONAS } from 'common/utils/chat';
 import { recursosIniciais } from 'common/utils/grid';
+import { reacaoDaFicha } from 'common/utils/gridCombate';
 import { ehNpcDaCampanha } from 'pages/Npcs/npcUtils';
 import { ehCriaturaDaCampanha } from 'pages/Criaturas/criaturaUtils';
 import { ehJogadorDaCampanha } from 'pages/Jogadores/jogadoresUtils';
@@ -32,6 +33,8 @@ const montarGrupo = (personagens, clones, pertence, campanha, persona) =>
         // PV/Energia/Fadiga cheios da ficha (o clone não tem status) — o
         // token de NPC/Criatura do Grid começa com eles.
         recursos: recursosIniciais(personagem),
+        // Reação da ficha (iniciativa do combate do Grid); null = sem dados.
+        reacao: reacaoDaFicha(personagem),
         persona,
       };
     })

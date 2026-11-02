@@ -2,10 +2,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, renderHook } from '@testing-library/react';
 
 import {
+  alterarGridCombate,
   moverGridToken,
   setGridPing,
   subscribeGridCena,
   subscribeGridCenaAtiva,
+  subscribeGridCombate,
   subscribeGridPings,
   subscribeGridTokens,
   subscribePersonagem,
@@ -20,6 +22,8 @@ vi.mock('service/storage', () => ({
   subscribeGridPings: vi.fn(() => () => {}),
   setGridPing: vi.fn(),
   subscribePersonagem: vi.fn(() => () => {}),
+  subscribeGridCombate: vi.fn(() => () => {}),
+  alterarGridCombate: vi.fn(),
 }));
 vi.mock('hooks/useMembroDoChat', () => ({ default: vi.fn(() => true) }));
 
@@ -487,6 +491,129 @@ describe('useGridCampanha — sinais e detalhes dos tokens', () => {
       y: 20,
       puxar: false,
       nome: 'Aldric',
+    });
+  });
+});
+
+describe('useGridCampanha — combate e travamento', () => {
+  const BRINA = {
+    ...OGRO,
+    id: 't4',
+    nome: 'Brina',
+    tipo: 'jogador',
+    donos: ['u1'],
+    col: 9,
+  };
+  const ALDRIC_JOGADOR = { ...ALDRIC, refId: 'p1' };
+  const FICHA = { uid: 'u1', prontidaoAtual: 12, prontidaoMaximaEfetiva: 30 };
+  let cena;
+  let combateDoc;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    cena = { nome: 'Arena', celula: 50 };
+    combateDoc = null;
+    subscribeGridCenaAtiva.mockImplementation((_campanhaId, onChange) => {
+      onChange('cena-1');
+      return vi.fn();
+    });
+    subscribeGridCena.mockImplementation((_campanhaId, cenaId, onChange) => {
+      onChange({ id: cenaId, ...cena });
+      return vi.fn();
+    });
+    subscribeGridTokens.mockImplementation(
+      (_campanhaId, _cenaId, _opcoes, onChange) => {
+        onChange([ALDRIC_JOGADOR, OGRO, BRINA]);
+        return vi.fn();
+      },
+    );
+    subscribePersonagem.mockImplementation((_id, onChange) => {
+      onChange(FICHA);
+      return vi.fn();
+    });
+    subscribeGridPings.mockImplementation(() => vi.fn());
+    subscribeGridCombate.mockImplementation(
+      (_campanhaId, _cenaId, onChange) => {
+        onChange(combateDoc);
+        return vi.fn();
+      },
+    );
+    alterarGridCombate.mockResolvedValue(true);
+  });
+
+  const emCombate = indice => ({
+    ordem: [
+      { tokenId: 't1', iniciativa: 20, d20: 15, reacao: 5 },
+      { tokenId: 't2', iniciativa: 10, d20: 8, reacao: 2 },
+    ],
+    indice,
+    rodada: 1,
+    inicioTurno: null,
+    turnoEm: horario(2),
+  });
+
+  it('sem combate e livre: move os próprios tokens; congelado: nenhum', () => {
+    const { result } = renderGrid();
+    expect(result.current.travamento).toBe('livre');
+    expect(result.current.combate).toBeNull();
+    expect(result.current.podeMover(ALDRIC_JOGADOR)).toBe(true);
+    expect(result.current.podeMover(OGRO)).toBe(false);
+
+    cena = { ...cena, travamento: 'congelado' };
+    const congelado = renderGrid();
+    expect(congelado.result.current.travamento).toBe('congelado');
+    expect(congelado.result.current.podeMover(ALDRIC_JOGADOR)).toBe(false);
+    expect(renderGrid({ isMestre: true }).result.current.podeMover(OGRO)).toBe(
+      true,
+    );
+  });
+
+  it('"só na sua vez": em combate, só o token da vez; fora de combate, livre', () => {
+    cena = { ...cena, travamento: 'turno' };
+    expect(renderGrid().result.current.podeMover(BRINA)).toBe(true);
+
+    combateDoc = emCombate(0);
+    const { result } = renderGrid();
+    expect(result.current.podeMover(ALDRIC_JOGADOR)).toBe(true);
+    // Token meu fora da vez (nem participa): parado.
+    expect(result.current.podeMover(BRINA)).toBe(false);
+
+    combateDoc = emCombate(1);
+    expect(renderGrid().result.current.podeMover(ALDRIC_JOGADOR)).toBe(false);
+  });
+
+  it('expõe combate, token da vez, meuTurno, fichas e o PP no detalhe do dono', async () => {
+    combateDoc = emCombate(0);
+    const autor = {
+      uid: 'u1',
+      personagemId: 'p1',
+      autorNome: 'Aldric',
+      isMestre: false,
+    };
+    const { result } = renderGrid({ autorCombate: autor });
+    expect(result.current.combate).toMatchObject({
+      indice: 0,
+      tokenDaVezId: 't1',
+    });
+    expect(result.current.tokenDaVez.id).toBe('t1');
+    expect(result.current.meuTurno).toBe(true);
+    expect(result.current.fichas).toEqual({ p1: FICHA });
+    expect(result.current.detalhes.t1.pp).toEqual({ atual: 12, max: 30 });
+
+    await act(async () => {
+      await result.current.encerrarTurno();
+    });
+    const calcular = alterarGridCombate.mock.calls[0][2];
+    expect(alterarGridCombate.mock.calls[0].slice(0, 2)).toEqual([
+      'camp-1',
+      'cena-1',
+    ]);
+    expect(calcular(emCombate(0))).toMatchObject({
+      patch: { indice: 1 },
+      mensagem: {
+        autorNome: 'Aldric',
+        combate: { evento: 'turno', nome: 'Ogro' },
+      },
     });
   });
 });

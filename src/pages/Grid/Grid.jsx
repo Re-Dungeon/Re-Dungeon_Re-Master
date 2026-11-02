@@ -2,10 +2,15 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
+import MenuItem from '@mui/material/MenuItem';
+import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import AddIcon from '@mui/icons-material/Add';
 import ChatOutlinedIcon from '@mui/icons-material/ChatOutlined';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import GroupsIcon from '@mui/icons-material/Groups';
+import StopIcon from '@mui/icons-material/Stop';
+import SportsMartialArtsIcon from '@mui/icons-material/SportsMartialArts';
 import SettingsIcon from '@mui/icons-material/Settings';
 import { useAuth } from 'context/AuthContext';
 import { useCampanha } from 'context/CampanhaContext';
@@ -32,19 +37,29 @@ import {
   montarToken,
   nomeDaCena,
   nomeDaCopia,
+  normalizarTravamento,
   primeiraCelulaLivre,
   validarToken,
 } from 'common/utils/grid';
 import useGridCampanha from 'hooks/useGridCampanha';
 import GridMapa from 'components/Grid/GridMapa';
 import ChatMestre from 'pages/Chat/ChatMestre';
+import { PERSONA_MESTRE, autorDaPersona } from 'pages/Chat/chatPersonas';
 import useFontesDaMesa from 'pages/Chat/useFontesDaMesa';
 import AdicionarTokenDialog from './AdicionarTokenDialog';
 import CenaDialog from './CenaDialog';
 import CenasBarra from './CenasBarra';
 import GridConfigPainel from './GridConfigPainel';
+import IniciarCombateDialog from './IniciarCombateDialog';
+import ParticipantesCombateDialog from './ParticipantesCombateDialog';
 import TokenPainel from './TokenPainel';
-import { jogadoresSemToken, tokensDeJogadoresFaltantes } from './gridMestre';
+import {
+  OPCOES_TRAVAMENTO,
+  jogadoresSemToken,
+  reacaoDoToken,
+  tokensDeJogadoresFaltantes,
+} from './gridMestre';
+import useCombateMestre from './useCombateMestre';
 import useCenasDoGrid from './useCenasDoGrid';
 
 const MAPAS_VAZIOS = { campanhaId: null, lista: [] };
@@ -97,6 +112,11 @@ const Grid = () => {
       ? condicoesCarregadas.lista
       : SEM_CONDICOES;
 
+  const autorMestre = useMemo(
+    () => autorDaPersona(currentUser.uid, PERSONA_MESTRE),
+    [currentUser.uid],
+  );
+
   const grid = useGridCampanha(campanhaId, {
     uid: currentUser.uid,
     isMestre: true,
@@ -106,6 +126,8 @@ const Grid = () => {
     nome: 'Mestre',
     mestreId: currentUser.uid,
     catalogoCondicoes,
+    // As mensagens de combate (Próximo/Anterior) saem como "Mestre".
+    autorCombate: autorMestre,
   });
   const { erro: erroGrid, limparErro: limparErroGrid } = grid;
 
@@ -115,6 +137,8 @@ const Grid = () => {
   const [adicionarAberto, setAdicionarAberto] = useState(false);
   // { modo: 'nova' } | { modo: 'renomear', cena } | null
   const [cenaDialog, setCenaDialog] = useState(null);
+  const [iniciarAberto, setIniciarAberto] = useState(false);
+  const [participantesAberto, setParticipantesAberto] = useState(false);
   const [chatAberto, setChatAberto] = useState(true);
   const [imagemCarregada, setImagemCarregada] = useState(null);
   const [mapasCarregados, setMapasCarregados] = useState(MAPAS_VAZIOS);
@@ -201,6 +225,18 @@ const Grid = () => {
       return undefined;
     }
   };
+
+  const combate = useCombateMestre({
+    campanhaId,
+    cenaId: cenaAbertaId,
+    combate: grid.combate,
+    tokens: grid.tokens,
+    autor: autorMestre,
+    tentar,
+    notifySuccess,
+  });
+  const reacaoDoTokenDaMesa = token =>
+    reacaoDoToken(token, { fichas: grid.fichas, fontes });
 
   const fecharConfig = () => {
     setConfigAberta(false);
@@ -353,6 +389,10 @@ const Grid = () => {
 
   const handleRemoverToken = async () => {
     if (!window.confirm(`Remover "${selecionado.nome}" da cena?`)) return;
+    // Quem sai da cena sai também do combate (o último encerra o combate).
+    if (grid.combate?.ordem.some(item => item.tokenId === selecionado.id)) {
+      if (!(await combate.remover(selecionado.id))) return;
+    }
     const ok = await tentar(
       () =>
         removeGridToken(campanhaId, cenaAbertaId, selecionado.id).then(
@@ -361,6 +401,19 @@ const Grid = () => {
       'Não foi possível remover o token.',
     );
     if (ok) setSelecionadoId(null);
+  };
+
+  const handleTravamento = event =>
+    tentar(
+      () =>
+        updateGridCena(campanhaId, cenaAbertaId, {
+          travamento: event.target.value,
+        }).then(() => true),
+      'Não foi possível mudar o movimento da cena.',
+    );
+
+  const handleIniciarCombate = async participantes => {
+    if (await combate.iniciar(participantes)) setIniciarAberto(false);
   };
 
   const handleSalvarConfig = async novaConfig => {
@@ -442,6 +495,46 @@ const Grid = () => {
         >
           Adicionar token
         </Button>
+        <TextField
+          select
+          size="small"
+          label="Movimento"
+          value={normalizarTravamento(grid.travamento)}
+          onChange={handleTravamento}
+          disabled={!cenaAberta}
+          sx={{ minWidth: 150 }}
+        >
+          {OPCOES_TRAVAMENTO.map(opcao => (
+            <MenuItem key={opcao.value} value={opcao.value}>
+              {opcao.label}
+            </MenuItem>
+          ))}
+        </TextField>
+        {grid.combate ? (
+          <>
+            <Button
+              startIcon={<GroupsIcon />}
+              onClick={() => setParticipantesAberto(true)}
+            >
+              Participantes
+            </Button>
+            <Button
+              color="error"
+              startIcon={<StopIcon />}
+              onClick={() => combate.encerrar()}
+            >
+              Encerrar combate
+            </Button>
+          </>
+        ) : (
+          <Button
+            startIcon={<SportsMartialArtsIcon />}
+            onClick={() => setIniciarAberto(true)}
+            disabled={!cenaAberta || grid.tokens.length === 0}
+          >
+            Iniciar combate
+          </Button>
+        )}
         <Button
           startIcon={<ChatOutlinedIcon />}
           aria-pressed={chatAberto}
@@ -498,6 +591,12 @@ const Grid = () => {
             onPing={grid.pingar}
             pings={grid.pings}
             detalhes={grid.detalhes}
+            combate={grid.combate}
+            travamento={grid.travamento}
+            acoesCombate={{
+              anterior: () => grid.mudarTurno(-1),
+              proximo: () => grid.mudarTurno(1),
+            }}
           />
           {selecionado && (
             <TokenPainel
@@ -510,6 +609,7 @@ const Grid = () => {
               onAlterar={handleAlterarToken}
               onRemover={handleRemoverToken}
               onFechar={() => setSelecionadoId(null)}
+              abaixoDaFaixa={Boolean(grid.combate)}
             />
           )}
           {configAberta && cenaAberta && (
@@ -520,6 +620,7 @@ const Grid = () => {
               onPrevia={setPrevia}
               onSalvar={handleSalvarConfig}
               onFechar={fecharConfig}
+              abaixoDaFaixa={Boolean(grid.combate)}
             />
           )}
         </Box>
@@ -553,6 +654,27 @@ const Grid = () => {
         onAdicionar={handleAdicionar}
         jogadoresFaltando={jogadoresFaltando}
         onAdicionarJogadores={handleAdicionarJogadores}
+      />
+
+      {iniciarAberto && (
+        <IniciarCombateDialog
+          open
+          tokens={grid.tokens}
+          reacaoDoToken={reacaoDoTokenDaMesa}
+          onIniciar={handleIniciarCombate}
+          onClose={() => setIniciarAberto(false)}
+        />
+      )}
+
+      <ParticipantesCombateDialog
+        open={participantesAberto && Boolean(grid.combate)}
+        combate={grid.combate}
+        tokens={grid.tokens}
+        reacaoDoToken={reacaoDoTokenDaMesa}
+        onMover={combate.mover}
+        onRemover={combate.remover}
+        onAdicionar={combate.adicionar}
+        onClose={() => setParticipantesAberto(false)}
       />
 
       {cenaDialog && (
