@@ -250,9 +250,13 @@ const TEXTO_TRAVAMENTO = {
 };
 // Folga (px de tela) entre o token e o cartão de detalhes.
 const FOLGA_DETALHE = 6;
+// Tempo (ms) que o cartão editável espera o mouse ir do token ao cartão.
+const HOVER_CARTAO_MS = 250;
 // Metade da largura máxima do cartão (centralizado no token): mantém ele
 // dentro do viewport.
 const MEIA_LARGURA_DETALHE = 120;
+// O cartão editável (linhas com − / + ) é mais largo (max-width 290px).
+const MEIA_LARGURA_DETALHE_EDITAVEL = 145;
 // Folga (px de tela) entre o rótulo de distância e o topo do token.
 const FOLGA_ROTULO = 6;
 // Metade da largura do cartão do marcador (260px), para mantê-lo no viewport.
@@ -300,6 +304,8 @@ const GridMapa = ({
   podeEditarArea,
   corAreaPadrao = CORES_AREA[0],
   podeRolarToken,
+  podeEditarRecursos,
+  onAlterarRecurso,
   onRolarToken,
 }) => {
   const ehMeu = ehMeuToken ?? podeMover;
@@ -373,11 +379,18 @@ const GridMapa = ({
   // Cartão do token: sob o mouse (desktop) ou tocado (celular, por um tempo).
   const [hoverId, setHoverId] = useState(null);
   const [toqueId, setToqueId] = useState(null);
+  // Cartão editável (dono): fica aberto enquanto o foco está dentro dele.
+  const [cartaoFocadoId, setCartaoFocadoId] = useState(null);
   // Em combate, o jogador tocou o próprio token: mostra o alcance dele (até
   // tocar no mapa vazio ou Esc). O mestre usa o selecionado.
   const [alcanceId, setAlcanceId] = useState(null);
   // Timers da pressão longa e do cartão por toque.
-  const temporizadores = useRef({ pressao: null, toque: null, parede: null });
+  const temporizadores = useRef({
+    pressao: null,
+    toque: null,
+    parede: null,
+    hover: null,
+  });
   // Celular (abaixo do `sm`): o mapa abre focado no primeiro token que a
   // pessoa pode mover, com célula ≥ 44px. A posição do foco é a do token
   // quando ele apareceu — mover o token depois não arrasta a vista junto.
@@ -560,6 +573,21 @@ const GridMapa = ({
     return () => window.removeEventListener('keydown', aoTeclar);
   }, [alcanceId, acaoId]);
 
+  // Esc fecha o cartão editável (tocado/focado) e tira o foco do campo.
+  const cartaoFixo = toqueId !== null || cartaoFocadoId !== null;
+  useEffect(() => {
+    if (!cartaoFixo) return undefined;
+    const aoTeclar = event => {
+      if (event.key !== 'Escape') return;
+      if (document.activeElement?.closest?.('[data-detalhe]'))
+        document.activeElement.blur();
+      setToqueId(null);
+      setCartaoFocadoId(null);
+    };
+    window.addEventListener('keydown', aoTeclar);
+    return () => window.removeEventListener('keydown', aoTeclar);
+  }, [cartaoFixo]);
+
   // Esc desarma o modo Área, descarta a prévia e solta a área selecionada.
   const escutaEscArea =
     modoArea !== null || previaArea !== null || areaSelId !== null;
@@ -584,6 +612,7 @@ const GridMapa = ({
       clearTimeout(timers.pressao);
       clearTimeout(timers.toque);
       clearTimeout(timers.parede);
+      clearTimeout(timers.hover);
     };
   }, []);
 
@@ -672,13 +701,32 @@ const GridMapa = ({
     }, PING_PRESSAO_MS);
   };
 
-  // Cartão do token tocado (celular) por TOQUE_DETALHE_MS; null fecha.
-  const mostrarToque = tokenId => {
+  // Cartão com recursos editáveis (só o dono, quando a página liga a edição).
+  const recursosEditaveis = token =>
+    Boolean(
+      onAlterarRecurso &&
+      podeEditarRecursos?.(token) &&
+      detalhes[token.id]?.recursos?.numeros,
+    );
+
+  // Cartão do token tocado (celular) por TOQUE_DETALHE_MS; null fecha. O
+  // cartão editável fica fixo até tocar fora ou Esc.
+  const mostrarToque = (tokenId, fixo = false) => {
     clearTimeout(temporizadores.current.toque);
     setToqueId(tokenId);
-    temporizadores.current.toque = tokenId
-      ? setTimeout(() => setToqueId(null), TOQUE_DETALHE_MS)
-      : null;
+    temporizadores.current.toque =
+      tokenId && !fixo
+        ? setTimeout(() => setToqueId(null), TOQUE_DETALHE_MS)
+        : null;
+  };
+
+  // Mouse: o cartão editável precisa sobreviver ao trajeto token → cartão.
+  const soltarHover = tokenId => {
+    clearTimeout(temporizadores.current.hover);
+    temporizadores.current.hover = setTimeout(
+      () => setHoverId(atual => (atual === tokenId ? null : atual)),
+      HOVER_CARTAO_MS,
+    );
   };
 
   // Alvo da área: raio não tem; sem arrastar (alvo = origem) aponta para o
@@ -1172,7 +1220,12 @@ const GridMapa = ({
       );
     }
     // Celular: tocar mostra o cartão do token (tocar fora fecha).
-    if (event.pointerType !== 'mouse') mostrarToque(atual.token?.id ?? null);
+    if (event.pointerType !== 'mouse') {
+      mostrarToque(
+        atual.token?.id ?? null,
+        Boolean(atual.token && recursosEditaveis(atual.token)),
+      );
+    }
     onSelecionar?.(atual.token);
   };
 
@@ -1476,7 +1529,7 @@ const GridMapa = ({
     .map(token => ({ token, aura: normalizarAura(token.aura) }))
     .filter(({ aura }) => aura);
   // Cartão: token tocado (celular) ou sob o mouse; some durante o arraste.
-  const alvoId = tokenArrastado ? null : (toqueId ?? hoverId);
+  const alvoId = tokenArrastado ? null : (toqueId ?? hoverId ?? cartaoFocadoId);
   const alvo = alvoId ? (tokensPorId.get(alvoId) ?? null) : null;
   let cartao = null;
   if (alvo) {
@@ -1485,7 +1538,10 @@ const GridMapa = ({
     // Abaixo do token e do nome dele (o nome fica sob o círculo).
     const alturaNome = Math.max(10, celula * 0.24) * 1.4;
     const centro = vista.x + (canto.x + lado / 2) * vista.zoom;
-    const limite = viewport.largura - MEIA_LARGURA_DETALHE;
+    const meiaLargura = recursosEditaveis(alvo)
+      ? MEIA_LARGURA_DETALHE_EDITAVEL
+      : MEIA_LARGURA_DETALHE;
+    const limite = viewport.largura - meiaLargura;
     const quadrados =
       referencia && referencia.id !== alvo.id
         ? distanciaEntreTokens(referencia, alvo)
@@ -1498,8 +1554,8 @@ const GridMapa = ({
           : `${formatarDistancia(quadrados, metrosPorQuadrado)} de ${referencia.nome}`,
       style: {
         left:
-          limite > MEIA_LARGURA_DETALHE
-            ? Math.min(Math.max(centro, MEIA_LARGURA_DETALHE), limite)
+          limite > meiaLargura
+            ? Math.min(Math.max(centro, meiaLargura), limite)
             : centro,
         top:
           vista.y + (canto.y + lado + alturaNome) * vista.zoom + FOLGA_DETALHE,
@@ -1819,11 +1875,14 @@ const GridMapa = ({
               aria-pressed={onSelecionar ? selecionado : undefined}
               onKeyDown={event => handleTokenKeyDown(event, token)}
               onPointerEnter={event => {
-                if (event.pointerType === 'mouse') setHoverId(token.id);
+                if (event.pointerType !== 'mouse') return;
+                clearTimeout(temporizadores.current.hover);
+                setHoverId(token.id);
               }}
               onPointerLeave={event => {
-                if (event.pointerType === 'mouse')
-                  setHoverId(atual => (atual === token.id ? null : atual));
+                if (event.pointerType !== 'mouse') return;
+                if (recursosEditaveis(token)) soltarHover(token.id);
+                else setHoverId(atual => (atual === token.id ? null : atual));
               }}
               $movel={podeMover(token)}
               $arrastando={emArraste && !arraste.soltando}
@@ -1966,12 +2025,32 @@ const GridMapa = ({
 
       {cartao && (
         <TokenDetalhe
+          key={cartao.token.id}
           nome={cartao.token.nome}
           recursos={detalhes[cartao.token.id]?.recursos ?? null}
           condicoes={detalhes[cartao.token.id]?.condicoes ?? null}
           distancia={cartao.distancia}
           pp={detalhes[cartao.token.id]?.pp ?? null}
           style={cartao.style}
+          onAlterarRecurso={
+            recursosEditaveis(cartao.token)
+              ? (recurso, valor) =>
+                  onAlterarRecurso(cartao.token, recurso, valor)
+              : undefined
+          }
+          onPointerEnter={event => {
+            if (event.pointerType !== 'mouse') return;
+            clearTimeout(temporizadores.current.hover);
+            setHoverId(cartao.token.id);
+          }}
+          onPointerLeave={event => {
+            if (event.pointerType === 'mouse') soltarHover(cartao.token.id);
+          }}
+          onFocus={() => setCartaoFocadoId(cartao.token.id)}
+          onBlur={event => {
+            if (!event.currentTarget.contains(event.relatedTarget))
+              setCartaoFocadoId(null);
+          }}
         />
       )}
 
@@ -2377,6 +2456,11 @@ GridMapa.propTypes = {
   // "Rolar…" no token: `podeRolarToken(token)` decide, `onRolarToken(token)` abre
   // o diálogo (hospedado pela página).
   podeRolarToken: PropTypes.func,
+  // Dono edita PV/Energia/Fadiga atuais no cartão do token: `podeEditarRecursos(token)`
+  // + `onAlterarRecurso(token, 'pv'|'energia'|'fadiga', valor)` (promessa). Sem eles,
+  // o cartão é só leitura (Re:Master).
+  podeEditarRecursos: PropTypes.func,
+  onAlterarRecurso: PropTypes.func,
   onRolarToken: PropTypes.func,
 };
 

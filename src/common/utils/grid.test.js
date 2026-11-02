@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  ajustarRecursoAtual,
+  recursoDigitadoAtual,
   GRID_CONFIG_PADRAO,
   GRID_SEM_IMAGEM,
   RASTRO_VERTICES_MAX,
@@ -1136,5 +1138,29 @@ describe('combate (Fase 3A): travamento, corrida, deslocamento e PP', () => {
       veTudo: true,
     });
     expect(doMestre.outro.pp).toEqual({ atual: 4, max: 10 });
+  });
+});
+
+describe('edição do valor atual de recursos', () => {
+  const pv = { atual: 5, max: 10 };
+
+  it('ajustarRecursoAtual soma o passo e limita a 0..max', () => {
+    expect(ajustarRecursoAtual(pv, 1)).toBe(6);
+    expect(ajustarRecursoAtual(pv, -1)).toBe(4);
+    expect(ajustarRecursoAtual(pv, 50)).toBe(10);
+    expect(ajustarRecursoAtual({ atual: 0, max: 10 }, -1)).toBe(0);
+    expect(ajustarRecursoAtual(null, 1)).toBeNull();
+    expect(ajustarRecursoAtual(pv, 'x')).toBeNull();
+  });
+
+  it('recursoDigitadoAtual limita, arredonda e rejeita texto inválido', () => {
+    expect(recursoDigitadoAtual(pv, '7')).toBe(7);
+    expect(recursoDigitadoAtual(pv, ' 99 ')).toBe(10);
+    expect(recursoDigitadoAtual(pv, '-3')).toBe(0);
+    expect(recursoDigitadoAtual(pv, '2,6')).toBe(3);
+    expect(recursoDigitadoAtual(pv, '')).toBeNull();
+    expect(recursoDigitadoAtual(pv, '  ')).toBeNull();
+    expect(recursoDigitadoAtual(pv, 'abc')).toBeNull();
+    expect(recursoDigitadoAtual(null, '3')).toBeNull();
   });
 });

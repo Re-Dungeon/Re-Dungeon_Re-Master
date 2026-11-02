@@ -366,7 +366,7 @@ export const SinalPingNome = styled.span`
 export const TokenDetalheCaixa = styled.div`
   position: absolute;
   transform: translateX(-50%);
-  max-width: 240px;
+  max-width: ${({ $interativo }) => ($interativo ? '290px' : '240px')};
   padding: 6px 10px;
   border-radius: 8px;
   border: 1px solid var(--border-primary);
@@ -375,7 +375,7 @@ export const TokenDetalheCaixa = styled.div`
   color: var(--text-secondary);
   font-size: 0.8rem;
   line-height: 1.45;
-  pointer-events: none;
+  pointer-events: ${({ $interativo }) => ($interativo ? 'auto' : 'none')};
   z-index: 27;
 
   & strong {
@@ -388,6 +388,79 @@ export const TokenDetalheCaixa = styled.div`
 
   @media (max-width: 599.95px) {
     font-size: 0.9rem;
+  }
+`;
+
+// Linha editável de um recurso no cartão do dono: "PV [−] 12 / 20 [+]".
+export const LinhaRecursoEditavel = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+
+  & > span {
+    white-space: nowrap;
+  }
+
+  & > span:first-child {
+    min-width: 52px;
+  }
+
+  & button {
+    flex: none;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 1px solid var(--border-primary);
+    border-radius: 6px;
+    background: var(--bg-card);
+    color: var(--text-primary);
+    font-size: 1rem;
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  & button:hover:not(:disabled) {
+    border-color: var(--border-hover);
+  }
+
+  & button:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+
+  & input {
+    width: 52px;
+    height: 28px;
+    padding: 0 4px;
+    border: 1px solid var(--border-primary);
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text-primary);
+    font: inherit;
+    text-align: center;
+  }
+
+  @media (max-width: 599.95px) {
+    gap: 4px;
+
+    & > span:first-child {
+      min-width: 0;
+      flex: none;
+    }
+
+    & button {
+      width: 44px;
+      height: 44px;
+      font-size: 1.25rem;
+    }
+
+    & input {
+      width: 48px;
+      min-width: 0;
+      height: 44px;
+      font-size: 1rem;
+    }
   }
 `;
 

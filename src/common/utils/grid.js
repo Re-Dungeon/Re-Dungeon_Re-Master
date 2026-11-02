@@ -721,6 +721,21 @@ export const recursosDoToken = (
   return { ...recursos, numeros: modo === MODOS_RECURSOS.NUMEROS };
 };
 
+// Edição do valor ATUAL de um recurso pelo dono (cartão do token): passo de
+// ±N ou valor digitado, sempre dentro de 0..max. Texto vazio/inválido → null
+// (a interface volta ao valor anterior). A Fadiga é um estoque que se gasta
+// (descansado = max): "−" gasta, como nos demais.
+export const ajustarRecursoAtual = (recurso, delta) => {
+  if (!recurso || !Number.isFinite(Number(delta))) return null;
+  return limitar(recurso.atual + Math.round(Number(delta)), 0, recurso.max);
+};
+
+export const recursoDigitadoAtual = (recurso, texto) => {
+  if (!recurso || vazio(texto) || String(texto).trim() === '') return null;
+  const numero = Math.round(Number(String(texto).trim().replace(',', '.')));
+  return Number.isFinite(numero) ? limitar(numero, 0, recurso.max) : null;
+};
+
 // Quanto da barra está cheio (0–1). A Fadiga enche com o cansaço: descansado
 // (atual = max) = barra vazia.
 export const fracaoDaBarra = (id, recurso) => {
