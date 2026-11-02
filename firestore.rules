@@ -977,10 +977,12 @@ service cloud.firestore {
     // Marcadores (common/utils/gridMarcadores.js): `secreto` = só o mestre lê
     // (a consulta do jogador filtra `secreto == false`, como os tokens `oculto`).
     function gridMarcadorValido(data) {
-      return data.keys().hasOnly(['col', 'lin', 'icone', 'cor', 'titulo', 'texto', 'secreto',
+      return data.keys().hasOnly(['col', 'lin', 'tamanho', 'icone', 'cor', 'titulo', 'texto', 'secreto',
                                   'createdAt', 'updatedAt']) &&
         data.keys().hasAll(['col', 'lin', 'icone', 'cor', 'titulo', 'secreto']) &&
         gridPosicaoValida(data) &&
+        data.get('tamanho', 1) is int && data.get('tamanho', 1) >= 1 &&
+        data.get('tamanho', 1) <= 10 &&
         data.icone in ['alfinete', 'perigo', 'tesouro', 'porta', 'interrogacao', 'caveira'] &&
         data.cor is string && data.cor.matches('#[0-9a-fA-F]{6}') &&
         data.titulo is string && data.titulo.size() > 0 && data.titulo.size() <= 60 &&

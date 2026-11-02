@@ -477,11 +477,18 @@ const Grid = () => {
 
   const handleSalvarMarcador = async dados => {
     const { marcador, celula } = marcadorEditando;
+    // Âncora (canto superior esquerdo) presa ao mapa para caber tamanho×tamanho.
+    const ancora = limitarPosicao(
+      (marcador ?? celula).col,
+      (marcador ?? celula).lin,
+      limites,
+      dados.tamanho,
+    );
     const ok = await tentar(
       async () =>
         marcador
-          ? grid.salvarMarcador(marcador.id, dados)
-          : Boolean(await grid.criarMarcador({ ...celula, ...dados })),
+          ? grid.salvarMarcador(marcador.id, { ...dados, ...ancora })
+          : Boolean(await grid.criarMarcador({ ...dados, ...ancora })),
       'Não foi possível salvar o marcador.',
     );
     if (!ok) return;

@@ -6,6 +6,7 @@ import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
+import MenuItem from '@mui/material/MenuItem';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Switch from '@mui/material/Switch';
 import TextField from '@mui/material/TextField';
@@ -24,9 +25,11 @@ import {
   validarMarcador,
 } from 'common/utils/gridMarcadores';
 
+import { OPCOES_TAMANHO_TOKEN } from './gridMestre';
+
 /**
- * Cria ou edita um marcador do mapa (Fase 3B): título, texto, ícone, cor e
- * "Só o mestre vê". `marcador` (com id) = edição; senão `celula` = criação.
+ * Cria ou edita um marcador do mapa (Fase 3B): título, texto, tamanho
+ * (1×1 … 10×10, como o token), ícone, cor e "Só o mestre vê". `marcador` (com id) = edição; senão `celula` = criação.
  * Quem monta usa `key` para recomeçar o formulário a cada abertura.
  */
 const MarcadorDialog = ({
@@ -38,6 +41,7 @@ const MarcadorDialog = ({
 }) => {
   const [titulo, setTitulo] = useState(marcador?.titulo ?? '');
   const [texto, setTexto] = useState(marcador?.texto ?? '');
+  const [tamanho, setTamanho] = useState(marcador?.tamanho ?? 1);
   const [icone, setIcone] = useState(marcador?.icone ?? ICONE_MARCADOR_PADRAO);
   const [cor, setCor] = useState(marcador?.cor ?? COR_MARCADOR_PADRAO);
   const [secreto, setSecreto] = useState(marcador?.secreto ?? false);
@@ -48,6 +52,7 @@ const MarcadorDialog = ({
   const montado = montarMarcador({
     col: posicao?.col ?? 0,
     lin: posicao?.lin ?? 0,
+    tamanho,
     icone,
     cor,
     titulo,
@@ -71,6 +76,7 @@ const MarcadorDialog = ({
     if (erro) return;
     executar(() =>
       onSalvar({
+        tamanho: montado.tamanho,
         icone: montado.icone,
         cor: montado.cor,
         titulo: montado.titulo,
@@ -111,6 +117,20 @@ const MarcadorDialog = ({
             slotProps={{ htmlInput: { maxLength: MARCADOR_TEXTO_MAX } }}
             helperText={`${texto.length}/${MARCADOR_TEXTO_MAX}`}
           />
+          <TextField
+            select
+            size="small"
+            label="Tamanho"
+            value={tamanho}
+            onChange={event => setTamanho(event.target.value)}
+            sx={{ maxWidth: 160 }}
+          >
+            {OPCOES_TAMANHO_TOKEN.map(opcao => (
+              <MenuItem key={opcao.value} value={opcao.value}>
+                {opcao.label}
+              </MenuItem>
+            ))}
+          </TextField>
           <Box>
             <Typography variant="caption" sx={{ color: 'var(--text-muted)' }}>
               Ícone
@@ -210,6 +230,7 @@ MarcadorDialog.propTypes = {
     id: PropTypes.string.isRequired,
     col: PropTypes.number.isRequired,
     lin: PropTypes.number.isRequired,
+    tamanho: PropTypes.number,
     icone: PropTypes.string,
     cor: PropTypes.string,
     titulo: PropTypes.string,

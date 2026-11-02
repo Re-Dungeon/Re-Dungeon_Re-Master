@@ -33,12 +33,21 @@ describe('montarMarcador', () => {
     expect(m).toEqual({
       col: 1,
       lin: 2,
+      tamanho: 1,
       icone: 'alfinete',
       cor: COR_MARCADOR_PADRAO,
       titulo: 'Porta',
       texto: '',
       secreto: false,
     });
+  });
+
+  it('tamanho: mantém 1..10 inteiro; ausente/inválido vira 1', () => {
+    expect(montarMarcador({ ...valido, tamanho: 3 }).tamanho).toBe(3);
+    expect(montarMarcador({ ...valido, tamanho: 10 }).tamanho).toBe(10);
+    [undefined, 0, 11, 2.5, '3', null].forEach(t =>
+      expect(montarMarcador({ ...valido, tamanho: t }).tamanho).toBe(1),
+    );
   });
 
   it('corta título e texto nos limites', () => {
@@ -71,6 +80,14 @@ describe('validarMarcador', () => {
     expect(validarMarcador({ ...valido, lin: 1.5 })).toMatch(/Linha/);
   });
 
+  it('valida o tamanho 1..10 (ausente passa)', () => {
+    expect(validarMarcador({ ...valido, tamanho: 1 })).toBeNull();
+    expect(validarMarcador({ ...valido, tamanho: 10 })).toBeNull();
+    expect(validarMarcador({ ...valido, tamanho: 0 })).toMatch(/tamanho/);
+    expect(validarMarcador({ ...valido, tamanho: 11 })).toMatch(/tamanho/);
+    expect(validarMarcador({ ...valido, tamanho: 1.5 })).toMatch(/tamanho/);
+  });
+
   it('recusa ícone e cor inválidos', () => {
     expect(validarMarcador({ ...valido, icone: 'x' })).toMatch(/ícone/);
     expect(validarMarcador({ ...valido, cor: 'red' })).toMatch(/cor/);
@@ -100,12 +117,25 @@ describe('validarMarcador', () => {
 });
 
 describe('normalizarMarcador', () => {
-  it('converte um doc completo', () => {
+  it('converte um doc completo (tamanho ausente vira 1)', () => {
     expect(normalizarMarcador({ id: 'a', ...valido, createdAt: 5 })).toEqual({
       id: 'a',
       ...valido,
+      tamanho: 1,
       createdAt: 5,
     });
+  });
+
+  it('mantém tamanho válido e corrige o inválido para 1', () => {
+    expect(normalizarMarcador({ id: 'a', ...valido, tamanho: 4 }).tamanho).toBe(
+      4,
+    );
+    expect(
+      normalizarMarcador({ id: 'a', ...valido, tamanho: 99 }).tamanho,
+    ).toBe(1);
+    expect(
+      normalizarMarcador({ id: 'a', ...valido, tamanho: 'x' }).tamanho,
+    ).toBe(1);
   });
 
   it('descarta posição inválida', () => {

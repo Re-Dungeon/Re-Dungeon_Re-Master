@@ -1570,7 +1570,9 @@ const GridMapa = ({
   let posicaoCartaoMarcador = null;
   if (marcadorAberto) {
     const canto = posicaoEmPx(config, marcadorAberto.col, marcadorAberto.lin);
-    const centro = vista.x + (canto.x + celula / 2) * vista.zoom;
+    const centro =
+      vista.x +
+      (canto.x + (celula * (marcadorAberto.tamanho ?? 1)) / 2) * vista.zoom;
     const limiteDireito = viewport.largura - MEIA_LARGURA_CARTAO_MARCADOR;
     posicaoCartaoMarcador = {
       left:

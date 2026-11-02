@@ -33,6 +33,23 @@ describe('MarcadorPino', () => {
     expect(onClick).toHaveBeenCalledWith(marcador);
   });
 
+  it('tamanho 2 e 3: pino cobre a área N×N, centrado, sem mudar o 1×1', () => {
+    const { rerender } = render(
+      <MarcadorPino marcador={{ ...marcador, tamanho: 2 }} config={config} />,
+    );
+    let pino = screen.getByRole('button', { name: 'Marcador: Armadilha' });
+    expect(pino.style.width).toBe('80px'); // 50 * (2 - 0.4)
+    expect(pino.style.left).toBe('120px'); // 10 + 2*50 + (100-80)/2
+    expect(pino.style.top).toBe('80px'); // 20 + 1*50 + (100-80)/2
+    rerender(
+      <MarcadorPino marcador={{ ...marcador, tamanho: 3 }} config={config} />,
+    );
+    pino = screen.getByRole('button', { name: 'Marcador: Armadilha' });
+    expect(pino.style.width).toBe('130px'); // 50 * 2.6
+    expect(pino.style.left).toBe('120px'); // 10 + 2*50 + (150-130)/2
+    expect(pino.getAttribute('data-marcador-id')).toBe('m1');
+  });
+
   it('cadeado só para o mestre', () => {
     const { container, rerender } = render(
       <MarcadorPino marcador={marcador} config={config} />,

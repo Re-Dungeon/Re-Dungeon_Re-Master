@@ -8,10 +8,13 @@ import IconeMarcador from './IconeMarcador';
 import { PinoCadeado, PinoMarcador } from './stylesMapa';
 
 // Pino de marcador no mapa (cópia nos dois sites — mudou um, mude o outro),
-// em px do MUNDO, centrado na célula. Marcador secreto (só o mestre o recebe)
+// em px do MUNDO, centrado na área tamanho×tamanho (canto col/lin; ausente = 1). Marcador secreto (só o mestre o recebe)
 // ganha contorno tracejado e cadeado.
 const MarcadorPino = ({ marcador, config, mestre = false, onClick }) => {
-  const lado = Math.round(config.celula * 0.6);
+  const tamanho = marcador.tamanho ?? 1;
+  // 1×1 = 60% da célula (visual original); maior = área menos 40% de uma célula.
+  const lado = Math.round(config.celula * (tamanho - 0.4));
+  const area = config.celula * tamanho;
   const { x, y } = posicaoEmPx(config, marcador.col, marcador.lin);
   const secreto = Boolean(marcador.secreto) && mestre;
   return (
@@ -22,8 +25,8 @@ const MarcadorPino = ({ marcador, config, mestre = false, onClick }) => {
       aria-label={`Marcador: ${marcador.titulo}`}
       onClick={onClick ? () => onClick(marcador) : undefined}
       style={{
-        left: x + (config.celula - lado) / 2,
-        top: y + (config.celula - lado) / 2,
+        left: x + (area - lado) / 2,
+        top: y + (area - lado) / 2,
         width: lado,
         height: lado,
         '--cor': marcador.cor,
@@ -44,6 +47,7 @@ MarcadorPino.propTypes = {
     id: PropTypes.string.isRequired,
     col: PropTypes.number.isRequired,
     lin: PropTypes.number.isRequired,
+    tamanho: PropTypes.number,
     icone: PropTypes.string,
     cor: PropTypes.string,
     titulo: PropTypes.string,

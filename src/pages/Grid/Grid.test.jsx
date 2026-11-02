@@ -1379,6 +1379,34 @@ describe('Grid (Re:Master)', () => {
       expect(notifySuccess).toHaveBeenCalledWith('Marcador criado.');
     });
 
+    it('cria um marcador com tamanho 3 (payload leva o tamanho)', async () => {
+      const user = userEvent.setup();
+      renderGrid();
+      await escolher(user, 'Marcadores');
+
+      act(() => propsDoMapa.onCelulaMarcador({ col: 2, lin: 3 }));
+      const dialogo = await screen.findByRole('dialog');
+      await user.type(within(dialogo).getByLabelText('Título'), 'Torre');
+      await user.click(
+        within(dialogo).getByRole('combobox', { name: 'Tamanho' }),
+      );
+      await user.click(await screen.findByRole('option', { name: '3×3' }));
+      await user.click(within(dialogo).getByRole('button', { name: 'Salvar' }));
+
+      await waitFor(() =>
+        expect(addGridMarcador).toHaveBeenCalledWith(
+          'c1',
+          'cena-1',
+          expect.objectContaining({
+            col: 2,
+            lin: 3,
+            tamanho: 3,
+            titulo: 'Torre',
+          }),
+        ),
+      );
+    });
+
     it('edita e apaga um marcador existente', async () => {
       const user = userEvent.setup();
       subscribeGridMarcadores.mockImplementation(
@@ -1407,6 +1435,10 @@ describe('Grid (Re:Master)', () => {
       expect(titulo).toHaveValue('Porta velha');
       await user.clear(titulo);
       await user.type(titulo, 'Porta secreta');
+      await user.click(
+        within(dialogo).getByRole('combobox', { name: 'Tamanho' }),
+      );
+      await user.click(await screen.findByRole('option', { name: '2×2' }));
       await user.click(within(dialogo).getByRole('button', { name: 'Salvar' }));
       await waitFor(() =>
         expect(updateGridMarcador).toHaveBeenCalledWith(
@@ -1415,6 +1447,7 @@ describe('Grid (Re:Master)', () => {
           'mk9',
           expect.objectContaining({
             titulo: 'Porta secreta',
+            tamanho: 2,
             secreto: false,
           }),
         ),
