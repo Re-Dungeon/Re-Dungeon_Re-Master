@@ -32,7 +32,10 @@ export const rolarFace = (faces, randomFn = randomUint32) => {
 
 const PREFIXO_COMANDO = /^\/(r|roll|rs|gr)(?=\s|$)/i;
 const COMANDOS_SECRETOS = ['rs', 'gr'];
-const TOKEN = /([+-]?)(\d*)(d?)(\d+)/iy;
+// Um termo: sinal opcional + dado ("2d6", "d20") OU número ("123"). As duas
+// formas ficam em alternativas separadas — com "(\d*)(d?)(\d+)" o \d* guloso
+// cedia só o último dígito e "+123" virava "quantidade 12, número 3".
+const TOKEN = /([+-]?)(?:(\d*)d(\d+)|(\d+))/iy;
 
 export const EXEMPLO_COMANDO = '/r 1d20+5-2';
 
@@ -84,17 +87,16 @@ export const interpretarExpressaoRolagem = (
     const inicio = TOKEN.lastIndex;
     const match = TOKEN.exec(expressao);
     if (!match) return { erro: `Não entendi "${expressao.slice(inicio)}".` };
-    const [, sinal, quantidadeTexto, d, numero] = match;
+    const [, sinal, quantidadeTexto, faces, numero] = match;
     if (inicio > 0 && !sinal)
       return { erro: `Falta + ou - antes de "${match[0]}".` };
-    if (d) {
+    if (faces) {
       if (sinal === '-') return { erro: 'Dados não podem ser subtraídos.' };
       grupos.push({
         quantidade: quantidadeTexto ? Number(quantidadeTexto) : 1,
-        faces: Number(numero),
+        faces: Number(faces),
       });
     } else {
-      if (quantidadeTexto) return { erro: `Não entendi "${match[0]}".` };
       termos.push(sinal === '-' ? -Number(numero) : Number(numero));
     }
   }

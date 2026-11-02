@@ -41,6 +41,20 @@ describe('rolarFace', () => {
 });
 
 describe('interpretarComandoRolagem', () => {
+  it('aceita bônus/obstáculos e dados com vários dígitos', () => {
+    expect(interpretarComandoRolagem('/r 1d6+123')).toEqual({
+      secreta: false,
+      grupos: [{ quantidade: 1, faces: 6 }],
+      termos: [123],
+    });
+    expect(interpretarComandoRolagem('/r 10d100+45-12+999')).toEqual({
+      secreta: false,
+      grupos: [{ quantidade: 10, faces: 100 }],
+      termos: [45, -12, 999],
+    });
+    expect(interpretarComandoRolagem('/r 12+1d20').termos).toEqual([12]);
+  });
+
   it('ignora texto comum', () => {
     expect(interpretarComandoRolagem('olá mesa')).toBeNull();
     expect(interpretarComandoRolagem('/rir')).toBeNull();
