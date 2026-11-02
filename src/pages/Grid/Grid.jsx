@@ -28,6 +28,7 @@ import {
   updateGridToken,
 } from 'service/storage';
 import { ROUTE_PATHS } from 'common/constants/routes';
+import { ACOES_CAMADA, CAMADAS } from 'common/utils/gridCamadas';
 import {
   GRID_CENAS_MAX,
   GRID_TOKENS_POR_CENA_MAX,
@@ -49,11 +50,15 @@ import useFontesDaMesa from 'pages/Chat/useFontesDaMesa';
 import AdicionarTokenDialog from './AdicionarTokenDialog';
 import CenaDialog from './CenaDialog';
 import CenasBarra from './CenasBarra';
+import FerramentasMapa from './FerramentasMapa';
 import GridConfigPainel from './GridConfigPainel';
 import IniciarCombateDialog from './IniciarCombateDialog';
+import MarcadorDialog from './MarcadorDialog';
 import ParticipantesCombateDialog from './ParticipantesCombateDialog';
 import TokenPainel from './TokenPainel';
 import {
+  FERRAMENTAS,
+  OPCOES_FERRAMENTA_PADRAO,
   OPCOES_TRAVAMENTO,
   jogadoresSemToken,
   reacaoDoToken,
@@ -140,6 +145,13 @@ const Grid = () => {
   const [iniciarAberto, setIniciarAberto] = useState(false);
   const [participantesAberto, setParticipantesAberto] = useState(false);
   const [chatAberto, setChatAberto] = useState(true);
+  // Ferramenta do mapa (Fase 3B) e suas opções; marcador em criação/edição:
+  // { marcador } | { celula } | null.
+  const [ferramenta, setFerramenta] = useState(FERRAMENTAS.MOVER);
+  const [opcoesFerramenta, setOpcoesFerramenta] = useState(
+    OPCOES_FERRAMENTA_PADRAO,
+  );
+  const [marcadorEditando, setMarcadorEditando] = useState(null);
   const [imagemCarregada, setImagemCarregada] = useState(null);
   const [mapasCarregados, setMapasCarregados] = useState(MAPAS_VAZIOS);
 
@@ -246,6 +258,7 @@ const Grid = () => {
   const abrirCena = cenaId => {
     setCenaEscolhidaId(cenaId);
     setSelecionadoId(null);
+    setMarcadorEditando(null);
     fecharConfig();
   };
 
@@ -412,6 +425,53 @@ const Grid = () => {
       'Não foi possível mudar o movimento da cena.',
     );
 
+  // ── Mapa: ferramentas, névoa, paredes e marcadores (Fase 3B) ───────────
+  const handleFerramenta = nova => {
+    setFerramenta(nova);
+    setSelecionadoId(null);
+  };
+
+  const handleNevoaAtiva = ativa => grid.definirNevoaAtiva(ativa);
+
+  const handlePreencherNevoa = async acao => {
+    if (
+      acao === ACOES_CAMADA.REMOVER &&
+      !window.confirm('Cobrir todo o mapa com névoa?')
+    ) {
+      return;
+    }
+    await grid.preencherCamada(CAMADAS.NEVOA, acao, limites);
+  };
+
+  const handleLimparParedes = async () => {
+    if (!window.confirm('Limpar todas as paredes desta cena?')) return;
+    await grid.preencherCamada(CAMADAS.PAREDES, ACOES_CAMADA.REMOVER, limites);
+  };
+
+  const handleSalvarMarcador = async dados => {
+    const { marcador, celula } = marcadorEditando;
+    const ok = await tentar(
+      async () =>
+        marcador
+          ? grid.salvarMarcador(marcador.id, dados)
+          : Boolean(await grid.criarMarcador({ ...celula, ...dados })),
+      'Não foi possível salvar o marcador.',
+    );
+    if (!ok) return;
+    setMarcadorEditando(null);
+    notifySuccess(marcador ? 'Marcador atualizado.' : 'Marcador criado.');
+  };
+
+  const handleApagarMarcador = async () => {
+    const ok = await tentar(
+      () => grid.apagarMarcador(marcadorEditando.marcador.id),
+      'Não foi possível apagar o marcador.',
+    );
+    if (!ok) return;
+    setMarcadorEditando(null);
+    notifySuccess('Marcador apagado.');
+  };
+
   const handleIniciarCombate = async participantes => {
     if (await combate.iniciar(participantes)) setIniciarAberto(false);
   };
@@ -568,61 +628,97 @@ const Grid = () => {
       >
         <Box
           sx={{
-            position: 'relative',
             flex: 1,
             minWidth: 0,
             minHeight: 0,
             display: 'flex',
+            flexDirection: 'column',
           }}
         >
-          {/* key: trocar de cena recomeça zoom/pan (mapa encaixado). */}
-          <GridMapa
-            key={cenaAbertaId ?? 'sem-cena'}
-            config={config}
-            tokens={grid.tokens}
-            podeMover={grid.podeMover}
-            onMover={grid.mover}
-            rastros={grid.rastrosAtivos}
-            selecionadoId={selecionadoId}
-            onSelecionar={token => setSelecionadoId(token?.id ?? null)}
-            onImagemCarregada={setImagemCarregada}
-            aviso={aviso}
-            mestre
-            onPing={grid.pingar}
-            pings={grid.pings}
-            detalhes={grid.detalhes}
-            combate={grid.combate}
-            travamento={grid.travamento}
-            acoesCombate={{
-              anterior: () => grid.mudarTurno(-1),
-              proximo: () => grid.mudarTurno(1),
-            }}
+          <FerramentasMapa
+            ferramenta={ferramenta}
+            onFerramenta={handleFerramenta}
+            opcoes={opcoesFerramenta}
+            onOpcoes={setOpcoesFerramenta}
+            nevoaAtiva={grid.camadas.nevoa.ativa}
+            onNevoaAtiva={handleNevoaAtiva}
+            onPreencherNevoa={handlePreencherNevoa}
+            onLimparParedes={handleLimparParedes}
+            desabilitado={!cenaAberta}
           />
-          {selecionado && (
-            <TokenPainel
-              key={selecionado.id}
-              token={selecionado}
-              jogadores={fontes.jogadores}
-              condicoes={catalogoCondicoes}
-              detalhe={grid.detalhes[selecionado.id] ?? null}
-              onSalvar={handleSalvarToken}
-              onAlterar={handleAlterarToken}
-              onRemover={handleRemoverToken}
-              onFechar={() => setSelecionadoId(null)}
-              abaixoDaFaixa={Boolean(grid.combate)}
+          <Box
+            sx={{
+              position: 'relative',
+              flex: 1,
+              minWidth: 0,
+              minHeight: 0,
+              display: 'flex',
+            }}
+          >
+            {/* key: trocar de cena recomeça zoom/pan (mapa encaixado). */}
+            <GridMapa
+              key={cenaAbertaId ?? 'sem-cena'}
+              config={config}
+              tokens={grid.tokens}
+              podeMover={grid.podeMover}
+              onMover={grid.mover}
+              rastros={grid.rastrosAtivos}
+              selecionadoId={selecionadoId}
+              onSelecionar={token => setSelecionadoId(token?.id ?? null)}
+              onImagemCarregada={setImagemCarregada}
+              aviso={aviso}
+              mestre
+              onPing={grid.pingar}
+              pings={grid.pings}
+              detalhes={grid.detalhes}
+              combate={grid.combate}
+              travamento={grid.travamento}
+              acoesCombate={{
+                anterior: () => grid.mudarTurno(-1),
+                proximo: () => grid.mudarTurno(1),
+              }}
+              ferramenta={ferramenta}
+              opcoesFerramenta={opcoesFerramenta}
+              camadas={grid.camadas}
+              marcadores={grid.marcadores}
+              desenhos={grid.desenhos}
+              onEditarCamada={({ camada, acao, celulas }) =>
+                grid.editarCamada(camada, acao, celulas, limites)
+              }
+              onCelulaMarcador={celula => setMarcadorEditando({ celula })}
+              onMarcadorClique={marcador => setMarcadorEditando({ marcador })}
+              onDesenhar={grid.desenhar}
+              acoesDesenho={{
+                apagarMeus: grid.apagarMeusDesenhos,
+                apagarTodos: grid.apagarTodosDesenhos,
+              }}
             />
-          )}
-          {configAberta && cenaAberta && (
-            <GridConfigPainel
-              key={cenaAbertaId}
-              config={grid.config}
-              mapas={mapas}
-              onPrevia={setPrevia}
-              onSalvar={handleSalvarConfig}
-              onFechar={fecharConfig}
-              abaixoDaFaixa={Boolean(grid.combate)}
-            />
-          )}
+            {selecionado && ferramenta === FERRAMENTAS.MOVER && (
+              <TokenPainel
+                key={selecionado.id}
+                token={selecionado}
+                jogadores={fontes.jogadores}
+                condicoes={catalogoCondicoes}
+                detalhe={grid.detalhes[selecionado.id] ?? null}
+                onSalvar={handleSalvarToken}
+                onAlterar={handleAlterarToken}
+                onRemover={handleRemoverToken}
+                onFechar={() => setSelecionadoId(null)}
+                abaixoDaFaixa={Boolean(grid.combate)}
+              />
+            )}
+            {configAberta && cenaAberta && (
+              <GridConfigPainel
+                key={cenaAbertaId}
+                config={grid.config}
+                mapas={mapas}
+                onPrevia={setPrevia}
+                onSalvar={handleSalvarConfig}
+                onFechar={fecharConfig}
+                abaixoDaFaixa={Boolean(grid.combate)}
+              />
+            )}
+          </Box>
         </Box>
 
         {/* Sempre montado (só escondido): fechar o chat não corta a música
@@ -676,6 +772,17 @@ const Grid = () => {
         onAdicionar={combate.adicionar}
         onClose={() => setParticipantesAberto(false)}
       />
+
+      {marcadorEditando && (
+        <MarcadorDialog
+          key={marcadorEditando.marcador?.id ?? 'novo'}
+          marcador={marcadorEditando.marcador ?? null}
+          celula={marcadorEditando.celula ?? null}
+          onSalvar={handleSalvarMarcador}
+          onApagar={handleApagarMarcador}
+          onClose={() => setMarcadorEditando(null)}
+        />
+      )}
 
       {cenaDialog && (
         <CenaDialog

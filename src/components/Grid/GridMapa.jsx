@@ -1,4 +1,5 @@
 import React, {
+  useCallback,
   useEffect,
   useId,
   useLayoutEffect,
@@ -14,6 +15,7 @@ import AddIcon from '@mui/icons-material/Add';
 import RemoveIcon from '@mui/icons-material/Remove';
 import CampaignIcon from '@mui/icons-material/Campaign';
 import CenterFocusStrongIcon from '@mui/icons-material/CenterFocusStrong';
+import DrawIcon from '@mui/icons-material/Draw';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import MyLocationIcon from '@mui/icons-material/MyLocation';
 import StraightenIcon from '@mui/icons-material/Straighten';
@@ -38,6 +40,7 @@ import {
   escolherReferencia,
   formatarDistancia,
   limitarPosicao,
+  linhaChebyshev,
   mesmaCelula,
   montarRastro,
   normalizarAura,
@@ -55,8 +58,30 @@ import {
   quadradosDeMovimento,
 } from 'common/utils/gridCombate';
 
+import {
+  ACOES_CAMADA,
+  CAMADAS,
+  caminhoBloqueado,
+  celulasDoPincel,
+  celulasDoRetangulo,
+  chaveDaCelula,
+  filtrarTokensPelaNevoa,
+} from 'common/utils/gridCamadas';
+import {
+  COR_DESENHO_PADRAO,
+  DESENHO_BRUTOS_MAX,
+  DESENHO_DISTANCIA_MIN_PX,
+  ajustarTraco,
+} from 'common/utils/gridDesenho';
+
 import AlcanceMovimento from './AlcanceMovimento';
+import CamadaAnotacoes from './CamadaAnotacoes';
 import FaixaIniciativa from './FaixaIniciativa';
+import MarcadorCartao from './MarcadorCartao';
+import MarcadorPino from './MarcadorPino';
+import NevoaCamada from './NevoaCamada';
+import PaletaDesenho from './PaletaDesenho';
+import ParedesCamada from './ParedesCamada';
 import SinaisPing from './SinaisPing';
 import TokenDetalhe from './TokenDetalhe';
 import TokenEstado from './TokenEstado';
@@ -111,6 +136,19 @@ import {
 // jogador (quem decide se move é `podeMover`). `ehMeu` (padrão: podeMover)
 // diz quais tokens são da pessoa (referência da distância, "Seguir token",
 // foco do celular) mesmo com o movimento travado.
+// Fase 3B (mapa): `camadas` ({ bloqueadas, nevoa }; useGridCampanha) — paredes
+// (hachura; quem não é `mestre` não solta nem anda token por cima: "Há uma
+// parede no caminho.") e névoa de guerra (cobre o mapa; quem não é `mestre`
+// deixa de ver os tokens alheios cobertos — aura, rastro, cartão e faixa
+// acompanham). `marcadores` = pinos (tocar abre o cartão); `desenhos` = traços
+// livres de todos. Com `onDesenhar` há o botão "Desenhar" (um dedo/mouse traça;
+// `acoesDesenho` = { apagarMeus, apagarTodos? } na paleta). `ferramenta`
+// ('mover' | 'paredes' | 'nevoa' | 'marcadores'; só o mestre muda) troca o
+// gesto: paredes/névoa pintam com `opcoesFerramenta` ({ forma, acao, tamanho
+// }) e chamam `onEditarCamada({ camada, acao, celulas })` uma vez ao soltar;
+// marcadores chamam `onCelulaMarcador(celula)` / `onMarcadorClique(marcador)`.
+// Pinça também desloca (dois dedos); botão do meio do mouse arrasta o mapa em
+// qualquer modo.
 
 const ZOOM_MIN = 0.1;
 const ZOOM_MAX = 4;
@@ -162,6 +200,22 @@ const SEM_RASTROS = [];
 const SEM_PINGS = [];
 const SEM_DETALHES = {};
 const SEM_ACOES = {};
+const SEM_MARCADORES = [];
+const SEM_DESENHOS = [];
+const OPCOES_PADRAO = {
+  forma: 'pincel',
+  acao: ACOES_CAMADA.ADICIONAR,
+  tamanho: 1,
+};
+// Tempo do aviso local de parede e janela em que o click que sobra do toque
+// num pino é ignorado (o toque já foi tratado no pointerup).
+const AVISO_PAREDE_MS = 2500;
+const TEXTO_PAREDE = 'Há uma parede no caminho.';
+// Fora do componente: o lint do React Compiler (react-hooks/purity) acusa
+// Date.now/Math.random chamados dentro dele, mesmo em handlers de evento.
+const agora = () => Date.now();
+const novoIdTraco = () => Date.now() + Math.random();
+const CLIQUE_PINO_MS = 400;
 const TEXTO_TRAVAMENTO = {
   [TRAVAMENTOS.CONGELADO]: 'Movimento congelado pelo mestre',
   [TRAVAMENTOS.TURNO]: 'Movimento só na sua vez',
@@ -173,6 +227,8 @@ const FOLGA_DETALHE = 6;
 const MEIA_LARGURA_DETALHE = 120;
 // Folga (px de tela) entre o rótulo de distância e o topo do token.
 const FOLGA_ROTULO = 6;
+// Metade da largura do cartão do marcador (260px), para mantê-lo no viewport.
+const MEIA_LARGURA_CARTAO_MARCADOR = 130;
 
 const conteudoDoToken = token =>
   token.imagemUrl ? (
@@ -185,7 +241,7 @@ const corDoToken = token => COR_TIPO_TOKEN[token.tipo] ?? COR_TIPO_TOKEN.avulso;
 
 const GridMapa = ({
   config,
-  tokens,
+  tokens: tokensProp,
   podeMover,
   onMover,
   selecionadoId = null,
@@ -201,8 +257,27 @@ const GridMapa = ({
   acoesCombate = SEM_ACOES,
   travamento = TRAVAMENTOS.LIVRE,
   ehMeu: ehMeuToken,
+  camadas = null,
+  marcadores = SEM_MARCADORES,
+  desenhos = SEM_DESENHOS,
+  ferramenta = 'mover',
+  opcoesFerramenta = OPCOES_PADRAO,
+  onEditarCamada,
+  onCelulaMarcador,
+  onMarcadorClique,
+  onDesenhar,
+  acoesDesenho = SEM_ACOES,
 }) => {
   const ehMeu = ehMeuToken ?? podeMover;
+  const bloqueadas = camadas?.bloqueadas ?? null;
+  const nevoa = camadas?.nevoa ?? null;
+  // Névoa: quem não é mestre não recebe os tokens alheios cobertos; o resto do
+  // mapa (aura, rastro, cartão, referência, faixa) parte desta lista.
+  const tokens = useMemo(
+    () =>
+      mestre ? tokensProp : filtrarTokensPelaNevoa(tokensProp, nevoa, ehMeu),
+    [mestre, tokensProp, nevoa, ehMeu],
+  );
   const viewportRef = useRef(null);
   const idPadrao = `grade-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`;
   const [viewport, setViewport] = useState({ largura: 0, altura: 0 });
@@ -223,6 +298,20 @@ const GridMapa = ({
   // Régua: modo ligado pelo botão; `medicao` = { de, ate } (células).
   const [modoRegua, setModoRegua] = useState(false);
   const [medicao, setMedicao] = useState(null);
+  // Desenho livre: modo ligado pelo botão, cor da paleta e o traço em curso
+  // ({ id, cor, pontos }; fica até a gravação terminar).
+  const [modoDesenho, setModoDesenho] = useState(false);
+  const [corDesenho, setCorDesenho] = useState(COR_DESENHO_PADRAO);
+  const [tracoAtual, setTracoAtual] = useState(null);
+  // Prévia do pincel/retângulo de paredes e névoa ({ celulas: Set, acao });
+  // fica até a gravação terminar.
+  const [previa, setPrevia] = useState(null);
+  const [marcadorAbertoId, setMarcadorAbertoId] = useState(null);
+  const [avisoParede, setAvisoParede] = useState(false);
+  const fecharMarcador = useCallback(() => setMarcadorAbertoId(null), []);
+  const ultimoToquePino = useRef(0);
+  const modoDesenhoAtivo =
+    Boolean(onDesenhar) && modoDesenho && ferramenta === 'mover';
   const gesto = useRef(null);
   const ponteiros = useRef(new Map());
   // Sinal: "Puxar vista" ligado (mestre) — o próximo sinal centraliza todos.
@@ -242,7 +331,7 @@ const GridMapa = ({
   // tocar no mapa vazio ou Esc). O mestre usa o selecionado.
   const [alcanceId, setAlcanceId] = useState(null);
   // Timers da pressão longa e do cartão por toque.
-  const temporizadores = useRef({ pressao: null, toque: null });
+  const temporizadores = useRef({ pressao: null, toque: null, parede: null });
   // Celular (abaixo do `sm`): o mapa abre focado no primeiro token que a
   // pessoa pode mover, com célula ≥ 44px. A posição do foco é a do token
   // quando ele apareceu — mover o token depois não arrasta a vista junto.
@@ -265,6 +354,10 @@ const GridMapa = ({
       ? imagemAtual
       : null;
   const mundo = dimensoesDoMundo(config, imagemCarregada);
+  const limites = { colunas: mundo.colunas, linhas: mundo.linhas };
+  const camadaDaFerramenta =
+    { paredes: CAMADAS.PAREDES, nevoa: CAMADAS.NEVOA }[ferramenta] ?? null;
+  const pintando = Boolean(camadaDaFerramenta && onEditarCamada);
   const vistaEncaixada = encaixar(mundo, viewport);
   const vistaPadrao =
     celular && foco && viewport.largura
@@ -393,6 +486,22 @@ const GridMapa = ({
     return () => window.removeEventListener('keydown', aoTeclar);
   }, [reguaAtiva]);
 
+  // Esc sai do modo desenhar e cancela o traço/pincel em andamento.
+  const escutaEsc = modoDesenho || tracoAtual !== null || previa !== null;
+  useEffect(() => {
+    if (!escutaEsc) return undefined;
+    const aoTeclar = event => {
+      if (event.key !== 'Escape') return;
+      if (gesto.current?.tipo === 'desenho' || gesto.current?.tipo === 'pincel')
+        gesto.current = null;
+      setModoDesenho(false);
+      setTracoAtual(null);
+      setPrevia(null);
+    };
+    window.addEventListener('keydown', aoTeclar);
+    return () => window.removeEventListener('keydown', aoTeclar);
+  }, [escutaEsc]);
+
   // Esc esconde o alcance mostrado pelo toque.
   useEffect(() => {
     if (!alcanceId) return undefined;
@@ -408,6 +517,7 @@ const GridMapa = ({
     return () => {
       clearTimeout(timers.pressao);
       clearTimeout(timers.toque);
+      clearTimeout(timers.parede);
     };
   }, []);
 
@@ -427,6 +537,22 @@ const GridMapa = ({
       (ponto.y - vista.y) / vista.zoom,
       mundo,
     );
+
+  // Parede: só o mestre atravessa. Quem não é mestre vê o aviso local (some
+  // sozinho) e o token volta à origem.
+  const movimentoPermitido = (token, caminho) =>
+    mestre ||
+    !bloqueadas ||
+    !caminhoBloqueado(caminho, token.tamanho ?? 1, bloqueadas);
+
+  const mostrarAvisoParede = () => {
+    clearTimeout(temporizadores.current.parede);
+    setAvisoParede(true);
+    temporizadores.current.parede = setTimeout(() => {
+      temporizadores.current.parede = null;
+      setAvisoParede(false);
+    }, AVISO_PAREDE_MS);
+  };
 
   const moverPara = (token, col, lin, caminho) => {
     if (col === token.col && lin === token.lin) return null;
@@ -473,6 +599,8 @@ const GridMapa = ({
         return;
       gesto.current = { tipo: 'ping' };
       setArraste(null);
+      setPrevia(null);
+      setTracoAtual(null);
       navigator.vibrate?.(30);
       emitirPing(ponto, false, puxarNoInicio);
     }, PING_PRESSAO_MS);
@@ -488,7 +616,11 @@ const GridMapa = ({
   };
 
   const handlePointerDown = event => {
-    if (event.pointerType === 'mouse' && event.button !== 0) return;
+    // Botão do meio do mouse arrasta o mapa em qualquer modo.
+    const botaoDoMeio = event.pointerType === 'mouse' && event.button === 1;
+    if (event.pointerType === 'mouse' && event.button !== 0 && !botaoDoMeio)
+      return;
+    ultimoToquePino.current = 0;
     const ponto = pontoNoViewport(event);
     ponteiros.current.set(event.pointerId, ponto);
     viewportRef.current.setPointerCapture?.(event.pointerId);
@@ -498,8 +630,29 @@ const GridMapa = ({
       const [a, b] = [...ponteiros.current.values()];
       // Pinça cancela a medição que estava começando.
       if (gesto.current?.tipo === 'regua') setMedicao(null);
-      gesto.current = { tipo: 'pinca', distancia: distancia(a, b) || 1, vista };
+      // Pinça também desloca: guarda o meio dos dedos no início.
+      gesto.current = {
+        tipo: 'pinca',
+        distancia: distancia(a, b) || 1,
+        meio: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 },
+        vista,
+      };
       setArraste(null);
+      // Traço e pincel em curso são descartados.
+      setTracoAtual(null);
+      setPrevia(null);
+      return;
+    }
+    if (botaoDoMeio) {
+      event.preventDefault();
+      gesto.current = {
+        tipo: 'pan',
+        token: null,
+        ponto,
+        vista,
+        moveu: false,
+        meio: true,
+      };
       return;
     }
     // Alt+clique (desktop): sinal na hora — antes do Shift da régua, para
@@ -509,9 +662,56 @@ const GridMapa = ({
       gesto.current = { tipo: 'ping' };
       return;
     }
+    if (modoDesenhoAtivo) {
+      // Um dedo/mouse desenha (tokens também); sem pressão longa.
+      const inicioDoTraco = pontoNoMundo(ponto);
+      gesto.current = {
+        tipo: 'desenho',
+        id: novoIdTraco(),
+        cor: corDesenho,
+        pontos: [inicioDoTraco],
+      };
+      setTracoAtual({
+        id: gesto.current.id,
+        cor: corDesenho,
+        pontos: gesto.current.pontos,
+      });
+      return;
+    }
+    if (pintando) {
+      const { forma, acao, tamanho } = opcoesFerramenta;
+      const inicio = celulaNoViewport(ponto);
+      const celulasIniciais =
+        forma === 'retangulo'
+          ? [inicio]
+          : celulasDoPincel(inicio, tamanho, limites);
+      gesto.current = {
+        tipo: 'pincel',
+        camada: camadaDaFerramenta,
+        forma,
+        acao,
+        tamanho,
+        inicio,
+        ate: inicio,
+        ultima: inicio,
+        celulas: new Map(
+          celulasIniciais.map(c => [chaveDaCelula(c.col, c.lin), c]),
+        ),
+        ponto,
+        moveu: false,
+      };
+      setPrevia({
+        acao,
+        celulas: new Set(gesto.current.celulas.keys()),
+      });
+      if (onPing) iniciarPressao(pontoNoMundo(ponto), modoPuxar);
+      return;
+    }
     const tokenId = event.target.closest?.('[data-token-id]')?.dataset.tokenId;
     const token = tokenId ? (tokens.find(t => t.id === tokenId) ?? null) : null;
-    if (token && podeMover(token)) {
+    const marcadorId =
+      event.target.closest?.('[data-marcador-id]')?.dataset.marcadorId;
+    if (token && ferramenta === 'mover' && podeMover(token)) {
       gesto.current = {
         tipo: 'token',
         token,
@@ -531,7 +731,19 @@ const GridMapa = ({
         moveu: false,
       };
     } else {
-      gesto.current = { tipo: 'pan', token, ponto, vista, moveu: false };
+      gesto.current = {
+        tipo: 'pan',
+        token,
+        ponto,
+        vista,
+        moveu: false,
+        marcadorId: marcadorId ?? null,
+        // Ferramenta Marcadores: tocar no vazio cria um marcador na célula.
+        celulaMarcador:
+          ferramenta === 'marcadores' && !token && !marcadorId
+            ? celulaNoViewport(ponto)
+            : null,
+      };
     }
     if (onPing) iniciarPressao(pontoNoMundo(ponto), modoPuxar);
   };
@@ -551,14 +763,31 @@ const GridMapa = ({
     if (atual.tipo === 'pinca') {
       const [a, b] = [...ponteiros.current.values()];
       if (!b) return;
-      definirVista(
-        zoomEmTorno(
-          atual.vista,
-          distancia(a, b) / atual.distancia,
-          (a.x + b.x) / 2,
-          (a.y + b.y) / 2,
-        ),
+      // Zoom em torno do meio inicial + deslocamento do meio dos dedos.
+      const base = zoomEmTorno(
+        atual.vista,
+        distancia(a, b) / atual.distancia,
+        atual.meio.x,
+        atual.meio.y,
       );
+      definirVista({
+        ...base,
+        x: base.x + (a.x + b.x) / 2 - atual.meio.x,
+        y: base.y + (a.y + b.y) / 2 - atual.meio.y,
+      });
+      return;
+    }
+    if (atual.tipo === 'desenho') {
+      const novo = pontoNoMundo(ponto);
+      const ultimo = atual.pontos[atual.pontos.length - 1];
+      if (
+        atual.pontos.length < DESENHO_BRUTOS_MAX &&
+        Math.hypot(novo.x - ultimo.x, novo.y - ultimo.y) * vista.zoom >=
+          DESENHO_DISTANCIA_MIN_PX
+      ) {
+        atual.pontos.push(novo);
+        setTracoAtual({ id: atual.id, cor: atual.cor, pontos: atual.pontos });
+      }
       return;
     }
     const dx = ponto.x - atual.ponto.x;
@@ -567,6 +796,31 @@ const GridMapa = ({
     // Andou: não é mais pressão longa.
     if (!atual.moveu) cancelarPressao();
     atual.moveu = true;
+    if (atual.tipo === 'pincel') {
+      const celulaAtual = celulaNoViewport(ponto);
+      if (atual.forma === 'retangulo') {
+        if (mesmaCelula(celulaAtual, atual.ate)) return;
+        atual.ate = celulaAtual;
+        setPrevia({
+          acao: atual.acao,
+          celulas: new Set(
+            celulasDoRetangulo(atual.inicio, celulaAtual, limites).map(c =>
+              chaveDaCelula(c.col, c.lin),
+            ),
+          ),
+        });
+      } else if (!mesmaCelula(celulaAtual, atual.ultima)) {
+        // O ponteiro pode pular células: preenche o salto.
+        linhaChebyshev(atual.ultima, celulaAtual).forEach(passo =>
+          celulasDoPincel(passo, atual.tamanho, limites).forEach(c =>
+            atual.celulas.set(chaveDaCelula(c.col, c.lin), c),
+          ),
+        );
+        atual.ultima = celulaAtual;
+        setPrevia({ acao: atual.acao, celulas: new Set(atual.celulas.keys()) });
+      }
+      return;
+    }
     if (atual.tipo === 'token') {
       const posicao = posicaoArrastada(atual, ponto);
       // Mesmo snap do soltar: a célula onde o token cairia agora.
@@ -612,6 +866,51 @@ const GridMapa = ({
     // Sinal já emitido: soltar não seleciona nem limpa a régua.
     if (!atual || atual.tipo === 'pinca' || atual.tipo === 'ping') return;
 
+    if (atual.tipo === 'desenho') {
+      const pontos = cancelado
+        ? []
+        : ajustarTraco(atual.pontos, { zoom: vista.zoom });
+      if (pontos.length === 0) {
+        setTracoAtual(null);
+        return;
+      }
+      // Uma escrita por traço; o traço fica na tela até a gravação terminar.
+      const limpar = () =>
+        setTracoAtual(anterior =>
+          anterior?.id === atual.id ? null : anterior,
+        );
+      Promise.resolve(onDesenhar({ cor: atual.cor, pontos })).then(
+        limpar,
+        limpar,
+      );
+      return;
+    }
+    if (atual.tipo === 'pincel') {
+      if (cancelado) {
+        setPrevia(null);
+        return;
+      }
+      const celulas =
+        atual.forma === 'retangulo'
+          ? celulasDoRetangulo(atual.inicio, atual.ate, limites)
+          : Array.from(atual.celulas.values());
+      const final = {
+        acao: atual.acao,
+        celulas: new Set(celulas.map(c => chaveDaCelula(c.col, c.lin))),
+      };
+      setPrevia(final);
+      const limpar = () =>
+        setPrevia(anterior => (anterior === final ? null : anterior));
+      Promise.resolve(
+        onEditarCamada({ camada: atual.camada, acao: atual.acao, celulas }),
+      ).then(limpar, limpar);
+      return;
+    }
+    if (atual.meio) {
+      setArraste(null);
+      return;
+    }
+
     if (atual.tipo === 'token' && atual.moveu) {
       const { token } = atual;
       const solto = posicaoArrastada(atual, pontoNoViewport(event));
@@ -623,6 +922,12 @@ const GridMapa = ({
         token.tamanho ?? 1,
       );
       const caminho = avancarCaminho(atual.caminho, { col, lin });
+      const mudouDeCelula = col !== token.col || lin !== token.lin;
+      if (!cancelado && mudouDeCelula && !movimentoPermitido(token, caminho)) {
+        setArraste(null);
+        mostrarAvisoParede();
+        return;
+      }
       const gravacao = cancelado ? null : moverPara(token, col, lin, caminho);
       if (!gravacao) {
         setArraste(null);
@@ -646,6 +951,22 @@ const GridMapa = ({
     // Medição feita fica na tela (até o próximo toque ou Esc).
     if (atual.moveu || cancelado) return;
     setMedicao(null);
+    // Tocar num pino abre o cartão (ferramenta Marcadores: edita); tocar no
+    // vazio fecha o cartão (ferramenta Marcadores: cria na célula).
+    const pino = atual.marcadorId
+      ? (marcadores.find(m => m.id === atual.marcadorId) ?? null)
+      : null;
+    if (pino) {
+      ultimoToquePino.current = agora();
+      if (ferramenta === 'marcadores') onMarcadorClique?.(pino);
+      else setMarcadorAbertoId(pino.id);
+      return;
+    }
+    setMarcadorAbertoId(null);
+    if (atual.celulaMarcador) {
+      onCelulaMarcador?.(atual.celulaMarcador);
+      return;
+    }
     if (atual.token && ehMeu(atual.token)) setReferenciaId(atual.token.id);
     // Em combate: tocar o próprio token mostra o alcance; o mapa vazio esconde.
     if (combate && !onSelecionar) {
@@ -668,14 +989,28 @@ const GridMapa = ({
         mundo,
         token.tamanho ?? 1,
       );
-      moverPara(token, destino.col, destino.lin, [
+      const caminho = [
         { col: token.col, lin: token.lin },
         { col: destino.col, lin: destino.lin },
-      ]);
+      ];
+      const mudouDeCelula =
+        destino.col !== token.col || destino.lin !== token.lin;
+      if (mudouDeCelula && !movimentoPermitido(token, caminho)) {
+        mostrarAvisoParede();
+        return;
+      }
+      moverPara(token, destino.col, destino.lin, caminho);
     } else if ((event.key === 'Enter' || event.key === ' ') && onSelecionar) {
       event.preventDefault();
       onSelecionar(token);
     }
+  };
+
+  // Enter/Espaço no pino (o toque já foi tratado no pointerup).
+  const aoAtivarPino = marcador => {
+    if (agora() - ultimoToquePino.current < CLIQUE_PINO_MS) return;
+    if (ferramenta === 'marcadores') onMarcadorClique?.(marcador);
+    else setMarcadorAbertoId(marcador.id);
   };
 
   const zoomPeloBotao = fator =>
@@ -755,12 +1090,14 @@ const GridMapa = ({
       tamanho,
       alcance: correr,
       limites: { colunas, linhas },
+      // O mestre ignora as paredes.
+      bloqueadas: mestre ? null : bloqueadas,
     });
     return {
       distancias,
       faixas: faixasDoAlcance(distancias, { mover, correr, tamanho }),
     };
-  }, [chaveAlcance]);
+  }, [chaveAlcance, mestre, bloqueadas]);
   // Rótulo do arraste: em combate, a distância desde o início do turno na cor
   // do alcance; fora, o total encadeado ao rastro (como todos verão).
   let rotuloArraste = null;
@@ -782,6 +1119,20 @@ const GridMapa = ({
       texto: formatarDistancia(quadradosArraste, metrosPorQuadrado),
       cor: corDoToken(tokenArrastado),
       faixa: null,
+    };
+  }
+
+  // Arrastando por cima de uma parede: o rótulo avisa (o token voltará).
+  if (
+    caminhoArraste &&
+    !mestre &&
+    bloqueadas &&
+    caminhoBloqueado(caminhoArraste, tokenArrastado.tamanho ?? 1, bloqueadas)
+  ) {
+    rotuloArraste = {
+      texto: 'Parede no caminho',
+      cor: CORES_ALCANCE.alem,
+      faixa: 'bloqueado',
     };
   }
 
@@ -889,12 +1240,33 @@ const GridMapa = ({
     };
   }
 
+  // Cartão do marcador aberto (px do viewport, acima do pino).
+  const marcadorAberto = marcadorAbertoId
+    ? (marcadores.find(m => m.id === marcadorAbertoId) ?? null)
+    : null;
+  let posicaoCartaoMarcador = null;
+  if (marcadorAberto) {
+    const canto = posicaoEmPx(config, marcadorAberto.col, marcadorAberto.lin);
+    const centro = vista.x + (canto.x + celula / 2) * vista.zoom;
+    const limiteDireito = viewport.largura - MEIA_LARGURA_CARTAO_MARCADOR;
+    posicaoCartaoMarcador = {
+      left:
+        limiteDireito > MEIA_LARGURA_CARTAO_MARCADOR
+          ? Math.min(
+              Math.max(centro, MEIA_LARGURA_CARTAO_MARCADOR),
+              limiteDireito,
+            )
+          : centro,
+      top: vista.y + (canto.y + celula * 0.2) * vista.zoom - FOLGA_DETALHE,
+    };
+  }
+
   return (
     <GridViewport
       ref={viewportRef}
       role="application"
       aria-label="Grid da campanha"
-      $regua={modoRegua}
+      $regua={modoRegua || modoDesenhoAtivo || pintando}
       // Segurar = sinal: sem o menu de contexto do navegador.
       onContextMenu={event => event.preventDefault()}
       onPointerDown={handlePointerDown}
@@ -980,6 +1352,14 @@ const GridMapa = ({
           </GridGrade>
         )}
 
+        {bloqueadas && (
+          <ParedesCamada
+            config={config}
+            bloqueadas={bloqueadas}
+            limites={limites}
+          />
+        )}
+
         {auras.map(({ token, aura }) => {
           const area = areaDaAura(token, aura, mundo);
           const canto = posicaoEmPx(config, area.col, area.lin);
@@ -1007,7 +1387,7 @@ const GridMapa = ({
           />
         )}
 
-        {(rastrosVisiveis.length > 0 || caminhoArraste || medicao) && (
+        {rastrosVisiveis.length > 0 && (
           <GridRastros
             width={mundo.largura}
             height={mundo.altura}
@@ -1029,6 +1409,41 @@ const GridMapa = ({
                 )}
               </g>
             ))}
+          </GridRastros>
+        )}
+
+        {(nevoa?.ativa || (mestre && ferramenta === 'nevoa')) && (
+          <NevoaCamada
+            config={config}
+            limites={limites}
+            nevoa={nevoa}
+            mestre={mestre}
+            preview={ferramenta === 'nevoa'}
+          />
+        )}
+
+        {marcadores.map(marcador => (
+          <MarcadorPino
+            key={marcador.id}
+            marcador={marcador}
+            config={config}
+            mestre={mestre}
+            onClick={aoAtivarPino}
+          />
+        ))}
+
+        {(desenhos.length > 0 ||
+          tracoAtual ||
+          previa ||
+          caminhoArraste?.length >= 2 ||
+          medicao) && (
+          <CamadaAnotacoes
+            config={config}
+            limites={limites}
+            desenhos={desenhos}
+            tracoAtual={tracoAtual}
+            previaCelulas={previa}
+          >
             {caminhoArraste?.length >= 2 && (
               <g>
                 {linhaTracejada(
@@ -1072,7 +1487,7 @@ const GridMapa = ({
                 />
               </g>
             )}
-          </GridRastros>
+          </CamadaAnotacoes>
         )}
 
         {tokenArrastado && (
@@ -1242,9 +1657,30 @@ const GridMapa = ({
         />
       )}
 
-      {(aviso || avisoImagem) && (
+      {marcadorAberto && (
+        <MarcadorCartao
+          marcador={marcadorAberto}
+          posicao={posicaoCartaoMarcador}
+          onFechar={fecharMarcador}
+        />
+      )}
+
+      {modoDesenhoAtivo && (
+        <PaletaDesenho
+          cor={corDesenho}
+          onCor={setCorDesenho}
+          onApagarMeus={() => acoesDesenho.apagarMeus?.()}
+          onApagarTodos={
+            acoesDesenho.apagarTodos
+              ? () => acoesDesenho.apagarTodos()
+              : undefined
+          }
+        />
+      )}
+
+      {(aviso || avisoImagem || avisoParede) && (
         <GridAviso role="status" $abaixoDaFaixa={Boolean(faixa)}>
-          {aviso || avisoImagem}
+          {aviso || avisoImagem || (avisoParede && TEXTO_PAREDE)}
         </GridAviso>
       )}
 
@@ -1295,12 +1731,37 @@ const GridMapa = ({
             onClick={() => {
               setModoRegua(ligado => !ligado);
               setMedicao(null);
+              setModoDesenho(false);
             }}
             sx={{ color: modoRegua ? 'var(--color-primary)' : undefined }}
           >
             <StraightenIcon fontSize="small" />
           </IconButton>
         </Tooltip>
+        {onDesenhar && (
+          <Tooltip title="Desenhar (Esc sai)" placement="left">
+            {/* span: o Tooltip precisa de um filho que receba eventos mesmo
+                com o botão desabilitado (ferramenta de edição do mestre). */}
+            <span>
+              <IconButton
+                size="small"
+                aria-label="Desenhar"
+                aria-pressed={modoDesenhoAtivo}
+                disabled={ferramenta !== 'mover'}
+                onClick={() => {
+                  setModoDesenho(ligado => !ligado);
+                  setModoRegua(false);
+                  setMedicao(null);
+                }}
+                sx={{
+                  color: modoDesenhoAtivo ? 'var(--color-primary)' : undefined,
+                }}
+              >
+                <DrawIcon fontSize="small" />
+              </IconButton>
+            </span>
+          </Tooltip>
+        )}
         <Tooltip title="Seguir token" placement="left">
           {/* span: o Tooltip precisa de um filho que receba eventos mesmo com
               o botão desabilitado. */}
@@ -1454,6 +1915,56 @@ GridMapa.propTypes = {
   travamento: PropTypes.oneOf(Object.values(TRAVAMENTOS)),
   // Tokens da pessoa (padrão: podeMover) — referência e foco do celular.
   ehMeu: PropTypes.func,
+  // Camadas da cena (useGridCampanha → camadas): paredes e névoa.
+  camadas: PropTypes.shape({
+    bloqueadas: PropTypes.instanceOf(Set),
+    nevoa: PropTypes.shape({
+      ativa: PropTypes.bool,
+      reveladas: PropTypes.instanceOf(Set),
+    }),
+  }),
+  // Marcadores visíveis (useGridCampanha → marcadores).
+  marcadores: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.string.isRequired,
+      col: PropTypes.number.isRequired,
+      lin: PropTypes.number.isRequired,
+      icone: PropTypes.string,
+      cor: PropTypes.string,
+      titulo: PropTypes.string,
+      texto: PropTypes.string,
+      secreto: PropTypes.bool,
+    }),
+  ),
+  // Desenhos de todos (useGridCampanha → desenhos; pontos plano [x0, y0, ...]).
+  desenhos: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.string.isRequired,
+      cor: PropTypes.string.isRequired,
+      pontos: PropTypes.arrayOf(PropTypes.number).isRequired,
+    }),
+  ),
+  // Ferramenta do mestre: muda o gesto do mapa (padrão: mover tokens).
+  ferramenta: PropTypes.oneOf(['mover', 'paredes', 'nevoa', 'marcadores']),
+  // Pincel de paredes/névoa.
+  opcoesFerramenta: PropTypes.shape({
+    forma: PropTypes.oneOf(['pincel', 'retangulo']),
+    acao: PropTypes.oneOf(Object.values(ACOES_CAMADA)),
+    tamanho: PropTypes.number,
+  }),
+  // Recebe { camada, acao, celulas: [{ col, lin }] } ao soltar o pincel.
+  onEditarCamada: PropTypes.func,
+  // Ferramenta Marcadores: toque no vazio ({ col, lin }) / num marcador.
+  onCelulaMarcador: PropTypes.func,
+  onMarcadorClique: PropTypes.func,
+  // Recebe { cor, pontos: [x0, y0, ...] } (px do mundo) — sem ele, não há
+  // botão "Desenhar".
+  onDesenhar: PropTypes.func,
+  // Paleta do desenho: { apagarMeus, apagarTodos? } (só o mestre tem o último).
+  acoesDesenho: PropTypes.shape({
+    apagarMeus: PropTypes.func,
+    apagarTodos: PropTypes.func,
+  }),
 };
 
 export default GridMapa;

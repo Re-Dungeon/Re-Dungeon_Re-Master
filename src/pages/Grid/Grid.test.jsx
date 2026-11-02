@@ -1,5 +1,6 @@
+import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { GRID_CONFIG_PADRAO } from 'common/utils/grid';
@@ -27,6 +28,15 @@ const subscribeGridCombate = vi.fn();
 const alterarGridCombate = vi.fn();
 const iniciarGridCombate = vi.fn();
 const encerrarGridCombate = vi.fn();
+const subscribeGridCamadas = vi.fn(() => () => {});
+const setGridCamada = vi.fn(() => Promise.resolve());
+const subscribeGridMarcadores = vi.fn(() => () => {});
+const addGridMarcador = vi.fn(() => Promise.resolve('mk1'));
+const updateGridMarcador = vi.fn(() => Promise.resolve());
+const removeGridMarcador = vi.fn(() => Promise.resolve());
+const subscribeGridDesenhos = vi.fn(() => () => {});
+const addGridDesenho = vi.fn(() => Promise.resolve('d1'));
+const removeGridDesenhos = vi.fn(() => Promise.resolve());
 const subscribeAudioMesa = vi.fn((_id, onChange) => {
   onChange(null);
   return vi.fn();
@@ -53,6 +63,15 @@ vi.mock('service/storage', () => ({
   alterarGridCombate: (...args) => alterarGridCombate(...args),
   iniciarGridCombate: (...args) => iniciarGridCombate(...args),
   encerrarGridCombate: (...args) => encerrarGridCombate(...args),
+  subscribeGridCamadas: (...args) => subscribeGridCamadas(...args),
+  setGridCamada: (...args) => setGridCamada(...args),
+  subscribeGridMarcadores: (...args) => subscribeGridMarcadores(...args),
+  addGridMarcador: (...args) => addGridMarcador(...args),
+  updateGridMarcador: (...args) => updateGridMarcador(...args),
+  removeGridMarcador: (...args) => removeGridMarcador(...args),
+  subscribeGridDesenhos: (...args) => subscribeGridDesenhos(...args),
+  addGridDesenho: (...args) => addGridDesenho(...args),
+  removeGridDesenhos: (...args) => removeGridDesenhos(...args),
   getCondicoes: (...args) => getCondicoes(...args),
   getRmMapasPorCampanha: vi.fn(() =>
     Promise.resolve([
@@ -108,6 +127,18 @@ vi.mock('react-router-dom', async importOriginal => ({
   ...(await importOriginal()),
   useNavigate: () => navigateMock,
 }));
+
+// Guarda as props que a página passa ao mapa, para os testes dispararem os
+// callbacks de ferramenta (o clique no canvas em si é testado no GridMapa).
+let propsDoMapa;
+vi.mock('components/Grid/GridMapa', async importOriginal => {
+  const real = await importOriginal();
+  const Mapa = props => {
+    propsDoMapa = props;
+    return <real.default {...props} />;
+  };
+  return { default: Mapa };
+});
 
 import Grid from './Grid';
 
@@ -225,6 +256,20 @@ describe('Grid (Re:Master)', () => {
     removeGridToken.mockResolvedValue();
     moverGridToken.mockResolvedValue();
     subscribePersonagem.mockImplementation(() => () => {});
+    subscribeGridCamadas.mockImplementation((_id, _cenaId, onChange) => {
+      onChange({ paredes: null, nevoa: null });
+      return vi.fn();
+    });
+    subscribeGridMarcadores.mockImplementation(
+      (_id, _cenaId, _opcoes, onChange) => {
+        onChange([]);
+        return vi.fn();
+      },
+    );
+    subscribeGridDesenhos.mockImplementation((_id, _cenaId, onChange) => {
+      onChange([]);
+      return vi.fn();
+    });
     // Sem combate por padrão; os testes de combate emitem o estado.
     subscribeGridCombate.mockImplementation((_id, _cenaId, onChange) => {
       onChange(null);
@@ -1110,6 +1155,205 @@ describe('Grid (Re:Master)', () => {
           deslocamento: 7.5,
         }),
       );
+    });
+  });
+
+  describe('ferramentas do mapa (Fase 3B)', () => {
+    const barra = () =>
+      screen.findByRole('toolbar', { name: 'Ferramentas do mapa' });
+
+    const escolher = async (user, nome) => {
+      const grupo = within(await barra()).getByRole('group', {
+        name: 'Ferramenta',
+      });
+      await user.click(within(grupo).getByRole('button', { name: nome }));
+    };
+
+    it('o seletor começa em Mover e troca de ferramenta', async () => {
+      const user = userEvent.setup();
+      renderGrid();
+      const grupo = within(await barra()).getByRole('group', {
+        name: 'Ferramenta',
+      });
+      expect(
+        within(grupo).getByRole('button', { name: 'Mover' }),
+      ).toHaveAttribute('aria-pressed', 'true');
+      expect(propsDoMapa.ferramenta).toBe('mover');
+
+      await escolher(user, 'Paredes');
+      expect(propsDoMapa.ferramenta).toBe('paredes');
+      expect(
+        screen.getByRole('button', { name: 'Limpar todas as paredes' }),
+      ).toBeInTheDocument();
+
+      await escolher(user, 'Marcadores');
+      expect(propsDoMapa.ferramenta).toBe('marcadores');
+      expect(screen.getByText(/Toque no mapa para criar/)).toBeInTheDocument();
+    });
+
+    it('esconde o painel do token e limpa a seleção fora de Mover', async () => {
+      const user = userEvent.setup();
+      renderGrid();
+      (await screen.findByRole('button', { name: /Ogro, coluna/ })).focus();
+      await user.keyboard('{Enter}');
+      expect(
+        await screen.findByRole('region', { name: 'Token selecionado' }),
+      ).toBeInTheDocument();
+
+      await escolher(user, 'Paredes');
+      expect(
+        screen.queryByRole('region', { name: 'Token selecionado' }),
+      ).not.toBeInTheDocument();
+
+      await escolher(user, 'Mover');
+      expect(
+        screen.queryByRole('region', { name: 'Token selecionado' }),
+      ).not.toBeInTheDocument();
+    });
+
+    it('o interruptor "Névoa ativa" só aparece com a ferramenta Névoa e grava o doc completo', async () => {
+      const user = userEvent.setup();
+      renderGrid();
+      await barra();
+      expect(screen.queryByRole('switch')).not.toBeInTheDocument();
+
+      await escolher(user, 'Névoa');
+      const interruptor = screen.getByRole('switch', { name: 'Névoa ativa' });
+      expect(interruptor).not.toBeChecked();
+      expect(
+        screen.getByText('Névoa desligada: os jogadores veem tudo.'),
+      ).toBeInTheDocument();
+
+      await user.click(interruptor);
+      await waitFor(() =>
+        expect(setGridCamada).toHaveBeenCalledWith('c1', 'cena-1', 'nevoa', {
+          ativa: true,
+          trechos: '',
+        }),
+      );
+    });
+
+    it('Revelar vira "adicionar" e Cobrir vira "remover" na névoa', async () => {
+      const user = userEvent.setup();
+      renderGrid();
+      await escolher(user, 'Névoa');
+      expect(propsDoMapa.opcoesFerramenta.acao).toBe('adicionar');
+
+      await user.click(screen.getByRole('button', { name: 'Cobrir' }));
+      expect(propsDoMapa.opcoesFerramenta.acao).toBe('remover');
+
+      await act(async () => {
+        await propsDoMapa.onEditarCamada({
+          camada: 'nevoa',
+          acao: 'adicionar',
+          celulas: [{ col: 2, lin: 3 }],
+        });
+      });
+      expect(setGridCamada).toHaveBeenCalledWith(
+        'c1',
+        'cena-1',
+        'nevoa',
+        expect.objectContaining({ trechos: '3:2' }),
+      );
+    });
+
+    it('cria um marcador (inclusive secreto) a partir de uma célula do mapa', async () => {
+      const user = userEvent.setup();
+      renderGrid();
+      await escolher(user, 'Marcadores');
+
+      act(() => propsDoMapa.onCelulaMarcador({ col: 2, lin: 3 }));
+      const dialogo = await screen.findByRole('dialog');
+      await user.type(within(dialogo).getByLabelText('Título'), 'Armadilha');
+      await user.click(within(dialogo).getByRole('button', { name: 'Perigo' }));
+      await user.click(
+        within(dialogo).getByRole('switch', { name: 'Só o mestre vê' }),
+      );
+      await user.click(within(dialogo).getByRole('button', { name: 'Salvar' }));
+
+      await waitFor(() =>
+        expect(addGridMarcador).toHaveBeenCalledWith(
+          'c1',
+          'cena-1',
+          expect.objectContaining({
+            col: 2,
+            lin: 3,
+            icone: 'perigo',
+            titulo: 'Armadilha',
+            secreto: true,
+          }),
+        ),
+      );
+      expect(notifySuccess).toHaveBeenCalledWith('Marcador criado.');
+    });
+
+    it('edita e apaga um marcador existente', async () => {
+      const user = userEvent.setup();
+      subscribeGridMarcadores.mockImplementation(
+        (_id, _cenaId, _opcoes, onChange) => {
+          onChange([
+            {
+              id: 'mk9',
+              col: 1,
+              lin: 1,
+              icone: 'porta',
+              cor: '#e8cb85',
+              titulo: 'Porta velha',
+              texto: '',
+              secreto: false,
+            },
+          ]);
+          return vi.fn();
+        },
+      );
+      renderGrid();
+      await escolher(user, 'Marcadores');
+
+      act(() => propsDoMapa.onMarcadorClique(propsDoMapa.marcadores[0]));
+      let dialogo = await screen.findByRole('dialog');
+      const titulo = within(dialogo).getByLabelText('Título');
+      expect(titulo).toHaveValue('Porta velha');
+      await user.clear(titulo);
+      await user.type(titulo, 'Porta secreta');
+      await user.click(within(dialogo).getByRole('button', { name: 'Salvar' }));
+      await waitFor(() =>
+        expect(updateGridMarcador).toHaveBeenCalledWith(
+          'c1',
+          'cena-1',
+          'mk9',
+          expect.objectContaining({
+            titulo: 'Porta secreta',
+            secreto: false,
+          }),
+        ),
+      );
+      expect(notifySuccess).toHaveBeenCalledWith('Marcador atualizado.');
+
+      act(() => propsDoMapa.onMarcadorClique(propsDoMapa.marcadores[0]));
+      dialogo = await screen.findByRole('dialog');
+      await user.click(within(dialogo).getByRole('button', { name: 'Apagar' }));
+      await waitFor(() =>
+        expect(removeGridMarcador).toHaveBeenCalledWith('c1', 'cena-1', 'mk9'),
+      );
+    });
+
+    it('"Apagar todos" os desenhos usa os ids ao vivo', async () => {
+      subscribeGridDesenhos.mockImplementation((_id, _cenaId, onChange) => {
+        onChange([
+          { id: 'd1', uid: 'm1', cor: '#ffffff', pontos: [0, 0, 5, 5] },
+          { id: 'd2', uid: 'outro', cor: '#ffffff', pontos: [0, 0, 9, 9] },
+        ]);
+        return vi.fn();
+      });
+      renderGrid();
+      await barra();
+      await act(async () => {
+        await propsDoMapa.acoesDesenho.apagarTodos();
+      });
+      expect(removeGridDesenhos).toHaveBeenCalledWith('c1', 'cena-1', [
+        'd1',
+        'd2',
+      ]);
     });
   });
 });

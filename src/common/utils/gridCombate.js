@@ -452,6 +452,15 @@ export const distanciasDeMovimento = ({
           return;
         const chave = chaveDaCelula(vizinho.col, vizinho.lin);
         if (distancias.has(chave) || !livre(vizinho.col, vizinho.lin)) return;
+        // Quina fechada: diagonal com os dois lados ortogonais bloqueados.
+        if (
+          bloqueadas &&
+          dc !== 0 &&
+          dl !== 0 &&
+          !livre(col + dc, lin) &&
+          !livre(col, lin + dl)
+        )
+          return;
         distancias.set(chave, passo);
         proxima.push(vizinho);
       });

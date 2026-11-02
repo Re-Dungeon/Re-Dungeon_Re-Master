@@ -22,7 +22,11 @@ import {
   rastrosIguais,
 } from 'common/utils/grid';
 import useFichasDoGrid from 'hooks/useFichasDoGrid';
+import { caminhoBloqueado } from 'common/utils/gridCamadas';
+import useGridCamadas from 'hooks/useGridCamadas';
 import useGridCombate from 'hooks/useGridCombate';
+import useGridDesenhos from 'hooks/useGridDesenhos';
+import useGridMarcadores from 'hooks/useGridMarcadores';
 import useGridPings from 'hooks/useGridPings';
 import useMembroDoChat from 'hooks/useMembroDoChat';
 
@@ -51,6 +55,9 @@ import useMembroDoChat from 'hooks/useMembroDoChat';
 // Fase 3A: combate da cena (useGridCombate — ordem, token da vez, passar o
 // turno; `autorCombate` assina as mensagens de combate) e o `travamento` da
 // cena, que o `podeMover` segue ('turno': em combate, só o token da vez).
+// Fase 3B: camadas (useGridCamadas — paredes e névoa; o `mover` do jogador é
+// barrado se o caminho cruza uma parede), marcadores (useGridMarcadores) e
+// desenhos (useGridDesenhos), todos da cena exibida.
 const SEM_TOKENS = [];
 const SEM_CATALOGO = [];
 const SEM_RASTROS = [];
@@ -337,6 +344,31 @@ const useGridCampanha = (
     });
   const tokenDaVezId = combate?.tokenDaVezId ?? null;
 
+  const ativoNaCena = Boolean(podeOuvir && chave);
+  const {
+    bloqueadas,
+    nevoa,
+    editarCamada,
+    definirNevoaAtiva,
+    preencherCamada,
+  } = useGridCamadas(campanhaId, cenaId, {
+    ativo: ativoNaCena,
+    veTudo,
+    onErro: setErro,
+  });
+  const { marcadores, criarMarcador, salvarMarcador, apagarMarcador } =
+    useGridMarcadores(campanhaId, cenaId, {
+      ativo: ativoNaCena,
+      veTudo,
+      onErro: setErro,
+    });
+  const { desenhos, desenhar, apagarMeus, apagarTodos } = useGridDesenhos(
+    campanhaId,
+    cenaId,
+    { ativo: ativoNaCena, uid, veTudo, onErro: setErro },
+  );
+  const camadas = useMemo(() => ({ bloqueadas, nevoa }), [bloqueadas, nevoa]);
+
   const podeMover = useCallback(
     token => podeMoverToken(token, uid, veTudo, { travamento, tokenDaVezId }),
     [uid, veTudo, travamento, tokenDaVezId],
@@ -356,6 +388,14 @@ const useGridCampanha = (
         !cenaId ||
         !podeMover(token) ||
         (token.col === col && token.lin === lin)
+      ) {
+        return;
+      }
+      // Parede no caminho: o jogador não passa (o mestre ignora as paredes).
+      if (
+        !veTudo &&
+        Array.isArray(caminho) &&
+        caminhoBloqueado(caminho, token.tamanho ?? 1, bloqueadas)
       ) {
         return;
       }
@@ -396,12 +436,14 @@ const useGridCampanha = (
     },
     [
       apagarRastro,
+      bloqueadas,
       campanhaId,
       cenaId,
       chave,
       confirmarRastro,
       mostrarRastro,
       podeMover,
+      veTudo,
     ],
   );
 
@@ -491,6 +533,26 @@ const useGridCampanha = (
     encerrarTurno,
     // 'livre' | 'turno' | 'congelado' (GridMapa, prop `travamento`).
     travamento,
+    // Mapa (Fase 3B). `camadas` = { bloqueadas: Set<'col,lin'>, nevoa: { ativa,
+    // reveladas } } (GridMapa, prop `camadas`); as edições são do mestre:
+    // `editarCamada(camada, acao, celulas, limites)`, `definirNevoaAtiva(ativa)`
+    // e `preencherCamada(camada, acao, limites)`.
+    camadas,
+    editarCamada,
+    definirNevoaAtiva,
+    preencherCamada,
+    // Marcadores visíveis a quem usa o hook (o mestre vê os secretos) e as
+    // escritas do mestre (GridMapa, prop `marcadores`).
+    marcadores,
+    criarMarcador,
+    salvarMarcador,
+    apagarMarcador,
+    // Desenhos da cena ({ id, uid, cor, pontos, proprio }[]), `desenhar({ cor,
+    // pontos })` e apagar (`apagarTodosDesenhos` só existe para o mestre).
+    desenhos,
+    desenhar,
+    apagarMeusDesenhos: apagarMeus,
+    apagarTodosDesenhos: apagarTodos,
   };
 };
 

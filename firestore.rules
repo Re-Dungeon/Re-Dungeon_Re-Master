@@ -689,6 +689,8 @@ service cloud.firestore {
     // tudo; o jogador só passa a vez do token dele que está jogando. O
     // `travamento` da cena ('livre' | 'turno' | 'congelado') limita quando o
     // jogador move.
+    // Mapa (Fase 3B): `camadas/{paredes,nevoa}` (só o mestre grava), `marcadores`
+    // (mestre grava; `secreto` só o mestre lê) e `desenhos` (cada um cria os seus).
     // Tokens `oculto` só o mestre lê — a consulta do jogador filtra
     // `oculto == false` (senão é recusada).
     // ═══════════════════════════════════════════════════════════════════════
@@ -908,6 +910,72 @@ service cloud.firestore {
          (veCenaDoGrid(campanhaId, cenaId) &&
           gridPassaMeuTurno(campanhaId, cenaId, resource.data, request.resource.data)));
       allow delete: if isMestreDaCampanha(campanhaId);
+    }
+
+    // ── Mapa (Fase 3B): paredes/névoa, marcadores e desenhos da cena ──────────
+    // `camadas/paredes` = {trechos}; `camadas/nevoa` = {ativa, trechos(reveladas)}.
+    // `trechos` = 'lin:ini-fim,ini-fim;lin:...' (common/utils/gridCamadas.js).
+    // Só o mestre grava; quem lê sanitiza (decodificarTrechos).
+    function gridCamadaValida(camadaId, data) {
+      return (camadaId == 'paredes' &&
+          data.keys().hasOnly(['trechos', 'updatedAt']) && data.keys().hasAll(['trechos']) &&
+          data.trechos is string && data.trechos.size() <= 200000) ||
+        (camadaId == 'nevoa' &&
+          data.keys().hasOnly(['ativa', 'trechos', 'updatedAt']) &&
+          data.keys().hasAll(['ativa', 'trechos']) &&
+          data.ativa is bool && data.trechos is string && data.trechos.size() <= 200000);
+    }
+
+    match /rmCampanhas/{campanhaId}/gridCenas/{cenaId}/camadas/{camadaId} {
+      allow read: if isMestreDaCampanha(campanhaId) || veCenaDoGrid(campanhaId, cenaId);
+      allow create, update: if isMestreDaCampanha(campanhaId) &&
+        gridCamadaValida(camadaId, request.resource.data);
+      allow delete: if isMestreDaCampanha(campanhaId);
+    }
+
+    // Marcadores (common/utils/gridMarcadores.js): `secreto` = só o mestre lê
+    // (a consulta do jogador filtra `secreto == false`, como os tokens `oculto`).
+    function gridMarcadorValido(data) {
+      return data.keys().hasOnly(['col', 'lin', 'icone', 'cor', 'titulo', 'texto', 'secreto',
+                                  'createdAt', 'updatedAt']) &&
+        data.keys().hasAll(['col', 'lin', 'icone', 'cor', 'titulo', 'secreto']) &&
+        gridPosicaoValida(data) &&
+        data.icone in ['alfinete', 'perigo', 'tesouro', 'porta', 'interrogacao', 'caveira'] &&
+        data.cor is string && data.cor.matches('#[0-9a-fA-F]{6}') &&
+        data.titulo is string && data.titulo.size() > 0 && data.titulo.size() <= 60 &&
+        data.get('texto', '') is string && data.get('texto', '').size() <= 500 &&
+        data.secreto is bool;
+    }
+
+    match /rmCampanhas/{campanhaId}/gridCenas/{cenaId}/marcadores/{marcadorId} {
+      allow read: if isMestreDaCampanha(campanhaId) ||
+        (resource.data.secreto == false && veCenaDoGrid(campanhaId, cenaId));
+      allow create, update: if isMestreDaCampanha(campanhaId) &&
+        gridMarcadorValido(request.resource.data);
+      allow delete: if isMestreDaCampanha(campanhaId);
+    }
+
+    // Desenhos (common/utils/gridDesenho.js): um doc por traço, `pontos` plano
+    // [x0,y0,x1,y1,...] em px do mundo. Cada um cria os seus; só o autor (ou o
+    // mestre) apaga; não há update. O limite por pessoa é do cliente.
+    function gridDesenhoValido(data) {
+      return data.keys().hasOnly(['uid', 'cor', 'pontos', 'createdAt']) &&
+        data.keys().hasAll(['uid', 'cor', 'pontos', 'createdAt']) &&
+        data.uid == request.auth.uid &&
+        data.cor is string && data.cor.matches('#[0-9a-fA-F]{6}') &&
+        data.pontos is list && data.pontos.size() >= 4 && data.pontos.size() <= 400 &&
+        data.pontos.size() % 2 == 0 &&
+        data.createdAt == request.time;
+    }
+
+    match /rmCampanhas/{campanhaId}/gridCenas/{cenaId}/desenhos/{desenhoId} {
+      allow read: if isMestreDaCampanha(campanhaId) || veCenaDoGrid(campanhaId, cenaId);
+      allow create: if isAuth() &&
+        (isMestreDaCampanha(campanhaId) || veCenaDoGrid(campanhaId, cenaId)) &&
+        gridDesenhoValido(request.resource.data);
+      allow delete: if isAuth() &&
+        (isMestreDaCampanha(campanhaId) ||
+         (resource.data.uid == request.auth.uid && veCenaDoGrid(campanhaId, cenaId)));
     }
 
     // ═══════════════════════════════════════════════════════════════════════

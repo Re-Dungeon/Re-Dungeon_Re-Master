@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
+import { ACOES_CAMADA } from 'common/utils/gridCamadas';
 import {
+  FERRAMENTAS,
+  OPCOES_ACAO,
+  OPCOES_FERRAMENTA,
+  OPCOES_FORMA,
   OPCOES_CORRIDA,
   OPCOES_TAMANHO_TOKEN,
   OPCOES_TRAVAMENTO,
@@ -162,5 +167,37 @@ describe('combate (Fase 3A)', () => {
       expect(reacaoDoToken({ refId: 'cr1' }, { fichas, fontes })).toBeNull();
       expect(reacaoDoToken({ refId: 'x' })).toBeNull();
     });
+  });
+});
+
+describe('ferramentas do mapa', () => {
+  it('lista as quatro ferramentas, Mover primeiro', () => {
+    expect(OPCOES_FERRAMENTA.map(opcao => opcao.value)).toEqual([
+      FERRAMENTAS.MOVER,
+      FERRAMENTAS.PAREDES,
+      FERRAMENTAS.NEVOA,
+      FERRAMENTAS.MARCADORES,
+    ]);
+  });
+
+  it('formas: pincel e retângulo', () => {
+    expect(OPCOES_FORMA.map(opcao => opcao.value)).toEqual([
+      'pincel',
+      'retangulo',
+    ]);
+  });
+
+  it('ações: névoa revela (adicionar) e cobre (remover); paredes adicionam e apagam', () => {
+    const nevoa = OPCOES_ACAO[FERRAMENTAS.NEVOA];
+    expect(nevoa.find(opcao => opcao.label === 'Revelar').value).toBe(
+      ACOES_CAMADA.ADICIONAR,
+    );
+    expect(nevoa.find(opcao => opcao.label === 'Cobrir').value).toBe(
+      ACOES_CAMADA.REMOVER,
+    );
+    expect(OPCOES_ACAO[FERRAMENTAS.PAREDES].map(opcao => opcao.value)).toEqual([
+      ACOES_CAMADA.ADICIONAR,
+      ACOES_CAMADA.REMOVER,
+    ]);
   });
 });

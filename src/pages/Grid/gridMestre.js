@@ -14,6 +14,7 @@ import {
   primeiraCelulaLivre,
 } from 'common/utils/grid';
 import { reacaoDaFicha } from 'common/utils/gridCombate';
+import { ACOES_CAMADA } from 'common/utils/gridCamadas';
 
 // Jogadores que podem receber tokens: um por uid (dono da ficha), com os
 // nomes dos personagens dele na campanha. `donosAtuais` garante que um uid já
@@ -144,4 +145,47 @@ export const reacaoDoToken = (token, { fichas = {}, fontes = {} } = {}) => {
     ...(fontes.jogadores ?? []),
   ].find(fonte => fonte.refId === token.refId);
   return Number.isFinite(persona?.reacao) ? persona.reacao : null;
+};
+
+// ── Ferramentas do mapa (Fase 3B) ───────────────────────────────────────
+// Seletor da barra do Grid: com outra ferramenta além de Mover, o mapa edita
+// paredes, névoa ou marcadores em vez de mover tokens.
+export const FERRAMENTAS = {
+  MOVER: 'mover',
+  PAREDES: 'paredes',
+  NEVOA: 'nevoa',
+  MARCADORES: 'marcadores',
+};
+
+export const OPCOES_FERRAMENTA = [
+  { value: FERRAMENTAS.MOVER, label: 'Mover' },
+  { value: FERRAMENTAS.PAREDES, label: 'Paredes' },
+  { value: FERRAMENTAS.NEVOA, label: 'Névoa' },
+  { value: FERRAMENTAS.MARCADORES, label: 'Marcadores' },
+];
+
+export const FORMAS_PINCEL = { PINCEL: 'pincel', RETANGULO: 'retangulo' };
+
+export const OPCOES_FORMA = [
+  { value: FORMAS_PINCEL.PINCEL, label: 'Pincel' },
+  { value: FORMAS_PINCEL.RETANGULO, label: 'Retângulo' },
+];
+
+// Paredes: adicionar/apagar. Névoa: revelar = adicionar às células reveladas,
+// cobrir = remover delas (ACOES_CAMADA em common/utils/gridCamadas.js).
+export const OPCOES_ACAO = {
+  [FERRAMENTAS.PAREDES]: [
+    { value: ACOES_CAMADA.ADICIONAR, label: 'Adicionar' },
+    { value: ACOES_CAMADA.REMOVER, label: 'Apagar' },
+  ],
+  [FERRAMENTAS.NEVOA]: [
+    { value: ACOES_CAMADA.ADICIONAR, label: 'Revelar' },
+    { value: ACOES_CAMADA.REMOVER, label: 'Cobrir' },
+  ],
+};
+
+export const OPCOES_FERRAMENTA_PADRAO = {
+  forma: FORMAS_PINCEL.PINCEL,
+  acao: ACOES_CAMADA.ADICIONAR,
+  tamanho: 1,
 };

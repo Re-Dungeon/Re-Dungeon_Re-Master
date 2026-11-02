@@ -403,6 +403,25 @@ describe('alcance de movimento', () => {
     expect(parede.has('2,1')).toBe(false);
   });
 
+  it('com paredes, recusa a diagonal entre dois lados bloqueados e aceita com um livre', () => {
+    const base = {
+      origem: { col: 0, lin: 0 },
+      alcance: 1,
+      limites: { colunas: 5, linhas: 5 },
+    };
+    const fechada = distanciasDeMovimento({
+      ...base,
+      bloqueadas: new Set(['1,0', '0,1']),
+    });
+    expect(fechada.has('1,1')).toBe(false);
+    const umLado = distanciasDeMovimento({
+      ...base,
+      bloqueadas: new Set(['1,0']),
+    });
+    expect(umLado.get('1,1')).toBe(1);
+    expect(distanciasDeMovimento(base).get('1,1')).toBe(1);
+  });
+
   it('faixasDoAlcance: trechos por linha, verde até Mover e amarelo até Correr', () => {
     const distancias = distanciasDeMovimento({
       origem: { col: 2, lin: 2 },

@@ -1052,3 +1052,471 @@ describe('GridMapa — combate (Fase 3A)', () => {
     );
   });
 });
+
+describe('GridMapa — mapa (Fase 3B)', () => {
+  const viewportDe = () =>
+    screen.getByRole('application', { name: 'Grid da campanha' });
+  const ponteiro = (clientX, clientY, extra = {}) => ({
+    clientX,
+    clientY,
+    pointerId: 1,
+    pointerType: 'mouse',
+    button: 0,
+    ...extra,
+  });
+  const mundoDe = container =>
+    container.querySelector('[data-token-id]').parentElement;
+  const transformDe = elemento => {
+    const [, x, y, zoom] = elemento.style.transform
+      .match(/translate\((.+)px, (.+)px\) scale\((.+)\)/)
+      .map(Number);
+    return { x, y, zoom };
+  };
+  const mapa = props => (
+    <GridMapa
+      config={GRID_CONFIG_PADRAO}
+      tokens={TOKENS}
+      podeMover={podeMoverDoJogador}
+      onMover={vi.fn()}
+      {...props}
+    />
+  );
+  const semNevoa = { ativa: false, reveladas: new Set() };
+
+  describe('paredes', () => {
+    // Wesley (2,3); parede na célula (3,3).
+    const camadas = { bloqueadas: new Set(['3,3']), nevoa: semNevoa };
+    const arrastarWesley = () => {
+      fireEvent.pointerDown(
+        screen.getByRole('button', { name: /Wesley/ }),
+        ponteiro(110, 160),
+      );
+      fireEvent.pointerMove(viewportDe(), ponteiro(160, 160));
+    };
+
+    it('jogador solta o token na parede: não move e mostra o aviso', async () => {
+      const onMover = vi.fn();
+      const { container } = render(mapa({ onMover, camadas }));
+      arrastarWesley();
+      const rotulo = screen.getByText('Parede no caminho');
+      expect(rotulo).toHaveAttribute('data-faixa', 'bloqueado');
+
+      await act(async () =>
+        fireEvent.pointerUp(viewportDe(), ponteiro(160, 160)),
+      );
+      expect(onMover).not.toHaveBeenCalled();
+      expect(screen.getByRole('status')).toHaveTextContent(
+        'Há uma parede no caminho.',
+      );
+      expect(container.querySelector('[data-fantasma]')).toBeNull();
+    });
+
+    it('o mestre atravessa a parede', async () => {
+      const onMover = vi.fn();
+      render(mapa({ onMover, camadas, mestre: true, podeMover: () => true }));
+      arrastarWesley();
+      expect(screen.queryByText('Parede no caminho')).not.toBeInTheDocument();
+      await act(async () =>
+        fireEvent.pointerUp(viewportDe(), ponteiro(160, 160)),
+      );
+      expect(onMover).toHaveBeenCalledTimes(1);
+    });
+
+    it('seta contra a parede avisa e não move; o aviso some sozinho', () => {
+      vi.useFakeTimers();
+      try {
+        const onMover = vi.fn();
+        render(mapa({ onMover, camadas }));
+        fireEvent.keyDown(screen.getByRole('button', { name: /Wesley/ }), {
+          key: 'ArrowRight',
+        });
+        expect(onMover).not.toHaveBeenCalled();
+        expect(screen.getByRole('status')).toHaveTextContent('Há uma parede');
+        act(() => vi.advanceTimersByTime(2600));
+        expect(screen.queryByRole('status')).not.toBeInTheDocument();
+        // Para o lado livre, move.
+        fireEvent.keyDown(screen.getByRole('button', { name: /Wesley/ }), {
+          key: 'ArrowLeft',
+        });
+        expect(onMover).toHaveBeenCalledTimes(1);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('desenha a camada de paredes', () => {
+      const { container } = render(mapa({ camadas }));
+      expect(container.querySelector('[data-camada="paredes"]')).not.toBeNull();
+    });
+  });
+
+  describe('névoa', () => {
+    it('some com o token alheio coberto, mantém o meu e o mestre vê tudo', () => {
+      const camadas = {
+        bloqueadas: new Set(),
+        nevoa: { ativa: true, reveladas: new Set() },
+      };
+      const { container, unmount } = render(mapa({ camadas }));
+      expect(
+        screen.getByRole('button', { name: /Wesley/ }),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole('button', { name: /Goblin/ }),
+      ).not.toBeInTheDocument();
+      expect(
+        container.querySelector('[data-camada="nevoa"] path'),
+      ).not.toBeNull();
+      unmount();
+
+      render(mapa({ camadas, mestre: true }));
+      expect(
+        screen.getByRole('button', { name: /Goblin/ }),
+      ).toBeInTheDocument();
+    });
+
+    it('token 2×2 com uma célula na luz continua visível', () => {
+      const camadas = {
+        bloqueadas: new Set(),
+        nevoa: { ativa: true, reveladas: new Set(['1,1']) },
+      };
+      render(mapa({ camadas }));
+      expect(
+        screen.getByRole('button', { name: /Goblin/ }),
+      ).toBeInTheDocument();
+    });
+
+    it('névoa desligada não cobre nada', () => {
+      const { container } = render(
+        mapa({ camadas: { bloqueadas: new Set(), nevoa: semNevoa } }),
+      );
+      expect(
+        screen.getByRole('button', { name: /Goblin/ }),
+      ).toBeInTheDocument();
+      expect(container.querySelector('[data-camada="nevoa"]')).toBeNull();
+    });
+  });
+
+  it('pinça mantém o zoom e também desloca a vista', () => {
+    const { container } = render(mapa());
+    fireEvent.pointerDown(viewportDe(), ponteiro(100, 100, { pointerId: 1 }));
+    fireEvent.pointerDown(viewportDe(), ponteiro(200, 100, { pointerId: 2 }));
+    const antes = transformDe(mundoDe(container));
+    // Mesma distância entre os dedos, meio andou (+50, +20).
+    fireEvent.pointerMove(viewportDe(), ponteiro(150, 120, { pointerId: 1 }));
+    fireEvent.pointerMove(viewportDe(), ponteiro(250, 120, { pointerId: 2 }));
+    const depois = transformDe(mundoDe(container));
+    expect(depois.zoom).toBeCloseTo(antes.zoom);
+    expect(depois.x - antes.x).toBeCloseTo(50);
+    expect(depois.y - antes.y).toBeCloseTo(20);
+  });
+
+  it('botão do meio do mouse arrasta o mapa, mesmo sobre um token', () => {
+    const { container } = render(mapa());
+    const antes = transformDe(mundoDe(container));
+    fireEvent.pointerDown(
+      screen.getByRole('button', { name: /Wesley/ }),
+      ponteiro(110, 160, { button: 1 }),
+    );
+    fireEvent.pointerMove(viewportDe(), ponteiro(150, 170, { button: 1 }));
+    fireEvent.pointerUp(viewportDe(), ponteiro(150, 170, { button: 1 }));
+    const depois = transformDe(mundoDe(container));
+    expect(depois.x - antes.x).toBeCloseTo(40);
+    expect(depois.y - antes.y).toBeCloseTo(10);
+  });
+
+  describe('desenhar', () => {
+    const tracar = async tipo => {
+      fireEvent.pointerDown(
+        viewportDe(),
+        ponteiro(10, 10, { pointerType: tipo }),
+      );
+      fireEvent.pointerMove(
+        viewportDe(),
+        ponteiro(60, 10, { pointerType: tipo }),
+      );
+      fireEvent.pointerMove(
+        viewportDe(),
+        ponteiro(100, 50, { pointerType: tipo }),
+      );
+      await act(async () =>
+        fireEvent.pointerUp(
+          viewportDe(),
+          ponteiro(100, 50, { pointerType: tipo }),
+        ),
+      );
+    };
+
+    it('o botão só existe com onDesenhar e fica desabilitado fora de Mover', () => {
+      const { unmount } = render(mapa());
+      expect(
+        screen.queryByRole('button', { name: 'Desenhar' }),
+      ).not.toBeInTheDocument();
+      unmount();
+      render(mapa({ onDesenhar: vi.fn(), ferramenta: 'paredes' }));
+      expect(screen.getByRole('button', { name: 'Desenhar' })).toBeDisabled();
+    });
+
+    it.each(['mouse', 'touch'])(
+      'um traço (%s) grava uma vez com pontos planos e a cor da paleta',
+      async tipo => {
+        const onDesenhar = vi.fn().mockResolvedValue(true);
+        const { container } = render(mapa({ onDesenhar, acoesDesenho: {} }));
+        fireEvent.click(screen.getByRole('button', { name: 'Desenhar' }));
+        fireEvent.click(screen.getByRole('button', { name: 'Cor #e05555' }));
+        await tracar(tipo);
+        expect(onDesenhar).toHaveBeenCalledTimes(1);
+        const { cor, pontos } = onDesenhar.mock.calls[0][0];
+        expect(cor).toBe('#e05555');
+        expect(pontos.length).toBeGreaterThanOrEqual(4);
+        expect(pontos.length % 2).toBe(0);
+        expect(pontos.slice(0, 2)).toEqual([10, 10]);
+        expect(container.querySelector('[data-traco-atual]')).toBeNull();
+      },
+    );
+
+    it('desenhar sobre um token não move o token', async () => {
+      const onDesenhar = vi.fn();
+      const onMover = vi.fn();
+      render(mapa({ onDesenhar, onMover }));
+      fireEvent.click(screen.getByRole('button', { name: 'Desenhar' }));
+      fireEvent.pointerDown(
+        screen.getByRole('button', { name: /Wesley/ }),
+        ponteiro(110, 160),
+      );
+      fireEvent.pointerMove(viewportDe(), ponteiro(200, 160));
+      await act(async () =>
+        fireEvent.pointerUp(viewportDe(), ponteiro(200, 160)),
+      );
+      expect(onMover).not.toHaveBeenCalled();
+      expect(onDesenhar).toHaveBeenCalledTimes(1);
+    });
+
+    it('a pinça descarta o traço', async () => {
+      const onDesenhar = vi.fn();
+      render(mapa({ onDesenhar }));
+      fireEvent.click(screen.getByRole('button', { name: 'Desenhar' }));
+      fireEvent.pointerDown(viewportDe(), ponteiro(10, 10, { pointerId: 1 }));
+      fireEvent.pointerMove(viewportDe(), ponteiro(60, 10, { pointerId: 1 }));
+      fireEvent.pointerDown(viewportDe(), ponteiro(200, 200, { pointerId: 2 }));
+      await act(async () => {
+        fireEvent.pointerUp(viewportDe(), ponteiro(200, 200, { pointerId: 2 }));
+        fireEvent.pointerUp(viewportDe(), ponteiro(60, 10, { pointerId: 1 }));
+      });
+      expect(onDesenhar).not.toHaveBeenCalled();
+    });
+
+    it('Alt+clique ainda pinga e Esc sai do modo', () => {
+      const onDesenhar = vi.fn();
+      const onPing = vi.fn();
+      render(mapa({ onDesenhar, onPing }));
+      const botao = screen.getByRole('button', { name: 'Desenhar' });
+      fireEvent.click(botao);
+      fireEvent.pointerDown(viewportDe(), ponteiro(50, 50, { altKey: true }));
+      expect(onPing).toHaveBeenCalledTimes(1);
+      fireEvent.pointerUp(viewportDe(), ponteiro(50, 50, { altKey: true }));
+      expect(onDesenhar).not.toHaveBeenCalled();
+      fireEvent.keyDown(window, { key: 'Escape' });
+      expect(botao).toHaveAttribute('aria-pressed', 'false');
+    });
+
+    it('é exclusivo com a régua e a paleta chama as ações', () => {
+      const apagarMeus = vi.fn();
+      const apagarTodos = vi.fn();
+      vi.spyOn(window, 'confirm').mockReturnValue(true);
+      render(
+        mapa({
+          onDesenhar: vi.fn(),
+          acoesDesenho: { apagarMeus, apagarTodos },
+        }),
+      );
+      const desenhar = screen.getByRole('button', { name: 'Desenhar' });
+      const regua = screen.getByRole('button', { name: 'Régua' });
+      fireEvent.click(desenhar);
+      fireEvent.click(regua);
+      expect(desenhar).toHaveAttribute('aria-pressed', 'false');
+      expect(regua).toHaveAttribute('aria-pressed', 'true');
+      fireEvent.click(desenhar);
+      expect(regua).toHaveAttribute('aria-pressed', 'false');
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Apagar meus desenhos' }),
+      );
+      fireEvent.click(screen.getByRole('button', { name: 'Apagar todos' }));
+      expect(apagarMeus).toHaveBeenCalled();
+      expect(apagarTodos).toHaveBeenCalled();
+    });
+
+    it('mostra os desenhos recebidos', () => {
+      const { container } = render(
+        mapa({
+          desenhos: [
+            { id: 'd1', cor: '#ffffff', pontos: [0, 0, 10, 10], proprio: true },
+          ],
+        }),
+      );
+      expect(
+        container.querySelector('[data-desenho="d1"] polyline'),
+      ).not.toBeNull();
+    });
+  });
+
+  describe('ferramentas de paredes e névoa', () => {
+    it('pincel: um onEditarCamada ao soltar, com as células pintadas', async () => {
+      const onEditarCamada = vi.fn().mockResolvedValue(true);
+      render(
+        mapa({
+          ferramenta: 'paredes',
+          opcoesFerramenta: { forma: 'pincel', acao: 'adicionar', tamanho: 1 },
+          onEditarCamada,
+          mestre: true,
+        }),
+      );
+      fireEvent.pointerDown(viewportDe(), ponteiro(60, 60)); // (1,1)
+      fireEvent.pointerMove(viewportDe(), ponteiro(160, 60)); // (3,1)
+      expect(onEditarCamada).not.toHaveBeenCalled();
+      await act(async () =>
+        fireEvent.pointerUp(viewportDe(), ponteiro(160, 60)),
+      );
+      expect(onEditarCamada).toHaveBeenCalledTimes(1);
+      const { camada, acao, celulas } = onEditarCamada.mock.calls[0][0];
+      expect(camada).toBe('paredes');
+      expect(acao).toBe('adicionar');
+      expect(celulas).toEqual(
+        expect.arrayContaining([
+          { col: 1, lin: 1 },
+          { col: 2, lin: 1 },
+          { col: 3, lin: 1 },
+        ]),
+      );
+      expect(celulas).toHaveLength(3);
+    });
+
+    it('retângulo na névoa; a prévia de remover fica vermelha até gravar', async () => {
+      let terminar;
+      const onEditarCamada = vi.fn(
+        () => new Promise(resolve => (terminar = resolve)),
+      );
+      const { container } = render(
+        mapa({
+          ferramenta: 'nevoa',
+          opcoesFerramenta: { forma: 'retangulo', acao: 'remover', tamanho: 1 },
+          onEditarCamada,
+          mestre: true,
+        }),
+      );
+      fireEvent.pointerDown(viewportDe(), ponteiro(10, 10));
+      fireEvent.pointerMove(viewportDe(), ponteiro(110, 60)); // (0,0)-(2,1)
+      const previa = container.querySelector('[data-previa="remover"]');
+      expect(previa).not.toBeNull();
+      expect(previa).toHaveAttribute('fill', '#e05555');
+      fireEvent.pointerUp(viewportDe(), ponteiro(110, 60));
+      expect(onEditarCamada.mock.calls[0][0]).toMatchObject({
+        camada: 'nevoa',
+        acao: 'remover',
+      });
+      expect(onEditarCamada.mock.calls[0][0].celulas).toHaveLength(6);
+      // Prévia segue até a promessa terminar.
+      expect(container.querySelector('[data-previa]')).not.toBeNull();
+      await act(async () => terminar(true));
+      expect(container.querySelector('[data-previa]')).toBeNull();
+    });
+
+    it('pressão longa com a ferramenta de paredes ainda pinga', () => {
+      vi.useFakeTimers();
+      try {
+        const onPing = vi.fn();
+        const onEditarCamada = vi.fn();
+        render(mapa({ ferramenta: 'paredes', onEditarCamada, onPing }));
+        fireEvent.pointerDown(viewportDe(), ponteiro(60, 60));
+        act(() => vi.advanceTimersByTime(3000));
+        expect(onPing).toHaveBeenCalledTimes(1);
+        fireEvent.pointerUp(viewportDe(), ponteiro(60, 60));
+        expect(onEditarCamada).not.toHaveBeenCalled();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('com a ferramenta de edição o token não arrasta', async () => {
+      const onMover = vi.fn();
+      const onEditarCamada = vi.fn().mockResolvedValue(true);
+      render(
+        mapa({ ferramenta: 'paredes', onEditarCamada, onMover, mestre: true }),
+      );
+      fireEvent.pointerDown(
+        screen.getByRole('button', { name: /Wesley/ }),
+        ponteiro(110, 160),
+      );
+      fireEvent.pointerMove(viewportDe(), ponteiro(210, 160));
+      await act(async () =>
+        fireEvent.pointerUp(viewportDe(), ponteiro(210, 160)),
+      );
+      expect(onMover).not.toHaveBeenCalled();
+      expect(onEditarCamada).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('marcadores', () => {
+    const marcador = {
+      id: 'm1',
+      col: 4,
+      lin: 4,
+      icone: 'tesouro',
+      cor: '#e8cb85',
+      titulo: 'Baú escondido',
+      texto: 'Atrás da estátua.',
+      secreto: false,
+    };
+
+    it('mostra o pino; tocar abre o cartão e tocar fora fecha', () => {
+      render(mapa({ marcadores: [marcador] }));
+      const pino = screen.getByRole('button', {
+        name: 'Marcador: Baú escondido',
+      });
+      fireEvent.pointerDown(pino, ponteiro(225, 225, { pointerType: 'touch' }));
+      fireEvent.pointerUp(
+        viewportDe(),
+        ponteiro(225, 225, { pointerType: 'touch' }),
+      );
+      const cartao = screen.getByRole('dialog', {
+        name: 'Marcador: Baú escondido',
+      });
+      expect(cartao).toHaveTextContent('Atrás da estátua.');
+
+      fireEvent.pointerDown(
+        viewportDe(),
+        ponteiro(20, 20, { pointerType: 'touch' }),
+      );
+      fireEvent.pointerUp(
+        viewportDe(),
+        ponteiro(20, 20, { pointerType: 'touch' }),
+      );
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+
+    it('ferramenta Marcadores: vazio cria na célula, pino edita', () => {
+      const onCelulaMarcador = vi.fn();
+      const onMarcadorClique = vi.fn();
+      render(
+        mapa({
+          marcadores: [marcador],
+          ferramenta: 'marcadores',
+          onCelulaMarcador,
+          onMarcadorClique,
+          mestre: true,
+        }),
+      );
+      fireEvent.pointerDown(viewportDe(), ponteiro(120, 70));
+      fireEvent.pointerUp(viewportDe(), ponteiro(120, 70));
+      expect(onCelulaMarcador).toHaveBeenCalledWith({ col: 2, lin: 1 });
+
+      fireEvent.pointerDown(
+        screen.getByRole('button', { name: 'Marcador: Baú escondido' }),
+        ponteiro(225, 225),
+      );
+      fireEvent.pointerUp(viewportDe(), ponteiro(225, 225));
+      expect(onMarcadorClique).toHaveBeenCalledWith(marcador);
+      expect(onCelulaMarcador).toHaveBeenCalledTimes(1);
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+  });
+});

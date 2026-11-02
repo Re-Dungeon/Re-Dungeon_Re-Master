@@ -7,7 +7,12 @@ import {
   setGridPing,
   subscribeGridCena,
   subscribeGridCenaAtiva,
+  addGridDesenho,
+  setGridCamada,
+  subscribeGridCamadas,
   subscribeGridCombate,
+  subscribeGridDesenhos,
+  subscribeGridMarcadores,
   subscribeGridPings,
   subscribeGridTokens,
   subscribePersonagem,
@@ -24,6 +29,15 @@ vi.mock('service/storage', () => ({
   subscribePersonagem: vi.fn(() => () => {}),
   subscribeGridCombate: vi.fn(() => () => {}),
   alterarGridCombate: vi.fn(),
+  subscribeGridCamadas: vi.fn(() => () => {}),
+  setGridCamada: vi.fn(() => Promise.resolve()),
+  subscribeGridMarcadores: vi.fn(() => () => {}),
+  addGridMarcador: vi.fn(() => Promise.resolve('m1')),
+  updateGridMarcador: vi.fn(() => Promise.resolve()),
+  removeGridMarcador: vi.fn(() => Promise.resolve()),
+  subscribeGridDesenhos: vi.fn(() => () => {}),
+  addGridDesenho: vi.fn(() => Promise.resolve('d1')),
+  removeGridDesenhos: vi.fn(() => Promise.resolve()),
 }));
 vi.mock('hooks/useMembroDoChat', () => ({ default: vi.fn(() => true) }));
 
@@ -615,5 +629,126 @@ describe('useGridCampanha — combate e travamento', () => {
         combate: { evento: 'turno', nome: 'Ogro' },
       },
     });
+  });
+});
+
+describe('useGridCampanha — mapa (Fase 3B)', () => {
+  const PAREDE = { trechos: '1:2' }; // célula col 2, lin 1
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    subscribeGridCenaAtiva.mockImplementation((_campanhaId, onChange) => {
+      onChange('cena-1');
+      return vi.fn();
+    });
+    subscribeGridCena.mockImplementation((_campanhaId, cenaId, onChange) => {
+      onChange({ id: cenaId, nome: cenaId, celula: 50 });
+      return vi.fn();
+    });
+    subscribeGridTokens.mockImplementation(
+      (_campanhaId, _cenaId, _opcoes, onChange) => {
+        onChange([ALDRIC]);
+        return vi.fn();
+      },
+    );
+    subscribeGridCamadas.mockImplementation(
+      (_campanhaId, _cenaId, onChange) => {
+        onChange({ paredes: PAREDE, nevoa: { ativa: true, trechos: '0:0' } });
+        return vi.fn();
+      },
+    );
+    subscribeGridMarcadores.mockImplementation(
+      (_campanhaId, _cenaId, _opcoes, onChange) => {
+        onChange([
+          {
+            id: 'm1',
+            col: 1,
+            lin: 1,
+            icone: 'porta',
+            cor: '#ffffff',
+            titulo: 'Porta',
+          },
+        ]);
+        return vi.fn();
+      },
+    );
+    subscribeGridDesenhos.mockImplementation(
+      (_campanhaId, _cenaId, onChange) => {
+        onChange([
+          { id: 'd1', uid: 'u1', cor: '#ffffff', pontos: [0, 0, 5, 5] },
+        ]);
+        return vi.fn();
+      },
+    );
+    moverGridToken.mockResolvedValue();
+  });
+
+  it('expõe camadas, marcadores e desenhos; apagarTodos só para o mestre', () => {
+    const { result } = renderGrid();
+    expect(result.current.camadas.bloqueadas.has('2,1')).toBe(true);
+    expect(result.current.camadas.nevoa.ativa).toBe(true);
+    expect(result.current.camadas.nevoa.reveladas.has('0,0')).toBe(true);
+    expect(result.current.marcadores).toHaveLength(1);
+    expect(result.current.desenhos[0]).toMatchObject({
+      id: 'd1',
+      proprio: true,
+    });
+    expect(result.current.apagarTodosDesenhos).toBeUndefined();
+    expect(subscribeGridMarcadores).toHaveBeenCalledWith(
+      'camp-1',
+      'cena-1',
+      { incluirSecretos: false },
+      expect.any(Function),
+      expect.any(Function),
+    );
+    expect(
+      renderGrid({ isMestre: true }).result.current.apagarTodosDesenhos,
+    ).toEqual(expect.any(Function));
+  });
+
+  it('mover: parede no caminho barra o jogador e não o mestre', async () => {
+    const caminho = [
+      { col: 1, lin: 1 },
+      { col: 2, lin: 1 },
+    ];
+    const jogador = renderGrid().result;
+    await act(() => jogador.current.mover(ALDRIC, 2, 1, caminho));
+    expect(moverGridToken).not.toHaveBeenCalled();
+    // Caminho livre (contorna a parede): grava.
+    await act(() =>
+      jogador.current.mover(ALDRIC, 1, 2, [
+        { col: 1, lin: 1 },
+        { col: 1, lin: 2 },
+      ]),
+    );
+    expect(moverGridToken).toHaveBeenCalledTimes(1);
+
+    const mestre = renderGrid({ isMestre: true }).result;
+    await act(() => mestre.current.mover(ALDRIC, 2, 1, caminho));
+    expect(moverGridToken).toHaveBeenCalledTimes(2);
+  });
+
+  it('desenhar e editarCamada chegam ao storage; permission-denied do jogador é silencioso', async () => {
+    const mestre = renderGrid({ isMestre: true }).result;
+    await act(() =>
+      mestre.current.desenhar({ cor: '#ffffff', pontos: [0, 0, 9, 9] }),
+    );
+    expect(addGridDesenho).toHaveBeenCalledWith(
+      'camp-1',
+      'cena-1',
+      { uid: 'u1', cor: '#ffffff', pontos: [0, 0, 9, 9] },
+      [],
+    );
+    await act(() =>
+      mestre.current.editarCamada('paredes', 'adicionar', [{ col: 3, lin: 1 }]),
+    );
+    expect(setGridCamada).toHaveBeenCalledWith('camp-1', 'cena-1', 'paredes', {
+      trechos: '1:2-3',
+    });
+
+    const jogador = renderGrid().result;
+    const aoFalhar = subscribeGridDesenhos.mock.calls.at(-1)[3];
+    act(() => aoFalhar({ code: 'permission-denied' }));
+    expect(jogador.current.erro).toBeNull();
   });
 });
