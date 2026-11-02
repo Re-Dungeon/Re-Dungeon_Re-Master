@@ -1044,7 +1044,8 @@ export const removeChatMacro = (campanhaId, macroId) =>
 // que os jogadores veem (as outras o mestre prepara em segredo). Mesmo bloco
 // de leitura do site dos jogadores (subscribeGridCenaAtiva/subscribeGridCena/
 // subscribeGridTokens/moverGridToken) + as escritas do mestre. As regras só
-// deixam o jogador mudar `col`/`lin` dos tokens em que está em `donos`;
+// deixam o jogador mudar `col`/`lin` e o rastro do movimento
+// (`rastro`/`movidoEm`) dos tokens em que está em `donos`;
 // tokens `oculto` só o mestre lê. Limites em common/utils/grid.js.
 const gridRef = campanhaId =>
   doc(db, RM_CAMPANHAS_COLLECTION, campanhaId, 'grid', 'atual');
@@ -1091,6 +1092,10 @@ export const subscribeGridCenas = (campanhaId, onChange, onError) =>
     onError,
   );
 
+// `docSnapshot.data()` com o padrão serverTimestamps 'none': numa escrita
+// local ainda pendente, `movidoEm` (serverTimestamp) chega null — é assim que
+// useGridCampanha distingue o próprio movimento pendente da confirmação. Não
+// troque por 'estimate': o valor muda na confirmação e o rastro piscaria 2x.
 export const subscribeGridTokens = (
   campanhaId,
   cenaId,
@@ -1112,10 +1117,21 @@ export const subscribeGridTokens = (
   );
 };
 
-export const moverGridToken = (campanhaId, cenaId, tokenId, col, lin) =>
+// Com `rastro` ([{col, lin}], common/utils/grid.js — montarRastro), grava
+// também o rastro do movimento e `movidoEm` (horário do servidor), que todos
+// os clientes usam para mostrar o caminho por alguns segundos.
+export const moverGridToken = (
+  campanhaId,
+  cenaId,
+  tokenId,
+  col,
+  lin,
+  rastro = null,
+) =>
   updateDoc(doc(gridTokensRef(campanhaId, cenaId), tokenId), {
     col,
     lin,
+    ...(rastro ? { rastro, movidoEm: serverTimestamp() } : {}),
     updatedAt: serverTimestamp(),
   });
 
@@ -1159,6 +1175,15 @@ const semDatas = dados => {
   return resto;
 };
 
+// Token copiado sem datas e sem o rastro do último movimento (a cena nova
+// começa sem rastro nenhum).
+const tokenParaCopia = dados => {
+  const resto = semDatas(dados);
+  delete resto.rastro;
+  delete resto.movidoEm;
+  return resto;
+};
+
 // Copia a configuração e todos os tokens para uma cena nova.
 export const duplicarGridCena = async (campanhaId, cenaId, nome) => {
   const [cenaSnapshot, tokensSnapshot] = await Promise.all([
@@ -1168,7 +1193,7 @@ export const duplicarGridCena = async (campanhaId, cenaId, nome) => {
   return addGridCena(
     campanhaId,
     { ...semDatas(cenaSnapshot.data()), nome },
-    tokensSnapshot.docs.map(docSnapshot => semDatas(docSnapshot.data())),
+    tokensSnapshot.docs.map(docSnapshot => tokenParaCopia(docSnapshot.data())),
   );
 };
 

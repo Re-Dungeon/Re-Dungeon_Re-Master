@@ -12,25 +12,39 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 import AddIcon from '@mui/icons-material/Add';
 import RemoveIcon from '@mui/icons-material/Remove';
 import CenterFocusStrongIcon from '@mui/icons-material/CenterFocusStrong';
+import StraightenIcon from '@mui/icons-material/Straighten';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 
 import {
+  RASTRO_FADE_MS,
+  avancarCaminho,
   celulaMaisProxima,
+  celulaNoPonto,
+  centroDaCelula,
   dimensoesDoMundo,
+  distanciaChebyshev,
+  distanciaDoRastro,
+  formatarDistancia,
   limitarPosicao,
+  mesmaCelula,
+  montarRastro,
   ordenarTokens,
   posicaoEmPx,
   vistaFocadaNoToken,
 } from 'common/utils/grid';
 
 import {
+  COR_TIPO_TOKEN,
   GridAviso,
   GridControles,
   GridGrade,
   GridImagem,
   GridMundo,
+  GridRastros,
   GridViewport,
+  RotuloDistancia,
   TokenCirculo,
+  TokenFantasma,
   TokenNome,
   TokenOcultoIcone,
   TokenWrapper,
@@ -40,8 +54,14 @@ import {
 // grade desenhada pelo app + tokens posicionados em células. Zoom (roda do
 // mouse, pinça, botões) e pan (arrastar o fundo) são locais de quem está
 // vendo. Arrastar um token que `podeMover` aceita chama `onMover(token, col,
-// lin)` uma vez, ao soltar, já na célula mais próxima; com o token focado as
-// setas movem uma célula. Clique sem arrastar chama `onSelecionar(token|null)`.
+// lin, caminho)` uma vez, ao soltar, já na célula mais próxima — `caminho` =
+// células atravessadas, da origem ao destino; com o token focado as setas
+// movem uma célula. Clique sem arrastar chama `onSelecionar(token|null)`.
+// Durante o arraste aparecem o fantasma na origem, o caminho e a distância
+// (somada ao rastro ainda visível do token, como todos verão após soltar);
+// `rastros` são os rastros dos últimos movimentos (useGridCampanha). Régua
+// local (botão ou Shift+arrastar): mede de centro a centro, fica na tela até
+// o próximo toque ou Esc.
 
 const ZOOM_MIN = 0.1;
 const ZOOM_MAX = 4;
@@ -89,6 +109,19 @@ const zoomEmTorno = (vista, fator, px, py) => {
 
 const distancia = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 
+const SEM_RASTROS = [];
+// Folga (px de tela) entre o rótulo de distância e o topo do token.
+const FOLGA_ROTULO = 6;
+
+const conteudoDoToken = token =>
+  token.imagemUrl ? (
+    <img src={token.imagemUrl} alt="" draggable={false} />
+  ) : (
+    (token.nome?.[0]?.toUpperCase() ?? '?')
+  );
+
+const corDoToken = token => COR_TIPO_TOKEN[token.tipo] ?? COR_TIPO_TOKEN.avulso;
+
 const GridMapa = ({
   config,
   tokens,
@@ -98,6 +131,7 @@ const GridMapa = ({
   onSelecionar,
   onImagemCarregada,
   aviso = null,
+  rastros = SEM_RASTROS,
 }) => {
   const viewportRef = useRef(null);
   const idPadrao = `grade-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`;
@@ -111,9 +145,13 @@ const GridMapa = ({
   // Zoom/pan feitos pelo usuário, ligados à imagem em que foram feitos —
   // sem vista manual (ou trocou a imagem) o mapa fica encaixado no viewport.
   const [vistaManual, setVistaManual] = useState(null);
-  // Token sendo arrastado: { tokenId, x, y } em px do mundo; `soltando` (com
-  // col/lin) segura a posição final até o snapshot do Firestore chegar.
+  // Token sendo arrastado: { tokenId, x, y, caminho } em px do mundo;
+  // `soltando` (com col/lin) segura a posição final até o snapshot do
+  // Firestore chegar. O caminho "oficial" fica em `gesto.current.caminho`.
   const [arraste, setArraste] = useState(null);
+  // Régua: modo ligado pelo botão; `medicao` = { de, ate } (células).
+  const [modoRegua, setModoRegua] = useState(false);
+  const [medicao, setMedicao] = useState(null);
   const gesto = useRef(null);
   const ponteiros = useRef(new Map());
   // Celular (abaixo do `sm`): o mapa abre focado no primeiro token que a
@@ -197,6 +235,20 @@ const GridMapa = ({
     };
   }, []);
 
+  // Esc desliga a régua (só escuta enquanto ela está em uso).
+  const reguaAtiva = modoRegua || medicao !== null;
+  useEffect(() => {
+    if (!reguaAtiva) return undefined;
+    const aoTeclar = event => {
+      if (event.key !== 'Escape') return;
+      if (gesto.current?.tipo === 'regua') gesto.current = null;
+      setModoRegua(false);
+      setMedicao(null);
+    };
+    window.addEventListener('keydown', aoTeclar);
+    return () => window.removeEventListener('keydown', aoTeclar);
+  }, [reguaAtiva]);
+
   const pontoNoViewport = event => {
     const retangulo = viewportRef.current.getBoundingClientRect();
     return {
@@ -205,9 +257,18 @@ const GridMapa = ({
     };
   };
 
-  const moverPara = (token, col, lin) => {
+  // Ponto do viewport → célula que o contém (régua).
+  const celulaNoViewport = ponto =>
+    celulaNoPonto(
+      config,
+      (ponto.x - vista.x) / vista.zoom,
+      (ponto.y - vista.y) / vista.zoom,
+      mundo,
+    );
+
+  const moverPara = (token, col, lin, caminho) => {
     if (col === token.col && lin === token.lin) return null;
-    return Promise.resolve(onMover(token, col, lin));
+    return Promise.resolve(onMover(token, col, lin, caminho));
   };
 
   const handlePointerDown = event => {
@@ -218,22 +279,36 @@ const GridMapa = ({
 
     if (ponteiros.current.size === 2) {
       const [a, b] = [...ponteiros.current.values()];
+      // Pinça cancela a medição que estava começando.
+      if (gesto.current?.tipo === 'regua') setMedicao(null);
       gesto.current = { tipo: 'pinca', distancia: distancia(a, b) || 1, vista };
       setArraste(null);
       return;
     }
     const tokenId = event.target.closest?.('[data-token-id]')?.dataset.tokenId;
     const token = tokenId ? (tokens.find(t => t.id === tokenId) ?? null) : null;
-    gesto.current =
-      token && podeMover(token)
-        ? {
-            tipo: 'token',
-            token,
-            ponto,
-            inicio: posicaoEmPx(config, token.col, token.lin),
-            moveu: false,
-          }
-        : { tipo: 'pan', token, ponto, vista, moveu: false };
+    if (token && podeMover(token)) {
+      gesto.current = {
+        tipo: 'token',
+        token,
+        ponto,
+        inicio: posicaoEmPx(config, token.col, token.lin),
+        caminho: [{ col: token.col, lin: token.lin }],
+        moveu: false,
+      };
+    } else if (modoRegua || event.shiftKey) {
+      const de = celulaNoViewport(ponto);
+      gesto.current = {
+        tipo: 'regua',
+        token,
+        ponto,
+        de,
+        ate: de,
+        moveu: false,
+      };
+    } else {
+      gesto.current = { tipo: 'pan', token, ponto, vista, moveu: false };
+    }
   };
 
   const posicaoArrastada = (atual, ponto) => ({
@@ -266,10 +341,31 @@ const GridMapa = ({
     if (!atual.moveu && Math.hypot(dx, dy) < LIMIAR_ARRASTE) return;
     atual.moveu = true;
     if (atual.tipo === 'token') {
+      const posicao = posicaoArrastada(atual, ponto);
+      // Mesmo snap do soltar: a célula onde o token cairia agora.
+      const celulaAtual = celulaMaisProxima(
+        config,
+        posicao.x,
+        posicao.y,
+        mundo,
+        atual.token.tamanho ?? 1,
+      );
+      atual.caminho = avancarCaminho(atual.caminho, celulaAtual);
       setArraste({
         tokenId: atual.token.id,
-        ...posicaoArrastada(atual, ponto),
+        ...posicao,
+        caminho: atual.caminho,
       });
+    } else if (atual.tipo === 'regua') {
+      const ate = celulaNoViewport(ponto);
+      atual.ate = ate;
+      setMedicao(anterior =>
+        anterior &&
+        mesmaCelula(anterior.de, atual.de) &&
+        mesmaCelula(anterior.ate, ate)
+          ? anterior
+          : { de: atual.de, ate },
+      );
     } else {
       definirVista({
         ...atual.vista,
@@ -295,7 +391,8 @@ const GridMapa = ({
         mundo,
         token.tamanho ?? 1,
       );
-      const gravacao = cancelado ? null : moverPara(token, col, lin);
+      const caminho = avancarCaminho(atual.caminho, { col, lin });
+      const gravacao = cancelado ? null : moverPara(token, col, lin, caminho);
       if (!gravacao) {
         setArraste(null);
         return;
@@ -315,7 +412,10 @@ const GridMapa = ({
       return;
     }
     setArraste(null);
-    if (!atual.moveu && !cancelado) onSelecionar?.(atual.token);
+    // Medição feita fica na tela (até o próximo toque ou Esc).
+    if (atual.moveu || cancelado) return;
+    setMedicao(null);
+    onSelecionar?.(atual.token);
   };
 
   const handleTokenKeyDown = (event, token) => {
@@ -328,7 +428,10 @@ const GridMapa = ({
         mundo,
         token.tamanho ?? 1,
       );
-      moverPara(token, destino.col, destino.lin);
+      moverPara(token, destino.col, destino.lin, [
+        { col: token.col, lin: token.lin },
+        { col: destino.col, lin: destino.lin },
+      ]);
     } else if ((event.key === 'Enter' || event.key === ' ') && onSelecionar) {
       event.preventDefault();
       onSelecionar(token);
@@ -340,16 +443,91 @@ const GridMapa = ({
       zoomEmTorno(vista, fator, viewport.largura / 2, viewport.altura / 2),
     );
 
-  const { celula, deslocamentoX, deslocamentoY } = config;
+  const { celula, deslocamentoX, deslocamentoY, metrosPorQuadrado } = config;
   const avisoImagem =
     imagemAtual?.falhou &&
     'Não foi possível carregar a imagem do grid — confira o link com o mestre.';
+
+  // ── Rastros, caminho do arraste e régua ──
+  const tokensPorId = new Map(tokens.map(token => [token.id, token]));
+  const rastrosVisiveis = rastros
+    .map(rastro => ({ rastro, token: tokensPorId.get(rastro.tokenId) }))
+    .filter(({ rastro, token }) => token && rastro.pontos?.length >= 2);
+  const tokenArrastado =
+    arraste && !arraste.soltando
+      ? (tokensPorId.get(arraste.tokenId) ?? null)
+      : null;
+  const caminhoArraste = tokenArrastado ? (arraste.caminho ?? null) : null;
+  // Distância do arraste = total encadeado ao rastro ainda visível do token
+  // (o mesmo que todos verão depois de soltar).
+  const quadradosArraste = caminhoArraste
+    ? distanciaDoRastro(
+        montarRastro(
+          rastros.find(rastro => rastro.tokenId === tokenArrastado.id)
+            ?.pontos ?? null,
+          caminhoArraste,
+        ),
+      )
+    : 0;
+  // Traço e tracejado com espessura constante na tela (o mundo é escalado
+  // por CSS; não dá para confiar em vector-effect no tracejado).
+  const traco = 3 / vista.zoom;
+  const tracejado = `${10 / vista.zoom} ${7 / vista.zoom}`;
+  const pontosSvg = (pontos, tamanho) =>
+    pontos
+      .map(({ col, lin }) => {
+        const centro = centroDaCelula(config, col, lin, tamanho);
+        return `${centro.x},${centro.y}`;
+      })
+      .join(' ');
+  const linhaTracejada = (pontos, tamanho, cor) => {
+    const pontosDaLinha = pontosSvg(pontos, tamanho);
+    const inicio = centroDaCelula(
+      config,
+      pontos[0].col,
+      pontos[0].lin,
+      tamanho,
+    );
+    return (
+      <>
+        <polyline
+          points={pontosDaLinha}
+          fill="none"
+          stroke="rgba(0, 0, 0, 0.55)"
+          strokeWidth={traco * 1.8}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <polyline
+          points={pontosDaLinha}
+          fill="none"
+          stroke={cor}
+          strokeWidth={traco}
+          strokeDasharray={tracejado}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <circle cx={inicio.x} cy={inicio.y} r={traco * 1.5} fill={cor} />
+      </>
+    );
+  };
+  // Rótulo acima de um "token" de `tamanho` com canto (px do mundo) x/y → px
+  // do viewport.
+  const posicaoDoRotulo = (x, y, tamanho) => ({
+    left: vista.x + (x + (tamanho * celula) / 2) * vista.zoom,
+    top: vista.y + y * vista.zoom - FOLGA_ROTULO,
+  });
+  const medicaoDe =
+    medicao && centroDaCelula(config, medicao.de.col, medicao.de.lin);
+  const medicaoAte =
+    medicao && centroDaCelula(config, medicao.ate.col, medicao.ate.lin);
 
   return (
     <GridViewport
       ref={viewportRef}
       role="application"
       aria-label="Grid da campanha"
+      $regua={modoRegua}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={event => encerrarGesto(event, false)}
@@ -431,6 +609,100 @@ const GridMapa = ({
           </GridGrade>
         )}
 
+        {(rastrosVisiveis.length > 0 || caminhoArraste || medicao) && (
+          <GridRastros
+            width={mundo.largura}
+            height={mundo.altura}
+            aria-hidden="true"
+          >
+            {rastrosVisiveis.map(({ rastro, token }) => (
+              <g
+                key={rastro.chave}
+                data-rastro={rastro.tokenId}
+                style={{
+                  opacity: rastro.saindo ? 0 : 1,
+                  transition: `opacity ${RASTRO_FADE_MS}ms linear`,
+                }}
+              >
+                {linhaTracejada(
+                  rastro.pontos,
+                  token.tamanho ?? 1,
+                  corDoToken(token),
+                )}
+              </g>
+            ))}
+            {caminhoArraste?.length >= 2 && (
+              <g>
+                {linhaTracejada(
+                  caminhoArraste,
+                  tokenArrastado.tamanho ?? 1,
+                  corDoToken(tokenArrastado),
+                )}
+              </g>
+            )}
+            {medicao && (
+              <g style={{ color: 'var(--color-primary)' }}>
+                <line
+                  x1={medicaoDe.x}
+                  y1={medicaoDe.y}
+                  x2={medicaoAte.x}
+                  y2={medicaoAte.y}
+                  stroke="rgba(0, 0, 0, 0.55)"
+                  strokeWidth={traco * 1.8}
+                  strokeLinecap="round"
+                />
+                <line
+                  x1={medicaoDe.x}
+                  y1={medicaoDe.y}
+                  x2={medicaoAte.x}
+                  y2={medicaoAte.y}
+                  stroke="currentColor"
+                  strokeWidth={traco}
+                  strokeLinecap="round"
+                />
+                <circle
+                  cx={medicaoDe.x}
+                  cy={medicaoDe.y}
+                  r={traco * 1.5}
+                  fill="currentColor"
+                />
+                <circle
+                  cx={medicaoAte.x}
+                  cy={medicaoAte.y}
+                  r={traco * 1.5}
+                  fill="currentColor"
+                />
+              </g>
+            )}
+          </GridRastros>
+        )}
+
+        {tokenArrastado && (
+          <TokenFantasma
+            aria-hidden="true"
+            data-fantasma=""
+            style={{
+              left: posicaoEmPx(config, tokenArrastado.col, tokenArrastado.lin)
+                .x,
+              top: posicaoEmPx(config, tokenArrastado.col, tokenArrastado.lin)
+                .y,
+              width: (tokenArrastado.tamanho ?? 1) * celula,
+              height: (tokenArrastado.tamanho ?? 1) * celula,
+              padding: (tokenArrastado.tamanho ?? 1) * celula * 0.05,
+            }}
+          >
+            <TokenCirculo
+              $tipo={tokenArrastado.tipo}
+              $oculto={Boolean(tokenArrastado.oculto)}
+              style={{
+                fontSize: (tokenArrastado.tamanho ?? 1) * celula * 0.38,
+              }}
+            >
+              {conteudoDoToken(tokenArrastado)}
+            </TokenCirculo>
+          </TokenFantasma>
+        )}
+
         {ordenarTokens(tokens).map(token => {
           const tamanho = token.tamanho ?? 1;
           const emArraste =
@@ -473,11 +745,7 @@ const GridMapa = ({
                 $selecionado={selecionado}
                 style={{ fontSize: lado * 0.38 }}
               >
-                {token.imagemUrl ? (
-                  <img src={token.imagemUrl} alt="" draggable={false} />
-                ) : (
-                  (token.nome?.[0]?.toUpperCase() ?? '?')
-                )}
+                {conteudoDoToken(token)}
               </TokenCirculo>
               <TokenNome style={{ fontSize: Math.max(10, celula * 0.24) }}>
                 {token.nome}
@@ -493,6 +761,51 @@ const GridMapa = ({
           );
         })}
       </GridMundo>
+
+      {/* Distâncias, em px do viewport (mesmo tamanho em qualquer zoom). */}
+      {rastrosVisiveis.map(({ rastro, token }) => {
+        const quadrados = distanciaDoRastro(rastro.pontos);
+        // O token em arraste mostra o total encadeado (abaixo).
+        if (!quadrados || token.id === tokenArrastado?.id) return null;
+        const fim = rastro.pontos[rastro.pontos.length - 1];
+        const canto = posicaoEmPx(config, fim.col, fim.lin);
+        return (
+          <RotuloDistancia
+            key={rastro.chave}
+            $cor={corDoToken(token)}
+            $saindo={rastro.saindo}
+            style={posicaoDoRotulo(canto.x, canto.y, token.tamanho ?? 1)}
+          >
+            {formatarDistancia(quadrados, metrosPorQuadrado)}
+          </RotuloDistancia>
+        );
+      })}
+      {quadradosArraste > 0 && (
+        <RotuloDistancia
+          $cor={corDoToken(tokenArrastado)}
+          style={posicaoDoRotulo(
+            arraste.x,
+            arraste.y,
+            tokenArrastado.tamanho ?? 1,
+          )}
+        >
+          {formatarDistancia(quadradosArraste, metrosPorQuadrado)}
+        </RotuloDistancia>
+      )}
+      {medicao && (
+        <RotuloDistancia
+          style={posicaoDoRotulo(
+            medicaoAte.x - celula / 2,
+            medicaoAte.y - celula / 2,
+            1,
+          )}
+        >
+          {formatarDistancia(
+            distanciaChebyshev(medicao.de, medicao.ate),
+            metrosPorQuadrado,
+          )}
+        </RotuloDistancia>
+      )}
 
       {(aviso || avisoImagem) && (
         <GridAviso role="status">{aviso || avisoImagem}</GridAviso>
@@ -530,6 +843,20 @@ const GridMapa = ({
             <CenterFocusStrongIcon fontSize="small" />
           </IconButton>
         </Tooltip>
+        <Tooltip title="Régua (Shift+arrastar)" placement="left">
+          <IconButton
+            size="small"
+            aria-label="Régua"
+            aria-pressed={modoRegua}
+            onClick={() => {
+              setModoRegua(ligado => !ligado);
+              setMedicao(null);
+            }}
+            sx={{ color: modoRegua ? 'var(--color-primary)' : undefined }}
+          >
+            <StraightenIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
       </GridControles>
     </GridViewport>
   );
@@ -544,6 +871,7 @@ GridMapa.propTypes = {
     mostrarGrade: PropTypes.bool.isRequired,
     corGrade: PropTypes.string.isRequired,
     opacidadeGrade: PropTypes.number.isRequired,
+    metrosPorQuadrado: PropTypes.number,
   }).isRequired,
   tokens: PropTypes.arrayOf(
     PropTypes.shape({
@@ -566,6 +894,17 @@ GridMapa.propTypes = {
   // precisa dos limites do grid fora daqui (ex.: posicionar token novo).
   onImagemCarregada: PropTypes.func,
   aviso: PropTypes.node,
+  // Rastros dos últimos movimentos (useGridCampanha → rastrosAtivos).
+  rastros: PropTypes.arrayOf(
+    PropTypes.shape({
+      tokenId: PropTypes.string.isRequired,
+      chave: PropTypes.string.isRequired,
+      pontos: PropTypes.arrayOf(
+        PropTypes.shape({ col: PropTypes.number, lin: PropTypes.number }),
+      ).isRequired,
+      saindo: PropTypes.bool,
+    }),
+  ),
 };
 
 export default GridMapa;

@@ -444,6 +444,7 @@ const Grid = () => {
             tokens={grid.tokens}
             podeMover={grid.podeMover}
             onMover={grid.mover}
+            rastros={grid.rastrosAtivos}
             selecionadoId={selecionadoId}
             onSelecionar={token => setSelecionadoId(token?.id ?? null)}
             onImagemCarregada={setImagemCarregada}

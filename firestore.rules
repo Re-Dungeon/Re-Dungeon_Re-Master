@@ -652,9 +652,10 @@ service cloud.firestore {
     // CENAS: `gridCenas/{cenaId}` (imagem + grade) com os próprios tokens em
     // `gridCenas/{cenaId}/tokens`; `grid/atual` = {cenaAtivaId}. O mestre
     // cria/edita/apaga tudo (Re:Master) e prepara cenas em segredo: o jogador
-    // só lê a cena ATIVA e os tokens dela, e só MOVE (col/lin) os tokens em
-    // que o uid dele está em `donos`. Tokens `oculto` só o mestre lê — a
-    // consulta do jogador filtra `oculto == false` (senão é recusada).
+    // só lê a cena ATIVA e os tokens dela, e só MOVE os tokens em que o uid
+    // dele está em `donos` (col/lin + o rastro do movimento, rastro/movidoEm).
+    // Tokens `oculto` só o mestre lê — a consulta do jogador filtra
+    // `oculto == false` (senão é recusada).
     // ═══════════════════════════════════════════════════════════════════════
 
     function gridImagemValida(url) {
@@ -673,7 +674,7 @@ service cloud.firestore {
 
     function gridCenaValida(data) {
       return data.keys().hasOnly(['nome', 'imagemUrl', 'celula', 'deslocamentoX', 'deslocamentoY',
-                                  'mostrarGrade', 'corGrade', 'opacidadeGrade',
+                                  'mostrarGrade', 'corGrade', 'opacidadeGrade', 'metrosPorQuadrado',
                                   'createdAt', 'updatedAt']) &&
         data.nome is string && data.nome.size() > 0 && data.nome.size() <= 100 &&
         gridImagemValida(data.get('imagemUrl', null)) &&
@@ -682,7 +683,9 @@ service cloud.firestore {
         data.deslocamentoY is int && data.deslocamentoY >= 0 && data.deslocamentoY <= 400 &&
         data.mostrarGrade is bool &&
         data.corGrade is string && data.corGrade.matches('#[0-9a-fA-F]{6}') &&
-        data.opacidadeGrade is number && data.opacidadeGrade >= 0 && data.opacidadeGrade <= 1;
+        data.opacidadeGrade is number && data.opacidadeGrade >= 0 && data.opacidadeGrade <= 1 &&
+        data.get('metrosPorQuadrado', 1.5) is number &&
+        data.get('metrosPorQuadrado', 1.5) >= 0.1 && data.get('metrosPorQuadrado', 1.5) <= 100;
     }
 
     function gridPosicaoValida(data) {
@@ -690,9 +693,25 @@ service cloud.firestore {
         data.lin is int && data.lin >= 0 && data.lin <= 500;
     }
 
+    // Rastro do último movimento (common/utils/grid.js — RASTRO_VERTICES_MAX):
+    // polilinha de células [{col, lin}] gravada junto com a posição; `movidoEm`
+    // = horário do servidor desse movimento. Sem laços nas regras: só o tamanho
+    // da lista é limitado — quem lê sanitiza (normalizarRastro).
+    function gridRastroValido(data) {
+      return (!('rastro' in data) || (data.rastro is list && data.rastro.size() <= 50)) &&
+        (!('movidoEm' in data) || data.movidoEm is timestamp);
+    }
+
+    // Movimento novo grava `movidoEm` com o horário do servidor.
+    function gridMovidoEmValido(antes, depois) {
+      return !depois.diff(antes).affectedKeys().hasAny(['movidoEm']) ||
+        depois.movidoEm == request.time;
+    }
+
     function gridTokenValido(data) {
       return data.keys().hasOnly(['nome', 'imagemUrl', 'tipo', 'refId', 'col', 'lin', 'tamanho',
-                                  'donos', 'oculto', 'createdAt', 'updatedAt']) &&
+                                  'donos', 'oculto', 'rastro', 'movidoEm',
+                                  'createdAt', 'updatedAt']) &&
         data.keys().hasAll(['nome', 'tipo', 'col', 'lin', 'tamanho', 'donos', 'oculto']) &&
         data.nome is string && data.nome.size() > 0 && data.nome.size() <= 100 &&
         gridImagemValida(data.get('imagemUrl', null)) &&
@@ -702,7 +721,8 @@ service cloud.firestore {
         gridPosicaoValida(data) &&
         data.tamanho is int && data.tamanho >= 1 && data.tamanho <= 10 &&
         data.donos is list && data.donos.size() <= 20 &&
-        data.oculto is bool;
+        data.oculto is bool &&
+        gridRastroValido(data);
     }
 
     // Ponteiro da cena ativa (null = nenhuma cena visível aos jogadores).
@@ -727,12 +747,16 @@ service cloud.firestore {
       allow read: if isMestreDaCampanha(campanhaId) ||
         (resource.data.oculto == false && veCenaDoGrid(campanhaId, cenaId));
       allow create: if isMestreDaCampanha(campanhaId) && gridTokenValido(request.resource.data);
-      allow update: if (isMestreDaCampanha(campanhaId) && gridTokenValido(request.resource.data)) ||
+      allow update: if (isMestreDaCampanha(campanhaId) && gridTokenValido(request.resource.data) &&
+                        gridMovidoEmValido(resource.data, request.resource.data)) ||
         (isAuth() && request.auth.uid in resource.data.donos &&
          resource.data.oculto == false &&
-         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['col', 'lin', 'updatedAt']) &&
+         request.resource.data.diff(resource.data).affectedKeys()
+           .hasOnly(['col', 'lin', 'updatedAt', 'rastro', 'movidoEm']) &&
          request.resource.data.updatedAt == request.time &&
          gridPosicaoValida(request.resource.data) &&
+         gridRastroValido(request.resource.data) &&
+         gridMovidoEmValido(resource.data, request.resource.data) &&
          veCenaDoGrid(campanhaId, cenaId));
       allow delete: if isMestreDaCampanha(campanhaId);
     }

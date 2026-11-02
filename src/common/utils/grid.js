@@ -38,6 +38,15 @@ export const GRID_CENAS_MAX = 50;
 export const GRID_TOKENS_POR_CENA_MAX = 200;
 // Área do grid quando não há imagem (ou ela não carregou).
 export const GRID_SEM_IMAGEM = { colunas: 30, linhas: 20 };
+// Distância de um quadrado (rótulo "4 q · 6 m"), configurável por cena.
+export const METROS_POR_QUADRADO_PADRAO = 1.5;
+export const METROS_POR_QUADRADO_MIN = 0.1;
+export const METROS_POR_QUADRADO_MAX = 100;
+// Rastro do último movimento: no máximo tantos vértices (espelha a regra).
+export const RASTRO_VERTICES_MAX = 50;
+// Quanto tempo o rastro fica na tela, e quanto desse tempo é o esmaecer.
+export const RASTRO_DURACAO_MS = 10000;
+export const RASTRO_FADE_MS = 2000;
 
 export const GRID_CONFIG_PADRAO = {
   imagemUrl: null,
@@ -47,6 +56,7 @@ export const GRID_CONFIG_PADRAO = {
   mostrarGrade: true,
   corGrade: '#ffffff',
   opacidadeGrade: 0.25,
+  metrosPorQuadrado: METROS_POR_QUADRADO_PADRAO,
 };
 
 const COR_HEX = /^#[0-9a-fA-F]{6}$/;
@@ -55,6 +65,14 @@ const inteiroEntre = (valor, min, max) =>
   Number.isInteger(valor) && valor >= min && valor <= max;
 
 const limitar = (valor, min, max) => Math.min(Math.max(valor, min), max);
+
+const arredondar2 = valor => Math.round(valor * 100) / 100;
+
+// Aceita vírgula decimal ("2,5"); vazio vira 0 (e falha na validação).
+const normalizarMetros = valor => {
+  if (valor === undefined || valor === null) return METROS_POR_QUADRADO_PADRAO;
+  return arredondar2(Number(String(valor).replace(',', '.')));
+};
 
 // Doc do Firestore (ou null, grid ainda não configurado) → config completa,
 // só com os campos conhecidos.
@@ -79,6 +97,7 @@ export const normalizarConfigGrid = valores => {
     mostrarGrade: Boolean(valores.mostrarGrade),
     corGrade: valores.corGrade,
     opacidadeGrade: Number(valores.opacidadeGrade),
+    metrosPorQuadrado: normalizarMetros(valores.metrosPorQuadrado),
   };
 };
 
@@ -99,6 +118,9 @@ export const validarConfigGrid = config => {
   if (!COR_HEX.test(config.corGrade ?? '')) return 'Cor da grade inválida.';
   if (!(config.opacidadeGrade >= 0 && config.opacidadeGrade <= 1))
     return 'Opacidade inválida.';
+  const metros = config.metrosPorQuadrado ?? METROS_POR_QUADRADO_PADRAO;
+  if (!(metros >= METROS_POR_QUADRADO_MIN && metros <= METROS_POR_QUADRADO_MAX))
+    return 'Metros por quadrado: entre 0,1 e 100.';
   return null;
 };
 
@@ -310,3 +332,196 @@ export const ordenarTokens = tokens =>
       (b.tamanho ?? 1) - (a.tamanho ?? 1) ||
       (a.nome ?? '').localeCompare(b.nome ?? ''),
   );
+
+// ── Rastro do movimento, distância e régua ─────────────────────────────────
+// Distância em quadrados é Chebyshev (diagonal = 1). O caminho de um arraste é
+// a sequência de células que o token atravessa, em passos adjacentes; o
+// rastro gravado no token (`rastro`, com `movidoEm` = horário do servidor) é
+// esse caminho simplificado — a distância dele é a soma dos segmentos.
+
+export const mesmaCelula = (a, b) =>
+  Boolean(a && b) && a.col === b.col && a.lin === b.lin;
+
+export const distanciaChebyshev = (a, b) =>
+  Math.max(Math.abs(b.col - a.col), Math.abs(b.lin - a.lin));
+
+// Células de `de` (exclusive) até `ate` (inclusive), em passos adjacentes.
+export const linhaChebyshev = (de, ate) => {
+  const passos = distanciaChebyshev(de, ate);
+  const dCol = ate.col - de.col;
+  const dLin = ate.lin - de.lin;
+  return Array.from({ length: passos }, (_, i) => ({
+    col: de.col + Math.round((dCol * (i + 1)) / passos),
+    lin: de.lin + Math.round((dLin * (i + 1)) / passos),
+  }));
+};
+
+// Estende o caminho do arraste até `celula`: interpola os passos (o ponteiro
+// pode pular células) e, se o token volta a uma célula por onde já passou,
+// corta o laço. Se o passo já é vizinho do penúltimo ponto, o último era um
+// desvio de quina (o ponteiro cruza um eixo antes do outro numa diagonal) e é
+// trocado pelo passo. Mesma célula do fim → o mesmo array (sem re-render).
+export const avancarCaminho = (caminho, celula) => {
+  const ultimo = caminho[caminho.length - 1];
+  if (!ultimo) return [{ col: celula.col, lin: celula.lin }];
+  if (mesmaCelula(ultimo, celula)) return caminho;
+  let novo = [...caminho];
+  linhaChebyshev(ultimo, celula).forEach(passo => {
+    const indice = novo.findIndex(anterior => mesmaCelula(anterior, passo));
+    const penultimo = novo[novo.length - 2];
+    if (indice >= 0) novo = novo.slice(0, indice + 1);
+    else if (penultimo && distanciaChebyshev(penultimo, passo) === 1)
+      novo[novo.length - 1] = passo;
+    else novo.push(passo);
+  });
+  return novo;
+};
+
+// Segmento "puro": reto (horizontal/vertical) ou diagonal perfeita.
+const segmentoPuro = (a, b) => {
+  const dCol = Math.abs(b.col - a.col);
+  const dLin = Math.abs(b.lin - a.lin);
+  return dCol === 0 || dLin === 0 || dCol === dLin;
+};
+
+const mesmaDirecao = (a, b, c) =>
+  segmentoPuro(a, b) &&
+  segmentoPuro(b, c) &&
+  Math.sign(b.col - a.col) === Math.sign(c.col - b.col) &&
+  Math.sign(b.lin - a.lin) === Math.sign(c.lin - b.lin);
+
+// Polilinha mínima do caminho: tira repetidos e vértices no meio de um trecho
+// reto/diagonal — a soma Chebyshev dos segmentos continua exatamente a mesma.
+export const simplificarCaminho = pontos => {
+  const celulas = (pontos ?? [])
+    .filter((ponto, i) => i === 0 || !mesmaCelula(ponto, pontos[i - 1]))
+    .map(({ col, lin }) => ({ col, lin }));
+  if (celulas.length <= 2) return celulas;
+  const resultado = [celulas[0]];
+  for (let i = 1; i < celulas.length - 1; i += 1) {
+    if (
+      !mesmaDirecao(resultado[resultado.length - 1], celulas[i], celulas[i + 1])
+    ) {
+      resultado.push(celulas[i]);
+    }
+  }
+  resultado.push(celulas[celulas.length - 1]);
+  return resultado;
+};
+
+// Quadrados percorridos ao longo do rastro.
+export const distanciaDoRastro = pontos =>
+  (pontos ?? []).reduce(
+    (total, ponto, i) =>
+      i === 0 ? 0 : total + distanciaChebyshev(pontos[i - 1], ponto),
+    0,
+  );
+
+// Rastros longos demais perdem o começo (a regra aceita até o máximo).
+export const limitarRastro = (pontos, max = RASTRO_VERTICES_MAX) =>
+  pontos.slice(-max);
+
+// Movimento que começa onde o rastro ainda visível termina (setas, arrastos
+// seguidos) continua o mesmo rastro; senão o novo substitui.
+export const encadearRastro = (anterior, novo) => {
+  if (
+    anterior?.length &&
+    novo.length &&
+    mesmaCelula(anterior[anterior.length - 1], novo[0])
+  ) {
+    return [...anterior, ...novo.slice(1)];
+  }
+  return novo;
+};
+
+// Rastro a gravar: encadeado ao anterior (sem cortar laço entre movimentos —
+// ida e volta conta as duas pernas), simplificado e limitado.
+export const montarRastro = (anterior, caminho) =>
+  limitarRastro(simplificarCaminho(encadearRastro(anterior, caminho)));
+
+// Rastro lido do Firestore → pontos válidos ou null. A regra só limita o
+// tamanho da lista, então quem lê confere cada ponto.
+export const normalizarRastro = valor => {
+  if (!Array.isArray(valor) || valor.length < 2) return null;
+  const valido = valor.every(
+    ponto =>
+      ponto &&
+      inteiroEntre(ponto.col, 0, GRID_POSICAO_MAX) &&
+      inteiroEntre(ponto.lin, 0, GRID_POSICAO_MAX),
+  );
+  return valido
+    ? limitarRastro(valor.map(({ col, lin }) => ({ col, lin })))
+    : null;
+};
+
+export const rastrosIguais = (a, b) => {
+  if (a === b) return true;
+  if (!a || !b || a.length !== b.length) return false;
+  return a.every((ponto, i) => mesmaCelula(ponto, b[i]));
+};
+
+// Centro (px do mundo) de um token de `tamanho` células com canto em col/lin.
+export const centroDaCelula = (config, col, lin, tamanho = 1) => ({
+  x: config.deslocamentoX + (col + tamanho / 2) * config.celula,
+  y: config.deslocamentoY + (lin + tamanho / 2) * config.celula,
+});
+
+// Célula que contém o ponto (px do mundo), dentro do grid — usada pela régua.
+export const celulaNoPonto = (config, x, y, limites) =>
+  limitarPosicao(
+    Math.floor((x - config.deslocamentoX) / config.celula),
+    Math.floor((y - config.deslocamentoY) / config.celula),
+    limites,
+  );
+
+// 4.5 → "4,5"; 6 → "6"; até 2 casas (sem Intl: o resultado não depende da
+// localidade do navegador).
+export const formatarMetros = valor =>
+  String(arredondar2(valor)).replace('.', ',');
+
+export const formatarDistancia = (
+  quadrados,
+  metrosPorQuadrado = METROS_POR_QUADRADO_PADRAO,
+) =>
+  `${quadrados} q · ${formatarMetros(quadrados * (metrosPorQuadrado ?? METROS_POR_QUADRADO_PADRAO))} m`;
+
+// `movidoEm` (Timestamp do Firestore; null enquanto a escrita está pendente)
+// → chave comparável, ou null.
+export const chaveDoMovimento = movidoEm => {
+  if (movidoEm === undefined || movidoEm === null) return null;
+  if (
+    typeof movidoEm.seconds === 'number' &&
+    typeof movidoEm.nanoseconds === 'number'
+  ) {
+    return `${movidoEm.seconds}:${movidoEm.nanoseconds}`;
+  }
+  if (typeof movidoEm.toMillis === 'function')
+    return String(movidoEm.toMillis());
+  if (movidoEm instanceof Date) return String(movidoEm.getTime());
+  return String(movidoEm);
+};
+
+// Compara os `movidoEm` de um snapshot de tokens com os do anterior e diz
+// quais tokens acabaram de se mover (sem comparar relógios). `vistosAnteriores`
+// null = primeiro snapshot: só registra (a carga inicial não mostra rastro).
+// Token novo também só é registrado (ex.: o mestre acabou de revelá-lo), e
+// `movidoEm` null (escrita ainda pendente) mantém o valor anterior.
+export const detectarMovimentos = (vistosAnteriores, tokens) => {
+  const vistos = new Map();
+  const movidos = [];
+  tokens.forEach(token => {
+    const atual = chaveDoMovimento(token.movidoEm);
+    if (!vistosAnteriores || !vistosAnteriores.has(token.id)) {
+      vistos.set(token.id, atual);
+      return;
+    }
+    const anterior = vistosAnteriores.get(token.id);
+    if (atual === null) {
+      vistos.set(token.id, anterior);
+      return;
+    }
+    vistos.set(token.id, atual);
+    if (atual !== anterior) movidos.push(token);
+  });
+  return { vistos, movidos };
+};

@@ -1,5 +1,7 @@
 import styled, { css } from 'styled-components';
 
+import { RASTRO_FADE_MS } from 'common/utils/grid';
+
 // Cor da borda do token por origem (mesma nos dois sites — não segue a cor
 // primária do tema, para "jogador × criatura" ser reconhecível de relance).
 export const COR_TIPO_TOKEN = {
@@ -25,6 +27,15 @@ export const GridViewport = styled.div`
   &:active {
     cursor: grabbing;
   }
+
+  ${({ $regua }) =>
+    $regua &&
+    css`
+      &,
+      &:active {
+        cursor: crosshair;
+      }
+    `}
 `;
 
 export const GridMundo = styled.div`
@@ -50,6 +61,49 @@ export const GridGrade = styled.svg`
   left: 0;
   top: 0;
   pointer-events: none;
+`;
+
+// Rastros de movimento, caminho do arraste e régua (px do mundo). Fica entre
+// a grade e os tokens.
+export const GridRastros = styled.svg`
+  position: absolute;
+  left: 0;
+  top: 0;
+  overflow: visible;
+  pointer-events: none;
+`;
+
+// Token "fantasma" na origem enquanto o token é arrastado.
+export const TokenFantasma = styled.div`
+  position: absolute;
+  box-sizing: border-box;
+  opacity: 0.35;
+  pointer-events: none;
+`;
+
+// Distância ("4 q · 6 m") em px do VIEWPORT — mesmo tamanho em qualquer zoom.
+// Esmaece por transição (não animação: no celular o Mapa | Chat esconde o
+// mapa com display:none, o que reiniciaria uma animação).
+export const RotuloDistancia = styled.div`
+  position: absolute;
+  transform: translate(-50%, -100%);
+  padding: 2px 8px;
+  border-radius: 6px;
+  border: 1px solid ${({ $cor }) => $cor ?? 'var(--color-primary)'};
+  background: rgba(0, 0, 0, 0.8);
+  color: var(--text-primary);
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 25;
+  opacity: ${({ $saindo }) => ($saindo ? 0 : 1)};
+  transition: opacity ${RASTRO_FADE_MS}ms linear;
+
+  @media (max-width: 599.95px) {
+    font-size: 0.9rem;
+  }
 `;
 
 export const TokenWrapper = styled.div`

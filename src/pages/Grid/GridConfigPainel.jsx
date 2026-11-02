@@ -14,6 +14,9 @@ import {
   GRID_CELULA_MAX,
   GRID_CELULA_MIN,
   GRID_DESLOCAMENTO_MAX,
+  METROS_POR_QUADRADO_MAX,
+  METROS_POR_QUADRADO_MIN,
+  METROS_POR_QUADRADO_PADRAO,
   normalizarConfigGrid,
   validarConfigGrid,
 } from 'common/utils/grid';
@@ -27,6 +30,9 @@ const paraValores = config => ({
   mostrarGrade: config.mostrarGrade,
   corGrade: config.corGrade,
   opacidadeGrade: config.opacidadeGrade,
+  metrosPorQuadrado: String(
+    config.metrosPorQuadrado ?? METROS_POR_QUADRADO_PADRAO,
+  ),
 });
 
 const SEM_MAPA = '';
@@ -131,6 +137,22 @@ const GridConfigPainel = ({ config, mapas, onPrevia, onSalvar, onFechar }) => {
         {campoNumero('deslocamentoX', 'Deslocamento X', GRID_DESLOCAMENTO_MAX)}
         {campoNumero('deslocamentoY', 'Deslocamento Y', GRID_DESLOCAMENTO_MAX)}
       </Box>
+      <TextField
+        size="small"
+        type="number"
+        label="Metros por quadrado"
+        value={valores.metrosPorQuadrado}
+        onChange={event => alterar('metrosPorQuadrado', event.target.value)}
+        helperText="Distância de um quadrado (padrão 1,5 m)."
+        slotProps={{
+          htmlInput: {
+            min: METROS_POR_QUADRADO_MIN,
+            max: METROS_POR_QUADRADO_MAX,
+            step: 0.1,
+            inputMode: 'decimal',
+          },
+        }}
+      />
       <FormControlLabel
         control={
           <Switch
@@ -195,6 +217,7 @@ GridConfigPainel.propTypes = {
     mostrarGrade: PropTypes.bool.isRequired,
     corGrade: PropTypes.string.isRequired,
     opacidadeGrade: PropTypes.number.isRequired,
+    metrosPorQuadrado: PropTypes.number,
   }).isRequired,
   mapas: PropTypes.arrayOf(
     PropTypes.shape({

@@ -238,6 +238,21 @@ describe('Grid (Re:Master)', () => {
     );
   });
 
+  it('mover um token visível grava o rastro do movimento', async () => {
+    const user = userEvent.setup();
+    renderGrid();
+
+    (await screen.findByRole('button', { name: /Aldric, coluna/ })).focus();
+    await user.keyboard('{ArrowRight}');
+    await waitFor(() =>
+      expect(moverGridToken).toHaveBeenCalledWith('c1', 'cena-1', 't1', 2, 1, [
+        { col: 1, lin: 1 },
+        { col: 2, lin: 1 },
+      ]),
+    );
+    expect(screen.getByText('1 q · 1,5 m')).toBeInTheDocument();
+  });
+
   it('abre outra cena em segredo e a mostra aos jogadores', async () => {
     const user = userEvent.setup();
     renderGrid();
@@ -508,11 +523,58 @@ describe('Grid (Re:Master)', () => {
         mostrarGrade: true,
         corGrade: '#ffffff',
         opacidadeGrade: 0.25,
+        metrosPorQuadrado: 1.5,
       }),
     );
     expect(
       screen.queryByRole('region', { name: 'Configurar grid' }),
     ).not.toBeInTheDocument();
+  });
+
+  it('configura os metros por quadrado da cena aberta', async () => {
+    const user = userEvent.setup();
+    renderGrid();
+    await screen.findByRole('button', { name: /Aldric, coluna/ });
+    await user.click(screen.getByRole('button', { name: 'Configurar grid' }));
+    const painel = await screen.findByRole('region', {
+      name: 'Configurar grid',
+    });
+
+    const metros = within(painel).getByLabelText('Metros por quadrado');
+    expect(metros).toHaveValue(1.5);
+    await user.clear(metros);
+    await user.type(metros, '2');
+    await user.click(
+      within(painel).getByRole('button', { name: 'Salvar grid' }),
+    );
+
+    await waitFor(() =>
+      expect(updateGridCena).toHaveBeenCalledWith(
+        'c1',
+        'cena-1',
+        expect.objectContaining({ metrosPorQuadrado: 2 }),
+      ),
+    );
+  });
+
+  it('metros por quadrado inválido desabilita o salvar', async () => {
+    const user = userEvent.setup();
+    renderGrid();
+    await screen.findByRole('button', { name: /Aldric, coluna/ });
+    await user.click(screen.getByRole('button', { name: 'Configurar grid' }));
+    const painel = await screen.findByRole('region', {
+      name: 'Configurar grid',
+    });
+
+    const metros = within(painel).getByLabelText('Metros por quadrado');
+    await user.clear(metros);
+    await user.type(metros, '0');
+    expect(
+      within(painel).getByText(/Metros por quadrado: entre/),
+    ).toBeInTheDocument();
+    expect(
+      within(painel).getByRole('button', { name: 'Salvar grid' }),
+    ).toBeDisabled();
   });
 
   it('célula inválida desabilita o salvar', async () => {
