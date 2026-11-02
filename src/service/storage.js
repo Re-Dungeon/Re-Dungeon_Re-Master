@@ -4,6 +4,7 @@ import {
   getDoc,
   addDoc,
   deleteDoc,
+  deleteField,
   doc,
   updateDoc,
   setDoc,
@@ -14,6 +15,7 @@ import {
   limit,
   onSnapshot,
   writeBatch,
+  runTransaction,
 } from 'firebase/firestore';
 import {
   recuperarExploracaoGrid,
@@ -1044,8 +1046,16 @@ export const removeChatMacro = (campanhaId, macroId) =>
 // que os jogadores veem (as outras o mestre prepara em segredo). Mesmo bloco
 // de leitura do site dos jogadores (subscribeGridCenaAtiva/subscribeGridCena/
 // subscribeGridTokens/moverGridToken) + as escritas do mestre. As regras só
-// deixam o jogador mudar `col`/`lin` dos tokens em que está em `donos`;
+// deixam o jogador mudar `col`/`lin` e o rastro do movimento
+// (`rastro`/`movidoEm`) dos tokens em que está em `donos`;
 // tokens `oculto` só o mestre lê. Limites em common/utils/grid.js.
+// Sinais no mapa (`gridCenas/{cenaId}/pings/{uid}`, setGridPing) são gravados
+// por todos (cada um o próprio); PV/Energia/Fadiga, condições e aura dos
+// tokens (updateGridToken) só o mestre.
+// Combate (Fase 3A): `gridCenas/{cenaId}/combate/atual` existe enquanto há
+// combate — o mestre inicia (iniciarGridCombate), encerra (encerrarGridCombate)
+// e altera tudo por alterarGridCombate; o jogador só passa o próprio turno. O
+// `travamento` da cena limita quando o jogador move.
 const gridRef = campanhaId =>
   doc(db, RM_CAMPANHAS_COLLECTION, campanhaId, 'grid', 'atual');
 const gridCenasRef = campanhaId =>
@@ -1077,6 +1087,56 @@ export const subscribeGridCena = (campanhaId, cenaId, onChange, onError) =>
     onError,
   );
 
+const gridAreasRef = (campanhaId, cenaId) =>
+  collection(gridCenaRef(campanhaId, cenaId), 'templates');
+
+// Templates de área da cena (common/utils/gridAreas.js). Chama
+// `onChange([{ id, ...dados }])`; quem lê normaliza (normalizarArea).
+export const subscribeGridAreas = (campanhaId, cenaId, onChange, onError) =>
+  onSnapshot(
+    gridAreasRef(campanhaId, cenaId),
+    snapshot =>
+      onChange(
+        snapshot.docs.map(docSnapshot => ({
+          id: docSnapshot.id,
+          ...docSnapshot.data(),
+        })),
+      ),
+    onError,
+  );
+
+// `area` = montarArea(...) (sem timestamps). Devolve o id do novo template.
+export const addGridArea = async (campanhaId, cenaId, area) => {
+  const ref = await addDoc(gridAreasRef(campanhaId, cenaId), {
+    ...area,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+  return ref.id;
+};
+
+// Só origem/alvo mudam (a regra garante); `alvo` null apaga o campo.
+export const updateGridArea = (campanhaId, cenaId, areaId, { origem, alvo }) =>
+  updateDoc(doc(gridAreasRef(campanhaId, cenaId), areaId), {
+    origem,
+    alvo: alvo ?? deleteField(),
+    updatedAt: serverTimestamp(),
+  });
+
+export const removeGridArea = (campanhaId, cenaId, areaId) =>
+  deleteDoc(doc(gridAreasRef(campanhaId, cenaId), areaId));
+
+// "Remover todos": lotes de 400 (limite do Firestore é 500 por lote).
+export const removeGridAreas = async (campanhaId, cenaId, ids) => {
+  for (let i = 0; i < ids.length; i += 400) {
+    const lote = writeBatch(db);
+    ids
+      .slice(i, i + 400)
+      .forEach(id => lote.delete(doc(gridAreasRef(campanhaId, cenaId), id)));
+    await lote.commit();
+  }
+};
+
 // Todas as cenas (só o mestre pode listar). Ordene com `ordenarCenas`.
 export const subscribeGridCenas = (campanhaId, onChange, onError) =>
   onSnapshot(
@@ -1091,6 +1151,10 @@ export const subscribeGridCenas = (campanhaId, onChange, onError) =>
     onError,
   );
 
+// `docSnapshot.data()` com o padrão serverTimestamps 'none': numa escrita
+// local ainda pendente, `movidoEm` (serverTimestamp) chega null — é assim que
+// useGridCampanha distingue o próprio movimento pendente da confirmação. Não
+// troque por 'estimate': o valor muda na confirmação e o rastro piscaria 2x.
 export const subscribeGridTokens = (
   campanhaId,
   cenaId,
@@ -1112,12 +1176,261 @@ export const subscribeGridTokens = (
   );
 };
 
-export const moverGridToken = (campanhaId, cenaId, tokenId, col, lin) =>
+// Combate da cena (common/utils/gridCombate.js): existe enquanto há combate.
+const gridCombateRef = (campanhaId, cenaId) =>
+  doc(gridCenaRef(campanhaId, cenaId), 'combate', 'atual');
+
+// Chama `onChange(dados | null)`. serverTimestamps 'none' (padrão): a minha
+// troca de turno pendente chega com `turnoEm` null.
+export const subscribeGridCombate = (campanhaId, cenaId, onChange, onError) =>
+  onSnapshot(
+    gridCombateRef(campanhaId, cenaId),
+    snapshot => onChange(snapshot.exists() ? snapshot.data() : null),
+    onError,
+  );
+
+// Transação sobre o combate: `calcular(docAtual)` → null (nada a fazer) |
+// { patch, mensagem = null, mudouTurno = false }. `mudouTurno` grava
+// `turnoEm` (horário do servidor); `mensagem` (montarMensagemCombate) entra
+// no chat na mesma escrita — a regra confere isso para o jogador. Resolve
+// true se gravou.
+export const alterarGridCombate = (campanhaId, cenaId, calcular) =>
+  runTransaction(db, async transacao => {
+    const ref = gridCombateRef(campanhaId, cenaId);
+    const snapshot = await transacao.get(ref);
+    const resultado = snapshot.exists() ? calcular(snapshot.data()) : null;
+    if (!resultado) return false;
+    transacao.update(ref, {
+      ...resultado.patch,
+      ...(resultado.mudouTurno ? { turnoEm: serverTimestamp() } : {}),
+      updatedAt: serverTimestamp(),
+    });
+    if (resultado.mensagem) {
+      transacao.set(
+        doc(
+          collection(db, RM_CAMPANHAS_COLLECTION, campanhaId, 'chatMensagens'),
+        ),
+        { ...resultado.mensagem, createdAt: serverTimestamp() },
+      );
+    }
+    return true;
+  });
+
+// Só o mestre: começa o combate (estado de montarInicioDoCombate) e anuncia
+// na mesma escrita atômica.
+export const iniciarGridCombate = async (
+  campanhaId,
+  cenaId,
+  estado,
+  mensagem,
+) => {
+  const batch = writeBatch(db);
+  batch.set(gridCombateRef(campanhaId, cenaId), {
+    ...estado,
+    turnoEm: serverTimestamp(),
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+  batch.set(
+    doc(collection(db, RM_CAMPANHAS_COLLECTION, campanhaId, 'chatMensagens')),
+    { ...mensagem, createdAt: serverTimestamp() },
+  );
+  await batch.commit();
+};
+
+// Só o mestre: apaga o combate e anuncia o fim na mesma escrita atômica.
+export const encerrarGridCombate = async (campanhaId, cenaId, mensagem) => {
+  const batch = writeBatch(db);
+  batch.delete(gridCombateRef(campanhaId, cenaId));
+  batch.set(
+    doc(collection(db, RM_CAMPANHAS_COLLECTION, campanhaId, 'chatMensagens')),
+    { ...mensagem, createdAt: serverTimestamp() },
+  );
+  await batch.commit();
+};
+
+// Com `rastro` ([{col, lin}], common/utils/grid.js — montarRastro), grava
+// também o rastro do movimento e `movidoEm` (horário do servidor), que todos
+// os clientes usam para mostrar o caminho por alguns segundos.
+export const moverGridToken = (
+  campanhaId,
+  cenaId,
+  tokenId,
+  col,
+  lin,
+  rastro = null,
+) =>
   updateDoc(doc(gridTokensRef(campanhaId, cenaId), tokenId), {
     col,
     lin,
+    ...(rastro ? { rastro, movidoEm: serverTimestamp() } : {}),
     updatedAt: serverTimestamp(),
   });
+
+const gridCamadasRef = (campanhaId, cenaId) =>
+  collection(gridCenaRef(campanhaId, cenaId), 'camadas');
+const gridMarcadoresRef = (campanhaId, cenaId) =>
+  collection(gridCenaRef(campanhaId, cenaId), 'marcadores');
+const gridDesenhosRef = (campanhaId, cenaId) =>
+  collection(gridCenaRef(campanhaId, cenaId), 'desenhos');
+
+// Um listener na coleção: `onChange({ paredes, nevoa })` — dados crus do doc
+// ou null para cada um.
+export const subscribeGridCamadas = (campanhaId, cenaId, onChange, onError) =>
+  onSnapshot(
+    gridCamadasRef(campanhaId, cenaId),
+    snapshot => {
+      const camadas = { paredes: null, nevoa: null };
+      snapshot.docs.forEach(docSnapshot => {
+        if (docSnapshot.id in camadas)
+          camadas[docSnapshot.id] = docSnapshot.data();
+      });
+      onChange(camadas);
+    },
+    onError,
+  );
+
+// Substitui o doc inteiro (`dados` = campos da camada, sem datas).
+export const setGridCamada = (campanhaId, cenaId, camadaId, dados) =>
+  setDoc(doc(gridCamadasRef(campanhaId, cenaId), camadaId), {
+    ...dados,
+    updatedAt: serverTimestamp(),
+  });
+
+// Chama `onChange([{ id, ...dados }])`. Sem `incluirSecretos` filtra
+// `secreto == false` (senão a regra recusa a consulta).
+export const subscribeGridMarcadores = (
+  campanhaId,
+  cenaId,
+  { incluirSecretos = false } = {},
+  onChange,
+  onError,
+) =>
+  onSnapshot(
+    incluirSecretos
+      ? gridMarcadoresRef(campanhaId, cenaId)
+      : query(
+          gridMarcadoresRef(campanhaId, cenaId),
+          where('secreto', '==', false),
+        ),
+    snapshot =>
+      onChange(
+        snapshot.docs.map(docSnapshot => ({
+          id: docSnapshot.id,
+          ...docSnapshot.data(),
+        })),
+      ),
+    onError,
+  );
+
+export const addGridMarcador = async (campanhaId, cenaId, marcador) => {
+  const ref = await addDoc(gridMarcadoresRef(campanhaId, cenaId), {
+    ...marcador,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+  return ref.id;
+};
+
+export const updateGridMarcador = (campanhaId, cenaId, marcadorId, patch) =>
+  updateDoc(doc(gridMarcadoresRef(campanhaId, cenaId), marcadorId), {
+    ...patch,
+    updatedAt: serverTimestamp(),
+  });
+
+export const removeGridMarcador = (campanhaId, cenaId, marcadorId) =>
+  deleteDoc(doc(gridMarcadoresRef(campanhaId, cenaId), marcadorId));
+
+// Um doc por traço. Chama `onChange([{ id, ...dados }])`, sem ordenação.
+export const subscribeGridDesenhos = (campanhaId, cenaId, onChange, onError) =>
+  onSnapshot(
+    gridDesenhosRef(campanhaId, cenaId),
+    snapshot =>
+      onChange(
+        snapshot.docs.map(docSnapshot => ({
+          id: docSnapshot.id,
+          ...docSnapshot.data(),
+        })),
+      ),
+    onError,
+  );
+
+// Cria o traço `{ uid, cor, pontos }` e, no mesmo lote, apaga `idsParaApagar`
+// (o excedente do limite por pessoa). Devolve o id do novo.
+export const addGridDesenho = async (
+  campanhaId,
+  cenaId,
+  { uid, cor, pontos },
+  idsParaApagar = [],
+) => {
+  const lote = writeBatch(db);
+  const novoRef = doc(gridDesenhosRef(campanhaId, cenaId));
+  lote.set(novoRef, { uid, cor, pontos, createdAt: serverTimestamp() });
+  idsParaApagar.forEach(id =>
+    lote.delete(doc(gridDesenhosRef(campanhaId, cenaId), id)),
+  );
+  await lote.commit();
+  return novoRef.id;
+};
+
+// "Apagar meus/todos": lotes de 450 (limite do Firestore é 500 por lote).
+export const removeGridDesenhos = async (campanhaId, cenaId, ids) => {
+  for (let i = 0; i < ids.length; i += 450) {
+    const lote = writeBatch(db);
+    ids
+      .slice(i, i + 450)
+      .forEach(id => lote.delete(doc(gridDesenhosRef(campanhaId, cenaId), id)));
+    await lote.commit();
+  }
+};
+
+const gridPingsRef = (campanhaId, cenaId) =>
+  collection(gridCenaRef(campanhaId, cenaId), 'pings');
+
+// Chama `onChange([{ uid, x, y, puxar, nome, criadoEm }])`. serverTimestamps
+// 'none' (padrão): o meu sinal pendente chega com `criadoEm` null
+// (detectarPings ignora).
+export const subscribeGridPings = (campanhaId, cenaId, onChange, onError) =>
+  onSnapshot(
+    gridPingsRef(campanhaId, cenaId),
+    snapshot =>
+      onChange(
+        snapshot.docs.map(docSnapshot => ({
+          uid: docSnapshot.id,
+          ...docSnapshot.data(),
+        })),
+      ),
+    onError,
+  );
+
+// Um doc por pessoa (id = uid), sobrescrito a cada sinal (sem acúmulo/TTL).
+// `puxar` (centralizar a vista de todos) só o mestre — a regra garante.
+export const setGridPing = (
+  campanhaId,
+  cenaId,
+  uid,
+  { x, y, puxar = false, nome = null },
+) =>
+  setDoc(doc(gridPingsRef(campanhaId, cenaId), uid), {
+    x,
+    y,
+    puxar: Boolean(puxar),
+    ...(nome ? { nome } : {}),
+    criadoEm: serverTimestamp(),
+  });
+
+// Ficha ao vivo (somente leitura — `personagens` é do Re-Dungeon), para as
+// barras de PV/Energia/Fadiga dos tokens de jogador. Chama
+// `onChange({ id, ...dados } | null)`.
+export const subscribePersonagem = (personagemId, onChange, onError) =>
+  onSnapshot(
+    doc(db, PERSONAGENS_COLLECTION, personagemId),
+    snapshot =>
+      onChange(
+        snapshot.exists() ? { id: snapshot.id, ...snapshot.data() } : null,
+      ),
+    onError,
+  );
 
 // null = nenhuma cena visível aos jogadores.
 export const setGridCenaAtiva = (campanhaId, cenaId) =>
@@ -1134,12 +1447,21 @@ const comDatas = dados => ({
 
 // Cria a cena (montarCena de common/utils/grid.js) e, numa mesma escrita
 // atômica, os tokens iniciais (ex.: "Adicionar todos os jogadores").
-export const addGridCena = async (campanhaId, cena, tokens = []) => {
+export const addGridCena = async (
+  campanhaId,
+  cena,
+  tokens = [],
+  extras = [],
+) => {
   const batch = writeBatch(db);
   const cenaRef = doc(gridCenasRef(campanhaId));
   batch.set(cenaRef, comDatas(cena));
   tokens.forEach(token =>
     batch.set(doc(gridTokensRef(campanhaId, cenaRef.id)), comDatas(token)),
+  );
+  // Docs extras da cena nova: [{ ref: 'camadas/paredes', dados }, ...].
+  extras.forEach(({ ref, dados }) =>
+    batch.set(doc(cenaRef, ...ref.split('/')), comDatas(dados)),
   );
   await batch.commit();
   return cenaRef.id;
@@ -1159,26 +1481,67 @@ const semDatas = dados => {
   return resto;
 };
 
-// Copia a configuração e todos os tokens para uma cena nova.
+// Token copiado sem datas e sem o rastro do último movimento (a cena nova
+// começa sem rastro nenhum).
+const tokenParaCopia = dados => {
+  const resto = semDatas(dados);
+  delete resto.rastro;
+  delete resto.movidoEm;
+  return resto;
+};
+
+// Copia a configuração, os tokens, as camadas (paredes e névoa) e os
+// marcadores para uma cena nova. Os desenhos e os templates de área
+// (`templates`) não vão — são efêmeros, presos à posição da cena de origem.
 export const duplicarGridCena = async (campanhaId, cenaId, nome) => {
-  const [cenaSnapshot, tokensSnapshot] = await Promise.all([
-    getDoc(gridCenaRef(campanhaId, cenaId)),
-    getDocs(gridTokensRef(campanhaId, cenaId)),
-  ]);
+  const [cenaSnapshot, tokensSnapshot, camadasSnapshot, marcadoresSnapshot] =
+    await Promise.all([
+      getDoc(gridCenaRef(campanhaId, cenaId)),
+      getDocs(gridTokensRef(campanhaId, cenaId)),
+      getDocs(gridCamadasRef(campanhaId, cenaId)),
+      getDocs(gridMarcadoresRef(campanhaId, cenaId)),
+    ]);
+  const extras = [
+    ...camadasSnapshot.docs
+      .filter(docSnapshot => ['paredes', 'nevoa'].includes(docSnapshot.id))
+      .map(docSnapshot => ({
+        ref: `camadas/${docSnapshot.id}`,
+        dados: semDatas(docSnapshot.data()),
+      })),
+    ...marcadoresSnapshot.docs.map(docSnapshot => ({
+      ref: `marcadores/${docSnapshot.id}`,
+      dados: semDatas(docSnapshot.data()),
+    })),
+  ];
   return addGridCena(
     campanhaId,
     { ...semDatas(cenaSnapshot.data()), nome },
-    tokensSnapshot.docs.map(docSnapshot => semDatas(docSnapshot.data())),
+    tokensSnapshot.docs.map(docSnapshot => tokenParaCopia(docSnapshot.data())),
+    extras,
   );
 };
 
-// Apaga os tokens e a cena numa escrita só (até 200 tokens por cena).
+// Apaga os tokens, os sinais (pings), as camadas, os marcadores, os desenhos,
+// os templates de área, o combate e a cena, em lotes de 450 (a cena por último).
 export const removeGridCena = async (campanhaId, cenaId) => {
-  const tokensSnapshot = await getDocs(gridTokensRef(campanhaId, cenaId));
-  const batch = writeBatch(db);
-  tokensSnapshot.docs.forEach(docSnapshot => batch.delete(docSnapshot.ref));
-  batch.delete(gridCenaRef(campanhaId, cenaId));
-  await batch.commit();
+  const snapshots = await Promise.all([
+    getDocs(gridTokensRef(campanhaId, cenaId)),
+    getDocs(gridPingsRef(campanhaId, cenaId)),
+    getDocs(gridCamadasRef(campanhaId, cenaId)),
+    getDocs(gridMarcadoresRef(campanhaId, cenaId)),
+    getDocs(gridDesenhosRef(campanhaId, cenaId)),
+    getDocs(gridAreasRef(campanhaId, cenaId)),
+  ]);
+  const refs = [
+    ...snapshots.flatMap(snapshot => snapshot.docs.map(item => item.ref)),
+    gridCombateRef(campanhaId, cenaId),
+  ];
+  for (let i = 0; i < refs.length; i += 450) {
+    const batch = writeBatch(db);
+    refs.slice(i, i + 450).forEach(ref => batch.delete(ref));
+    await batch.commit();
+  }
+  await deleteDoc(gridCenaRef(campanhaId, cenaId));
 };
 
 export const addGridTokens = async (campanhaId, cenaId, tokens) => {

@@ -2,10 +2,15 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
+import MenuItem from '@mui/material/MenuItem';
+import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import AddIcon from '@mui/icons-material/Add';
 import ChatOutlinedIcon from '@mui/icons-material/ChatOutlined';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import GroupsIcon from '@mui/icons-material/Groups';
+import StopIcon from '@mui/icons-material/Stop';
+import SportsMartialArtsIcon from '@mui/icons-material/SportsMartialArts';
 import SettingsIcon from '@mui/icons-material/Settings';
 import { useAuth } from 'context/AuthContext';
 import { useCampanha } from 'context/CampanhaContext';
@@ -14,6 +19,7 @@ import {
   addGridCena,
   addGridTokens,
   duplicarGridCena,
+  getCondicoes,
   getRmMapasPorCampanha,
   removeGridCena,
   removeGridToken,
@@ -22,31 +28,57 @@ import {
   updateGridToken,
 } from 'service/storage';
 import { ROUTE_PATHS } from 'common/constants/routes';
+import { ACOES_CAMADA, CAMADAS } from 'common/utils/gridCamadas';
 import {
   GRID_CENAS_MAX,
   GRID_TOKENS_POR_CENA_MAX,
   dimensoesDoMundo,
   limitarPosicao,
   montarCena,
+  corDoPing,
   montarToken,
   nomeDaCena,
   nomeDaCopia,
+  normalizarTravamento,
   primeiraCelulaLivre,
   validarToken,
 } from 'common/utils/grid';
 import useGridCampanha from 'hooks/useGridCampanha';
+import useRolarDoToken from 'hooks/useRolarDoToken';
+import { autorDoToken } from 'common/utils/gridRolagem';
 import GridMapa from 'components/Grid/GridMapa';
+import RolarDoTokenDialog from 'components/Grid/RolarDoTokenDialog';
 import ChatMestre from 'pages/Chat/ChatMestre';
+import { PERSONA_MESTRE, autorDaPersona } from 'pages/Chat/chatPersonas';
 import useFontesDaMesa from 'pages/Chat/useFontesDaMesa';
 import AdicionarTokenDialog from './AdicionarTokenDialog';
 import CenaDialog from './CenaDialog';
 import CenasBarra from './CenasBarra';
+import FerramentasMapa from './FerramentasMapa';
 import GridConfigPainel from './GridConfigPainel';
+import IniciarCombateDialog from './IniciarCombateDialog';
+import MarcadorDialog from './MarcadorDialog';
+import ParticipantesCombateDialog from './ParticipantesCombateDialog';
 import TokenPainel from './TokenPainel';
-import { jogadoresSemToken, tokensDeJogadoresFaltantes } from './gridMestre';
+import {
+  FERRAMENTAS,
+  OPCOES_FERRAMENTA_PADRAO,
+  OPCOES_TRAVAMENTO,
+  jogadoresSemToken,
+  reacaoDoToken,
+  tokensDeJogadoresFaltantes,
+} from './gridMestre';
+import useCombateMestre from './useCombateMestre';
 import useCenasDoGrid from './useCenasDoGrid';
 
 const MAPAS_VAZIOS = { campanhaId: null, lista: [] };
+const SEM_CONDICOES = [];
+const CONDICOES_VAZIAS = { universoId: null, lista: SEM_CONDICOES };
+// O mestre vê (e edita) as áreas de todo mundo.
+const podeEditarAreaMestre = () => true;
+// O mestre rola por NPC/criatura/avulso; o token de jogador é do jogador.
+const podeRolarTokenMestre = token => token.tipo !== 'jogador';
+const SEM_GRUPOS_DE_ROLAGEM = [];
 
 /**
  * Grid (mapa tático) da Campanha ativa, em CENAS, compartilhado em tempo real
@@ -84,11 +116,32 @@ const Grid = () => {
   else if (existe(cenaAtivaId)) cenaAbertaId = cenaAtivaId;
   const cenaAberta = cenas.find(cena => cena.id === cenaAbertaId) ?? null;
 
+  // Catálogo de condições do universo (ícones/nomes nos tokens e no painel),
+  // guardado com o universo a que pertence.
+  const [condicoesCarregadas, setCondicoesCarregadas] =
+    useState(CONDICOES_VAZIAS);
+  const universoId = campanhaAtiva?.universoId ?? null;
+  const catalogoCondicoes =
+    condicoesCarregadas.universoId === universoId
+      ? condicoesCarregadas.lista
+      : SEM_CONDICOES;
+
+  const autorMestre = useMemo(
+    () => autorDaPersona(currentUser.uid, PERSONA_MESTRE),
+    [currentUser.uid],
+  );
+
   const grid = useGridCampanha(campanhaId, {
     uid: currentUser.uid,
     isMestre: true,
     ehMestreDaCampanha: true,
     cenaId: cenaAbertaId,
+    // Nome no sinal do mapa; `mestreId` pinta o meu sinal de dourado.
+    nome: 'Mestre',
+    mestreId: currentUser.uid,
+    catalogoCondicoes,
+    // As mensagens de combate (Próximo/Anterior) saem como "Mestre".
+    autorCombate: autorMestre,
   });
   const { erro: erroGrid, limparErro: limparErroGrid } = grid;
 
@@ -98,7 +151,17 @@ const Grid = () => {
   const [adicionarAberto, setAdicionarAberto] = useState(false);
   // { modo: 'nova' } | { modo: 'renomear', cena } | null
   const [cenaDialog, setCenaDialog] = useState(null);
+  const [iniciarAberto, setIniciarAberto] = useState(false);
+  const [participantesAberto, setParticipantesAberto] = useState(false);
   const [chatAberto, setChatAberto] = useState(true);
+  const [tokenRolando, setTokenRolando] = useState(null);
+  // Ferramenta do mapa (Fase 3B) e suas opções; marcador em criação/edição:
+  // { marcador } | { celula } | null.
+  const [ferramenta, setFerramenta] = useState(FERRAMENTAS.MOVER);
+  const [opcoesFerramenta, setOpcoesFerramenta] = useState(
+    OPCOES_FERRAMENTA_PADRAO,
+  );
+  const [marcadorEditando, setMarcadorEditando] = useState(null);
   const [imagemCarregada, setImagemCarregada] = useState(null);
   const [mapasCarregados, setMapasCarregados] = useState(MAPAS_VAZIOS);
 
@@ -128,6 +191,24 @@ const Grid = () => {
     };
   }, [campanhaAtiva]);
 
+  // Falha não é erro para o mestre: os tokens só ficam sem as condições.
+  useEffect(() => {
+    if (!universoId) return undefined;
+    let active = true;
+    getCondicoes(universoId)
+      .then(lista => {
+        if (!active) return;
+        setCondicoesCarregadas({ universoId, lista: lista ?? SEM_CONDICOES });
+      })
+      .catch(error => {
+        // eslint-disable-next-line no-console
+        console.error('Falha ao carregar o catálogo de condições:', error);
+      });
+    return () => {
+      active = false;
+    };
+  }, [universoId]);
+
   // Erros das escutas vão para o Snackbar global.
   useEffect(() => {
     if (!erroGrid) return;
@@ -148,6 +229,23 @@ const Grid = () => {
   );
   const selecionado =
     grid.tokens.find(token => token.id === selecionadoId) ?? null;
+
+  // "Rolar…" de um token: a rolagem sai no chat como o NPC/criatura (persona
+  // do tipo), com o rótulo de onde veio. O mestre não tem opções prontas aqui
+  // (as fichas de NPC não têm ataques/artes) — só a rolagem livre.
+  const rolarDoToken = useRolarDoToken(campanhaId, { onErro: notifyError });
+  const personasDaMesa = useMemo(
+    () => [...fontes.npcs, ...fontes.criaturas],
+    [fontes.npcs, fontes.criaturas],
+  );
+  const handleRolarDoToken = async (expressao, rotulo) => {
+    const autor = autorDoToken(tokenRolando, {
+      uid: currentUser.uid,
+      mestre: true,
+      personas: personasDaMesa,
+    });
+    return rolarDoToken({ autor, expressao, rotulo });
+  };
   const mapas =
     mapasCarregados.campanhaId === campanhaId ? mapasCarregados.lista : [];
   const jogadoresFaltando = useMemo(
@@ -167,6 +265,18 @@ const Grid = () => {
     }
   };
 
+  const combate = useCombateMestre({
+    campanhaId,
+    cenaId: cenaAbertaId,
+    combate: grid.combate,
+    tokens: grid.tokens,
+    autor: autorMestre,
+    tentar,
+    notifySuccess,
+  });
+  const reacaoDoTokenDaMesa = token =>
+    reacaoDoToken(token, { fichas: grid.fichas, fontes });
+
   const fecharConfig = () => {
     setConfigAberta(false);
     setPrevia(null);
@@ -175,6 +285,7 @@ const Grid = () => {
   const abrirCena = cenaId => {
     setCenaEscolhidaId(cenaId);
     setSelecionadoId(null);
+    setMarcadorEditando(null);
     fecharConfig();
   };
 
@@ -306,8 +417,22 @@ const Grid = () => {
     if (ok) notifySuccess('Token atualizado.');
   };
 
+  // Combate (TokenCombate): grava na hora, sem aviso de sucesso.
+  const handleAlterarToken = patch =>
+    tentar(
+      () =>
+        updateGridToken(campanhaId, cenaAbertaId, selecionado.id, patch).then(
+          () => true,
+        ),
+      'Não foi possível atualizar o token.',
+    );
+
   const handleRemoverToken = async () => {
     if (!window.confirm(`Remover "${selecionado.nome}" da cena?`)) return;
+    // Quem sai da cena sai também do combate (o último encerra o combate).
+    if (grid.combate?.ordem.some(item => item.tokenId === selecionado.id)) {
+      if (!(await combate.remover(selecionado.id))) return;
+    }
     const ok = await tentar(
       () =>
         removeGridToken(campanhaId, cenaAbertaId, selecionado.id).then(
@@ -316,6 +441,66 @@ const Grid = () => {
       'Não foi possível remover o token.',
     );
     if (ok) setSelecionadoId(null);
+  };
+
+  const handleTravamento = event =>
+    tentar(
+      () =>
+        updateGridCena(campanhaId, cenaAbertaId, {
+          travamento: event.target.value,
+        }).then(() => true),
+      'Não foi possível mudar o movimento da cena.',
+    );
+
+  // ── Mapa: ferramentas, névoa, paredes e marcadores (Fase 3B) ───────────
+  const handleFerramenta = nova => {
+    setFerramenta(nova);
+    setSelecionadoId(null);
+  };
+
+  const handleNevoaAtiva = ativa => grid.definirNevoaAtiva(ativa);
+
+  const handlePreencherNevoa = async acao => {
+    if (
+      acao === ACOES_CAMADA.REMOVER &&
+      !window.confirm('Cobrir todo o mapa com névoa?')
+    ) {
+      return;
+    }
+    await grid.preencherCamada(CAMADAS.NEVOA, acao, limites);
+  };
+
+  const handleLimparParedes = async () => {
+    if (!window.confirm('Limpar todas as paredes desta cena?')) return;
+    await grid.preencherCamada(CAMADAS.PAREDES, ACOES_CAMADA.REMOVER, limites);
+  };
+
+  const handleSalvarMarcador = async dados => {
+    const { marcador, celula } = marcadorEditando;
+    const ok = await tentar(
+      async () =>
+        marcador
+          ? grid.salvarMarcador(marcador.id, dados)
+          : Boolean(await grid.criarMarcador({ ...celula, ...dados })),
+      'Não foi possível salvar o marcador.',
+    );
+    if (!ok) return;
+    setMarcadorEditando(null);
+    notifySuccess(marcador ? 'Marcador atualizado.' : 'Marcador criado.');
+  };
+
+  const handleApagarMarcador = async () => {
+    const ok = await tentar(
+      () => grid.apagarMarcador(marcadorEditando.marcador.id),
+      'Não foi possível apagar o marcador.',
+    );
+    if (!ok) return;
+    setMarcadorEditando(null);
+    notifySuccess('Marcador apagado.');
+  };
+
+  const handleIniciarCombate = async participantes => {
+    if (await combate.iniciar(participantes)) setIniciarAberto(false);
   };
 
   const handleSalvarConfig = async novaConfig => {
@@ -397,6 +582,46 @@ const Grid = () => {
         >
           Adicionar token
         </Button>
+        <TextField
+          select
+          size="small"
+          label="Movimento"
+          value={normalizarTravamento(grid.travamento)}
+          onChange={handleTravamento}
+          disabled={!cenaAberta}
+          sx={{ minWidth: 150 }}
+        >
+          {OPCOES_TRAVAMENTO.map(opcao => (
+            <MenuItem key={opcao.value} value={opcao.value}>
+              {opcao.label}
+            </MenuItem>
+          ))}
+        </TextField>
+        {grid.combate ? (
+          <>
+            <Button
+              startIcon={<GroupsIcon />}
+              onClick={() => setParticipantesAberto(true)}
+            >
+              Participantes
+            </Button>
+            <Button
+              color="error"
+              startIcon={<StopIcon />}
+              onClick={() => combate.encerrar()}
+            >
+              Encerrar combate
+            </Button>
+          </>
+        ) : (
+          <Button
+            startIcon={<SportsMartialArtsIcon />}
+            onClick={() => setIniciarAberto(true)}
+            disabled={!cenaAberta || grid.tokens.length === 0}
+          >
+            Iniciar combate
+          </Button>
+        )}
         <Button
           startIcon={<ChatOutlinedIcon />}
           aria-pressed={chatAberto}
@@ -430,45 +655,108 @@ const Grid = () => {
       >
         <Box
           sx={{
-            position: 'relative',
             flex: 1,
             minWidth: 0,
             minHeight: 0,
             display: 'flex',
+            flexDirection: 'column',
           }}
         >
-          {/* key: trocar de cena recomeça zoom/pan (mapa encaixado). */}
-          <GridMapa
-            key={cenaAbertaId ?? 'sem-cena'}
-            config={config}
-            tokens={grid.tokens}
-            podeMover={grid.podeMover}
-            onMover={grid.mover}
-            selecionadoId={selecionadoId}
-            onSelecionar={token => setSelecionadoId(token?.id ?? null)}
-            onImagemCarregada={setImagemCarregada}
-            aviso={aviso}
+          <FerramentasMapa
+            ferramenta={ferramenta}
+            onFerramenta={handleFerramenta}
+            opcoes={opcoesFerramenta}
+            onOpcoes={setOpcoesFerramenta}
+            nevoaAtiva={grid.camadas.nevoa.ativa}
+            onNevoaAtiva={handleNevoaAtiva}
+            onPreencherNevoa={handlePreencherNevoa}
+            onLimparParedes={handleLimparParedes}
+            desabilitado={!cenaAberta}
           />
-          {selecionado && (
-            <TokenPainel
-              key={selecionado.id}
-              token={selecionado}
-              jogadores={fontes.jogadores}
-              onSalvar={handleSalvarToken}
-              onRemover={handleRemoverToken}
-              onFechar={() => setSelecionadoId(null)}
+          <Box
+            sx={{
+              position: 'relative',
+              flex: 1,
+              minWidth: 0,
+              minHeight: 0,
+              display: 'flex',
+            }}
+          >
+            {/* key: trocar de cena recomeça zoom/pan (mapa encaixado). */}
+            <GridMapa
+              key={cenaAbertaId ?? 'sem-cena'}
+              config={config}
+              tokens={grid.tokens}
+              podeMover={grid.podeMover}
+              onMover={grid.mover}
+              rastros={grid.rastrosAtivos}
+              selecionadoId={selecionadoId}
+              onSelecionar={token => setSelecionadoId(token?.id ?? null)}
+              onImagemCarregada={setImagemCarregada}
+              aviso={aviso}
+              mestre
+              onPing={grid.pingar}
+              pings={grid.pings}
+              detalhes={grid.detalhes}
+              combate={grid.combate}
+              travamento={grid.travamento}
+              acoesCombate={{
+                anterior: () => grid.mudarTurno(-1),
+                proximo: () => grid.mudarTurno(1),
+              }}
+              ferramenta={ferramenta}
+              opcoesFerramenta={opcoesFerramenta}
+              camadas={grid.camadas}
+              marcadores={grid.marcadores}
+              desenhos={grid.desenhos}
+              onEditarCamada={({ camada, acao, celulas }) =>
+                grid.editarCamada(camada, acao, celulas, limites)
+              }
+              onCelulaMarcador={celula => setMarcadorEditando({ celula })}
+              onMarcadorClique={marcador => setMarcadorEditando({ marcador })}
+              onDesenhar={grid.desenhar}
+              acoesDesenho={{
+                apagarMeus: grid.apagarMeusDesenhos,
+                apagarTodos: grid.apagarTodosDesenhos,
+              }}
+              areas={grid.areas}
+              corAreaPadrao={corDoPing(currentUser.uid, currentUser.uid)}
+              acoesAreas={grid.acoesAreas}
+              podeEditarArea={podeEditarAreaMestre}
+              podeRolarToken={podeRolarTokenMestre}
+              onRolarToken={setTokenRolando}
             />
-          )}
-          {configAberta && cenaAberta && (
-            <GridConfigPainel
-              key={cenaAbertaId}
-              config={grid.config}
-              mapas={mapas}
-              onPrevia={setPrevia}
-              onSalvar={handleSalvarConfig}
-              onFechar={fecharConfig}
-            />
-          )}
+            {selecionado && ferramenta === FERRAMENTAS.MOVER && (
+              <TokenPainel
+                key={selecionado.id}
+                token={selecionado}
+                jogadores={fontes.jogadores}
+                condicoes={catalogoCondicoes}
+                detalhe={grid.detalhes[selecionado.id] ?? null}
+                onSalvar={handleSalvarToken}
+                onAlterar={handleAlterarToken}
+                onRemover={handleRemoverToken}
+                onFechar={() => setSelecionadoId(null)}
+                onRolar={
+                  podeRolarTokenMestre(selecionado)
+                    ? () => setTokenRolando(selecionado)
+                    : undefined
+                }
+                abaixoDaFaixa={Boolean(grid.combate)}
+              />
+            )}
+            {configAberta && cenaAberta && (
+              <GridConfigPainel
+                key={cenaAbertaId}
+                config={grid.config}
+                mapas={mapas}
+                onPrevia={setPrevia}
+                onSalvar={handleSalvarConfig}
+                onFechar={fecharConfig}
+                abaixoDaFaixa={Boolean(grid.combate)}
+              />
+            )}
+          </Box>
         </Box>
 
         {/* Sempre montado (só escondido): fechar o chat não corta a música
@@ -493,6 +781,14 @@ const Grid = () => {
         </Box>
       </Box>
 
+      <RolarDoTokenDialog
+        open={Boolean(tokenRolando)}
+        token={tokenRolando}
+        grupos={SEM_GRUPOS_DE_ROLAGEM}
+        onRolar={handleRolarDoToken}
+        onClose={() => setTokenRolando(null)}
+      />
+
       <AdicionarTokenDialog
         open={adicionarAberto}
         onClose={() => setAdicionarAberto(false)}
@@ -501,6 +797,38 @@ const Grid = () => {
         jogadoresFaltando={jogadoresFaltando}
         onAdicionarJogadores={handleAdicionarJogadores}
       />
+
+      {iniciarAberto && (
+        <IniciarCombateDialog
+          open
+          tokens={grid.tokens}
+          reacaoDoToken={reacaoDoTokenDaMesa}
+          onIniciar={handleIniciarCombate}
+          onClose={() => setIniciarAberto(false)}
+        />
+      )}
+
+      <ParticipantesCombateDialog
+        open={participantesAberto && Boolean(grid.combate)}
+        combate={grid.combate}
+        tokens={grid.tokens}
+        reacaoDoToken={reacaoDoTokenDaMesa}
+        onMover={combate.mover}
+        onRemover={combate.remover}
+        onAdicionar={combate.adicionar}
+        onClose={() => setParticipantesAberto(false)}
+      />
+
+      {marcadorEditando && (
+        <MarcadorDialog
+          key={marcadorEditando.marcador?.id ?? 'novo'}
+          marcador={marcadorEditando.marcador ?? null}
+          celula={marcadorEditando.celula ?? null}
+          onSalvar={handleSalvarMarcador}
+          onApagar={handleApagarMarcador}
+          onClose={() => setMarcadorEditando(null)}
+        />
+      )}
 
       {cenaDialog && (
         <CenaDialog

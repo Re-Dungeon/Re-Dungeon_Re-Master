@@ -1,7 +1,6 @@
 // Funções puras do chat de campanha (rmCampanhas/{id}/chatMensagens).
 // Mantidas em sincronia com a cópia do site dos jogadores
-// (Ficha-RPG---Re-Dungeon-, mesmo arquivo/mesmos testes) e com o bloco do
-// chat no `firestore.rules` — os limites aqui (tamanho do
+// (Ficha-RPG---Re-Dungeon-, mesmo arquivo/mesmos testes) e com o bloco do chat no `firestore.rules` — os limites aqui (tamanho do
 // texto/URL, valores de `tipo`) são os mesmos que a regra exige.
 
 export const CHAT_TEXTO_MAX = 2000;
@@ -12,6 +11,7 @@ export const TIPOS_MENSAGEM = {
   IMAGEM: 'imagem',
   ROLAGEM: 'rolagem',
   MACRO: 'macro',
+  COMBATE: 'combate',
 };
 
 // Mensagem gerada por `enviar(texto)` de uma macro Lua — limite maior que o
@@ -141,14 +141,34 @@ export const montarMensagemImagem = (autor, url) => ({
 // `rolagem` = resultado de rolarEspecificacao (common/utils/dados.js). Rolagens
 // secretas vão para chatSecretas/{uid}/rolagens (não para chatMensagens) e
 // levam `secreta: true` — a regra exige o campo só nesse caminho.
-export const montarMensagemRolagem = (autor, rolagem, secreta = false) => ({
-  ...camposAutor(autor),
-  tipo: TIPOS_MENSAGEM.ROLAGEM,
-  texto: '',
-  url: null,
+//
+// `rotulo` (opcional, ex.: "Ataque: Golpe Duplo") diz de onde veio a rolagem —
+// vem do "Rolar…" de um token do grid; vazio é omitido.
+export const ROTULO_ROLAGEM_MAX = 100;
+
+export const normalizarRotulo = rotulo =>
+  String(rotulo ?? '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .slice(0, ROTULO_ROLAGEM_MAX) || null;
+
+export const montarMensagemRolagem = (
+  autor,
   rolagem,
-  ...(secreta ? { secreta: true } : {}),
-});
+  secreta = false,
+  rotulo = null,
+) => {
+  const rotuloNormalizado = normalizarRotulo(rotulo);
+  return {
+    ...camposAutor(autor),
+    tipo: TIPOS_MENSAGEM.ROLAGEM,
+    texto: '',
+    url: null,
+    rolagem,
+    ...(rotuloNormalizado ? { rotulo: rotuloNormalizado } : {}),
+    ...(secreta ? { secreta: true } : {}),
+  };
+};
 
 export const montarMensagemMacro = (autor, macroNome, texto) => ({
   ...camposAutor(autor),
@@ -157,6 +177,98 @@ export const montarMensagemMacro = (autor, macroNome, texto) => ({
   url: null,
   macroNome: String(macroNome ?? '').slice(0, MACRO_NOME_MAX) || 'macro',
 });
+
+// ── Mensagens de combate do grid (common/utils/gridCombate.js) ───────────
+// Cartão estreito no centro do chat: início (com a iniciativa), "Rodada N",
+// "Turno de X" e "Combate encerrado". `combate.cenaId` deixa a regra conferir
+// que o jogador só anuncia a troca de turno que ele mesmo gravou na mesma
+// escrita. Oculto: sem nome ("Turno de um oponente oculto").
+export const EVENTOS_COMBATE = {
+  INICIO: 'inicio',
+  RODADA: 'rodada',
+  TURNO: 'turno',
+  FIM: 'fim',
+};
+export const COMBATE_NOME_MAX = 100;
+export const COMBATE_INICIATIVA_MAX = 200;
+
+const EVENTOS_COM_TURNO = [
+  EVENTOS_COMBATE.INICIO,
+  EVENTOS_COMBATE.RODADA,
+  EVENTOS_COMBATE.TURNO,
+];
+
+// "Wesley 17 (d20 12 + Reação 5)"
+export const formatarIniciativa = ({ nome, total, d20, reacao }) =>
+  `${nome} ${total} (d20 ${d20} ${reacao < 0 ? '−' : '+'} Reação ${Math.abs(reacao)})`;
+
+export const montarMensagemCombate = (
+  autor,
+  {
+    evento,
+    cenaId,
+    rodada = null,
+    nome = null,
+    oculto = false,
+    iniciativa = null,
+  },
+) => ({
+  ...camposAutor(autor),
+  tipo: TIPOS_MENSAGEM.COMBATE,
+  texto: '',
+  url: null,
+  combate: {
+    evento,
+    cenaId,
+    ...(rodada ? { rodada } : {}),
+    ...(EVENTOS_COM_TURNO.includes(evento)
+      ? {
+          nome: nome ? String(nome).slice(0, COMBATE_NOME_MAX) : null,
+          oculto: Boolean(oculto || !nome),
+        }
+      : {}),
+    ...(iniciativa
+      ? {
+          iniciativa: iniciativa.slice(0, COMBATE_INICIATIVA_MAX).map(item => ({
+            nome: String(item.nome ?? '').slice(0, COMBATE_NOME_MAX),
+            total: item.total,
+            d20: item.d20,
+            reacao: item.reacao,
+          })),
+        }
+      : {}),
+  },
+});
+
+const turnoDe = combate =>
+  combate.nome ? `Turno de ${combate.nome}` : 'Turno de um oponente oculto';
+
+// `mensagem.combate` → { titulo, iniciativa: string[] | null, linhas: string[] }.
+export const descreverMensagemCombate = combate => {
+  const dados = combate ?? {};
+  switch (dados.evento) {
+    case EVENTOS_COMBATE.INICIO:
+      return {
+        titulo: 'Combate iniciado',
+        iniciativa: Array.isArray(dados.iniciativa)
+          ? dados.iniciativa.map(formatarIniciativa)
+          : null,
+        linhas: [`Rodada ${dados.rodada ?? 1} · ${turnoDe(dados)}`],
+      };
+    case EVENTOS_COMBATE.RODADA:
+      return {
+        titulo: `Rodada ${dados.rodada ?? ''}`.trim(),
+        iniciativa: null,
+        linhas: [turnoDe(dados)],
+      };
+    case EVENTOS_COMBATE.TURNO:
+      return { titulo: turnoDe(dados), iniciativa: null, linhas: [] };
+    case EVENTOS_COMBATE.FIM:
+      return { titulo: 'Combate encerrado', iniciativa: null, linhas: [] };
+    default:
+      return { titulo: 'Combate', iniciativa: null, linhas: [] };
+  }
+};
 
 const instanteDaMensagem = mensagem => {
   const { createdAt } = mensagem;
@@ -203,7 +315,7 @@ export const formatarHorarioMensagem = (createdAt, agora = new Date()) => {
     : `${doisDigitos(data.getDate())}/${doisDigitos(data.getMonth() + 1)} ${hora}`;
 };
 
-// Mesmo critério de pages/Jogadores/jogadoresUtils.js para "jogador
+// Mesmo critério do Re:Master (pages/Jogadores/jogadoresUtils.js) para "jogador
 // na campanha": personagem jogável (tipo ausente = jogável, docs antigos) cuja
 // lista `campanhas` contém a campanha. Companheiros ficam de fora.
 const TIPO_JOGAVEL = 'Personagem Jogável';

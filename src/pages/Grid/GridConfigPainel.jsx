@@ -14,10 +14,15 @@ import {
   GRID_CELULA_MAX,
   GRID_CELULA_MIN,
   GRID_DESLOCAMENTO_MAX,
+  METROS_POR_QUADRADO_MAX,
+  METROS_POR_QUADRADO_MIN,
+  METROS_POR_QUADRADO_PADRAO,
+  MULTIPLICADOR_CORRIDA_PADRAO,
   normalizarConfigGrid,
   validarConfigGrid,
 } from 'common/utils/grid';
-import { painelCabecalhoSx, painelSx } from './styles';
+import { OPCOES_CORRIDA } from './gridMestre';
+import { painelAbaixoDaFaixaSx, painelCabecalhoSx, painelSx } from './styles';
 
 const paraValores = config => ({
   imagemUrl: config.imagemUrl ?? '',
@@ -27,6 +32,11 @@ const paraValores = config => ({
   mostrarGrade: config.mostrarGrade,
   corGrade: config.corGrade,
   opacidadeGrade: config.opacidadeGrade,
+  metrosPorQuadrado: String(
+    config.metrosPorQuadrado ?? METROS_POR_QUADRADO_PADRAO,
+  ),
+  multiplicadorCorrida:
+    config.multiplicadorCorrida ?? MULTIPLICADOR_CORRIDA_PADRAO,
 });
 
 const SEM_MAPA = '';
@@ -38,7 +48,14 @@ const SEM_MAPA = '';
  * alteração válida vira prévia ao vivo no mapa (`onPrevia`); nada é gravado
  * até "Salvar grid".
  */
-const GridConfigPainel = ({ config, mapas, onPrevia, onSalvar, onFechar }) => {
+const GridConfigPainel = ({
+  config,
+  mapas,
+  onPrevia,
+  onSalvar,
+  onFechar,
+  abaixoDaFaixa = false,
+}) => {
   const [valores, setValores] = useState(() => paraValores(config));
   const [salvando, setSalvando] = useState(false);
 
@@ -79,7 +96,11 @@ const GridConfigPainel = ({ config, mapas, onPrevia, onSalvar, onFechar }) => {
 
   return (
     <Box
-      sx={{ ...painelSx, right: 12 }}
+      sx={{
+        ...painelSx,
+        right: 12,
+        ...(abaixoDaFaixa ? painelAbaixoDaFaixaSx : {}),
+      }}
       role="region"
       aria-label="Configurar grid"
     >
@@ -131,6 +152,36 @@ const GridConfigPainel = ({ config, mapas, onPrevia, onSalvar, onFechar }) => {
         {campoNumero('deslocamentoX', 'Deslocamento X', GRID_DESLOCAMENTO_MAX)}
         {campoNumero('deslocamentoY', 'Deslocamento Y', GRID_DESLOCAMENTO_MAX)}
       </Box>
+      <TextField
+        size="small"
+        type="number"
+        label="Metros por quadrado"
+        value={valores.metrosPorQuadrado}
+        onChange={event => alterar('metrosPorQuadrado', event.target.value)}
+        helperText="Distância de um quadrado (padrão 1,5 m)."
+        slotProps={{
+          htmlInput: {
+            min: METROS_POR_QUADRADO_MIN,
+            max: METROS_POR_QUADRADO_MAX,
+            step: 0.1,
+            inputMode: 'decimal',
+          },
+        }}
+      />
+      <TextField
+        select
+        size="small"
+        label="Correr"
+        value={valores.multiplicadorCorrida}
+        onChange={event => alterar('multiplicadorCorrida', event.target.value)}
+        helperText="Quanto o deslocamento do token rende ao correr."
+      >
+        {OPCOES_CORRIDA.map(opcao => (
+          <MenuItem key={opcao.value} value={opcao.value}>
+            {opcao.label}
+          </MenuItem>
+        ))}
+      </TextField>
       <FormControlLabel
         control={
           <Switch
@@ -195,6 +246,8 @@ GridConfigPainel.propTypes = {
     mostrarGrade: PropTypes.bool.isRequired,
     corGrade: PropTypes.string.isRequired,
     opacidadeGrade: PropTypes.number.isRequired,
+    metrosPorQuadrado: PropTypes.number,
+    multiplicadorCorrida: PropTypes.number,
   }).isRequired,
   mapas: PropTypes.arrayOf(
     PropTypes.shape({
@@ -206,6 +259,7 @@ GridConfigPainel.propTypes = {
   onPrevia: PropTypes.func.isRequired,
   onSalvar: PropTypes.func.isRequired,
   onFechar: PropTypes.func.isRequired,
+  abaixoDaFaixa: PropTypes.bool,
 };
 
 export default GridConfigPainel;

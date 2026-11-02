@@ -10,6 +10,7 @@ import {
   rotuloPersona,
 } from 'common/utils/chat';
 
+import CombateMensagem from './CombateMensagem';
 import RolagemMensagem from './RolagemMensagem';
 import {
   MensagemAcoes,
@@ -32,6 +33,15 @@ const ChatMensagem = ({ mensagem, minha, podeApagar, onApagar }) => {
   if (mensagem.tipo === TIPOS_MENSAGEM.ROLAGEM && mensagem.rolagem) {
     return (
       <RolagemMensagem
+        mensagem={mensagem}
+        podeApagar={podeApagar}
+        onApagar={onApagar}
+      />
+    );
+  }
+  if (mensagem.tipo === TIPOS_MENSAGEM.COMBATE) {
+    return (
+      <CombateMensagem
         mensagem={mensagem}
         podeApagar={podeApagar}
         onApagar={onApagar}
@@ -128,6 +138,8 @@ ChatMensagem.propTypes = {
     tipo: PropTypes.string,
     rolagem: PropTypes.object,
     macroNome: PropTypes.string,
+    rotulo: PropTypes.string,
+    combate: PropTypes.object,
     texto: PropTypes.string,
     url: PropTypes.string,
     createdAt: PropTypes.oneOfType([
