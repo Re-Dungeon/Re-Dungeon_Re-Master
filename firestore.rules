@@ -439,8 +439,13 @@ service cloud.firestore {
     // publicar/editar/excluir suas músicas, pastas e playlists. A regra usa
     // `mestreId` para impedir que um mestre altere registros de outro.
     function musicaBibliotecaValida(data) {
-      return data.keys().hasOnly(['nome', 'url', 'videoId', 'pastaId', 'tags', 'descricao',
-                                  'thumbnailUrl', 'duracaoSegundos', 'mestreId', 'createdAt', 'updatedAt']) &&
+      return (
+        (
+          data.keys().hasOnly(['nome', 'url', 'videoId', 'pastaId', 'tags', 'descricao',
+                                'thumbnailUrl', 'duracaoSegundos', 'mestreId', 'createdAt']) ||
+          data.keys().hasOnly(['nome', 'url', 'videoId', 'pastaId', 'tags', 'descricao',
+                                'thumbnailUrl', 'duracaoSegundos', 'mestreId', 'createdAt', 'updatedAt'])
+        ) &&
         data.mestreId == request.auth.uid &&
         data.nome is string && data.nome.size() > 0 && data.nome.size() <= 200 &&
         data.url is string && data.url.size() <= 2000 && data.url.matches('https://.+') &&
@@ -449,26 +454,37 @@ service cloud.firestore {
         data.tags is list && data.tags.size() <= 20 &&
         data.descricao is string && data.descricao.size() <= 2000 &&
         (data.thumbnailUrl == null || (data.thumbnailUrl is string && data.thumbnailUrl.size() <= 2000)) &&
-        (data.duracaoSegundos == null || (data.duracaoSegundos is number && data.duracaoSegundos >= 0));
+        (data.duracaoSegundos == null || (data.duracaoSegundos is number && data.duracaoSegundos >= 0))
+      );
     }
 
     function musicaPastaValida(data) {
-      return data.keys().hasOnly(['nome', 'descricao', 'cor', 'ordenacao', 'mestreId', 'createdAt', 'updatedAt']) &&
+      return (
+        (
+          data.keys().hasOnly(['nome', 'descricao', 'cor', 'ordenacao', 'mestreId', 'createdAt']) ||
+          data.keys().hasOnly(['nome', 'descricao', 'cor', 'ordenacao', 'mestreId', 'createdAt', 'updatedAt'])
+        ) &&
         data.mestreId == request.auth.uid &&
         data.nome is string && data.nome.size() > 0 && data.nome.size() <= 200 &&
         data.descricao is string && data.descricao.size() <= 2000 &&
         data.cor is string && data.cor.matches('#[0-9a-fA-F]{6}') &&
-        data.ordenacao is int && data.ordenacao >= 0;
+        data.ordenacao is int && data.ordenacao >= 0
+      );
     }
 
     function playlistBibliotecaValida(data) {
-      return data.keys().hasOnly(['nome', 'descricao', 'linkImagem', 'pastaId', 'musicas', 'mestreId', 'createdAt', 'updatedAt']) &&
+      return (
+        (
+          data.keys().hasOnly(['nome', 'descricao', 'linkImagem', 'pastaId', 'musicas', 'mestreId', 'createdAt']) ||
+          data.keys().hasOnly(['nome', 'descricao', 'linkImagem', 'pastaId', 'musicas', 'mestreId', 'createdAt', 'updatedAt'])
+        ) &&
         data.mestreId == request.auth.uid &&
         data.nome is string && data.nome.size() > 0 && data.nome.size() <= 200 &&
         data.descricao is string && data.descricao.size() <= 2000 &&
         (data.linkImagem == null || (data.linkImagem is string && data.linkImagem.size() <= 2000)) &&
         (data.pastaId == null || (data.pastaId is string && data.pastaId.size() <= 200)) &&
-        data.musicas is list && data.musicas.size() <= 200;
+        data.musicas is list && data.musicas.size() <= 200
+      );
     }
 
     match /rmMusicasBiblioteca/{docId} {
@@ -480,14 +496,6 @@ service cloud.firestore {
     }
 
     match /rmMusicasPastas/{docId} {
-      allow read: if isAdmin() || (isAuth() && resource.data.mestreId == request.auth.uid);
-      allow create: if isAuth() && request.resource.data.mestreId == request.auth.uid && musicaPastaValida(request.resource.data);
-      allow update: if isAdmin() ||
-        (isAuth() && resource.data.mestreId == request.auth.uid && request.resource.data.mestreId == request.auth.uid && musicaPastaValida(request.resource.data));
-      allow delete: if isAdmin() || (isAuth() && resource.data.mestreId == request.auth.uid);
-    }
-
-    match /rmPlaylistsPastas/{docId} {
       allow read: if isAdmin() || (isAuth() && resource.data.mestreId == request.auth.uid);
       allow create: if isAuth() && request.resource.data.mestreId == request.auth.uid && musicaPastaValida(request.resource.data);
       allow update: if isAdmin() ||
