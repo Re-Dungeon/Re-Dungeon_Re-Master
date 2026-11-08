@@ -803,14 +803,17 @@ service cloud.firestore {
         gridCombateValido(data);
     }
 
-    // Ponteiro da cena ativa (null = nenhuma cena visível aos jogadores).
+    // Ponteiro da cena ativa (null = nenhuma cena visível aos jogadores) +
+    // `avisarAcoesChat` (opção do mestre: ações da Central de Ações dos
+    // jogadores vão para o chat).
     match /rmCampanhas/{campanhaId}/grid/{gridId} {
       allow read: if isMestreDaCampanha(campanhaId) || isMembroDoChat(campanhaId);
       allow create, update: if gridId == 'atual' && isMestreDaCampanha(campanhaId) &&
-        request.resource.data.keys().hasOnly(['cenaAtivaId', 'updatedAt']) &&
+        request.resource.data.keys().hasOnly(['cenaAtivaId', 'avisarAcoesChat', 'updatedAt']) &&
         (request.resource.data.get('cenaAtivaId', null) == null ||
          (request.resource.data.cenaAtivaId is string &&
-          request.resource.data.cenaAtivaId.size() <= 200));
+          request.resource.data.cenaAtivaId.size() <= 200)) &&
+        request.resource.data.get('avisarAcoesChat', false) is bool;
       allow delete: if isMestreDaCampanha(campanhaId);
     }
 

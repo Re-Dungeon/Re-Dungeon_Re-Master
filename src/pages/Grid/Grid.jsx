@@ -12,6 +12,7 @@ import GroupsIcon from '@mui/icons-material/Groups';
 import StopIcon from '@mui/icons-material/Stop';
 import SportsMartialArtsIcon from '@mui/icons-material/SportsMartialArts';
 import SettingsIcon from '@mui/icons-material/Settings';
+import BoltIcon from '@mui/icons-material/Bolt';
 import { useAuth } from 'context/AuthContext';
 import { useCampanha } from 'context/CampanhaContext';
 import { useSnackbar } from 'context/SnackbarContext';
@@ -23,6 +24,7 @@ import {
   getRmMapasPorCampanha,
   removeGridCena,
   removeGridToken,
+  setGridAvisarAcoesChat,
   setGridCenaAtiva,
   updateGridCena,
   updateGridToken,
@@ -43,6 +45,7 @@ import {
   primeiraCelulaLivre,
   validarToken,
 } from 'common/utils/grid';
+import useAvisarAcoesChat from 'hooks/useAvisarAcoesChat';
 import useGridCampanha from 'hooks/useGridCampanha';
 import useRolarDoToken from 'hooks/useRolarDoToken';
 import { autorDoToken } from 'common/utils/gridRolagem';
@@ -107,6 +110,7 @@ const Grid = () => {
     erro: erroCenas,
     limparErro: limparErroCenas,
   } = useCenasDoGrid(campanhaId);
+  const avisarAcoesChat = useAvisarAcoesChat(campanhaId);
 
   // Cena aberta pelo mestre: a escolhida, senão a ativa, senão a primeira.
   const [cenaEscolhidaId, setCenaEscolhidaId] = useState(null);
@@ -452,6 +456,15 @@ const Grid = () => {
       'Não foi possível mudar o movimento da cena.',
     );
 
+  // Ações da Central de Ações dos jogadores (no Grid, em combate) vão para o
+  // chat? Opção da campanha (grid/atual), desligada por padrão.
+  const handleAvisarAcoesChat = () =>
+    tentar(
+      () =>
+        setGridAvisarAcoesChat(campanhaId, !avisarAcoesChat).then(() => true),
+      'Não foi possível mudar o aviso de ações no chat.',
+    );
+
   // ── Mapa: ferramentas, névoa, paredes e marcadores (Fase 3B) ───────────
   const handleFerramenta = nova => {
     setFerramenta(nova);
@@ -629,6 +642,17 @@ const Grid = () => {
             Iniciar combate
           </Button>
         )}
+        <Button
+          startIcon={<BoltIcon />}
+          aria-pressed={avisarAcoesChat}
+          onClick={handleAvisarAcoesChat}
+          disabled={!campanhaId}
+          title="Mostrar no chat as ações que os jogadores fazem pela Central de Ações durante o combate"
+        >
+          {avisarAcoesChat
+            ? 'Ações no chat: ligado'
+            : 'Ações no chat: desligado'}
+        </Button>
         <Button
           startIcon={<ChatOutlinedIcon />}
           aria-pressed={chatAberto}

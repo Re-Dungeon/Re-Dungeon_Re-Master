@@ -1065,6 +1065,17 @@ const gridCenaRef = (campanhaId, cenaId) =>
 const gridTokensRef = (campanhaId, cenaId) =>
   collection(gridCenaRef(campanhaId, cenaId), 'tokens');
 
+// Opção do mestre em `grid/atual`: as ações da Central de Ações dos jogadores
+// (aberta pelo Grid em combate) aparecem no chat. Chama `onChange(boolean)` —
+// campo ausente = false.
+export const subscribeGridAvisarAcoesChat = (campanhaId, onChange, onError) =>
+  onSnapshot(
+    gridRef(campanhaId),
+    snapshot =>
+      onChange(snapshot.exists() && snapshot.data().avisarAcoesChat === true),
+    onError,
+  );
+
 // Chama `onChange(cenaAtivaId | null)`.
 export const subscribeGridCenaAtiva = (campanhaId, onChange, onError) =>
   onSnapshot(
@@ -1432,12 +1443,22 @@ export const subscribePersonagem = (personagemId, onChange, onError) =>
     onError,
   );
 
-// null = nenhuma cena visível aos jogadores.
+// null = nenhuma cena visível aos jogadores. `merge` para não apagar as
+// outras opções do doc (`avisarAcoesChat`).
 export const setGridCenaAtiva = (campanhaId, cenaId) =>
-  setDoc(gridRef(campanhaId), {
-    cenaAtivaId: cenaId,
-    updatedAt: serverTimestamp(),
-  });
+  setDoc(
+    gridRef(campanhaId),
+    { cenaAtivaId: cenaId, updatedAt: serverTimestamp() },
+    { merge: true },
+  );
+
+// Liga/desliga o aviso no chat das ações da Central de Ações dos jogadores.
+export const setGridAvisarAcoesChat = (campanhaId, avisar) =>
+  setDoc(
+    gridRef(campanhaId),
+    { avisarAcoesChat: Boolean(avisar), updatedAt: serverTimestamp() },
+    { merge: true },
+  );
 
 const comDatas = dados => ({
   ...dados,

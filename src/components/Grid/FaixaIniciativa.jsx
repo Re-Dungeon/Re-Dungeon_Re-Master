@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import PropTypes from 'prop-types';
 import Button from '@mui/material/Button';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { useTheme } from '@mui/material/styles';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 
 import {
@@ -20,17 +22,30 @@ import {
 // centraliza o mapa nele), "Vez do mestre" quando a vez é de alguém que o
 // jogador não vê, e os botões de `acoes` que vierem (cada um só aparece com a
 // função): Anterior/Próximo turno (mestre), Encerrar meu turno e Seu turno!
-// Restaurar PP (jogador da vez). O botão fica desabilitado enquanto a ação
-// roda.
+// Restaurar PP (jogador da vez) e Central de Ações (jogador com personagem no
+// combate — só o site dos jogadores passa; "Ações" em tela pequena). O botão
+// fica desabilitado enquanto a ação roda.
 const ROTULOS = {
   anterior: 'Anterior',
   proximo: 'Próximo turno',
   encerrarTurno: 'Encerrar meu turno',
   restaurarPp: 'Seu turno! Restaurar PP',
+  centralAcoes: 'Central de Ações',
 };
+const ROTULOS_CURTOS = { centralAcoes: 'Ações' };
+const ORDEM_BOTOES = [
+  'restaurarPp',
+  'centralAcoes',
+  'encerrarTurno',
+  'anterior',
+  'proximo',
+];
+const BOTOES_CHEIOS = ['restaurarPp', 'encerrarTurno'];
 
 const FaixaIniciativa = ({ faixa, acoes, onCentralizar }) => {
   const [ocupado, setOcupado] = useState(null);
+  const theme = useTheme();
+  const telaPequena = useMediaQuery(theme.breakpoints.down('sm'));
 
   const executar = async id => {
     setOcupado(id);
@@ -41,9 +56,7 @@ const FaixaIniciativa = ({ faixa, acoes, onCentralizar }) => {
     }
   };
 
-  const botoes = ['restaurarPp', 'encerrarTurno', 'anterior', 'proximo'].filter(
-    id => typeof acoes[id] === 'function',
-  );
+  const botoes = ORDEM_BOTOES.filter(id => typeof acoes[id] === 'function');
 
   return (
     <FaixaCaixa
@@ -89,17 +102,14 @@ const FaixaIniciativa = ({ faixa, acoes, onCentralizar }) => {
             <Button
               key={id}
               size="small"
-              variant={
-                id === 'restaurarPp' || id === 'encerrarTurno'
-                  ? 'contained'
-                  : 'outlined'
-              }
+              variant={BOTOES_CHEIOS.includes(id) ? 'contained' : 'outlined'}
               color={id === 'restaurarPp' ? 'secondary' : 'primary'}
               disabled={ocupado !== null}
               onClick={() => executar(id)}
+              aria-label={ROTULOS[id]}
               sx={{ whiteSpace: 'nowrap', minHeight: 32 }}
             >
-              {ROTULOS[id]}
+              {(telaPequena && ROTULOS_CURTOS[id]) || ROTULOS[id]}
             </Button>
           ))}
         </FaixaAcoes>
@@ -130,6 +140,7 @@ FaixaIniciativa.propTypes = {
     proximo: PropTypes.func,
     encerrarTurno: PropTypes.func,
     restaurarPp: PropTypes.func,
+    centralAcoes: PropTypes.func,
   }).isRequired,
   onCentralizar: PropTypes.func.isRequired,
 };

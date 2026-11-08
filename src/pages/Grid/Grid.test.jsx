@@ -10,6 +10,8 @@ const subscribeGridCenas = vi.fn();
 const subscribeGridCena = vi.fn();
 const subscribeGridTokens = vi.fn();
 const setGridCenaAtiva = vi.fn();
+const subscribeGridAvisarAcoesChat = vi.fn();
+const setGridAvisarAcoesChat = vi.fn();
 const addGridCena = vi.fn();
 const updateGridCena = vi.fn();
 const duplicarGridCena = vi.fn();
@@ -54,6 +56,9 @@ vi.mock('service/storage', () => ({
   subscribeGridCena: (...args) => subscribeGridCena(...args),
   subscribeGridTokens: (...args) => subscribeGridTokens(...args),
   setGridCenaAtiva: (...args) => setGridCenaAtiva(...args),
+  subscribeGridAvisarAcoesChat: (...args) =>
+    subscribeGridAvisarAcoesChat(...args),
+  setGridAvisarAcoesChat: (...args) => setGridAvisarAcoesChat(...args),
   addGridCena: (...args) => addGridCena(...args),
   updateGridCena: (...args) => updateGridCena(...args),
   duplicarGridCena: (...args) => duplicarGridCena(...args),
@@ -258,6 +263,11 @@ describe('Grid (Re:Master)', () => {
       },
     ]);
     setGridCenaAtiva.mockResolvedValue();
+    subscribeGridAvisarAcoesChat.mockImplementation((_id, onChange) => {
+      onChange(false);
+      return vi.fn();
+    });
+    setGridAvisarAcoesChat.mockResolvedValue();
     addGridCena.mockResolvedValue('cena-nova');
     updateGridCena.mockResolvedValue();
     duplicarGridCena.mockResolvedValue('cena-copia');
@@ -474,6 +484,32 @@ describe('Grid (Re:Master)', () => {
     await waitFor(() =>
       expect(setGridCenaAtiva).toHaveBeenCalledWith('c1', null),
     );
+  });
+
+  it('liga e desliga o aviso no chat das ações dos jogadores', async () => {
+    const user = userEvent.setup();
+    let emitir;
+    subscribeGridAvisarAcoesChat.mockImplementation((_id, onChange) => {
+      emitir = onChange;
+      onChange(false);
+      return vi.fn();
+    });
+    renderGrid();
+
+    const botao = await screen.findByRole('button', {
+      name: 'Ações no chat: desligado',
+    });
+    expect(botao).toHaveAttribute('aria-pressed', 'false');
+    await user.click(botao);
+    expect(setGridAvisarAcoesChat).toHaveBeenCalledWith('c1', true);
+
+    act(() => emitir(true));
+    const ligado = screen.getByRole('button', {
+      name: 'Ações no chat: ligado',
+    });
+    expect(ligado).toHaveAttribute('aria-pressed', 'true');
+    await user.click(ligado);
+    expect(setGridAvisarAcoesChat).toHaveBeenLastCalledWith('c1', false);
   });
 
   it('adiciona token de NPC e avulso na cena aberta', async () => {
