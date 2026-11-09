@@ -294,13 +294,13 @@ const Grid = () => {
     () => [...fontes.npcs, ...fontes.criaturas],
     [fontes.npcs, fontes.criaturas],
   );
-  const handleRolarDoToken = async (expressao, rotulo) => {
+  const handleRolarDoToken = async (expressao, rotulo, opcoes) => {
     const autor = autorDoToken(tokenRolando, {
       uid: currentUser.uid,
       mestre: true,
       personas: personasDaMesa,
     });
-    return rolarDoToken({ autor, expressao, rotulo });
+    return rolarDoToken({ autor, expressao, rotulo, secreta: opcoes?.secreta });
   };
   const mapas =
     mapasCarregados.campanhaId === campanhaId ? mapasCarregados.lista : [];
@@ -1025,6 +1025,7 @@ const Grid = () => {
         open={Boolean(tokenRolando)}
         token={tokenRolando}
         grupos={SEM_GRUPOS_DE_ROLAGEM}
+        permitirSecreta
         onRolar={handleRolarDoToken}
         onClose={() => setTokenRolando(null)}
       />

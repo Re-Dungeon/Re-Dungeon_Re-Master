@@ -1,10 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, renderHook } from '@testing-library/react';
 
-import { addChatMensagem } from 'service/storage';
+import { addChatMensagem, addChatRolagemSecreta } from 'service/storage';
 import useRolarDoToken from './useRolarDoToken';
 
-vi.mock('service/storage', () => ({ addChatMensagem: vi.fn() }));
+vi.mock('service/storage', () => ({
+  addChatMensagem: vi.fn(),
+  addChatRolagemSecreta: vi.fn(),
+}));
 
 const AUTOR_TOKEN = {
   uid: 'u1',
@@ -22,6 +25,7 @@ describe('useRolarDoToken', () => {
     vi.clearAllMocks();
     vi.spyOn(console, 'error').mockImplementation(() => {});
     addChatMensagem.mockResolvedValue();
+    addChatRolagemSecreta.mockResolvedValue();
   });
 
   it('rola e posta a mensagem pública com o autor do token e o rótulo', async () => {
@@ -47,6 +51,42 @@ describe('useRolarDoToken', () => {
     expect(mensagem.secreta).toBeUndefined();
     expect(mensagem.rolagem.grupos[0]).toMatchObject({ quantidade: 2, faces: 6 });
     expect(mensagem.rolagem.modificador).toBe(3);
+  });
+
+  it('com secreta, grava na pasta secreta do autor (e não no chat público)', async () => {
+    const { result } = renderHook(() => useRolarDoToken('camp', { onErro }));
+    let retorno;
+    await act(async () => {
+      retorno = await result.current({
+        autor: AUTOR_TOKEN,
+        expressao: '1d20+2',
+        rotulo: 'Ataque: Pancada',
+        secreta: true,
+      });
+    });
+    expect(retorno).toBe(true);
+    expect(addChatMensagem).not.toHaveBeenCalled();
+    expect(addChatRolagemSecreta).toHaveBeenCalledTimes(1);
+    const [campanhaId, donoUid, mensagem] = addChatRolagemSecreta.mock.calls[0];
+    expect(campanhaId).toBe('camp');
+    expect(donoUid).toBe('u1');
+    expect(mensagem).toMatchObject({
+      tipo: 'rolagem',
+      secreta: true,
+      autorNome: 'Aldric (token)',
+      rotulo: 'Ataque: Pancada',
+    });
+  });
+
+  it('erro de escrita da secreta avisa e devolve false', async () => {
+    addChatRolagemSecreta.mockRejectedValueOnce(new Error('x'));
+    const { result } = renderHook(() => useRolarDoToken('camp', { onErro }));
+    let retorno;
+    await act(async () => {
+      retorno = await result.current({ autor: AUTOR_TOKEN, expressao: '1d4', secreta: true });
+    });
+    expect(retorno).toBe(false);
+    expect(onErro).toHaveBeenCalledWith('Não foi possível enviar a rolagem.');
   });
 
   it('aceita o prefixo /r e omite o rótulo vazio', async () => {

@@ -52,6 +52,7 @@ const updateGridArea = vi.fn(() => Promise.resolve());
 const removeGridArea = vi.fn(() => Promise.resolve());
 const removeGridAreas = vi.fn(() => Promise.resolve());
 const addChatMensagem = vi.fn(() => Promise.resolve());
+const addChatRolagemSecreta = vi.fn(() => Promise.resolve());
 vi.mock('service/storage', () => ({
   subscribeGridCenaAtiva: (...args) => subscribeGridCenaAtiva(...args),
   subscribeGridCenas: (...args) => subscribeGridCenas(...args),
@@ -119,7 +120,7 @@ vi.mock('service/storage', () => ({
   setAudioMesa: (...args) => setAudioMesa(...args),
   addChatMensagem: (...args) => addChatMensagem(...args),
   removeChatMensagem: vi.fn(),
-  addChatRolagemSecreta: vi.fn(),
+  addChatRolagemSecreta: (...args) => addChatRolagemSecreta(...args),
   removeChatRolagemSecreta: vi.fn(),
   setChatMembro: vi.fn(),
   getChatMacros: vi.fn(() => Promise.resolve([])),
@@ -303,6 +304,7 @@ describe('Grid (Re:Master)', () => {
     });
     subscribeGridAreas.mockImplementation(() => () => {});
     addChatMensagem.mockResolvedValue();
+    addChatRolagemSecreta.mockResolvedValue();
     alterarGridCombate.mockResolvedValue(true);
     iniciarGridCombate.mockResolvedValue();
     encerrarGridCombate.mockResolvedValue();
@@ -983,6 +985,32 @@ describe('Grid (Re:Master)', () => {
       await waitFor(() =>
         expect(screen.queryByRole('dialog')).not.toBeInTheDocument(),
       );
+    });
+
+    it('rolagem secreta pelo NPC/criatura vai para a pasta secreta do mestre, não para o chat público', async () => {
+      const user = userEvent.setup();
+      renderGrid();
+      await screen.findByRole('button', { name: /Ogro.*oculto/ });
+
+      act(() => propsDoMapa.onRolarToken(TOKENS_POR_CENA['cena-1'][1]));
+      const dialogo = await screen.findByRole('dialog');
+      await user.type(within(dialogo).getByLabelText('Expressão'), '1d20+2');
+      await user.click(within(dialogo).getByLabelText('Secreta (só o mestre vê)'));
+      await user.click(within(dialogo).getByRole('button', { name: 'Rolar' }));
+
+      await waitFor(() =>
+        expect(addChatRolagemSecreta).toHaveBeenCalledWith(
+          'c1',
+          'm1',
+          expect.objectContaining({
+            tipo: 'rolagem',
+            secreta: true,
+            autorNome: 'Ogro',
+            persona: 'criatura',
+          }),
+        ),
+      );
+      expect(addChatMensagem).not.toHaveBeenCalled();
     });
 
     it('expressão inválida mostra o erro no diálogo e não posta', async () => {
