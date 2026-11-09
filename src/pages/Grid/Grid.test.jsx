@@ -2257,4 +2257,173 @@ describe('Grid (Re:Master)', () => {
       expect(updateGridTokensEmLote).toHaveBeenCalledTimes(1);
     });
   });
+  describe('desfazer paredes/névoa e revelar em volta', () => {
+    const DOCS = {
+      paredes: { trechos: '1:2-3' },
+      nevoa: { ativa: true, trechos: '0:0' },
+    };
+
+    beforeEach(() => {
+      subscribeGridCamadas.mockImplementation((_id, _cenaId, onChange) => {
+        onChange(DOCS);
+        return vi.fn();
+      });
+    });
+
+    const escolher = async (user, nome) => {
+      const grupo = within(
+        await screen.findByRole('toolbar', { name: 'Ferramentas do mapa' }),
+      ).getByRole('group', { name: 'Ferramenta' });
+      await user.click(within(grupo).getByRole('button', { name: nome }));
+    };
+
+    const editar = (camada, acao, celulas) =>
+      act(async () => {
+        await propsDoMapa.onEditarCamada({ camada, acao, celulas });
+      });
+
+    it('Ctrl+Z volta a névoa ao estado anterior à última edição', async () => {
+      const user = userEvent.setup();
+      renderGrid();
+      await escolher(user, 'Névoa');
+      const desfazer = screen.getByRole('button', { name: 'Desfazer' });
+      expect(desfazer).toBeDisabled();
+
+      await editar('nevoa', 'adicionar', [{ col: 5, lin: 5 }]);
+      expect(setGridCamada).toHaveBeenCalledWith('c1', 'cena-1', 'nevoa', {
+        ativa: true,
+        trechos: '0:0;5:5',
+      });
+      expect(desfazer).toBeEnabled();
+
+      setGridCamada.mockClear();
+      await user.keyboard('{Control>}z{/Control}');
+      await waitFor(() =>
+        expect(setGridCamada).toHaveBeenCalledWith('c1', 'cena-1', 'nevoa', {
+          ativa: true,
+          trechos: '0:0',
+        }),
+      );
+      await waitFor(() => expect(desfazer).toBeDisabled());
+    });
+
+    it('o botão Desfazer volta as paredes, uma edição por vez', async () => {
+      const user = userEvent.setup();
+      renderGrid();
+      await escolher(user, 'Paredes');
+
+      await editar('paredes', 'remover', [{ col: 2, lin: 1 }]);
+      await editar('paredes', 'adicionar', [{ col: 9, lin: 9 }]);
+      setGridCamada.mockClear();
+
+      const desfazer = screen.getByRole('button', { name: 'Desfazer' });
+      await user.click(desfazer);
+      await waitFor(() => expect(setGridCamada).toHaveBeenCalledTimes(1));
+      expect(setGridCamada).toHaveBeenLastCalledWith(
+        'c1',
+        'cena-1',
+        'paredes',
+        { trechos: '1:2-3' },
+      );
+      // Ainda sobra o primeiro passo.
+      await waitFor(() => expect(desfazer).toBeEnabled());
+      await user.click(desfazer);
+      await waitFor(() => expect(setGridCamada).toHaveBeenCalledTimes(2));
+      await waitFor(() => expect(desfazer).toBeDisabled());
+    });
+
+    it('edição que não muda nada ou que falha não vira passo de desfazer', async () => {
+      const user = userEvent.setup();
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      renderGrid();
+      await escolher(user, 'Névoa');
+      const desfazer = screen.getByRole('button', { name: 'Desfazer' });
+
+      // Já revelada: nada muda.
+      await editar('nevoa', 'adicionar', [{ col: 0, lin: 0 }]);
+      expect(desfazer).toBeDisabled();
+
+      setGridCamada.mockRejectedValueOnce(new Error('negado'));
+      await editar('nevoa', 'adicionar', [{ col: 7, lin: 7 }]);
+      expect(desfazer).toBeDisabled();
+    });
+
+    it('"Cobrir tudo" também pode ser desfeito', async () => {
+      const user = userEvent.setup();
+      vi.spyOn(window, 'confirm').mockReturnValue(true);
+      renderGrid();
+      await escolher(user, 'Névoa');
+
+      await user.click(screen.getByRole('button', { name: 'Cobrir tudo' }));
+      await waitFor(() =>
+        expect(setGridCamada).toHaveBeenCalledWith('c1', 'cena-1', 'nevoa', {
+          ativa: true,
+          trechos: '',
+        }),
+      );
+      await user.keyboard('{Control>}z{/Control}');
+      await waitFor(() =>
+        expect(setGridCamada).toHaveBeenLastCalledWith(
+          'c1',
+          'cena-1',
+          'nevoa',
+          { ativa: true, trechos: '0:0' },
+        ),
+      );
+    });
+
+    it('"Revelar em volta" revela o raio em metros em volta do token selecionado', async () => {
+      const user = userEvent.setup();
+      subscribeGridCamadas.mockImplementation((_id, _cenaId, onChange) => {
+        onChange({ paredes: null, nevoa: { ativa: true, trechos: '' } });
+        return vi.fn();
+      });
+      renderGrid();
+      await escolher(user, 'Névoa');
+      const revelarBotao = () =>
+        screen.getByRole('button', { name: 'Revelar em volta' });
+      // Sem token selecionado.
+      expect(revelarBotao()).toBeDisabled();
+
+      await escolher(user, 'Mover');
+      (await screen.findByRole('button', { name: /Aldric, coluna/ })).focus();
+      await user.keyboard('{Enter}');
+      await screen.findByRole('region', { name: 'Token selecionado' });
+      await user.keyboard('f');
+      await waitFor(() => expect(propsDoMapa.ferramenta).toBe('nevoa'));
+      // A seleção continua ao ir para a névoa.
+      expect(propsDoMapa.selecionadoId).toBe('t1');
+      expect(revelarBotao()).toBeEnabled();
+
+      // 3 m ÷ 1,5 m = 2 quadrados em volta de (1,1), recortados no canto.
+      const raio = screen.getByLabelText('Raio (m)');
+      await user.clear(raio);
+      await user.type(raio, '3');
+      await user.click(revelarBotao());
+      await waitFor(() =>
+        expect(setGridCamada).toHaveBeenCalledWith('c1', 'cena-1', 'nevoa', {
+          ativa: true,
+          trechos: '0:0-3;1:0-3;2:0-3;3:0-3',
+        }),
+      );
+
+      // 6 m (4 quadrados) soma ao que já estava revelado.
+      await user.clear(raio);
+      await user.type(raio, '6');
+      await user.click(revelarBotao());
+      const linhas = [0, 1, 2, 3, 4, 5].map(lin => `${lin}:0-5`).join(';');
+      await waitFor(() =>
+        expect(setGridCamada).toHaveBeenLastCalledWith(
+          'c1',
+          'cena-1',
+          'nevoa',
+          { ativa: true, trechos: linhas },
+        ),
+      );
+
+      // Raio inválido desliga o botão.
+      await user.clear(raio);
+      expect(revelarBotao()).toBeDisabled();
+    });
+  });
 });

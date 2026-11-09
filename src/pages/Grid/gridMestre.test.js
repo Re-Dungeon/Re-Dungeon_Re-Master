@@ -4,7 +4,13 @@ import {
   ACOES_ATALHO,
   FERRAMENTAS,
   acaoDoAtalho,
+  DESFAZER_CAMADAS_MAX,
   DURACAO_CONDICAO_MAX,
+  celulasParaRevelarEmVolta,
+  dadosDoSnapshot,
+  edicaoMudaCamada,
+  empilharDesfazer,
+  snapshotDaCamada,
   alvoEhDigitacao,
   duracaoComCondicao,
   patchDeCondicoesDoToken,
@@ -765,5 +771,116 @@ describe('duração das condições (condicoesDuracao)', () => {
         patch: { condicoes: ['b', 'c'], condicoesDuracao: { b: 5 } },
       },
     ]);
+  });
+});
+
+describe('desfazer das camadas e revelar em volta (puro)', () => {
+  const camadas = {
+    bloqueadas: new Set(['1,1', '2,1']),
+    nevoa: { ativa: true, reveladas: new Set(['0,0']) },
+  };
+
+  it('snapshotDaCamada copia o conjunto da camada pedida', () => {
+    const paredes = snapshotDaCamada('paredes', camadas);
+    expect(paredes).toEqual({ camada: 'paredes', celulas: camadas.bloqueadas });
+    expect(paredes.celulas).not.toBe(camadas.bloqueadas);
+    expect([...snapshotDaCamada('nevoa', camadas).celulas]).toEqual(['0,0']);
+    expect(snapshotDaCamada('nevoa', null).celulas.size).toBe(0);
+  });
+
+  it('empilharDesfazer guarda só as últimas 20', () => {
+    let pilha = [];
+    for (let i = 1; i <= 25; i += 1) {
+      pilha = empilharDesfazer(pilha, { id: i });
+    }
+    expect(pilha).toHaveLength(DESFAZER_CAMADAS_MAX);
+    expect(pilha[0].id).toBe(6);
+    expect(pilha[19].id).toBe(25);
+    expect(empilharDesfazer([{ id: 1 }, { id: 2 }], { id: 3 }, 2)).toEqual([
+      { id: 2 },
+      { id: 3 },
+    ]);
+  });
+
+  it('dadosDoSnapshot: paredes só com trechos; névoa mantém o "ativa" de agora', () => {
+    const entrada = snapshotDaCamada('paredes', camadas);
+    expect(dadosDoSnapshot(entrada, camadas)).toEqual({ trechos: '1:1-2' });
+    const nevoa = { camada: 'nevoa', celulas: new Set(['3,2']) };
+    expect(dadosDoSnapshot(nevoa, camadas)).toEqual({
+      ativa: true,
+      trechos: '2:3',
+    });
+    expect(
+      dadosDoSnapshot(nevoa, { nevoa: { ativa: false, reveladas: new Set() } }),
+    ).toEqual({ ativa: false, trechos: '2:3' });
+  });
+
+  it('edicaoMudaCamada ignora o que já está assim e o que cai fora do mundo', () => {
+    const atuais = new Set(['0,0', '1,0']);
+    const limites = { colunas: 5, linhas: 5 };
+    expect(
+      edicaoMudaCamada(atuais, 'adicionar', [{ col: 0, lin: 0 }], limites),
+    ).toBe(false);
+    expect(
+      edicaoMudaCamada(atuais, 'remover', [{ col: 4, lin: 4 }], limites),
+    ).toBe(false);
+    expect(
+      edicaoMudaCamada(atuais, 'adicionar', [{ col: 9, lin: 9 }], limites),
+    ).toBe(false);
+    expect(
+      edicaoMudaCamada(atuais, 'adicionar', [{ col: 2, lin: 0 }], limites),
+    ).toBe(true);
+    expect(
+      edicaoMudaCamada(atuais, 'remover', [{ col: 1, lin: 0 }], limites),
+    ).toBe(true);
+  });
+
+  it('celulasParaRevelarEmVolta: quadrados do raio em metros, recortado pelo mapa', () => {
+    const limites = { colunas: 30, linhas: 20 };
+    // 3 m ÷ 1,5 m = 2 quadrados: 5×5 em volta de (5,5).
+    const celulas = celulasParaRevelarEmVolta(
+      [{ col: 5, lin: 5, tamanho: 1 }],
+      3,
+      1.5,
+      limites,
+    );
+    expect(celulas).toHaveLength(25);
+    expect(celulas[0]).toEqual({ col: 3, lin: 3 });
+    expect(celulas[24]).toEqual({ col: 7, lin: 7 });
+    // No canto do mapa o raio é recortado.
+    expect(
+      celulasParaRevelarEmVolta([{ col: 0, lin: 0 }], 1.5, 1.5, limites),
+    ).toEqual([
+      { col: 0, lin: 0 },
+      { col: 1, lin: 0 },
+      { col: 0, lin: 1 },
+      { col: 1, lin: 1 },
+    ]);
+  });
+
+  it('celulasParaRevelarEmVolta: token grande conta a partir da borda; vários se unem', () => {
+    const limites = { colunas: 30, linhas: 20 };
+    // 2×2 em (5,5), 1 quadrado de raio: de 4 a 7 nas duas direções.
+    expect(
+      celulasParaRevelarEmVolta(
+        [{ col: 5, lin: 5, tamanho: 2 }],
+        1.5,
+        1.5,
+        limites,
+      ),
+    ).toHaveLength(16);
+    // Dois tokens vizinhos não repetem células.
+    expect(
+      celulasParaRevelarEmVolta(
+        [
+          { col: 5, lin: 5 },
+          { col: 6, lin: 5 },
+        ],
+        1.5,
+        1.5,
+        limites,
+      ),
+    ).toHaveLength(12);
+    expect(celulasParaRevelarEmVolta([], 6, 1.5, limites)).toEqual([]);
   });
 });

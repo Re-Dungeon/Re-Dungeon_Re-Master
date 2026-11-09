@@ -45,6 +45,7 @@ import { ACOES_CAMADA, CAMADAS } from 'common/utils/gridCamadas';
 import {
   GRID_CENAS_MAX,
   GRID_TOKENS_POR_CENA_MAX,
+  METROS_POR_QUADRADO_PADRAO,
   dimensoesDoMundo,
   limitarPosicao,
   montarCena,
@@ -84,6 +85,7 @@ import {
   acaoDoAtalho,
   alternarSelecao,
   alvoEhDigitacao,
+  celulasParaRevelarEmVolta,
   chaveDasFichasDoGrupo,
   copiaDoToken,
   haDialogoAberto,
@@ -100,6 +102,7 @@ import {
 } from './gridMestre';
 import useCombateMestre from './useCombateMestre';
 import useCenasDoGrid from './useCenasDoGrid';
+import useDesfazerCamadas from './useDesfazerCamadas';
 
 const MAPAS_VAZIOS = { campanhaId: null, lista: [] };
 const SEM_CONDICOES = [];
@@ -430,6 +433,16 @@ const Grid = () => {
     rodadaAtual,
   ]);
 
+  // Paredes/névoa: cada edição guarda o estado anterior para o Ctrl+Z.
+  const camadasDesfazer = useDesfazerCamadas({
+    campanhaId,
+    cenaId: cenaAbertaId,
+    camadas: grid.camadas,
+    editarCamada: grid.editarCamada,
+    preencherCamada: grid.preencherCamada,
+    tentar,
+  });
+
   const reacaoDoTokenDaMesa = token =>
     reacaoDoToken(token, { fichas: grid.fichas, fontes });
 
@@ -757,9 +770,10 @@ const Grid = () => {
     );
 
   // ── Mapa: ferramentas, névoa, paredes e marcadores (Fase 3B) ───────────
+  // Ao ir para a Névoa a seleção fica: "Revelar em volta" usa o token escolhido.
   const handleFerramenta = nova => {
     setFerramenta(nova);
-    limparSelecao();
+    if (nova !== FERRAMENTAS.NEVOA) limparSelecao();
   };
 
   // ── Atalhos de teclado ─────────────────────────────────────────────────
@@ -791,6 +805,9 @@ const Grid = () => {
         break;
       case ACOES_ATALHO.FERRAMENTA:
         if (cenaAberta && nova !== ferramenta) handleFerramenta(nova);
+        break;
+      case ACOES_ATALHO.DESFAZER:
+        camadasDesfazer.desfazer();
         break;
       case ACOES_ATALHO.AJUDA:
         setAtalhosAberto(true);
@@ -825,12 +842,38 @@ const Grid = () => {
     ) {
       return;
     }
-    await grid.preencherCamada(CAMADAS.NEVOA, acao, limites);
+    await camadasDesfazer.preencher(CAMADAS.NEVOA, acao, limites);
+  };
+
+  // Névoa: revela um raio (em metros) em volta do(s) token(s) selecionado(s).
+  const tokensParaRevelar = emLote
+    ? selecionadosTokens
+    : selecionado
+      ? [selecionado]
+      : [];
+  const handleRevelarEmVolta = async metros => {
+    const celulas = celulasParaRevelarEmVolta(
+      tokensParaRevelar,
+      metros,
+      config.metrosPorQuadrado ?? METROS_POR_QUADRADO_PADRAO,
+      limites,
+    );
+    if (celulas.length === 0) return;
+    await camadasDesfazer.editar(
+      CAMADAS.NEVOA,
+      ACOES_CAMADA.ADICIONAR,
+      celulas,
+      limites,
+    );
   };
 
   const handleLimparParedes = async () => {
     if (!window.confirm('Limpar todas as paredes desta cena?')) return;
-    await grid.preencherCamada(CAMADAS.PAREDES, ACOES_CAMADA.REMOVER, limites);
+    await camadasDesfazer.preencher(
+      CAMADAS.PAREDES,
+      ACOES_CAMADA.REMOVER,
+      limites,
+    );
   };
 
   const handleSalvarMarcador = async dados => {
@@ -1064,6 +1107,10 @@ const Grid = () => {
             onNevoaAtiva={handleNevoaAtiva}
             onPreencherNevoa={handlePreencherNevoa}
             onLimparParedes={handleLimparParedes}
+            onDesfazer={camadasDesfazer.desfazer}
+            podeDesfazer={camadasDesfazer.podeDesfazer}
+            podeRevelarEmVolta={tokensParaRevelar.length > 0}
+            onRevelarEmVolta={handleRevelarEmVolta}
             desabilitado={!cenaAberta}
           />
           <Box
@@ -1105,7 +1152,7 @@ const Grid = () => {
               marcadores={grid.marcadores}
               desenhos={grid.desenhos}
               onEditarCamada={({ camada, acao, celulas }) =>
-                grid.editarCamada(camada, acao, celulas, limites)
+                camadasDesfazer.editar(camada, acao, celulas, limites)
               }
               onCelulaMarcador={celula => setMarcadorEditando({ celula })}
               onMarcadorClique={marcador => setMarcadorEditando({ marcador })}

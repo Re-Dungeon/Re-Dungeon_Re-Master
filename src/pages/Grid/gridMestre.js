@@ -26,7 +26,14 @@ import {
   reacaoDaFicha,
   removerDoCombate,
 } from 'common/utils/gridCombate';
-import { ACOES_CAMADA } from 'common/utils/gridCamadas';
+import { AREA_FORMAS, celulasDaArea } from 'common/utils/gridAreas';
+import {
+  ACOES_CAMADA,
+  CAMADAS,
+  aplicarCelulas,
+  chaveDaCelula,
+  codificarTrechos,
+} from 'common/utils/gridCamadas';
 
 // Jogadores que podem receber tokens: um por uid (dono da ficha), com os
 // nomes dos personagens dele na campanha. `donosAtuais` garante que um uid já
@@ -638,3 +645,75 @@ export const chaveDasFichasDoGrupo = jogadores =>
   [...new Set(jogadores.map(jogador => jogador.refId).filter(Boolean))]
     .sort()
     .join('|');
+
+// ── Desfazer paredes/névoa e "Revelar em volta" ──────────────────────────
+// A pilha de desfazer (no Grid, só local) guarda o conjunto de células que a
+// camada tinha ANTES de cada edição: { id, camada, celulas: Set<'col,lin'> }.
+export const DESFAZER_CAMADAS_MAX = 20;
+export const REVELAR_METROS_PADRAO = 6;
+
+// Estado atual da camada (`camadas` de useGridCampanha) → cópia das células.
+export const snapshotDaCamada = (camada, camadas) => ({
+  camada,
+  celulas: new Set(
+    camada === CAMADAS.NEVOA ? camadas?.nevoa?.reveladas : camadas?.bloqueadas,
+  ),
+});
+
+// Empilha e mantém só as últimas `max` entradas.
+export const empilharDesfazer = (pilha, entrada, max = DESFAZER_CAMADAS_MAX) =>
+  [...pilha, entrada].slice(-max);
+
+// Doc a gravar para voltar ao snapshot: paredes = { trechos }; névoa =
+// { ativa (a de agora — ligar/desligar a névoa não entra no desfazer),
+// trechos }.
+export const dadosDoSnapshot = (entrada, camadas) => {
+  const trechos = codificarTrechos(entrada.celulas);
+  return entrada.camada === CAMADAS.NEVOA
+    ? { ativa: Boolean(camadas?.nevoa?.ativa), trechos }
+    : { trechos };
+};
+
+const dentroDosLimites = (limites, { col, lin }) =>
+  !limites ||
+  (col >= 0 && lin >= 0 && col < limites.colunas && lin < limites.linhas);
+
+// A edição (acao + celulas, dentro do mundo) muda mesmo o conjunto atual?
+// Pincel passando por cima do que já está pintado não vira passo de desfazer.
+export const edicaoMudaCamada = (celulasAtuais, acao, celulas, limites) => {
+  const dentro = celulas.filter(celula => dentroDosLimites(limites, celula));
+  const depois = aplicarCelulas(celulasAtuais, dentro, acao);
+  if (depois.size !== celulasAtuais.size) return true;
+  return [...depois].some(chave => !celulasAtuais.has(chave));
+};
+
+// "Revelar em volta": células da névoa a revelar num raio de `metros` a
+// partir da borda de cada token (um token N×N cobre N×N células). Recortado
+// pelo mundo (`limites`). [{ col, lin }] ordenadas; [] se nada a fazer.
+export const celulasParaRevelarEmVolta = (
+  tokens,
+  metros,
+  metrosPorQuadrado,
+  limites,
+) => {
+  const unicas = new Map();
+  tokens.forEach(token => {
+    const tamanho = token.tamanho ?? 1;
+    for (let dl = 0; dl < tamanho; dl += 1) {
+      for (let dc = 0; dc < tamanho; dc += 1) {
+        celulasDaArea(
+          {
+            forma: AREA_FORMAS.RAIO,
+            origem: { col: token.col + dc, lin: token.lin + dl },
+            metros,
+          },
+          metrosPorQuadrado,
+          limites,
+        ).forEach(celula =>
+          unicas.set(chaveDaCelula(celula.col, celula.lin), celula),
+        );
+      }
+    }
+  });
+  return [...unicas.values()].sort((a, b) => a.lin - b.lin || a.col - b.col);
+};
