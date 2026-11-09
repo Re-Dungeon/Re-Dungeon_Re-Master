@@ -1807,4 +1807,190 @@ describe('Grid (Re:Master)', () => {
       expect(resultado.patch.indice).toBe(0);
     });
   });
+  describe('atalhos de teclado e ocultar com um clique', () => {
+    const ORDEM = [
+      { tokenId: 't1', iniciativa: 12, d20: 6, reacao: 6 },
+      { tokenId: 't2', iniciativa: 9, d20: 9, reacao: 0 },
+    ];
+    const COMBATE = {
+      ordem: ORDEM,
+      indice: 0,
+      rodada: 1,
+      inicioTurno: { col: 1, lin: 1 },
+      turnoEm: { seconds: 10, nanoseconds: 0 },
+    };
+    const GOBLIN = {
+      id: 'g1',
+      nome: 'Goblin',
+      tipo: 'criatura',
+      col: 3,
+      lin: 3,
+      tamanho: 1,
+      donos: [],
+      oculto: false,
+    };
+    const GOBLIN_2 = { ...GOBLIN, id: 'g2', nome: 'Goblin 2', col: 4 };
+
+    const emitirCombate = doc =>
+      subscribeGridCombate.mockImplementation((_id, _cenaId, onChange) => {
+        onChange(doc);
+        return vi.fn();
+      });
+
+    const selecionarOgro = async user => {
+      (await screen.findByRole('button', { name: /Ogro/ })).focus();
+      await user.keyboard('{Enter}');
+      return screen.findByRole('region', { name: 'Token selecionado' });
+    };
+
+    it('o olho do painel revela/oculta na hora, sem "Salvar token"', async () => {
+      const user = userEvent.setup();
+      renderGrid();
+      const painel = await selecionarOgro(user);
+
+      await user.click(
+        within(painel).getByRole('button', { name: 'Revelar aos jogadores' }),
+      );
+      await waitFor(() =>
+        expect(updateGridToken).toHaveBeenCalledWith('c1', 'cena-1', 't2', {
+          oculto: false,
+        }),
+      );
+    });
+
+    it('N não faz nada sem combate', async () => {
+      const user = userEvent.setup();
+      renderGrid();
+      await screen.findByRole('button', { name: /Aldric, coluna/ });
+      await user.keyboard('n');
+      expect(alterarGridCombate).not.toHaveBeenCalled();
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+
+    it('com combate, N avança e Shift+N volta o turno', async () => {
+      const user = userEvent.setup();
+      emitirCombate(COMBATE);
+      renderGrid();
+      await screen.findByText('Rodada 1');
+
+      await user.keyboard('n');
+      await waitFor(() => expect(alterarGridCombate).toHaveBeenCalledTimes(1));
+      expect(alterarGridCombate.mock.calls[0][2](COMBATE).patch.indice).toBe(1);
+
+      await user.keyboard('{Shift>}n{/Shift}');
+      await waitFor(() => expect(alterarGridCombate).toHaveBeenCalledTimes(2));
+    });
+
+    it('H revela o token selecionado quando ele já está oculto', async () => {
+      const user = userEvent.setup();
+      renderGrid();
+      await selecionarOgro(user);
+
+      await user.keyboard('h');
+      await waitFor(() =>
+        expect(updateGridToken).toHaveBeenCalledWith('c1', 'cena-1', 't2', {
+          oculto: false,
+        }),
+      );
+    });
+
+    it('H em seleção múltipla oculta todos de uma vez', async () => {
+      const user = userEvent.setup();
+      subscribeGridTokens.mockImplementation(
+        (_id, _cenaId, _opcoes, onChange) => {
+          onChange([GOBLIN, GOBLIN_2]);
+          return vi.fn();
+        },
+      );
+      updateGridTokensEmLote.mockResolvedValue();
+      renderGrid();
+      await screen.findByRole('button', { name: /Goblin, coluna/ });
+      act(() => propsDoMapa.onAlternarSelecao(GOBLIN));
+      act(() => propsDoMapa.onAlternarSelecao(GOBLIN_2));
+      await screen.findByRole('region', { name: 'Ações em lote' });
+
+      await user.keyboard('h');
+      await waitFor(() =>
+        expect(updateGridTokensEmLote).toHaveBeenCalledWith('c1', 'cena-1', [
+          { id: 'g1', patch: { oculto: true } },
+          { id: 'g2', patch: { oculto: true } },
+        ]),
+      );
+    });
+
+    it('Delete exclui o token selecionado depois de confirmar', async () => {
+      const user = userEvent.setup();
+      const confirmar = vi.spyOn(window, 'confirm').mockReturnValue(false);
+      renderGrid();
+      await selecionarOgro(user);
+
+      await user.keyboard('{Delete}');
+      expect(confirmar).toHaveBeenCalledWith('Remover "Ogro" da cena?');
+      expect(removeGridToken).not.toHaveBeenCalled();
+
+      confirmar.mockReturnValue(true);
+      await user.keyboard('{Delete}');
+      await waitFor(() =>
+        expect(removeGridToken).toHaveBeenCalledWith('c1', 'cena-1', 't2'),
+      );
+    });
+
+    it('V, W, F e M trocam a ferramenta do mapa', async () => {
+      const user = userEvent.setup();
+      renderGrid();
+      await screen.findByRole('button', { name: /Aldric, coluna/ });
+
+      await user.keyboard('w');
+      await waitFor(() => expect(propsDoMapa.ferramenta).toBe('paredes'));
+      await user.keyboard('f');
+      await waitFor(() => expect(propsDoMapa.ferramenta).toBe('nevoa'));
+      await user.keyboard('m');
+      await waitFor(() => expect(propsDoMapa.ferramenta).toBe('marcadores'));
+      await user.keyboard('v');
+      await waitFor(() => expect(propsDoMapa.ferramenta).toBe('mover'));
+    });
+
+    it('"?" abre a lista de atalhos e o botão "Atalhos" também', async () => {
+      const user = userEvent.setup();
+      renderGrid();
+      await screen.findByRole('button', { name: /Aldric, coluna/ });
+
+      await user.keyboard('?');
+      const dialogo = await screen.findByRole('dialog');
+      expect(dialogo).toHaveTextContent('Atalhos do teclado');
+      expect(dialogo).toHaveTextContent('Ocultar ou revelar');
+      await user.click(within(dialogo).getByRole('button', { name: 'Fechar' }));
+      await waitFor(() =>
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument(),
+      );
+
+      await user.click(screen.getByRole('button', { name: 'Atalhos' }));
+      expect(await screen.findByRole('dialog')).toBeInTheDocument();
+    });
+
+    it('os atalhos não disparam enquanto se digita num campo', async () => {
+      const user = userEvent.setup();
+      renderGrid();
+      const painel = await selecionarOgro(user);
+
+      const nome = within(painel).getByLabelText('Nome');
+      await user.clear(nome);
+      await user.type(nome, 'hnw?');
+      expect(nome).toHaveValue('hnw?');
+      expect(updateGridToken).not.toHaveBeenCalled();
+      expect(propsDoMapa.ferramenta).toBe('mover');
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+
+    it('com um diálogo aberto, as teclas ficam desligadas', async () => {
+      const user = userEvent.setup();
+      renderGrid();
+      await screen.findByRole('button', { name: /Aldric, coluna/ });
+      await user.click(screen.getByRole('button', { name: 'Atalhos' }));
+      await screen.findByRole('dialog');
+
+      await user.keyboard('w');
+      expect(propsDoMapa.ferramenta).toBe('mover');
+    });
+  });
 });

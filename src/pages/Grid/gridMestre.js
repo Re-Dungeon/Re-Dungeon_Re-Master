@@ -417,3 +417,101 @@ export const removerVariosDoCombate = (combate, tokenIds, tokens) => {
   }
   return patch ? { patch, mudouTurno } : null;
 };
+
+// ── Atalhos de teclado do Grid ───────────────────────────────────────────
+export const ACOES_ATALHO = {
+  PROXIMO_TURNO: 'proximoTurno',
+  TURNO_ANTERIOR: 'turnoAnterior',
+  OCULTAR: 'ocultar',
+  EXCLUIR: 'excluir',
+  FERRAMENTA: 'ferramenta',
+  DESFAZER: 'desfazer',
+  AJUDA: 'ajuda',
+};
+
+const ATALHO_DE_FERRAMENTA = {
+  v: FERRAMENTAS.MOVER,
+  w: FERRAMENTAS.PAREDES,
+  f: FERRAMENTAS.NEVOA,
+  m: FERRAMENTAS.MARCADORES,
+};
+
+// Lista mostrada no diálogo "Atalhos do teclado".
+export const ATALHOS_GRID = [
+  { teclas: 'N', descricao: 'Próximo turno (em combate)' },
+  { teclas: 'Shift + N', descricao: 'Turno anterior (em combate)' },
+  { teclas: 'H', descricao: 'Ocultar ou revelar o(s) token(s) selecionado(s)' },
+  { teclas: 'Delete', descricao: 'Excluir o(s) token(s) selecionado(s)' },
+  { teclas: 'V', descricao: 'Ferramenta Mover' },
+  { teclas: 'W', descricao: 'Ferramenta Paredes' },
+  { teclas: 'F', descricao: 'Ferramenta Névoa' },
+  { teclas: 'M', descricao: 'Ferramenta Marcadores' },
+  {
+    teclas: 'Ctrl + Z',
+    descricao: 'Desfazer a última edição de paredes/névoa',
+  },
+  { teclas: 'Esc', descricao: 'Limpar a seleção' },
+  { teclas: '?', descricao: 'Mostrar esta lista' },
+];
+
+// Tecla pressionada → { acao, ferramenta? } ou null (sem atalho). Só `Ctrl/⌘+Z`
+// aceita modificador; `Shift` só vale em N (turno anterior) e em "?". Teclas
+// repetidas (segurar) não disparam de novo.
+export const acaoDoAtalho = ({
+  key,
+  ctrlKey = false,
+  metaKey = false,
+  altKey = false,
+  shiftKey = false,
+  repeat = false,
+} = {}) => {
+  if (repeat || typeof key !== 'string') return null;
+  const tecla = key.length === 1 ? key.toLowerCase() : key;
+  const comando = ctrlKey || metaKey;
+  if (comando) {
+    if (tecla === 'z' && !altKey && !shiftKey) {
+      return { acao: ACOES_ATALHO.DESFAZER };
+    }
+    return null;
+  }
+  if (altKey) return null;
+  if (tecla === '?') return { acao: ACOES_ATALHO.AJUDA };
+  if (tecla === 'n') {
+    return {
+      acao: shiftKey ? ACOES_ATALHO.TURNO_ANTERIOR : ACOES_ATALHO.PROXIMO_TURNO,
+    };
+  }
+  if (shiftKey) return null;
+  if (tecla === 'h') return { acao: ACOES_ATALHO.OCULTAR };
+  if (tecla === 'Delete') return { acao: ACOES_ATALHO.EXCLUIR };
+  if (ATALHO_DE_FERRAMENTA[tecla]) {
+    return {
+      acao: ACOES_ATALHO.FERRAMENTA,
+      ferramenta: ATALHO_DE_FERRAMENTA[tecla],
+    };
+  }
+  return null;
+};
+
+const TAGS_DE_DIGITACAO = ['INPUT', 'TEXTAREA', 'SELECT'];
+
+// O foco está num campo de digitação? (os atalhos ficam desligados)
+export const alvoEhDigitacao = alvo =>
+  Boolean(alvo) &&
+  (TAGS_DE_DIGITACAO.includes(alvo.tagName) ||
+    alvo.isContentEditable === true ||
+    alvo.getAttribute?.('role') === 'textbox' ||
+    alvo.getAttribute?.('role') === 'combobox');
+
+// Há diálogo ou menu aberto por cima da página? (o cartão do marcador no mapa
+// também usa role="dialog", mas não bloqueia os atalhos).
+export const haDialogoAberto = (doc = document) =>
+  Boolean(
+    doc.querySelector(
+      '[role="dialog"]:not([data-marcador-cartao]), [role="menu"], [role="listbox"]',
+    ),
+  );
+
+// "H": se todos os tokens já estão ocultos, revela; senão oculta todos.
+export const ocultoAlvoDosTokens = tokens =>
+  !(tokens.length > 0 && tokens.every(token => token.oculto));

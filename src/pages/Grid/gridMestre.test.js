@@ -1,7 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import { ACOES_CAMADA } from 'common/utils/gridCamadas';
 import {
+  ACOES_ATALHO,
   FERRAMENTAS,
+  acaoDoAtalho,
+  alvoEhDigitacao,
+  haDialogoAberto,
+  ocultoAlvoDosTokens,
   OPCOES_ACAO,
   OPCOES_FERRAMENTA,
   OPCOES_FORMA,
@@ -518,5 +523,98 @@ describe('inserirVariosNoCombate / removerVariosDoCombate', () => {
       encerrar: true,
     });
     expect(removerVariosDoCombate(COMBATE, ['z'], [])).toBeNull();
+  });
+});
+
+describe('acaoDoAtalho', () => {
+  const tecla = (key, extra = {}) => acaoDoAtalho({ key, ...extra });
+
+  it('N avança e Shift+N volta o turno', () => {
+    expect(tecla('n')).toEqual({ acao: ACOES_ATALHO.PROXIMO_TURNO });
+    expect(tecla('N', { shiftKey: true })).toEqual({
+      acao: ACOES_ATALHO.TURNO_ANTERIOR,
+    });
+  });
+
+  it('H, Delete e as ferramentas V/W/F/M', () => {
+    expect(tecla('h')).toEqual({ acao: ACOES_ATALHO.OCULTAR });
+    expect(tecla('Delete')).toEqual({ acao: ACOES_ATALHO.EXCLUIR });
+    expect(tecla('v')).toEqual({
+      acao: ACOES_ATALHO.FERRAMENTA,
+      ferramenta: FERRAMENTAS.MOVER,
+    });
+    expect(tecla('W').ferramenta).toBe(FERRAMENTAS.PAREDES);
+    expect(tecla('f').ferramenta).toBe(FERRAMENTAS.NEVOA);
+    expect(tecla('m').ferramenta).toBe(FERRAMENTAS.MARCADORES);
+  });
+
+  it('Ctrl+Z (ou ⌘+Z) desfaz; Ctrl+Shift+Z não', () => {
+    expect(tecla('z', { ctrlKey: true })).toEqual({
+      acao: ACOES_ATALHO.DESFAZER,
+    });
+    expect(tecla('z', { metaKey: true })).toEqual({
+      acao: ACOES_ATALHO.DESFAZER,
+    });
+    expect(tecla('z', { ctrlKey: true, shiftKey: true })).toBeNull();
+    expect(tecla('z')).toBeNull();
+  });
+
+  it('"?" abre a ajuda', () => {
+    expect(tecla('?', { shiftKey: true })).toEqual({
+      acao: ACOES_ATALHO.AJUDA,
+    });
+  });
+
+  it('ignora modificadores nas demais teclas, repetição e teclas soltas', () => {
+    expect(tecla('n', { ctrlKey: true })).toBeNull();
+    expect(tecla('h', { altKey: true })).toBeNull();
+    expect(tecla('h', { shiftKey: true })).toBeNull();
+    expect(tecla('w', { metaKey: true })).toBeNull();
+    expect(tecla('n', { repeat: true })).toBeNull();
+    expect(tecla('x')).toBeNull();
+    expect(tecla('Enter')).toBeNull();
+    expect(acaoDoAtalho()).toBeNull();
+  });
+});
+
+describe('alvoEhDigitacao e haDialogoAberto', () => {
+  it('campos de texto, select e contentEditable são digitação', () => {
+    expect(alvoEhDigitacao(document.createElement('input'))).toBe(true);
+    expect(alvoEhDigitacao(document.createElement('textarea'))).toBe(true);
+    expect(alvoEhDigitacao(document.createElement('select'))).toBe(true);
+    const combo = document.createElement('div');
+    combo.setAttribute('role', 'combobox');
+    expect(alvoEhDigitacao(combo)).toBe(true);
+    expect(alvoEhDigitacao(document.createElement('button'))).toBe(false);
+    expect(alvoEhDigitacao(null)).toBe(false);
+    expect(alvoEhDigitacao(window)).toBe(false);
+  });
+
+  it('role="dialog" bloqueia, mas o cartão do marcador não', () => {
+    const cartao = document.createElement('div');
+    cartao.setAttribute('role', 'dialog');
+    cartao.setAttribute('data-marcador-cartao', '');
+    document.body.appendChild(cartao);
+    expect(haDialogoAberto()).toBe(false);
+    const dialogo = document.createElement('div');
+    dialogo.setAttribute('role', 'dialog');
+    document.body.appendChild(dialogo);
+    expect(haDialogoAberto()).toBe(true);
+    cartao.remove();
+    dialogo.remove();
+    expect(haDialogoAberto()).toBe(false);
+  });
+});
+
+describe('ocultoAlvoDosTokens', () => {
+  it('oculta, a menos que todos já estejam ocultos', () => {
+    expect(ocultoAlvoDosTokens([{ oculto: false }])).toBe(true);
+    expect(ocultoAlvoDosTokens([{ oculto: true }, { oculto: false }])).toBe(
+      true,
+    );
+    expect(ocultoAlvoDosTokens([{ oculto: true }, { oculto: true }])).toBe(
+      false,
+    );
+    expect(ocultoAlvoDosTokens([])).toBe(true);
   });
 });

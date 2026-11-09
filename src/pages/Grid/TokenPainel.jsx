@@ -9,6 +9,8 @@ import Switch from '@mui/material/Switch';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import CloseIcon from '@mui/icons-material/Close';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import { isUrlImagemValida } from 'common/utils/chat';
 import {
   ROTULOS_TIPO_TOKEN,
@@ -46,9 +48,17 @@ const TokenPainel = ({
     imagemUrl: token.imagemUrl ?? '',
     tamanho: token.tamanho ?? 1,
     donos: token.donos ?? [],
-    oculto: Boolean(token.oculto),
   });
+  // "Oculto" do interruptor, ainda não salvo: { valor, base } vale enquanto o
+  // token continua como estava (`base`) — se ele muda por fora (olho, tecla
+  // H, ação em lote), vale o do token.
+  const [ocultoEditado, setOcultoEditado] = useState(null);
   const [salvando, setSalvando] = useState(false);
+  const ocultoDoToken = Boolean(token.oculto);
+  const oculto =
+    ocultoEditado && ocultoEditado.base === ocultoDoToken
+      ? ocultoEditado.valor
+      : ocultoDoToken;
 
   const opcoesDonos = useMemo(
     () => opcoesDeDonos(jogadores, token.donos ?? []),
@@ -58,7 +68,7 @@ const TokenPainel = ({
     opcoesDonos.find(opcao => opcao.uid === uid)?.label ?? uid;
 
   const imagemDigitada = valores.imagemUrl.trim();
-  const normalizado = montarToken({ ...token, ...valores });
+  const normalizado = montarToken({ ...token, ...valores, oculto });
   const erro =
     imagemDigitada && !isUrlImagemValida(imagemDigitada)
       ? 'Informe um link https:// de imagem válido (ou deixe em branco).'
@@ -81,6 +91,12 @@ const TokenPainel = ({
     } finally {
       setSalvando(false);
     }
+  };
+
+  // Olho: oculta/revela na hora (sem passar por "Salvar token").
+  const handleAlternarOculto = () => {
+    setOcultoEditado(null);
+    onAlterar({ oculto: !oculto });
   };
 
   return (
@@ -108,6 +124,25 @@ const TokenPainel = ({
             Rolar…
           </Button>
         )}
+        <IconButton
+          size="small"
+          aria-label={
+            oculto ? 'Revelar aos jogadores' : 'Ocultar dos jogadores'
+          }
+          aria-pressed={oculto}
+          title={
+            oculto
+              ? 'Oculto para os jogadores (H) — clique para revelar'
+              : 'Visível para os jogadores (H) — clique para ocultar'
+          }
+          onClick={handleAlternarOculto}
+        >
+          {oculto ? (
+            <VisibilityOffIcon fontSize="small" />
+          ) : (
+            <VisibilityIcon fontSize="small" />
+          )}
+        </IconButton>
         <IconButton size="small" aria-label="Fechar token" onClick={onFechar}>
           <CloseIcon fontSize="small" />
         </IconButton>
@@ -178,9 +213,12 @@ const TokenPainel = ({
       <FormControlLabel
         control={
           <Switch
-            checked={valores.oculto}
+            checked={oculto}
             onChange={event =>
-              setValores(atual => ({ ...atual, oculto: event.target.checked }))
+              setOcultoEditado({
+                valor: event.target.checked,
+                base: ocultoDoToken,
+              })
             }
           />
         }

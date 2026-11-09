@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -13,6 +19,7 @@ import StopIcon from '@mui/icons-material/Stop';
 import SportsMartialArtsIcon from '@mui/icons-material/SportsMartialArts';
 import SettingsIcon from '@mui/icons-material/Settings';
 import BoltIcon from '@mui/icons-material/Bolt';
+import KeyboardIcon from '@mui/icons-material/Keyboard';
 import { useAuth } from 'context/AuthContext';
 import { useCampanha } from 'context/CampanhaContext';
 import { useSnackbar } from 'context/SnackbarContext';
@@ -57,6 +64,7 @@ import { PERSONA_MESTRE, autorDaPersona } from 'pages/Chat/chatPersonas';
 import useFontesDaMesa from 'pages/Chat/useFontesDaMesa';
 import AcoesEmLote from './AcoesEmLote';
 import AdicionarTokenDialog from './AdicionarTokenDialog';
+import AtalhosDialog from './AtalhosDialog';
 import CenaDialog from './CenaDialog';
 import CenasBarra from './CenasBarra';
 import FerramentasMapa from './FerramentasMapa';
@@ -66,13 +74,18 @@ import MarcadorDialog from './MarcadorDialog';
 import ParticipantesCombateDialog from './ParticipantesCombateDialog';
 import TokenPainel from './TokenPainel';
 import {
+  ACOES_ATALHO,
   FERRAMENTAS,
   OPCOES_FERRAMENTA_PADRAO,
   OPCOES_TRAVAMENTO,
+  acaoDoAtalho,
   alternarSelecao,
+  alvoEhDigitacao,
   copiaDoToken,
+  haDialogoAberto,
   jogadoresSemToken,
   montarTokensEmLote,
+  ocultoAlvoDosTokens,
   patchesDeCondicaoEmLote,
   patchesDeDanoEmLote,
   patchesDeOcultoEmLote,
@@ -174,6 +187,7 @@ const Grid = () => {
   const [participantesAberto, setParticipantesAberto] = useState(false);
   const [chatAberto, setChatAberto] = useState(true);
   const [tokenRolando, setTokenRolando] = useState(null);
+  const [atalhosAberto, setAtalhosAberto] = useState(false);
   // Ferramenta do mapa (Fase 3B) e suas opções; marcador em criação/edição:
   // { marcador } | { celula } | null.
   const [ferramenta, setFerramenta] = useState(FERRAMENTAS.MOVER);
@@ -661,6 +675,60 @@ const Grid = () => {
     limparSelecao();
   };
 
+  // ── Atalhos de teclado ─────────────────────────────────────────────────
+  // H: oculta o(s) selecionado(s); se todos já estão ocultos, revela.
+  const handleOcultarSelecao = async () => {
+    let alvos = [];
+    if (emLote) alvos = selecionadosTokens;
+    else if (selecionado) alvos = [selecionado];
+    if (alvos.length === 0) return;
+    const oculto = ocultoAlvoDosTokens(alvos);
+    if (alvos.length >= 2) await handleOcultoEmLote(oculto);
+    else await handleAlterarToken({ oculto });
+  };
+
+  const executarAtalho = ({ acao, ferramenta: nova }) => {
+    switch (acao) {
+      case ACOES_ATALHO.PROXIMO_TURNO:
+        if (grid.combate) grid.mudarTurno(1);
+        break;
+      case ACOES_ATALHO.TURNO_ANTERIOR:
+        if (grid.combate) grid.mudarTurno(-1);
+        break;
+      case ACOES_ATALHO.OCULTAR:
+        handleOcultarSelecao();
+        break;
+      case ACOES_ATALHO.EXCLUIR:
+        if (emLote) handleExcluirEmLote();
+        else if (selecionado) handleRemoverToken();
+        break;
+      case ACOES_ATALHO.FERRAMENTA:
+        if (cenaAberta && nova !== ferramenta) handleFerramenta(nova);
+        break;
+      case ACOES_ATALHO.AJUDA:
+        setAtalhosAberto(true);
+        break;
+      default:
+    }
+  };
+  // A escuta é registrada uma vez e chama sempre a versão mais recente.
+  const atalhoRef = useRef(null);
+  useEffect(() => {
+    atalhoRef.current = executarAtalho;
+  });
+  useEffect(() => {
+    const aoTeclar = event => {
+      if (event.defaultPrevented) return;
+      if (alvoEhDigitacao(event.target) || haDialogoAberto()) return;
+      const atalho = acaoDoAtalho(event);
+      if (!atalho) return;
+      event.preventDefault();
+      atalhoRef.current?.(atalho);
+    };
+    window.addEventListener('keydown', aoTeclar);
+    return () => window.removeEventListener('keydown', aoTeclar);
+  }, []);
+
   const handleNevoaAtiva = ativa => grid.definirNevoaAtiva(ativa);
 
   const handlePreencherNevoa = async acao => {
@@ -844,6 +912,13 @@ const Grid = () => {
             : 'Ações no chat: desligado'}
         </Button>
         <Button
+          startIcon={<KeyboardIcon />}
+          onClick={() => setAtalhosAberto(true)}
+          title="Atalhos do teclado (?)"
+        >
+          Atalhos
+        </Button>
+        <Button
           startIcon={<ChatOutlinedIcon />}
           aria-pressed={chatAberto}
           onClick={() => setChatAberto(aberto => !aberto)}
@@ -1020,6 +1095,11 @@ const Grid = () => {
       </Box>
 
       {dialogoConfirmacao}
+
+      <AtalhosDialog
+        open={atalhosAberto}
+        onClose={() => setAtalhosAberto(false)}
+      />
 
       <RolarDoTokenDialog
         open={Boolean(tokenRolando)}
