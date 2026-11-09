@@ -11,9 +11,11 @@ import {
   removeRmCampanhaNpc,
 } from 'service/storage';
 import ListLoadError from 'components/ListLoadError/ListLoadError';
+import BuscaPorNome from 'components/BuscaPorNome/BuscaPorNome';
 import PersonagemFichaDialog from 'components/PersonagemFichaDialog/PersonagemFichaDialog';
 import PersonagemCard from 'components/PersonagemCard/PersonagemCard';
 import { ROUTE_PATHS } from 'common/constants/routes';
+import { filtrarPorNome } from 'common/utils/busca';
 import {
   ATRIBUTOS_PRIMARIOS_PERSONAGEM,
   ATRIBUTOS_SECUNDARIOS_PERSONAGEM,
@@ -39,6 +41,7 @@ const Npcs = () => {
   const [errorNpcs, setErrorNpcs] = useState(null);
   const [reloadToken, setReloadToken] = useState(0);
   const [personagemVisualizado, setPersonagemVisualizado] = useState(null);
+  const [busca, setBusca] = useState('');
 
   const reload = useCallback(() => setReloadToken(token => token + 1), []);
 
@@ -91,6 +94,13 @@ const Npcs = () => {
 
   const cloneDe = personagemId =>
     clones.find(clone => clone.origemPersonagemId === personagemId) ?? null;
+
+  // A busca casa com o nome da ficha ou do clone da campanha.
+  const npcsDoUniversoFiltrados = filtrarPorNome(
+    npcsDoUniverso,
+    busca,
+    personagem => [personagem.nome, cloneDe(personagem.id)?.nome],
+  );
 
   const mergeVisualizacao = (personagem, clone) => ({
     ...personagem,
@@ -158,32 +168,41 @@ const Npcs = () => {
           </small>
         </Box>
       ) : (
-        <Box
-          sx={{
-            display: 'grid',
-            gridTemplateColumns: {
-              xs: '1fr',
-              sm: 'repeat(auto-fill, minmax(340px, 1fr))',
-            },
-            gap: 2,
-          }}
-        >
-          {npcsDoUniverso.map(personagem => (
-            <PersonagemCard
-              key={personagem.id}
-              personagem={personagem}
-              clone={cloneDe(personagem.id)}
-              podeEscrever={podeEscrever}
-              atributosPrimarios={ATRIBUTOS_PRIMARIOS_PERSONAGEM}
-              atributosSecundarios={ATRIBUTOS_SECUNDARIOS_PERSONAGEM}
-              onVisualizar={handleVisualizar}
-              onEditarClone={handleEditarClone}
-              onRemoverClone={handleRemoverClone}
-              seloCloneTopo
-              visualVariant="npcs"
-            />
-          ))}
-        </Box>
+        <>
+          <BuscaPorNome value={busca} onChange={setBusca} />
+          {npcsDoUniversoFiltrados.length === 0 ? (
+            <Box className="empty-state">
+              <p>Nenhum NPC encontrado para a busca</p>
+            </Box>
+          ) : (
+            <Box
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: {
+                  xs: '1fr',
+                  sm: 'repeat(auto-fill, minmax(340px, 1fr))',
+                },
+                gap: 2,
+              }}
+            >
+              {npcsDoUniversoFiltrados.map(personagem => (
+                <PersonagemCard
+                  key={personagem.id}
+                  personagem={personagem}
+                  clone={cloneDe(personagem.id)}
+                  podeEscrever={podeEscrever}
+                  atributosPrimarios={ATRIBUTOS_PRIMARIOS_PERSONAGEM}
+                  atributosSecundarios={ATRIBUTOS_SECUNDARIOS_PERSONAGEM}
+                  onVisualizar={handleVisualizar}
+                  onEditarClone={handleEditarClone}
+                  onRemoverClone={handleRemoverClone}
+                  seloCloneTopo
+                  visualVariant="npcs"
+                />
+              ))}
+            </Box>
+          )}
+        </>
       )}
 
       <PersonagemFichaDialog

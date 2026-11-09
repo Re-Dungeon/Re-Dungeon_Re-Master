@@ -113,6 +113,26 @@ describe('Criaturas (personagens do Universo vinculados à campanha ativa)', () 
     expect(screen.queryByText('De outro universo')).not.toBeInTheDocument();
   });
 
+  it('busca por nome ignorando acento e caixa, com aviso quando nada casa', async () => {
+    const user = userEvent.setup();
+    renderCriaturas();
+    await screen.findByText('Fera das Sombras');
+
+    const campo = screen.getByLabelText('Buscar por nome');
+    await user.type(campo, 'GOLEM');
+    expect(screen.queryByText('Fera das Sombras')).not.toBeInTheDocument();
+    expect(screen.getByText('Golem de Pedra')).toBeInTheDocument();
+
+    await user.clear(campo);
+    await user.type(campo, 'zzz');
+    expect(
+      screen.getByText('Nenhuma criatura encontrada para a busca'),
+    ).toBeInTheDocument();
+
+    await user.clear(campo);
+    expect(screen.getByText('Fera das Sombras')).toBeInTheDocument();
+  });
+
   it('mostra o estado vazio quando não há criaturas vinculadas', async () => {
     getPersonagens.mockResolvedValue([]);
     renderCriaturas();
