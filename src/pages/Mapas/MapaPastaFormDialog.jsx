@@ -51,14 +51,16 @@ const fieldSx = {
   '& .MuiFormHelperText-root': { color: '#ef4444' },
 };
 
+const INITIAL_VALUES_VAZIOS = {};
+
 const MapaPastaFormDialog = ({
   open,
-  mode,
-  initialValues,
+  mode = 'create',
+  initialValues = INITIAL_VALUES_VAZIOS,
   onClose,
   onSubmit,
-  submitLabel,
-  title,
+  submitLabel = 'Salvar Pasta',
+  title = null,
 }) => {
   const initialFormValues = useMemo(
     () => buildInitialValues(initialValues),
@@ -212,13 +214,6 @@ MapaPastaFormDialog.propTypes = {
   onSubmit: PropTypes.func.isRequired,
   submitLabel: PropTypes.string,
   title: PropTypes.string,
-};
-
-MapaPastaFormDialog.defaultProps = {
-  mode: 'create',
-  initialValues: {},
-  submitLabel: 'Salvar Pasta',
-  title: null,
 };
 
 export default MapaPastaFormDialog;

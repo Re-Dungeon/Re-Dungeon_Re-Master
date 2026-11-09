@@ -90,11 +90,4 @@ CenaEdge.propTypes = {
   }),
 };
 
-CenaEdge.defaultProps = {
-  style: undefined,
-  markerEnd: undefined,
-  label: undefined,
-  data: undefined,
-};
-
 export default CenaEdge;

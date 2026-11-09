@@ -404,7 +404,15 @@ const QuadranteBadge = ({ icon, label, background, border, color, sx = {} }) => 
   </Box>
 );
 
-const GridLegendItem = ({ label, iconUrl, icon, fallback, description, tone = 'default', variant = 'state' }) => {
+const GridLegendItem = ({
+  label,
+  iconUrl = null,
+  icon = null,
+  fallback = null,
+  description = 'Indicador visual do grid.',
+  tone = 'default',
+  variant = 'state',
+}) => {
   const toneStyles = {
     default: { background: 'rgba(148, 163, 184, 0.08)', border: 'rgba(148, 163, 184, 0.18)', color: 'var(--text-primary)' },
     success: { background: 'rgba(34, 197, 94, 0.10)', border: 'rgba(34, 197, 94, 0.22)', color: 'var(--text-primary)' },
@@ -553,15 +561,6 @@ GridLegendItem.propTypes = {
   description: PropTypes.string,
   tone: PropTypes.oneOf(['default', 'success', 'warning', 'danger', 'purple']),
   variant: PropTypes.oneOf(['state', 'category']),
-};
-
-GridLegendItem.defaultProps = {
-  iconUrl: null,
-  icon: null,
-  fallback: null,
-  description: 'Indicador visual do grid.',
-  tone: 'default',
-  variant: 'state',
 };
 
 const getQuadranteResultadoMeta = quadrante => {

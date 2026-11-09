@@ -149,19 +149,19 @@ const resolverIconeAtributoSecundario = label => {
 // são controlados via props em vez de hardcoded aqui.
 const PersonagemCard = ({
   personagem,
-  clone,
-  podeEscrever,
+  clone = null,
+  podeEscrever = false,
   atributosPrimarios,
   atributosSecundarios,
   onVisualizar,
-  onClonar,
+  onClonar = null,
   onEditarClone,
   onRemoverClone,
-  exibirDescricao,
-  seloCloneTopo,
-  seloCloneBadge,
-  seloCloneRodape,
-  visualVariant,
+  exibirDescricao = false,
+  seloCloneTopo = false,
+  seloCloneBadge = false,
+  seloCloneRodape = false,
+  visualVariant = null,
 }) => {
   const isPremiumVisual = visualVariant === 'npcs' || visualVariant === 'jogadores' || visualVariant === 'criaturas';
 
@@ -889,17 +889,6 @@ PersonagemCard.propTypes = {
   seloCloneBadge: PropTypes.bool,
   seloCloneRodape: PropTypes.bool,
   visualVariant: PropTypes.oneOf(['npcs']),
-};
-
-PersonagemCard.defaultProps = {
-  clone: null,
-  podeEscrever: false,
-  onClonar: null,
-  exibirDescricao: false,
-  seloCloneTopo: false,
-  seloCloneBadge: false,
-  seloCloneRodape: false,
-  visualVariant: null,
 };
 
 export default PersonagemCard;

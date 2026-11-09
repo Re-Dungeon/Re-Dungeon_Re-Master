@@ -52,17 +52,26 @@ const temPastaValida = mapa => {
   return pastaId !== null && pastaId !== undefined && String(pastaId).trim() !== '';
 };
 
+const DRAFT_PADRAO = {
+  origem: 'url',
+  mapaId: null,
+  url: '',
+  ajuste: 'cover',
+  opacidadeQuadrantes: 20,
+};
+const LISTA_VAZIA = [];
+
 const CardFluxMapaSelectorModal = ({
   open,
   onClose,
   onSave,
   onRemoveImage,
   onSelectMap,
-  draft,
-  mapasDisponiveis,
-  pastasDisponiveis,
-  loadingMapas,
-  loadingPastas,
+  draft = DRAFT_PADRAO,
+  mapasDisponiveis = LISTA_VAZIA,
+  pastasDisponiveis = LISTA_VAZIA,
+  loadingMapas = false,
+  loadingPastas = false,
 }) => {
   const [busca, setBusca] = useState('');
   const [pastaAtivaId, setPastaAtivaId] = useState(null);
@@ -616,20 +625,6 @@ CardFluxMapaSelectorModal.propTypes = {
   ),
   loadingMapas: PropTypes.bool,
   loadingPastas: PropTypes.bool,
-};
-
-CardFluxMapaSelectorModal.defaultProps = {
-  draft: {
-    origem: 'url',
-    mapaId: null,
-    url: '',
-    ajuste: 'cover',
-    opacidadeQuadrantes: 20,
-  },
-  mapasDisponiveis: [],
-  pastasDisponiveis: [],
-  loadingMapas: false,
-  loadingPastas: false,
 };
 
 function pasteToName(pastaId, pastasDisponiveis) {

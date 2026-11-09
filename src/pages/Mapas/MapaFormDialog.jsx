@@ -123,14 +123,16 @@ const buildInitialValues = initialValues => {
   };
 };
 
+const INITIAL_VALUES_VAZIOS = {};
+
 const MapaFormDialog = ({
   open,
   mode,
-  initialValues,
+  initialValues = INITIAL_VALUES_VAZIOS,
   onClose,
   onSubmit,
-  submitLabel,
-  title,
+  submitLabel = null,
+  title = null,
 }) => {
   const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
   const [isImageLoading, setIsImageLoading] = useState(false);
@@ -636,12 +638,6 @@ MapaFormDialog.propTypes = {
   onSubmit: PropTypes.func.isRequired,
   submitLabel: PropTypes.string,
   title: PropTypes.string,
-};
-
-MapaFormDialog.defaultProps = {
-  initialValues: {},
-  submitLabel: null,
-  title: null,
 };
 
 export default MapaFormDialog;

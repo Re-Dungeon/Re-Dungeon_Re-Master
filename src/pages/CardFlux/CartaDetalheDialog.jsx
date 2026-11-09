@@ -9,7 +9,7 @@ import DialogTitle from '@mui/material/DialogTitle';
 import Box from '@mui/material/Box';
 import CartaDetalhe from './CartaDetalhe';
 
-const CartaDetalheDialog = ({ open, onClose, carta }) => {
+const CartaDetalheDialog = ({ open, onClose, carta = null }) => {
   return (
     <Dialog
       open={open}
@@ -100,10 +100,6 @@ CartaDetalheDialog.propTypes = {
     impactoMundo: PropTypes.string,
     ganchosNarrativos: PropTypes.string,
   }),
-};
-
-CartaDetalheDialog.defaultProps = {
-  carta: null,
 };
 
 export default CartaDetalheDialog;
