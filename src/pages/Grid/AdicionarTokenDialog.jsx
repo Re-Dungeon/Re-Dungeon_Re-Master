@@ -20,7 +20,7 @@ import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import { isUrlImagemValida } from 'common/utils/chat';
 import { TIPOS_TOKEN, TOKEN_NOME_MAX } from 'common/utils/grid';
-import { OPCOES_TAMANHO_TOKEN } from './gridMestre';
+import { OPCOES_TAMANHO_TOKEN, QUANTIDADE_TOKENS_MAX } from './gridMestre';
 
 const ABAS = [
   { valor: TIPOS_TOKEN.JOGADOR, rotulo: 'Jogadores', fonte: 'jogadores' },
@@ -54,23 +54,35 @@ const AdicionarTokenDialog = ({
   const [tamanho, setTamanho] = useState(1);
   const [oculto, setOculto] = useState(false);
   const [avulso, setAvulso] = useState({ nome: '', imagemUrl: '' });
+  const [quantidade, setQuantidade] = useState(1);
+  const [busca, setBusca] = useState('');
 
   const abaAtual = ABAS.find(item => item.valor === aba);
-  const lista = abaAtual.fonte ? fontes[abaAtual.fonte] : [];
+  const termo = busca.trim().toLocaleLowerCase('pt-BR');
+  const lista = (abaAtual.fonte ? fontes[abaAtual.fonte] : []).filter(
+    origem => !termo || origem.label.toLocaleLowerCase('pt-BR').includes(termo),
+  );
+  // Jogador entra um por personagem; cópias só para NPC/Criatura/avulso.
+  const permiteCopias = aba !== TIPOS_TOKEN.JOGADOR;
+  const copias = permiteCopias ? quantidade : 1;
 
   const adicionar = origem =>
-    onAdicionar({
-      nome: origem.label,
-      imagemUrl: origem.avatar ?? null,
-      tipo: aba,
-      refId: origem.refId ?? null,
-      donos: aba === TIPOS_TOKEN.JOGADOR && origem.uid ? [origem.uid] : [],
-      // Jogador lê PV/Energia/Fadiga da ficha ao vivo; NPC/Criatura guarda
-      // no token, cheios, a partir da ficha.
-      recursos: aba === TIPOS_TOKEN.JOGADOR ? null : (origem.recursos ?? null),
-      tamanho,
-      oculto,
-    });
+    onAdicionar(
+      {
+        nome: origem.label,
+        imagemUrl: origem.avatar ?? null,
+        tipo: aba,
+        refId: origem.refId ?? null,
+        donos: aba === TIPOS_TOKEN.JOGADOR && origem.uid ? [origem.uid] : [],
+        // Jogador lê PV/Energia/Fadiga da ficha ao vivo; NPC/Criatura guarda
+        // no token, cheios, a partir da ficha.
+        recursos:
+          aba === TIPOS_TOKEN.JOGADOR ? null : (origem.recursos ?? null),
+        tamanho,
+        oculto,
+      },
+      copias,
+    );
 
   const urlAvulso = avulso.imagemUrl.trim();
   const erroAvulso =
@@ -79,15 +91,18 @@ const AdicionarTokenDialog = ({
       : null;
 
   const adicionarAvulso = async () => {
-    const adicionado = await onAdicionar({
-      nome: avulso.nome,
-      imagemUrl: urlAvulso || null,
-      tipo: TIPOS_TOKEN.AVULSO,
-      refId: null,
-      donos: [],
-      tamanho,
-      oculto,
-    });
+    const adicionado = await onAdicionar(
+      {
+        nome: avulso.nome,
+        imagemUrl: urlAvulso || null,
+        tipo: TIPOS_TOKEN.AVULSO,
+        refId: null,
+        donos: [],
+        tamanho,
+        oculto,
+      },
+      copias,
+    );
     if (adicionado) setAvulso({ nome: '', imagemUrl: '' });
   };
 
@@ -97,7 +112,10 @@ const AdicionarTokenDialog = ({
       <DialogContent>
         <Tabs
           value={aba}
-          onChange={(_event, valor) => setAba(valor)}
+          onChange={(_event, valor) => {
+            setAba(valor);
+            setBusca('');
+          }}
           variant="scrollable"
           sx={{ mb: 2 }}
         >
@@ -130,7 +148,42 @@ const AdicionarTokenDialog = ({
             }
             label="Entrar oculto"
           />
+          {permiteCopias && (
+            <TextField
+              size="small"
+              type="number"
+              label="Quantidade"
+              value={quantidade}
+              onChange={event =>
+                setQuantidade(
+                  Math.max(
+                    1,
+                    Math.min(
+                      QUANTIDADE_TOKENS_MAX,
+                      Math.round(Number(event.target.value)) || 1,
+                    ),
+                  ),
+                )
+              }
+              slotProps={{ htmlInput: { min: 1, max: QUANTIDADE_TOKENS_MAX } }}
+              helperText={
+                quantidade > 1 ? 'Nomes numerados: Goblin, Goblin 2…' : ' '
+              }
+              sx={{ width: 130 }}
+            />
+          )}
         </Box>
+
+        {abaAtual.fonte && (
+          <TextField
+            size="small"
+            fullWidth
+            label={`Buscar em ${abaAtual.rotulo}`}
+            value={busca}
+            onChange={event => setBusca(event.target.value)}
+            sx={{ mt: 1 }}
+          />
+        )}
 
         {aba === TIPOS_TOKEN.JOGADOR && (
           <Button
@@ -152,7 +205,9 @@ const AdicionarTokenDialog = ({
                 variant="body2"
                 sx={{ color: 'var(--text-secondary)', py: 2 }}
               >
-                {VAZIO[abaAtual.fonte]}
+                {termo
+                  ? 'Nenhum resultado para a busca.'
+                  : VAZIO[abaAtual.fonte]}
               </Typography>
             )}
             {lista.map(origem => (

@@ -13,6 +13,7 @@ import {
   valorDigitadoDoRecurso,
   normalizarRecurso,
   primeiraCelulaLivre,
+  TOKEN_NOME_MAX,
 } from 'common/utils/grid';
 import { reacaoDaFicha } from 'common/utils/gridCombate';
 import { ACOES_CAMADA } from 'common/utils/gridCamadas';
@@ -194,4 +195,91 @@ export const OPCOES_FERRAMENTA_PADRAO = {
   forma: FORMAS_PINCEL.PINCEL,
   acao: ACOES_CAMADA.ADICIONAR,
   tamanho: 1,
+};
+
+// ── Várias cópias de um token ────────────────────────────────────────────
+export const QUANTIDADE_TOKENS_MAX = 20;
+
+const escaparRegex = texto => texto.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+// Nomes para `quantidade` tokens novos com o nome `base`, sem repetir os da
+// cena: "Goblin", "Goblin 2", "Goblin 3"… Se "Goblin" já está na cena, as
+// cópias continuam do maior número usado. Respeita TOKEN_NOME_MAX.
+export const nomesNumerados = (base, nomesExistentes, quantidade = 1) => {
+  const limpo = String(base ?? '').trim() || 'Token';
+  const total = Math.max(
+    1,
+    Math.min(Number(quantidade) || 1, QUANTIDADE_TOKENS_MAX),
+  );
+  const padrao = new RegExp(`^${escaparRegex(limpo)}(?: (\\d+))?$`);
+  const numerosUsados = (nomesExistentes ?? [])
+    .map(nome =>
+      String(nome ?? '')
+        .trim()
+        .match(padrao),
+    )
+    .filter(Boolean)
+    .map(match => (match[1] ? Number(match[1]) : 1));
+  const nomes = [];
+  let proximo = numerosUsados.length ? Math.max(...numerosUsados) + 1 : 1;
+  for (let i = 0; i < total; i += 1) {
+    const sufixo = proximo === 1 ? '' : ` ${proximo}`;
+    nomes.push(`${limpo.slice(0, TOKEN_NOME_MAX - sufixo.length)}${sufixo}`);
+    proximo += 1;
+  }
+  return nomes;
+};
+
+// Tokens prontos para gravar de uma vez: cada cópia na primeira célula livre
+// considerando as anteriores (não se empilham). `dados` = o que o diálogo
+// manda para montarToken (sem col/lin).
+export const montarTokensEmLote = (
+  dados,
+  quantidade,
+  tokensDaCena,
+  limites,
+) => {
+  const nomes = nomesNumerados(
+    dados.nome,
+    (tokensDaCena ?? []).map(token => token.nome),
+    quantidade,
+  );
+  const ocupados = [...(tokensDaCena ?? [])];
+  return nomes.map(nome => {
+    const posicao = primeiraCelulaLivre(ocupados, dados.tamanho ?? 1, limites);
+    const token = montarToken({ ...dados, nome, ...posicao });
+    ocupados.push(token);
+    return token;
+  });
+};
+
+// Cópia de um token da cena ("Duplicar"): mesmos campos de jogo (recursos,
+// condições, aura, visibilidade…), nome numerado e a primeira célula livre.
+// Rastro de movimento e datas não vão junto.
+const CAMPOS_FORA_DA_COPIA = [
+  'id',
+  'col',
+  'lin',
+  'rastro',
+  'movidoEm',
+  'createdAt',
+  'updatedAt',
+];
+
+export const copiaDoToken = (token, tokensDaCena, limites) => {
+  const [nome] = nomesNumerados(
+    token.nome,
+    (tokensDaCena ?? []).map(item => item.nome),
+    1,
+  );
+  const campos = Object.fromEntries(
+    Object.entries(token).filter(
+      ([chave]) => !CAMPOS_FORA_DA_COPIA.includes(chave),
+    ),
+  );
+  return {
+    ...campos,
+    nome,
+    ...primeiraCelulaLivre(tokensDaCena ?? [], token.tamanho ?? 1, limites),
+  };
 };

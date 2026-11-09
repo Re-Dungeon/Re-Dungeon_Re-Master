@@ -14,6 +14,10 @@ import {
   recursoDigitado,
   opcoesDeDonos,
   tokensDeJogadoresFaltantes,
+  QUANTIDADE_TOKENS_MAX,
+  copiaDoToken,
+  montarTokensEmLote,
+  nomesNumerados,
 } from './gridMestre';
 
 describe('opcoesDeDonos', () => {
@@ -212,5 +216,84 @@ describe('ferramentas do mapa', () => {
       ACOES_CAMADA.ADICIONAR,
       ACOES_CAMADA.REMOVER,
     ]);
+  });
+});
+
+describe('várias cópias de token', () => {
+  const limites = { colunas: 5, linhas: 5 };
+
+  it('nomesNumerados: Goblin, Goblin 2, Goblin 3 e continua do maior usado', () => {
+    expect(nomesNumerados('Goblin', [], 3)).toEqual([
+      'Goblin',
+      'Goblin 2',
+      'Goblin 3',
+    ]);
+    expect(nomesNumerados('Goblin', ['Goblin', 'Goblin 4', 'Orc'], 2)).toEqual([
+      'Goblin 5',
+      'Goblin 6',
+    ]);
+    expect(nomesNumerados('Goblin', ['Goblin'], 1)).toEqual(['Goblin 2']);
+    expect(nomesNumerados('Orc (chefe)', ['Orc (chefe)'], 1)).toEqual([
+      'Orc (chefe) 2',
+    ]);
+    expect(nomesNumerados('  ', [], 1)).toEqual(['Token']);
+    expect(nomesNumerados('x', [], 999)).toHaveLength(QUANTIDADE_TOKENS_MAX);
+  });
+
+  it('nomesNumerados respeita o tamanho máximo do nome', () => {
+    const longo = 'a'.repeat(100);
+    const [, segundo] = nomesNumerados(longo, [], 2);
+    expect(segundo.length).toBeLessThanOrEqual(100);
+    expect(segundo.endsWith(' 2')).toBe(true);
+  });
+
+  it('montarTokensEmLote não empilha as cópias', () => {
+    const tokens = montarTokensEmLote(
+      { nome: 'Goblin', tipo: 'npc', tamanho: 1 },
+      3,
+      [{ id: 't', nome: 'Herói', col: 0, lin: 0, tamanho: 1 }],
+      limites,
+    );
+    expect(tokens.map(token => token.nome)).toEqual([
+      'Goblin',
+      'Goblin 2',
+      'Goblin 3',
+    ]);
+    expect(tokens.map(token => [token.col, token.lin])).toEqual([
+      [1, 0],
+      [2, 0],
+      [3, 0],
+    ]);
+  });
+
+  it('copiaDoToken mantém os campos de jogo e tira rastro/datas/posição', () => {
+    const original = {
+      id: 'a',
+      nome: 'Goblin',
+      tipo: 'npc',
+      tamanho: 1,
+      col: 0,
+      lin: 0,
+      donos: [],
+      oculto: true,
+      pv: { atual: 3, max: 7 },
+      condicoes: ['c1'],
+      rastro: [0, 0, 1, 1],
+      movidoEm: 5,
+      createdAt: 1,
+      updatedAt: 2,
+    };
+    const copia = copiaDoToken(original, [original], limites);
+    expect(copia).toEqual({
+      nome: 'Goblin 2',
+      tipo: 'npc',
+      tamanho: 1,
+      col: 1,
+      lin: 0,
+      donos: [],
+      oculto: true,
+      pv: { atual: 3, max: 7 },
+      condicoes: ['c1'],
+    });
   });
 });

@@ -38,11 +38,9 @@ import {
   limitarPosicao,
   montarCena,
   corDoPing,
-  montarToken,
   nomeDaCena,
   nomeDaCopia,
   normalizarTravamento,
-  primeiraCelulaLivre,
   validarToken,
 } from 'common/utils/grid';
 import useAvisarAcoesChat from 'hooks/useAvisarAcoesChat';
@@ -67,7 +65,9 @@ import {
   FERRAMENTAS,
   OPCOES_FERRAMENTA_PADRAO,
   OPCOES_TRAVAMENTO,
+  copiaDoToken,
   jogadoresSemToken,
+  montarTokensEmLote,
   reacaoDoToken,
   tokensDeJogadoresFaltantes,
 } from './gridMestre';
@@ -376,15 +376,32 @@ const Grid = () => {
     return Boolean(ok);
   };
 
-  const handleAdicionar = async dados => {
-    const posicao = primeiraCelulaLivre(grid.tokens, dados.tamanho, limites);
-    const token = montarToken({ ...dados, ...posicao });
-    const erro = validarToken(token);
+  // `quantidade` > 1: cópias numeradas ("Goblin", "Goblin 2"…), cada uma
+  // numa célula livre, gravadas num lote só.
+  const handleAdicionar = async (dados, quantidade = 1) => {
+    const tokens = montarTokensEmLote(dados, quantidade, grid.tokens, limites);
+    const erro = tokens.map(validarToken).find(Boolean);
     if (erro) {
       notifyError(erro);
       return false;
     }
-    return gravarTokens([token], `${token.nome} entrou na cena.`);
+    return gravarTokens(
+      tokens,
+      tokens.length === 1
+        ? `${tokens[0].nome} entrou na cena.`
+        : `${tokens.length} tokens (${tokens[0].nome}…) entraram na cena.`,
+    );
+  };
+
+  const handleDuplicarToken = async () => {
+    if (!selecionado) return;
+    const copia = copiaDoToken(selecionado, grid.tokens, limites);
+    const erro = validarToken(copia);
+    if (erro) {
+      notifyError(erro);
+      return;
+    }
+    await gravarTokens([copia], `${copia.nome} entrou na cena.`);
   };
 
   const handleAdicionarJogadores = async () => {
@@ -767,6 +784,7 @@ const Grid = () => {
                 onSalvar={handleSalvarToken}
                 onAlterar={handleAlterarToken}
                 onRemover={handleRemoverToken}
+                onDuplicar={handleDuplicarToken}
                 onFechar={() => setSelecionadoId(null)}
                 onRolar={
                   podeRolarTokenMestre(selecionado)
