@@ -18,11 +18,15 @@ vi.mock('firebase/firestore', () => ({
   serverTimestamp: vi.fn(() => '__serverTimestamp__'),
   query: vi.fn((coll, ...constraints) => ({ __query: coll, constraints })),
   where: vi.fn((field, op, value) => ({ __where: [field, op, value] })),
+  orderBy: vi.fn((field, direcao) => ({ __orderBy: [field, direcao] })),
+  limit: vi.fn(valor => ({ __limit: valor })),
   writeBatch: vi.fn(),
 }));
 
 import {
   collection,
+  limit,
+  orderBy,
   getDocs,
   getDoc,
   addDoc,
@@ -33,6 +37,7 @@ import {
   writeBatch,
 } from 'firebase/firestore';
 import {
+  getChatMensagensAntes,
   getRmCampanhas,
   addRmCampanha,
   removeRmCampanha,
@@ -997,5 +1002,36 @@ describe('storage.js — rmSessaoLogs (registro cronológico automático, append
         updatedAt: '__serverTimestamp__',
       },
     );
+  });
+});
+
+describe('storage.js — getChatMensagensAntes (Carregar anteriores)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('lê a página anterior à referência (desc, com limite) e devolve em ordem cronológica', async () => {
+    const referencia = { seconds: 1700000000 };
+    getDocs.mockResolvedValue({
+      docs: [
+        { id: 'm3', data: () => ({ texto: 'terceira' }) },
+        { id: 'm2', data: () => ({ texto: 'segunda' }) },
+        { id: 'm1', data: () => ({ texto: 'primeira' }) },
+      ],
+    });
+
+    const mensagens = await getChatMensagensAntes('camp-1', referencia, 3);
+
+    expect(collection).toHaveBeenCalledWith({}, 'rmCampanhas', 'camp-1', 'chatMensagens');
+    expect(where).toHaveBeenCalledWith('createdAt', '<', referencia);
+    expect(orderBy).toHaveBeenCalledWith('createdAt', 'desc');
+    expect(limit).toHaveBeenCalledWith(3);
+    expect(mensagens.map(m => m.id)).toEqual(['m1', 'm2', 'm3']);
+    expect(mensagens[0]).toMatchObject({ id: 'm1', texto: 'primeira' });
+  });
+
+  it('devolve lista vazia quando não há mensagens anteriores', async () => {
+    getDocs.mockResolvedValue({ docs: [] });
+    expect(await getChatMensagensAntes('camp-1', { seconds: 1 })).toEqual([]);
   });
 });

@@ -181,6 +181,9 @@ const ChatMestre = ({ campanha, npcs, criaturas, titulo }) => {
     apagar,
     macros,
     audio,
+    carregarAnteriores,
+    temMaisAntigas,
+    carregandoAntigas,
   } = useChatCampanha(campanha.id, autor, { ehMestreDaCampanha: true });
 
   useEffect(() => {
@@ -203,6 +206,9 @@ const ChatMestre = ({ campanha, npcs, criaturas, titulo }) => {
         macros={macros}
         audio={audio}
         chaveHistorico={`reDungeonChatHistorico_${campanha.id}`}
+        onCarregarAnteriores={carregarAnteriores}
+        temMaisAnteriores={temMaisAntigas}
+        carregandoAnteriores={carregandoAntigas}
         cabecalho={
           <>
             <Typography sx={{ color: 'var(--text-primary)', fontWeight: 700 }}>

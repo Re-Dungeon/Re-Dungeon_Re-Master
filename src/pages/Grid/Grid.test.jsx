@@ -112,6 +112,7 @@ vi.mock('service/storage', () => ({
     onChange([]);
     return vi.fn();
   }),
+  getChatMensagensAntes: vi.fn(() => Promise.resolve([])),
   subscribeChatSecretasDoMestre: vi.fn(() => vi.fn()),
   subscribeChatSecretasDoUsuario: vi.fn(() => vi.fn()),
   subscribeAudioMesa: (...args) => subscribeAudioMesa(...args),

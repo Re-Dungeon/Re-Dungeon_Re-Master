@@ -24,6 +24,7 @@ vi.mock('service/storage', () => ({
   addChatMensagem: (...args) => addChatMensagem(...args),
   removeChatMensagem: (...args) => removeChatMensagem(...args),
   subscribeChatMensagens: (...args) => subscribeChatMensagens(...args),
+  getChatMensagensAntes: vi.fn(() => Promise.resolve([])),
   getPersonagens: (...args) => getPersonagens(...args),
   getRmCampanhaNpcs: (...args) => getRmCampanhaNpcs(...args),
   getRmCampanhaCriaturas: (...args) => getRmCampanhaCriaturas(...args),

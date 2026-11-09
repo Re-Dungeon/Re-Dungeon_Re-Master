@@ -3,6 +3,11 @@
 // e com o bloco do chat no `firestore.rules` — os limites aqui (tamanho do
 // texto/URL, valores de `tipo`) são os mesmos que a regra exige.
 
+// Janela ao vivo do chat (as últimas N mensagens; service/storage) e tamanho de
+// cada página de "Carregar anteriores".
+export const CHAT_JANELA_MENSAGENS = 100;
+export const CHAT_PAGINA_ANTERIORES = 50;
+
 export const CHAT_TEXTO_MAX = 2000;
 export const CHAT_URL_MAX = 2000;
 
@@ -273,6 +278,16 @@ export const mesclarMensagens = (publicas, secretas) =>
         a.indice - b.indice,
     )
     .map(({ mensagem }) => mensagem);
+
+// Junta a janela ao vivo com as mensagens antigas já carregadas ("Carregar
+// anteriores"), sem repetir ids (a janela vence) e em ordem cronológica. Sem
+// antigas devolve a própria janela.
+export const mesclarComAntigas = (recentes, antigas) => {
+  if (!antigas?.length) return recentes;
+  const ids = new Set(recentes.map(mensagem => mensagem.id));
+  const extras = antigas.filter(mensagem => !ids.has(mensagem.id));
+  return extras.length ? mesclarMensagens(extras, recentes) : recentes;
+};
 
 const paraDate = valor => {
   if (!valor) return null;
