@@ -95,7 +95,7 @@ const chipAccentSx = {
   borderRadius: '999px',
 };
 
-const InfoCard = ({ titulo, valor, tone = 'default', icon = '✦' }) => {
+const InfoCard = ({ titulo, valor = null, tone = 'default', icon = '✦' }) => {
   if (!valor) return null;
 
   const palette = {
@@ -205,19 +205,13 @@ InfoCard.propTypes = {
   icon: PropTypes.string,
 };
 
-InfoCard.defaultProps = {
-  valor: null,
-  tone: 'default',
-  icon: '✦',
-};
-
 /**
  * Corpo de exibição de uma carta do `cardflux` (imagem, stats, tags e as
  * seções de texto) — reaproveitado pela modal de detalhes (CartaDetalheDialog)
  * e pelo painel "Carta Sorteada" da tela de Sorteio, para mostrar sempre as
  * mesmas informações nos dois lugares.
  */
-const CartaDetalhe = ({ carta, hideCoverImage = false, hideTags = false }) => {
+const CartaDetalhe = ({ carta = null, hideCoverImage = false, hideTags = false }) => {
   const tags = (carta?.tags ?? '')
     .split(',')
     .map(tag => tag.trim())
@@ -458,12 +452,6 @@ CartaDetalhe.propTypes = {
   }),
   hideCoverImage: PropTypes.bool,
   hideTags: PropTypes.bool,
-};
-
-CartaDetalhe.defaultProps = {
-  carta: null,
-  hideCoverImage: false,
-  hideTags: false,
 };
 
 export default CartaDetalhe;

@@ -18,7 +18,7 @@ import { normalizeMapaTags } from './mapaUtils';
 
 const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 
-const MapaViewerDialog = ({ open, mapa, onClose, onUseInCardFlux }) => {
+const MapaViewerDialog = ({ open, mapa = null, onClose, onUseInCardFlux = null }) => {
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
@@ -346,11 +346,6 @@ MapaViewerDialog.propTypes = {
   }),
   onClose: PropTypes.func.isRequired,
   onUseInCardFlux: PropTypes.func,
-};
-
-MapaViewerDialog.defaultProps = {
-  mapa: null,
-  onUseInCardFlux: null,
 };
 
 export default MapaViewerDialog;

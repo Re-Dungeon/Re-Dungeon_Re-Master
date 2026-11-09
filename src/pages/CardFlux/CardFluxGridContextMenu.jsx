@@ -5,7 +5,16 @@ import { createPortal } from 'react-dom';
 const MENU_WIDTH = 220;
 const MENU_ITEM_HEIGHT = 44;
 
-const CardFluxGridContextMenu = ({ open, anchorPoint, options, selectedValue, onSelect, onClose }) => {
+const ANCHOR_POINT_PADRAO = { x: 0, y: 0 };
+
+const CardFluxGridContextMenu = ({
+  open,
+  anchorPoint = ANCHOR_POINT_PADRAO,
+  options,
+  selectedValue = null,
+  onSelect,
+  onClose,
+}) => {
   const menuRef = useRef(null);
   const itemRefs = useRef([]);
   const normalizedOptions = useMemo(
@@ -292,11 +301,6 @@ CardFluxGridContextMenu.propTypes = {
   selectedValue: PropTypes.string,
   onSelect: PropTypes.func.isRequired,
   onClose: PropTypes.func.isRequired,
-};
-
-CardFluxGridContextMenu.defaultProps = {
-  anchorPoint: { x: 0, y: 0 },
-  selectedValue: null,
 };
 
 export default CardFluxGridContextMenu;

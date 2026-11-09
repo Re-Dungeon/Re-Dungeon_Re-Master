@@ -6,6 +6,10 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 const getRmNotasPorCampanha = vi.fn();
 const removeRmNota = vi.fn();
 const getRmCenas = vi.fn();
+const notifyError = vi.fn();
+vi.mock('context/SnackbarContext', () => ({
+  useSnackbar: () => ({ notifyError, notifySuccess: vi.fn() }),
+}));
 vi.mock('service/storage', () => ({
   getRmNotasPorCampanha: (...args) => getRmNotasPorCampanha(...args),
   removeRmNota: (...args) => removeRmNota(...args),
@@ -80,6 +84,17 @@ describe('Notas (lista da campanha ativa)', () => {
     );
     expect(screen.getByText('Lembrete')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Universo' })).toBeInTheDocument();
+  });
+
+  it('avisa quando as cenas da campanha não carregam', async () => {
+    getRmCenas.mockRejectedValue(new Error('falha'));
+    renderNotas();
+
+    await waitFor(() =>
+      expect(notifyError).toHaveBeenCalledWith(
+        'Não foi possível carregar as cenas da campanha.',
+      ),
+    );
   });
 
   it('mostra a cena vinculada quando a nota tem cenaId', async () => {
