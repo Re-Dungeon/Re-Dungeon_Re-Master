@@ -34,12 +34,7 @@ const emitirDocs = docs =>
 
 const renderDesenhos = (opcoes = {}) =>
   renderHook(() =>
-    useGridDesenhos('c1', 'cena-1', {
-      ativo: true,
-      uid: 'u1',
-      onErro,
-      ...opcoes,
-    }),
+    useGridDesenhos('c1', 'cena-1', { ativo: true, uid: 'u1', onErro, ...opcoes }),
   );
 
 describe('useGridDesenhos', () => {
@@ -101,10 +96,7 @@ describe('useGridDesenhos', () => {
     await act(async () => {
       await mestre.result.current.apagarTodos();
     });
-    expect(removeGridDesenhos).toHaveBeenLastCalledWith('c1', 'cena-1', [
-      'd1',
-      'd2',
-    ]);
+    expect(removeGridDesenhos).toHaveBeenLastCalledWith('c1', 'cena-1', ['d1', 'd2']);
   });
 
   it('sem desenhos meus não chama o storage', async () => {
@@ -121,10 +113,7 @@ describe('useGridDesenhos', () => {
     const { result } = renderDesenhos();
     let ok;
     await act(async () => {
-      ok = await result.current.desenhar({
-        cor: '#ffffff',
-        pontos: [0, 0, 1, 1],
-      });
+      ok = await result.current.desenhar({ cor: '#ffffff', pontos: [0, 0, 1, 1] });
     });
     expect(ok).toBe(false);
     expect(onErro).toHaveBeenCalledWith('Não foi possível salvar o desenho.');

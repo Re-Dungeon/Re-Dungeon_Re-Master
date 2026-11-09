@@ -36,8 +36,7 @@ const useGridAreas = (
   cenaId,
   { ativo = true, uid = null, nome = null, veTudo = false, onErro } = {},
 ) => {
-  const chave =
-    ativo && campanhaId && cenaId ? `${campanhaId}/${cenaId}` : null;
+  const chave = ativo && campanhaId && cenaId ? `${campanhaId}/${cenaId}` : null;
   const [recebido, setRecebido] = useState({ chave: null, docs: SEM_DOCS });
 
   useEffect(() => {
@@ -68,9 +67,7 @@ const useGridAreas = (
         }))
         .filter(item => item.area)
         .sort((a, b) =>
-          a.segundos === b.segundos
-            ? a.indice - b.indice
-            : a.segundos - b.segundos,
+          a.segundos === b.segundos ? a.indice - b.indice : a.segundos - b.segundos,
         )
         .map(item => item.area),
     [docs],
@@ -90,28 +87,14 @@ const useGridAreas = (
     async ({ forma, origem, alvo = null, metros, cor }) => {
       if (!chave || !uid) return false;
       if (areas.length >= AREAS_POR_CENA_MAX) {
-        onErro?.(
-          'Há áreas demais na cena. Remova alguma antes de criar outra.',
-        );
+        onErro?.('Há áreas demais na cena. Remova alguma antes de criar outra.');
         return false;
       }
-      if (
-        areas.filter(area => area.uid === uid).length >= AREAS_POR_PESSOA_MAX
-      ) {
-        onErro?.(
-          'Você já tem áreas demais. Remova alguma antes de criar outra.',
-        );
+      if (areas.filter(area => area.uid === uid).length >= AREAS_POR_PESSOA_MAX) {
+        onErro?.('Você já tem áreas demais. Remova alguma antes de criar outra.');
         return false;
       }
-      const payload = montarArea({
-        forma,
-        origem,
-        alvo,
-        metros,
-        cor,
-        uid,
-        nome,
-      });
+      const payload = montarArea({ forma, origem, alvo, metros, cor, uid, nome });
       try {
         await addGridArea(campanhaId, cenaId, payload);
         return true;

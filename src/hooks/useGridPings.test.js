@@ -49,14 +49,7 @@ describe('useGridPings', () => {
     expect(result.current.pings).toEqual([]);
 
     emitirPings([
-      {
-        uid: 'u2',
-        x: 40,
-        y: 60,
-        nome: 'Brina',
-        puxar: false,
-        criadoEm: horario(2),
-      },
+      { uid: 'u2', x: 40, y: 60, nome: 'Brina', puxar: false, criadoEm: horario(2) },
     ]);
     expect(result.current.pings).toEqual([
       {
@@ -112,13 +105,7 @@ describe('useGridPings', () => {
       nome: 'Aldric',
     });
     expect(result.current.pings).toEqual([
-      expect.objectContaining({
-        uid: 'u1',
-        x: 10,
-        y: 20,
-        proprio: true,
-        puxar: false,
-      }),
+      expect.objectContaining({ uid: 'u1', x: 10, y: 20, proprio: true, puxar: false }),
     ]);
 
     act(() => {
@@ -145,10 +132,7 @@ describe('useGridPings', () => {
       'm1',
       expect.objectContaining({ puxar: true }),
     );
-    expect(result.current.pings[0]).toMatchObject({
-      proprio: true,
-      puxar: false,
-    });
+    expect(result.current.pings[0]).toMatchObject({ proprio: true, puxar: false });
   });
 
   it('trocar de cena esvazia os sinais e recomeça a carga inicial', () => {
@@ -194,9 +178,7 @@ describe('useGridPings', () => {
     });
     expect(setGridPing).toHaveBeenCalledTimes(2);
     expect(onErro).toHaveBeenCalledTimes(1);
-    expect(onErro).toHaveBeenCalledWith(
-      'Não foi possível mostrar o sinal para a mesa.',
-    );
+    expect(onErro).toHaveBeenCalledWith('Não foi possível mostrar o sinal para a mesa.');
     espiao.mockRestore();
   });
 });

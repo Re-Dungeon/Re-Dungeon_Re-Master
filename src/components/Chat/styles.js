@@ -7,34 +7,43 @@ const MOBILE = '@media (max-width: 599.95px)';
 export const ChatWrapper = styled.div`
   display: flex;
   flex-direction: column;
-  flex: 1;
+  flex: 1 1 auto;
+  width: 100%;
+  height: 100%;
   min-height: 0;
+  overflow: hidden;
   background: var(--bg-card);
   border: 1px solid var(--border-primary);
   border-radius: 12px;
-  overflow: hidden;
   backdrop-filter: blur(12px);
 `;
 
 export const ChatHeader = styled.div`
   display: flex;
-  align-items: center;
+  align-items: stretch;
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 12px;
-  padding: 12px 16px;
+  flex-shrink: 0;
+  padding: ${props => (props.$compact ? '0 14px 12px' : '12px 14px')};
   border-bottom: 1px solid var(--border-primary);
+  background: linear-gradient(180deg, rgba(17, 15, 27, 0.96), rgba(10, 9, 19, 0.92));
+  box-shadow: inset 0 -1px 0 rgba(var(--chat-destaque-rgb, 232, 203, 133), 0.08);
 
   ${MOBILE} {
     gap: 8px;
-    padding: 8px 10px;
+    padding: ${props => (props.$compact ? '0 10px 8px' : '10px 10px 8px')};
   }
 `;
 
 export const ListaMensagens = styled.div`
-  flex: 1;
+  flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior-y: contain;
+  overscroll-behavior-x: none;
+  touch-action: pan-y;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -66,10 +75,10 @@ export const MensagemBalao = styled.div`
   padding: 8px 12px;
   border-radius: 12px;
   border: 1px solid
-    ${props => (props.$mestre ? 'rgba(196, 58, 47, 0.45)' : 'var(--border-primary)')};
+    ${props => (props.$mestre ? 'rgba(var(--chat-destaque-rgb, 232, 203, 133), 0.45)' : 'var(--border-primary)')};
   background: ${props =>
     props.$mestre
-      ? 'rgba(196, 58, 47, 0.08)'
+      ? 'rgba(var(--chat-destaque-rgb, 232, 203, 133), 0.08)'
       : props.$minha
         ? 'rgba(91, 124, 250, 0.14)'
         : 'rgba(255, 255, 255, 0.04)'};
@@ -106,7 +115,7 @@ export const MensagemAutor = styled.span`
 export const MensagemPersona = styled.span`
   padding: 0 6px;
   border-radius: 999px;
-  border: 1px solid rgba(196, 58, 47, 0.45);
+  border: 1px solid rgba(var(--chat-destaque-rgb, 232, 203, 133), 0.45);
   color: var(--color-primary);
   font-size: 0.62rem;
   font-weight: 700;
@@ -169,12 +178,14 @@ export const MensagemAcoes = styled.div`
 export const ComposerWrapper = styled.form`
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 8px 16px 12px;
+  flex-shrink: 0;
+  gap: 6px;
+  padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
   border-top: 1px solid var(--border-primary);
+  background: rgba(10, 9, 19, 0.82);
 
   ${MOBILE} {
-    padding: 6px 8px 8px;
+    padding: 8px 8px calc(12px + env(safe-area-inset-bottom));
   }
 `;
 
@@ -183,12 +194,24 @@ export const ComposerAcoes = styled.div`
   align-items: center;
   gap: 2px;
   margin-left: -6px;
+  flex-wrap: wrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
 `;
 
 export const ComposerEntrada = styled.div`
   display: flex;
   align-items: flex-end;
   gap: 8px;
+  width: 100%;
+
+  ${MOBILE} {
+    gap: 6px;
+  }
 `;
 
 export const PreviewImagem = styled.img`
@@ -371,7 +394,7 @@ export const CombateCartao = styled.div`
   padding: 8px 32px 6px;
   border-radius: 10px;
   border: 1px solid rgba(232, 203, 133, 0.6);
-  background: rgba(196, 58, 47, 0.08);
+  background: rgba(var(--chat-destaque-rgb, 232, 203, 133), 0.08);
   color: var(--text-secondary);
   font-size: 0.88rem;
   text-align: center;

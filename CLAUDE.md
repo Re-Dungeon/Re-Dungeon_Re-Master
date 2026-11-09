@@ -333,6 +333,8 @@ npx prettier --write "src/path/to/modified/file.jsx"
 
 > Evite rodar `npm run prettier` em todo o projeto. Formate apenas os arquivos modificados.
 
+**Cópias compartilhadas com o site dos jogadores** (chat, grid, `common/lua`, `components/ImageLightbox`, utils `chat*`/`grid*` e os hooks do chat/grid — lista completa em `scripts/check-shared.mjs`): depois de mexer em qualquer uma, copie o arquivo para `../Ficha-RPG---Re-Dungeon-` e rode `npm run check:shared` (em qualquer um dos dois repos) — ele formata as duas cópias com as mesmas opções e acusa o que divergiu (`-- --diff` mostra as linhas). O `.prettierrc.json` daqui usa `printWidth: 90` só nesses caminhos, igual ao site dos jogadores, para os arquivos ficarem idênticos byte a byte. Diferença de comportamento entre os apps vira **prop** ou fica no arquivo específico de cada app — nunca uma edição divergente da cópia. Exceções documentadas no script: `AudioDialog.jsx` (biblioteca de músicas do mestre), `ChatSala.audio.test.jsx` e `context/AudioMesaContext.jsx` (cada app liga o áudio do seu jeito; o chat só usa `useAudioDoChat(campanhaId, { podeOuvir, podeControlar })`, de assinatura igual nos dois). O destaque do mestre no chat vem de `--chat-destaque-rgb` (`global.css`; vermelho aqui, dourado lá).
+
 O ESLint (`eslint.config.js`) inclui `eslint-plugin-jsx-a11y` (regras de acessibilidade) e `eslint-config-prettier` (desativa regras de estilo que conflitam com o Prettier). `no-console` e `react-hooks/exhaustive-deps` são erros (não apenas avisos) — corrija antes de commitar em vez de suprimir.
 
 ### Comandos Principais

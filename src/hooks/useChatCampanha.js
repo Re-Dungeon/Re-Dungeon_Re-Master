@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { useAudioDoChat } from 'context/AudioMesaContext';
 import {
   addChatMensagem,
   addChatRolagemSecreta,
@@ -17,18 +18,17 @@ import {
   montarMensagemTexto,
 } from 'common/utils/chat';
 import { rolarEspecificacao } from 'common/utils/dados';
-import { useAudioMesaContext } from 'context/AudioMesaContext';
-import useAudioMesa from 'hooks/useAudioMesa';
 import useMacrosCampanha from 'hooks/useMacrosCampanha';
 import useMembroDoChat from 'hooks/useMembroDoChat';
 
 // Liga um componente ao chat de uma campanha (rmCampanhas/{id}/chatMensagens):
 // registra o ponteiro chatMembros/{uid} do jogador, ouve as mensagens em tempo
 // real (públicas + rolagens secretas visíveis a ele) e expõe
-// enviar/rolar/apagar. Cópia do hook do site dos jogadores
-// (Ficha-RPG---Re-Dungeon-) — aqui usado pela página Chat e pelo painel de
-// chat do Grid, sempre como mestre (sem ponteiro de membro; vê as rolagens
-// secretas de todos os membros). `autor` = campos de montarMensagem* (uid,
+// enviar/rolar/apagar. Cópia compartilhada (site dos jogadores ↔ Re:Master;
+// scripts/check-shared.mjs): no site dos jogadores é usado pela página
+// /campanhas/:id/chat e pelo modal "Chat" da ficha; no Re:Master, pela página
+// Chat e pelo painel de chat do Grid, sempre como mestre (sem ponteiro de
+// membro; vê as rolagens secretas de todos). `autor` = campos de montarMensagem* (uid,
 // personagemId, autorNome, autorAvatar, isMestre); `null` deixa o hook inativo
 // (ex.: enquanto a campanha ainda carrega). `ehMestreDaCampanha`: quem está
 // usando é o mestre (mesmo falando como personagem) — vê/gerencia todas as
@@ -41,11 +41,7 @@ const SEM_MENSAGENS = [];
 // seguidas ainda recomeçam do padrão).
 let proximoIdPergunta = 0;
 
-const useChatCampanha = (
-  campanhaId,
-  autor,
-  { ehMestreDaCampanha = false } = {},
-) => {
+const useChatCampanha = (campanhaId, autor, { ehMestreDaCampanha = false } = {}) => {
   const uid = autor?.uid ?? null;
   const personagemId = autor?.personagemId ?? null;
   const isMestre = Boolean(autor?.isMestre);
@@ -88,12 +84,11 @@ const useChatCampanha = (
     );
   }, [campanhaId, podeOuvir]);
 
-  const audioContext = useAudioMesaContext();
-  const audioFallback = useAudioMesa(campanhaId, {
-    ativo: Boolean(campanhaId) && !audioContext,
+  // Cada app liga a música do seu jeito (context/AudioMesaContext.jsx).
+  const audio = useAudioDoChat(campanhaId, {
+    podeOuvir,
     podeControlar: ehMestreDaCampanha || isMestre,
   });
-  const audio = audioContext ?? audioFallback;
 
   const macrosApi = useMacrosCampanha(campanhaId, {
     ativo: podeOuvir,
@@ -104,8 +99,7 @@ const useChatCampanha = (
   // de todos os membros (chatSecretas/{uid}/rolagens de cada um).
   useEffect(() => {
     if (!podeOuvir) return undefined;
-    const aoMudar = mensagens =>
-      setSecretasRecebidas({ campanhaId, mensagens });
+    const aoMudar = mensagens => setSecretasRecebidas({ campanhaId, mensagens });
     const aoErrar = error => {
       // eslint-disable-next-line no-console
       console.error('Falha ao ouvir rolagens secretas:', error);
@@ -147,10 +141,11 @@ const useChatCampanha = (
       const mensagem = montarMensagemRolagem(
         autor,
         rolagem,
-        especificacao.secreta,
+        Boolean(especificacao?.secreta),
+        especificacao?.rotulo ?? null,
       );
       try {
-        await (especificacao.secreta
+        await (especificacao?.secreta
           ? addChatRolagemSecreta(campanhaId, uid, mensagem)
           : addChatMensagem(campanhaId, mensagem));
       } catch (error) {
@@ -165,7 +160,6 @@ const useChatCampanha = (
 
   const apagar = useCallback(
     async mensagem => {
-      if (!window.confirm('Apagar esta mensagem?')) return;
       try {
         await (mensagem.secreta
           ? removeChatRolagemSecreta(campanhaId, mensagem.donoUid, mensagem.id)

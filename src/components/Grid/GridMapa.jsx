@@ -121,7 +121,7 @@ import {
   TokenWrapper,
 } from './styles';
 
-// Mapa tático da campanha (cópia idêntica no site dos jogadores): imagem de fundo +
+// Mapa tático da campanha (cópia idêntica no Re:Master): imagem de fundo +
 // grade desenhada pelo app + tokens posicionados em células. Zoom (roda do
 // mouse, pinça, botões) e pan (arrastar o fundo) são locais de quem está
 // vendo. Arrastar um token que `podeMover` aceita chama `onMover(token, col,
@@ -214,11 +214,7 @@ const encaixar = (mundo, viewport) => {
 const zoomEmTorno = (vista, fator, px, py) => {
   const zoom = limitarZoom(vista.zoom * fator);
   const proporcao = zoom / vista.zoom;
-  return {
-    zoom,
-    x: px - (px - vista.x) * proporcao,
-    y: py - (py - vista.y) * proporcao,
-  };
+  return { zoom, x: px - (px - vista.x) * proporcao, y: py - (py - vista.y) * proporcao };
 };
 
 const distancia = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
@@ -230,11 +226,7 @@ const SEM_ACOES = {};
 const SEM_MARCADORES = [];
 const SEM_DESENHOS = [];
 const SEM_AREAS = [];
-const OPCOES_PADRAO = {
-  forma: 'pincel',
-  acao: ACOES_CAMADA.ADICIONAR,
-  tamanho: 1,
-};
+const OPCOES_PADRAO = { forma: 'pincel', acao: ACOES_CAMADA.ADICIONAR, tamanho: 1 };
 // Tempo do aviso local de parede e janela em que o click que sobra do toque
 // num pino é ignorado (o toque já foi tratado no pointerup).
 const AVISO_PAREDE_MS = 2500;
@@ -314,8 +306,7 @@ const GridMapa = ({
   // Névoa: quem não é mestre não recebe os tokens alheios cobertos; o resto do
   // mapa (aura, rastro, cartão, referência, faixa) parte desta lista.
   const tokens = useMemo(
-    () =>
-      mestre ? tokensProp : filtrarTokensPelaNevoa(tokensProp, nevoa, ehMeu),
+    () => (mestre ? tokensProp : filtrarTokensPelaNevoa(tokensProp, nevoa, ehMeu)),
     [mestre, tokensProp, nevoa, ehMeu],
   );
   const viewportRef = useRef(null);
@@ -360,8 +351,7 @@ const GridMapa = ({
   const [avisoParede, setAvisoParede] = useState(false);
   const fecharMarcador = useCallback(() => setMarcadorAbertoId(null), []);
   const ultimoToquePino = useRef(0);
-  const modoDesenhoAtivo =
-    Boolean(onDesenhar) && modoDesenho && ferramenta === 'mover';
+  const modoDesenhoAtivo = Boolean(onDesenhar) && modoDesenho && ferramenta === 'mover';
   const modoAreaAtivo =
     Boolean(acoesAreas.criar) && modoArea !== null && ferramenta === 'mover';
   const gesto = useRef(null);
@@ -399,19 +389,13 @@ const GridMapa = ({
   if (celular && !foco) {
     const meuToken = tokens.find(token => ehMeu(token));
     if (meuToken) {
-      setFoco({
-        col: meuToken.col,
-        lin: meuToken.lin,
-        tamanho: meuToken.tamanho ?? 1,
-      });
+      setFoco({ col: meuToken.col, lin: meuToken.lin, tamanho: meuToken.tamanho ?? 1 });
     }
   }
 
   const imagemAtual = imagem.url === config.imagemUrl ? imagem : null;
   const imagemCarregada =
-    imagemAtual && !imagemAtual.falhou && imagemAtual.largura > 0
-      ? imagemAtual
-      : null;
+    imagemAtual && !imagemAtual.falhou && imagemAtual.largura > 0 ? imagemAtual : null;
   const mundo = dimensoesDoMundo(config, imagemCarregada);
   const limites = { colunas: mundo.colunas, linhas: mundo.linhas };
   const camadaDaFerramenta =
@@ -428,8 +412,7 @@ const GridMapa = ({
           zoomMax: ZOOM_MAX,
         })
       : vistaEncaixada;
-  const vista =
-    vistaManual?.chave === config.imagemUrl ? vistaManual : vistaPadrao;
+  const vista = vistaManual?.chave === config.imagemUrl ? vistaManual : vistaPadrao;
   const definirVista = novaVista =>
     setVistaManual({ ...novaVista, chave: config.imagemUrl, suave: false });
 
@@ -445,8 +428,7 @@ const GridMapa = ({
   // (como o foco do celular): cada sinal é aplicado uma vez, e o seguir só
   // recentraliza quando o token sai de onde estava. Mapa sem tamanho (oculto
   // no celular) espera aparecer.
-  const puxada =
-    [...pings].reverse().find(ping => ping.puxar && !ping.proprio) ?? null;
+  const puxada = [...pings].reverse().find(ping => ping.puxar && !ping.proprio) ?? null;
   if (puxada && puxada.chave !== puxadaAplicada && viewport.largura > 0) {
     setPuxadaAplicada(puxada.chave);
     setSeguindo(false);
@@ -475,12 +457,7 @@ const GridMapa = ({
     setVistaManual({
       ...centralizarVista(
         vista,
-        centroDaCelula(
-          config,
-          referencia.col,
-          referencia.lin,
-          referencia.tamanho ?? 1,
-        ),
+        centroDaCelula(config, referencia.col, referencia.lin, referencia.tamanho ?? 1),
         viewport,
       ),
       chave: config.imagemUrl,
@@ -501,6 +478,9 @@ const GridMapa = ({
     const elemento = viewportRef.current;
     if (!elemento) return undefined;
     const aoRolar = event => {
+      if (event.target instanceof Element && event.target.closest('[data-chat-scroll-area]')) {
+        return;
+      }
       event.preventDefault();
       const retangulo = elemento.getBoundingClientRect();
       const fator = event.deltaY < 0 ? ZOOM_PASSO : 1 / ZOOM_PASSO;
@@ -589,8 +569,7 @@ const GridMapa = ({
   }, [cartaoFixo]);
 
   // Esc desarma o modo Área, descarta a prévia e solta a área selecionada.
-  const escutaEscArea =
-    modoArea !== null || previaArea !== null || areaSelId !== null;
+  const escutaEscArea = modoArea !== null || previaArea !== null || areaSelId !== null;
   useEffect(() => {
     if (!escutaEscArea) return undefined;
     const aoTeclar = event => {
@@ -618,10 +597,7 @@ const GridMapa = ({
 
   const pontoNoViewport = event => {
     const retangulo = viewportRef.current.getBoundingClientRect();
-    return {
-      x: event.clientX - retangulo.left,
-      y: event.clientY - retangulo.top,
-    };
+    return { x: event.clientX - retangulo.left, y: event.clientY - retangulo.top };
   };
 
   // Ponto do viewport → célula que o contém (régua).
@@ -636,9 +612,7 @@ const GridMapa = ({
   // Parede: só o mestre atravessa. Quem não é mestre vê o aviso local (some
   // sozinho) e o token volta à origem.
   const movimentoPermitido = (token, caminho) =>
-    mestre ||
-    !bloqueadas ||
-    !caminhoBloqueado(caminho, token.tamanho ?? 1, bloqueadas);
+    mestre || !bloqueadas || !caminhoBloqueado(caminho, token.tamanho ?? 1, bloqueadas);
 
   const mostrarAvisoParede = () => {
     clearTimeout(temporizadores.current.parede);
@@ -685,12 +659,7 @@ const GridMapa = ({
     temporizadores.current.pressao = setTimeout(() => {
       temporizadores.current.pressao = null;
       const atual = gesto.current;
-      if (
-        !atual ||
-        atual.moveu ||
-        atual.tipo === 'pinca' ||
-        atual.tipo === 'ping'
-      )
+      if (!atual || atual.moveu || atual.tipo === 'pinca' || atual.tipo === 'ping')
         return;
       gesto.current = { tipo: 'ping' };
       setArraste(null);
@@ -715,9 +684,7 @@ const GridMapa = ({
     clearTimeout(temporizadores.current.toque);
     setToqueId(tokenId);
     temporizadores.current.toque =
-      tokenId && !fixo
-        ? setTimeout(() => setToqueId(null), TOQUE_DETALHE_MS)
-        : null;
+      tokenId && !fixo ? setTimeout(() => setToqueId(null), TOQUE_DETALHE_MS) : null;
   };
 
   // Mouse: o cartão editável precisa sobreviver ao trajeto token → cartão.
@@ -735,10 +702,7 @@ const GridMapa = ({
     if (forma === AREA_FORMAS.RAIO) return null;
     if (ate.col !== origem.col || ate.lin !== origem.lin) return ate;
     return {
-      col:
-        origem.col + 1 < mundo.colunas
-          ? origem.col + 1
-          : Math.max(origem.col - 1, 0),
+      col: origem.col + 1 < mundo.colunas ? origem.col + 1 : Math.max(origem.col - 1, 0),
       lin: origem.lin,
     };
   };
@@ -766,8 +730,7 @@ const GridMapa = ({
   const handlePointerDown = event => {
     // Botão do meio do mouse arrasta o mapa em qualquer modo.
     const botaoDoMeio = event.pointerType === 'mouse' && event.button === 1;
-    if (event.pointerType === 'mouse' && event.button !== 0 && !botaoDoMeio)
-      return;
+    if (event.pointerType === 'mouse' && event.button !== 0 && !botaoDoMeio) return;
     ultimoToquePino.current = 0;
     const ponto = pontoNoViewport(event);
     ponteiros.current.set(event.pointerId, ponto);
@@ -815,13 +778,7 @@ const GridMapa = ({
     if (modoAreaAtivo) {
       // Posicionar a área: sem pressão longa; o arraste define o alvo.
       const origem = celulaNoViewport(ponto);
-      gesto.current = {
-        tipo: 'area',
-        config: modoArea,
-        origem,
-        ate: origem,
-        ponto,
-      };
+      gesto.current = { tipo: 'area', config: modoArea, origem, ate: origem, ponto };
       setPreviaArea({
         ...modoArea,
         origem,
@@ -849,9 +806,7 @@ const GridMapa = ({
       const { forma, acao, tamanho } = opcoesFerramenta;
       const inicio = celulaNoViewport(ponto);
       const celulasIniciais =
-        forma === 'retangulo'
-          ? [inicio]
-          : celulasDoPincel(inicio, tamanho, limites);
+        forma === 'retangulo' ? [inicio] : celulasDoPincel(inicio, tamanho, limites);
       gesto.current = {
         tipo: 'pincel',
         camada: camadaDaFerramenta,
@@ -861,9 +816,7 @@ const GridMapa = ({
         inicio,
         ate: inicio,
         ultima: inicio,
-        celulas: new Map(
-          celulasIniciais.map(c => [chaveDaCelula(c.col, c.lin), c]),
-        ),
+        celulas: new Map(celulasIniciais.map(c => [chaveDaCelula(c.col, c.lin), c])),
         ponto,
         moveu: false,
       };
@@ -876,8 +829,7 @@ const GridMapa = ({
     }
     const tokenId = event.target.closest?.('[data-token-id]')?.dataset.tokenId;
     const token = tokenId ? (tokens.find(t => t.id === tokenId) ?? null) : null;
-    const marcadorId =
-      event.target.closest?.('[data-marcador-id]')?.dataset.marcadorId;
+    const marcadorId = event.target.closest?.('[data-marcador-id]')?.dataset.marcadorId;
     if (token && ferramenta === 'mover' && podeMover(token)) {
       gesto.current = {
         tipo: 'token',
@@ -889,14 +841,7 @@ const GridMapa = ({
       };
     } else if (modoRegua || event.shiftKey) {
       const de = celulaNoViewport(ponto);
-      gesto.current = {
-        tipo: 'regua',
-        token,
-        ponto,
-        de,
-        ate: de,
-        moveu: false,
-      };
+      gesto.current = { tipo: 'regua', token, ponto, de, ate: de, moveu: false };
     } else {
       gesto.current = {
         tipo: 'pan',
@@ -1032,29 +977,19 @@ const GridMapa = ({
         atual.token.tamanho ?? 1,
       );
       atual.caminho = avancarCaminho(atual.caminho, celulaAtual);
-      setArraste({
-        tokenId: atual.token.id,
-        ...posicao,
-        caminho: atual.caminho,
-      });
+      setArraste({ tokenId: atual.token.id, ...posicao, caminho: atual.caminho });
     } else if (atual.tipo === 'regua') {
       const ate = celulaNoViewport(ponto);
       atual.ate = ate;
       setMedicao(anterior =>
-        anterior &&
-        mesmaCelula(anterior.de, atual.de) &&
-        mesmaCelula(anterior.ate, ate)
+        anterior && mesmaCelula(anterior.de, atual.de) && mesmaCelula(anterior.ate, ate)
           ? anterior
           : { de: atual.de, ate },
       );
     } else {
       // Arrastar o mapa desliga o "Seguir token" (pinça e roda não).
       setSeguindo(false);
-      definirVista({
-        ...atual.vista,
-        x: atual.vista.x + dx,
-        y: atual.vista.y + dy,
-      });
+      definirVista({ ...atual.vista, x: atual.vista.x + dx, y: atual.vista.y + dy });
     }
   };
 
@@ -1067,22 +1002,15 @@ const GridMapa = ({
     if (!atual || atual.tipo === 'pinca' || atual.tipo === 'ping') return;
 
     if (atual.tipo === 'desenho') {
-      const pontos = cancelado
-        ? []
-        : ajustarTraco(atual.pontos, { zoom: vista.zoom });
+      const pontos = cancelado ? [] : ajustarTraco(atual.pontos, { zoom: vista.zoom });
       if (pontos.length === 0) {
         setTracoAtual(null);
         return;
       }
       // Uma escrita por traço; o traço fica na tela até a gravação terminar.
       const limpar = () =>
-        setTracoAtual(anterior =>
-          anterior?.id === atual.id ? null : anterior,
-        );
-      Promise.resolve(onDesenhar({ cor: atual.cor, pontos })).then(
-        limpar,
-        limpar,
-      );
+        setTracoAtual(anterior => (anterior?.id === atual.id ? null : anterior));
+      Promise.resolve(onDesenhar({ cor: atual.cor, pontos })).then(limpar, limpar);
       return;
     }
     if (atual.tipo === 'area') {
@@ -1112,9 +1040,7 @@ const GridMapa = ({
       }
       const { origem, alvo } = atual.edicao;
       const limpar = () =>
-        setEdicaoArea(anterior =>
-          anterior?.id === atual.id ? null : anterior,
-        );
+        setEdicaoArea(anterior => (anterior?.id === atual.id ? null : anterior));
       Promise.resolve(
         acoesAreas.atualizar(
           atual.id,
@@ -1137,8 +1063,7 @@ const GridMapa = ({
         celulas: new Set(celulas.map(c => chaveDaCelula(c.col, c.lin))),
       };
       setPrevia(final);
-      const limpar = () =>
-        setPrevia(anterior => (anterior === final ? null : anterior));
+      const limpar = () => setPrevia(anterior => (anterior === final ? null : anterior));
       Promise.resolve(
         onEditarCamada({ camada: atual.camada, acao: atual.acao, celulas }),
       ).then(limpar, limpar);
@@ -1208,16 +1133,12 @@ const GridMapa = ({
     }
     // Sem seleção própria (jogador): tocar num token rolável mostra "Rolar…".
     if (!onSelecionar && onRolarToken) {
-      setAcaoId(
-        atual.token && podeRolarToken?.(atual.token) ? atual.token.id : null,
-      );
+      setAcaoId(atual.token && podeRolarToken?.(atual.token) ? atual.token.id : null);
     }
     if (atual.token && ehMeu(atual.token)) setReferenciaId(atual.token.id);
     // Em combate: tocar o próprio token mostra o alcance; o mapa vazio esconde.
     if (combate && !onSelecionar) {
-      setAlcanceId(
-        atual.token && podeMover(atual.token) ? atual.token.id : null,
-      );
+      setAlcanceId(atual.token && podeMover(atual.token) ? atual.token.id : null);
     }
     // Celular: tocar mostra o cartão do token (tocar fora fecha).
     if (event.pointerType !== 'mouse') {
@@ -1243,8 +1164,7 @@ const GridMapa = ({
         { col: token.col, lin: token.lin },
         { col: destino.col, lin: destino.lin },
       ];
-      const mudouDeCelula =
-        destino.col !== token.col || destino.lin !== token.lin;
+      const mudouDeCelula = destino.col !== token.col || destino.lin !== token.lin;
       if (mudouDeCelula && !movimentoPermitido(token, caminho)) {
         mostrarAvisoParede();
         return;
@@ -1274,9 +1194,7 @@ const GridMapa = ({
   };
 
   const zoomPeloBotao = fator =>
-    definirVista(
-      zoomEmTorno(vista, fator, viewport.largura / 2, viewport.altura / 2),
-    );
+    definirVista(zoomEmTorno(vista, fator, viewport.largura / 2, viewport.altura / 2));
 
   const { celula, deslocamentoX, deslocamentoY, metrosPorQuadrado } = config;
   const avisoImagem =
@@ -1289,37 +1207,27 @@ const GridMapa = ({
     .map(rastro => ({ rastro, token: tokensPorId.get(rastro.tokenId) }))
     .filter(({ rastro, token }) => token && rastro.pontos?.length >= 2);
   const tokenArrastado =
-    arraste && !arraste.soltando
-      ? (tokensPorId.get(arraste.tokenId) ?? null)
-      : null;
+    arraste && !arraste.soltando ? (tokensPorId.get(arraste.tokenId) ?? null) : null;
   const caminhoArraste = tokenArrastado ? (arraste.caminho ?? null) : null;
   // Distância do arraste = total encadeado ao rastro ainda visível do token
   // (o mesmo que todos verão depois de soltar).
   const quadradosArraste = caminhoArraste
     ? distanciaDoRastro(
         montarRastro(
-          rastros.find(rastro => rastro.tokenId === tokenArrastado.id)
-            ?.pontos ?? null,
+          rastros.find(rastro => rastro.tokenId === tokenArrastado.id)?.pontos ?? null,
           caminhoArraste,
         ),
       )
     : 0;
 
   // ── Combate: faixa, alcance de movimento e rótulo do arraste ──
-  const faixa = combate
-    ? faixaDoCombate(combate, tokens, { veTudo: mestre })
-    : null;
+  const faixa = combate ? faixaDoCombate(combate, tokens, { veTudo: mestre }) : null;
   const idDoAlcance = onSelecionar ? selecionadoId : alcanceId;
   const tokenDoAlcance =
-    tokenArrastado ??
-    (idDoAlcance ? (tokensPorId.get(idDoAlcance) ?? null) : null);
+    tokenArrastado ?? (idDoAlcance ? (tokensPorId.get(idDoAlcance) ?? null) : null);
   const alvoAlcance =
-    combate && tokenDoAlcance && podeMover(tokenDoAlcance)
-      ? tokenDoAlcance
-      : null;
-  const origemAlcance = alvoAlcance
-    ? origemDoAlcance(alvoAlcance, combate)
-    : null;
+    combate && tokenDoAlcance && podeMover(tokenDoAlcance) ? tokenDoAlcance : null;
+  const origemAlcance = alvoAlcance ? origemDoAlcance(alvoAlcance, combate) : null;
   const quadradosAlcance = alvoAlcance
     ? quadradosDeMovimento(
         deslocamentoDoToken(alvoAlcance),
@@ -1400,31 +1308,28 @@ const GridMapa = ({
   const colunasMundo = mundo.colunas;
   const linhasMundo = mundo.linhas;
   const areasCalculadas = areas.map(area => {
-    const editada =
-      edicaoArea?.id === area.id ? { ...area, ...edicaoArea } : area;
-    const celulasDaEditada = celulasDaArea(editada, metrosPorQuadrado, {
-      colunas: colunasMundo,
-      linhas: linhasMundo,
-    });
-    const { origem } = editada;
-    return {
-      ...editada,
-      celulas: celulasDaEditada,
-      atingidos: descreverAtingidos(tokensAtingidos(celulasDaEditada, tokens), {
-        veTudo: mestre,
-      }),
-      alvoEfetivo:
-        editada.forma === AREA_FORMAS.RAIO
-          ? null
-          : (editada.alvo ?? {
-              col:
-                origem.col + 1 < colunasMundo
-                  ? origem.col + 1
-                  : Math.max(origem.col - 1, 0),
-              lin: origem.lin,
-            }),
-    };
-  });
+        const editada = edicaoArea?.id === area.id ? { ...area, ...edicaoArea } : area;
+        const celulasDaEditada = celulasDaArea(editada, metrosPorQuadrado, {
+          colunas: colunasMundo,
+          linhas: linhasMundo,
+        });
+        const { origem } = editada;
+        return {
+          ...editada,
+          celulas: celulasDaEditada,
+          atingidos: descreverAtingidos(tokensAtingidos(celulasDaEditada, tokens), {
+            veTudo: mestre,
+          }),
+          alvoEfetivo:
+            editada.forma === AREA_FORMAS.RAIO
+              ? null
+              : (editada.alvo ?? {
+                  col:
+                    origem.col + 1 < colunasMundo ? origem.col + 1 : Math.max(origem.col - 1, 0),
+                  lin: origem.lin,
+                }),
+        };
+      });
   const areaPrevia = previaArea
     ? {
         ...previaArea,
@@ -1437,10 +1342,7 @@ const GridMapa = ({
     : null;
   const celulaNoViewportPx = alvoCelula => {
     const centro = centroDaCelula(config, alvoCelula.col, alvoCelula.lin);
-    return {
-      left: vista.x + centro.x * vista.zoom,
-      top: vista.y + centro.y * vista.zoom,
-    };
+    return { left: vista.x + centro.x * vista.zoom, top: vista.y + centro.y * vista.zoom };
   };
   const rotulosDasAreas = areasCalculadas.map(area => ({
     ...area,
@@ -1484,12 +1386,7 @@ const GridMapa = ({
       .join(' ');
   const linhaTracejada = (pontos, tamanho, cor) => {
     const pontosDaLinha = pontosSvg(pontos, tamanho);
-    const inicio = centroDaCelula(
-      config,
-      pontos[0].col,
-      pontos[0].lin,
-      tamanho,
-    );
+    const inicio = centroDaCelula(config, pontos[0].col, pontos[0].lin, tamanho);
     return (
       <>
         <polyline
@@ -1519,10 +1416,8 @@ const GridMapa = ({
     left: vista.x + (x + (tamanho * celula) / 2) * vista.zoom,
     top: vista.y + y * vista.zoom - FOLGA_ROTULO,
   });
-  const medicaoDe =
-    medicao && centroDaCelula(config, medicao.de.col, medicao.de.lin);
-  const medicaoAte =
-    medicao && centroDaCelula(config, medicao.ate.col, medicao.ate.lin);
+  const medicaoDe = medicao && centroDaCelula(config, medicao.de.col, medicao.de.lin);
+  const medicaoAte = medicao && centroDaCelula(config, medicao.ate.col, medicao.ate.lin);
 
   // ── Auras e cartão do token ──
   const auras = tokens
@@ -1557,8 +1452,7 @@ const GridMapa = ({
           limite > meiaLargura
             ? Math.min(Math.max(centro, meiaLargura), limite)
             : centro,
-        top:
-          vista.y + (canto.y + lado + alturaNome) * vista.zoom + FOLGA_DETALHE,
+        top: vista.y + (canto.y + lado + alturaNome) * vista.zoom + FOLGA_DETALHE,
       },
     };
   }
@@ -1571,16 +1465,12 @@ const GridMapa = ({
   if (marcadorAberto) {
     const canto = posicaoEmPx(config, marcadorAberto.col, marcadorAberto.lin);
     const centro =
-      vista.x +
-      (canto.x + (celula * (marcadorAberto.tamanho ?? 1)) / 2) * vista.zoom;
+      vista.x + (canto.x + (celula * (marcadorAberto.tamanho ?? 1)) / 2) * vista.zoom;
     const limiteDireito = viewport.largura - MEIA_LARGURA_CARTAO_MARCADOR;
     posicaoCartaoMarcador = {
       left:
         limiteDireito > MEIA_LARGURA_CARTAO_MARCADOR
-          ? Math.min(
-              Math.max(centro, MEIA_LARGURA_CARTAO_MARCADOR),
-              limiteDireito,
-            )
+          ? Math.min(Math.max(centro, MEIA_LARGURA_CARTAO_MARCADOR), limiteDireito)
           : centro,
       top: vista.y + (canto.y + celula * 0.2) * vista.zoom - FOLGA_DETALHE,
     };
@@ -1624,12 +1514,7 @@ const GridMapa = ({
               onImagemCarregada?.(carregada);
             }}
             onError={() =>
-              setImagem({
-                url: config.imagemUrl,
-                largura: 0,
-                altura: 0,
-                falhou: true,
-              })
+              setImagem({ url: config.imagemUrl, largura: 0, altura: 0, falhou: true })
             }
             style={
               imagemCarregada
@@ -1640,11 +1525,7 @@ const GridMapa = ({
         )}
 
         {config.mostrarGrade && (
-          <GridGrade
-            width={mundo.largura}
-            height={mundo.altura}
-            aria-hidden="true"
-          >
+          <GridGrade width={mundo.largura} height={mundo.altura} aria-hidden="true">
             <defs>
               <pattern
                 id={idPadrao}
@@ -1678,11 +1559,7 @@ const GridMapa = ({
         )}
 
         {bloqueadas && (
-          <ParedesCamada
-            config={config}
-            bloqueadas={bloqueadas}
-            limites={limites}
-          />
+          <ParedesCamada config={config} bloqueadas={bloqueadas} limites={limites} />
         )}
 
         {auras.map(({ token, aura }) => {
@@ -1713,11 +1590,7 @@ const GridMapa = ({
         )}
 
         {rastrosVisiveis.length > 0 && (
-          <GridRastros
-            width={mundo.largura}
-            height={mundo.altura}
-            aria-hidden="true"
-          >
+          <GridRastros width={mundo.largura} height={mundo.altura} aria-hidden="true">
             {rastrosVisiveis.map(({ rastro, token }) => (
               <g
                 key={rastro.chave}
@@ -1727,11 +1600,7 @@ const GridMapa = ({
                   transition: `opacity ${RASTRO_FADE_MS}ms linear`,
                 }}
               >
-                {linhaTracejada(
-                  rastro.pontos,
-                  token.tamanho ?? 1,
-                  corDoToken(token),
-                )}
+                {linhaTracejada(rastro.pontos, token.tamanho ?? 1, corDoToken(token))}
               </g>
             ))}
           </GridRastros>
@@ -1830,10 +1699,8 @@ const GridMapa = ({
             aria-hidden="true"
             data-fantasma=""
             style={{
-              left: posicaoEmPx(config, tokenArrastado.col, tokenArrastado.lin)
-                .x,
-              top: posicaoEmPx(config, tokenArrastado.col, tokenArrastado.lin)
-                .y,
+              left: posicaoEmPx(config, tokenArrastado.col, tokenArrastado.lin).x,
+              top: posicaoEmPx(config, tokenArrastado.col, tokenArrastado.lin).y,
               width: (tokenArrastado.tamanho ?? 1) * celula,
               height: (tokenArrastado.tamanho ?? 1) * celula,
               padding: (tokenArrastado.tamanho ?? 1) * celula * 0.05,
@@ -1842,9 +1709,7 @@ const GridMapa = ({
             <TokenCirculo
               $tipo={tokenArrastado.tipo}
               $oculto={Boolean(tokenArrastado.oculto)}
-              style={{
-                fontSize: (tokenArrastado.tamanho ?? 1) * celula * 0.38,
-              }}
+              style={{ fontSize: (tokenArrastado.tamanho ?? 1) * celula * 0.38 }}
             >
               {conteudoDoToken(tokenArrastado)}
             </TokenCirculo>
@@ -1855,14 +1720,8 @@ const GridMapa = ({
           const tamanho = token.tamanho ?? 1;
           const emArraste =
             arraste?.tokenId === token.id &&
-            !(
-              arraste.soltando &&
-              token.col === arraste.col &&
-              token.lin === arraste.lin
-            );
-          const posicao = emArraste
-            ? arraste
-            : posicaoEmPx(config, token.col, token.lin);
+            !(arraste.soltando && token.col === arraste.col && token.lin === arraste.lin);
+          const posicao = emArraste ? arraste : posicaoEmPx(config, token.col, token.lin);
           const selecionado = token.id === selecionadoId;
           const daVez = Boolean(combate) && combate.tokenDaVezId === token.id;
           const lado = tamanho * celula;
@@ -1918,9 +1777,7 @@ const GridMapa = ({
               </TokenNome>
               {token.oculto && (
                 <TokenOcultoIcone>
-                  <VisibilityOffIcon
-                    sx={{ fontSize: Math.max(10, celula * 0.22) }}
-                  />
+                  <VisibilityOffIcon sx={{ fontSize: Math.max(10, celula * 0.22) }} />
                 </TokenOcultoIcone>
               )}
             </TokenWrapper>
@@ -1950,22 +1807,14 @@ const GridMapa = ({
         <RotuloDistancia
           $cor={rotuloArraste.cor}
           data-faixa={rotuloArraste.faixa ?? undefined}
-          style={posicaoDoRotulo(
-            arraste.x,
-            arraste.y,
-            tokenArrastado.tamanho ?? 1,
-          )}
+          style={posicaoDoRotulo(arraste.x, arraste.y, tokenArrastado.tamanho ?? 1)}
         >
           {rotuloArraste.texto}
         </RotuloDistancia>
       )}
       {medicao && (
         <RotuloDistancia
-          style={posicaoDoRotulo(
-            medicaoAte.x - celula / 2,
-            medicaoAte.y - celula / 2,
-            1,
-          )}
+          style={posicaoDoRotulo(medicaoAte.x - celula / 2, medicaoAte.y - celula / 2, 1)}
         >
           {formatarDistancia(
             distanciaChebyshev(medicao.de, medicao.ate),
@@ -2009,8 +1858,8 @@ const GridMapa = ({
       {modoAreaAtivo && (
         <ChipModoArea role="status" style={{ top: faixa ? 56 : 10 }}>
           <span>
-            {modoArea.forma === AREA_FORMAS.RAIO ? 'Toque' : 'Arraste'} no mapa
-            para posicionar o {ROTULOS_AREA[modoArea.forma]} · Esc ou ✕ cancela
+            {modoArea.forma === AREA_FORMAS.RAIO ? 'Toque' : 'Arraste'} no mapa para
+            posicionar o {ROTULOS_AREA[modoArea.forma]} · Esc ou ✕ cancela
           </span>
           <IconButton
             size="small"
@@ -2036,8 +1885,7 @@ const GridMapa = ({
           style={cartao.style}
           onAlterarRecurso={
             recursosEditaveis(cartao.token)
-              ? (recurso, valor) =>
-                  onAlterarRecurso(cartao.token, recurso, valor)
+              ? (recurso, valor) => onAlterarRecurso(cartao.token, recurso, valor)
               : undefined
           }
           onPointerEnter={event => {
@@ -2078,9 +1926,7 @@ const GridMapa = ({
           onCor={setCorDesenho}
           onApagarMeus={() => acoesDesenho.apagarMeus?.()}
           onApagarTodos={
-            acoesDesenho.apagarTodos
-              ? () => acoesDesenho.apagarTodos()
-              : undefined
+            acoesDesenho.apagarTodos ? () => acoesDesenho.apagarTodos() : undefined
           }
         />
       )}
@@ -2164,9 +2010,7 @@ const GridMapa = ({
                   setModoArea(null);
                   setPreviaArea(null);
                 }}
-                sx={{
-                  color: modoDesenhoAtivo ? 'var(--color-primary)' : undefined,
-                }}
+                sx={{ color: modoDesenhoAtivo ? 'var(--color-primary)' : undefined }}
               >
                 <DrawIcon fontSize="small" />
               </IconButton>
@@ -2198,9 +2042,7 @@ const GridMapa = ({
                     setPopoverAreaEl(event.currentTarget);
                   }
                 }}
-                sx={{
-                  color: modoAreaAtivo ? 'var(--color-primary)' : undefined,
-                }}
+                sx={{ color: modoAreaAtivo ? 'var(--color-primary)' : undefined }}
               >
                 <ChangeHistoryIcon fontSize="small" />
               </IconButton>
@@ -2257,9 +2099,7 @@ const GridMapa = ({
             metrosPorQuadrado={metrosPorQuadrado}
             corPadrao={corAreaPadrao}
             onRemoverTodas={
-              mestre && acoesAreas.removerTodas
-                ? () => acoesAreas.removerTodas()
-                : undefined
+              mestre && acoesAreas.removerTodas ? () => acoesAreas.removerTodas() : undefined
             }
           />
         )}
@@ -2268,10 +2108,7 @@ const GridMapa = ({
   );
 };
 
-const recursoShape = PropTypes.shape({
-  atual: PropTypes.number,
-  max: PropTypes.number,
-});
+const recursoShape = PropTypes.shape({ atual: PropTypes.number, max: PropTypes.number });
 
 GridMapa.propTypes = {
   config: PropTypes.shape({
@@ -2362,10 +2199,7 @@ GridMapa.propTypes = {
     ).isRequired,
     indice: PropTypes.number.isRequired,
     rodada: PropTypes.number.isRequired,
-    inicioTurno: PropTypes.shape({
-      col: PropTypes.number,
-      lin: PropTypes.number,
-    }),
+    inicioTurno: PropTypes.shape({ col: PropTypes.number, lin: PropTypes.number }),
     chaveTurno: PropTypes.string,
     tokenDaVezId: PropTypes.string,
   }),

@@ -43,8 +43,7 @@ const useGridCamadas = (
   cenaId,
   { ativo = true, veTudo = false, onErro } = {},
 ) => {
-  const chave =
-    ativo && campanhaId && cenaId ? `${campanhaId}/${cenaId}` : null;
+  const chave = ativo && campanhaId && cenaId ? `${campanhaId}/${cenaId}` : null;
   const [recebido, setRecebido] = useState(RECEBIDO_VAZIO);
   // Último estado conhecido da cena `chave` (snapshot ou escrita minha).
   const ultimoRef = useRef({ paredes: PAREDES_VAZIAS, nevoa: NEVOA_VAZIA });
@@ -75,8 +74,7 @@ const useGridCamadas = (
     );
   }, [campanhaId, cenaId, chave, veTudo, onErro]);
 
-  const docParedes =
-    chave && recebido.chave === chave ? recebido.paredes : null;
+  const docParedes = chave && recebido.chave === chave ? recebido.paredes : null;
   const docNevoa = chave && recebido.chave === chave ? recebido.nevoa : null;
   const bloqueadas = useMemo(
     () => (docParedes ? normalizarParedes(docParedes) : PAREDES_VAZIAS),
@@ -121,8 +119,7 @@ const useGridCamadas = (
   // Adiciona/remove células de uma camada. Na névoa, adicionar = revelar.
   const editarCamada = useCallback(
     (camada, acao, celulas, limites = null) => {
-      if (!chave || !veTudo || !camadaValida(camada))
-        return Promise.resolve(false);
+      if (!chave || !veTudo || !camadaValida(camada)) return Promise.resolve(false);
       const dentro = celulas.filter(celula => !foraDoMundo(limites, celula));
       const atual = ultimoRef.current;
       if (camada === CAMADAS.NEVOA) {
@@ -149,30 +146,18 @@ const useGridCamadas = (
   // mundo (`limites`), remover esvazia.
   const preencherCamada = useCallback(
     (camada, acao, limites) => {
-      if (!chave || !veTudo || !camadaValida(camada))
-        return Promise.resolve(false);
+      if (!chave || !veTudo || !camadaValida(camada)) return Promise.resolve(false);
       const novas =
-        acao === ACOES_CAMADA.ADICIONAR && limites
-          ? todasAsCelulas(limites)
-          : new Set();
+        acao === ACOES_CAMADA.ADICIONAR && limites ? todasAsCelulas(limites) : new Set();
       if (camada === CAMADAS.NEVOA) {
-        return gravar(camada, {
-          ativa: ultimoRef.current.nevoa.ativa,
-          reveladas: novas,
-        });
+        return gravar(camada, { ativa: ultimoRef.current.nevoa.ativa, reveladas: novas });
       }
       return gravar(camada, novas);
     },
     [chave, gravar, veTudo],
   );
 
-  return {
-    bloqueadas,
-    nevoa,
-    editarCamada,
-    definirNevoaAtiva,
-    preencherCamada,
-  };
+  return { bloqueadas, nevoa, editarCamada, definirNevoaAtiva, preencherCamada };
 };
 
 export default useGridCamadas;

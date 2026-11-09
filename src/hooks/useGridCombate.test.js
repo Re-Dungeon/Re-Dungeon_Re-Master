@@ -19,22 +19,9 @@ const TOKENS = [
     donos: ['u1'],
     oculto: false,
   },
-  {
-    id: 't2',
-    nome: 'Ogro',
-    tipo: 'criatura',
-    col: 4,
-    lin: 1,
-    donos: [],
-    oculto: false,
-  },
+  { id: 't2', nome: 'Ogro', tipo: 'criatura', col: 4, lin: 1, donos: [], oculto: false },
 ];
-const AUTOR = {
-  uid: 'u1',
-  personagemId: 'p1',
-  autorNome: 'Aldric',
-  isMestre: false,
-};
+const AUTOR = { uid: 'u1', personagemId: 'p1', autorNome: 'Aldric', isMestre: false };
 
 const DOC = {
   ordem: [
@@ -184,9 +171,7 @@ describe('useGridCombate', () => {
     });
     expect(onErro).toHaveBeenCalledWith('Não foi possível passar o turno.');
 
-    act(() =>
-      falhar(Object.assign(new Error('negado'), { code: 'permission-denied' })),
-    );
+    act(() => falhar(Object.assign(new Error('negado'), { code: 'permission-denied' })));
     expect(onErro).toHaveBeenCalledTimes(1);
     expect(result.current.combate).toBeNull();
     act(() => falhar(new Error('outro')));

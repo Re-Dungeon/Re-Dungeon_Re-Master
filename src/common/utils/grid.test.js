@@ -117,30 +117,23 @@ describe('normalizarConfigGrid / validarConfigGrid', () => {
       metrosPorQuadrado: 1.5,
       multiplicadorCorrida: 2,
     });
-    expect(
-      normalizarConfigGrid({ ...valores, imagemUrl: '   ' }).imagemUrl,
-    ).toBeNull();
+    expect(normalizarConfigGrid({ ...valores, imagemUrl: '   ' }).imagemUrl).toBeNull();
   });
 
   it('metros por quadrado: padrão 1,5, aceita vírgula e valida a faixa', () => {
     expect(GRID_CONFIG_PADRAO.metrosPorQuadrado).toBe(1.5);
     expect(configDoGrid({ celula: 50 }).metrosPorQuadrado).toBe(1.5);
     const metros = valor =>
-      normalizarConfigGrid({ ...valores, metrosPorQuadrado: valor })
-        .metrosPorQuadrado;
+      normalizarConfigGrid({ ...valores, metrosPorQuadrado: valor }).metrosPorQuadrado;
     expect(metros('2,5')).toBe(2.5);
     expect(metros(3)).toBe(3);
     expect(metros(null)).toBe(1.5);
     const base = normalizarConfigGrid(valores);
-    expect(
-      validarConfigGrid({ ...base, metrosPorQuadrado: metros('') }),
-    ).toMatch(/Metros/);
-    expect(validarConfigGrid({ ...base, metrosPorQuadrado: 0.05 })).toMatch(
+    expect(validarConfigGrid({ ...base, metrosPorQuadrado: metros('') })).toMatch(
       /Metros/,
     );
-    expect(validarConfigGrid({ ...base, metrosPorQuadrado: 101 })).toMatch(
-      /Metros/,
-    );
+    expect(validarConfigGrid({ ...base, metrosPorQuadrado: 0.05 })).toMatch(/Metros/);
+    expect(validarConfigGrid({ ...base, metrosPorQuadrado: 101 })).toMatch(/Metros/);
     expect(validarConfigGrid({ ...base, metrosPorQuadrado: 0.1 })).toBeNull();
     expect(validarConfigGrid({ ...base, metrosPorQuadrado: 100 })).toBeNull();
     // Cena antiga, sem o campo: vale o padrão.
@@ -156,18 +149,14 @@ describe('normalizarConfigGrid / validarConfigGrid', () => {
 
   it('recusa link não-https, célula fora da faixa, cor e opacidade inválidas', () => {
     const base = normalizarConfigGrid(valores);
-    expect(
-      validarConfigGrid({ ...base, imagemUrl: 'http://x.com/a.png' }),
-    ).toMatch(/https/);
+    expect(validarConfigGrid({ ...base, imagemUrl: 'http://x.com/a.png' })).toMatch(
+      /https/,
+    );
     expect(validarConfigGrid({ ...base, celula: 5 })).toMatch(/célula/);
     expect(validarConfigGrid({ ...base, celula: 401 })).toMatch(/célula/);
-    expect(validarConfigGrid({ ...base, deslocamentoX: -1 })).toMatch(
-      /deslocamento/,
-    );
+    expect(validarConfigGrid({ ...base, deslocamentoX: -1 })).toMatch(/deslocamento/);
     expect(validarConfigGrid({ ...base, corGrade: 'red' })).toMatch(/Cor/);
-    expect(validarConfigGrid({ ...base, opacidadeGrade: 2 })).toMatch(
-      /Opacidade/,
-    );
+    expect(validarConfigGrid({ ...base, opacidadeGrade: 2 })).toMatch(/Opacidade/);
   });
 });
 
@@ -190,15 +179,9 @@ describe('dimensoesDoMundo / posições', () => {
   it('converte célula ↔ px', () => {
     expect(posicaoEmPx(config, 2, 3)).toEqual({ x: 110, y: 170 });
     const limites = { colunas: 20, linhas: 10 };
-    expect(celulaMaisProxima(config, 110, 170, limites)).toEqual({
-      col: 2,
-      lin: 3,
-    });
+    expect(celulaMaisProxima(config, 110, 170, limites)).toEqual({ col: 2, lin: 3 });
     // Solto um pouco além da metade da célula → arredonda para a próxima.
-    expect(celulaMaisProxima(config, 140, 170, limites)).toEqual({
-      col: 3,
-      lin: 3,
-    });
+    expect(celulaMaisProxima(config, 140, 170, limites)).toEqual({ col: 3, lin: 3 });
   });
 
   it('foca no token com célula de pelo menos 44px de tela, centrado no viewport', () => {
@@ -220,11 +203,7 @@ describe('dimensoesDoMundo / posições', () => {
     const viewport = { largura: 400, altura: 400 };
     const base = { config, viewport, zoomMax: 4 };
     expect(
-      vistaFocadaNoToken({
-        ...base,
-        token: { col: 0, lin: 0 },
-        zoomEncaixe: 1.5,
-      }).zoom,
+      vistaFocadaNoToken({ ...base, token: { col: 0, lin: 0 }, zoomEncaixe: 1.5 }).zoom,
     ).toBe(1.5);
     expect(
       vistaFocadaNoToken({
@@ -290,9 +269,7 @@ describe('primeiraCelulaLivre', () => {
   });
 
   it('grid lotado → canto', () => {
-    expect(
-      primeiraCelulaLivre([{ col: 0, lin: 0, tamanho: 4 }], 1, limites),
-    ).toEqual({
+    expect(primeiraCelulaLivre([{ col: 0, lin: 0, tamanho: 4 }], 1, limites)).toEqual({
       col: 0,
       lin: 0,
     });
@@ -348,16 +325,14 @@ describe('montarToken / validarToken', () => {
 
 describe('cenas', () => {
   it('montarCena usa a configuração padrão e descarta imagem inválida', () => {
-    expect(
-      montarCena({ nome: '  Taverna ', imagemUrl: 'https://ex.com/t.png' }),
-    ).toEqual({
-      ...GRID_CONFIG_PADRAO,
-      nome: 'Taverna',
-      imagemUrl: 'https://ex.com/t.png',
-    });
-    expect(
-      montarCena({ nome: 'X', imagemUrl: 'ftp://x' }).imagemUrl,
-    ).toBeNull();
+    expect(montarCena({ nome: '  Taverna ', imagemUrl: 'https://ex.com/t.png' })).toEqual(
+      {
+        ...GRID_CONFIG_PADRAO,
+        nome: 'Taverna',
+        imagemUrl: 'https://ex.com/t.png',
+      },
+    );
+    expect(montarCena({ nome: 'X', imagemUrl: 'ftp://x' }).imagemUrl).toBeNull();
   });
 
   it('valida o nome', () => {
@@ -420,30 +395,24 @@ describe('distância e caminho', () => {
 
   it('avancarCaminho: acrescenta, interpola saltos e corta laços', () => {
     const inicio = celulas([0, 0]);
-    expect(avancarCaminho(inicio, celula(1, 0))).toEqual(
-      celulas([0, 0], [1, 0]),
-    );
+    expect(avancarCaminho(inicio, celula(1, 0))).toEqual(celulas([0, 0], [1, 0]));
     // Salto de 4 células (ponteiro rápido) vira 4 passos.
     expect(avancarCaminho(inicio, celula(4, 0))).toEqual(
       celulas([0, 0], [1, 0], [2, 0], [3, 0], [4, 0]),
     );
     // Voltar a uma célula do caminho corta o que veio depois dela.
     const ida = celulas([0, 0], [1, 0], [2, 0], [2, 1]);
-    expect(avancarCaminho(ida, celula(2, 0))).toEqual(
-      celulas([0, 0], [1, 0], [2, 0]),
-    );
+    expect(avancarCaminho(ida, celula(2, 0))).toEqual(celulas([0, 0], [1, 0], [2, 0]));
     expect(avancarCaminho(ida, celula(0, 0))).toEqual(celulas([0, 0]));
     // Laço fechado por um salto que passa por (1,1) no meio; (0,1) já é
     // vizinho de (0,0), então (1,1) também sai.
-    expect(
-      avancarCaminho(celulas([0, 0], [1, 1], [2, 1], [3, 1]), celula(0, 1)),
-    ).toEqual(celulas([0, 0], [0, 1]));
+    expect(avancarCaminho(celulas([0, 0], [1, 1], [2, 1], [3, 1]), celula(0, 1))).toEqual(
+      celulas([0, 0], [0, 1]),
+    );
     // Arrasto quase diagonal: o ponteiro cruza a coluna antes da linha e passa
     // por (1,0) a caminho de (1,1) — a quina não conta como passo.
     const quina = avancarCaminho(celulas([0, 0]), celula(1, 0));
-    expect(avancarCaminho(quina, celula(1, 1))).toEqual(
-      celulas([0, 0], [1, 1]),
-    );
+    expect(avancarCaminho(quina, celula(1, 1))).toEqual(celulas([0, 0], [1, 1]));
     const diagonal = [
       [1, 0],
       [1, 1],
@@ -451,10 +420,7 @@ describe('distância e caminho', () => {
       [2, 2],
       [3, 2],
       [3, 3],
-    ].reduce(
-      (caminho, [c, l]) => avancarCaminho(caminho, celula(c, l)),
-      celulas([0, 0]),
-    );
+    ].reduce((caminho, [c, l]) => avancarCaminho(caminho, celula(c, l)), celulas([0, 0]));
     expect(diagonal).toEqual(celulas([0, 0], [1, 1], [2, 2], [3, 3]));
     // Mesma célula do fim → mesma referência.
     expect(avancarCaminho(ida, celula(2, 1))).toBe(ida);
@@ -489,24 +455,21 @@ describe('distância e caminho', () => {
   });
 
   it('encadearRastro / montarRastro', () => {
-    expect(
-      encadearRastro(celulas([0, 0], [1, 0]), celulas([1, 0], [2, 0])),
-    ).toEqual(celulas([0, 0], [1, 0], [2, 0]));
+    expect(encadearRastro(celulas([0, 0], [1, 0]), celulas([1, 0], [2, 0]))).toEqual(
+      celulas([0, 0], [1, 0], [2, 0]),
+    );
     // Não começa onde o anterior terminou → substitui.
-    expect(
-      encadearRastro(celulas([0, 0], [1, 0]), celulas([5, 5], [6, 5])),
-    ).toEqual(celulas([5, 5], [6, 5]));
+    expect(encadearRastro(celulas([0, 0], [1, 0]), celulas([5, 5], [6, 5]))).toEqual(
+      celulas([5, 5], [6, 5]),
+    );
     expect(encadearRastro(null, celulas([1, 1], [1, 2]))).toEqual(
       celulas([1, 1], [1, 2]),
     );
-    expect(
-      montarRastro(celulas([0, 0], [1, 0]), celulas([1, 0], [2, 0])),
-    ).toEqual(celulas([0, 0], [2, 0]));
-    // Ida e volta mantém as duas pernas.
-    const idaEVolta = montarRastro(
-      celulas([0, 0], [1, 0]),
-      celulas([1, 0], [0, 0]),
+    expect(montarRastro(celulas([0, 0], [1, 0]), celulas([1, 0], [2, 0]))).toEqual(
+      celulas([0, 0], [2, 0]),
     );
+    // Ida e volta mantém as duas pernas.
+    const idaEVolta = montarRastro(celulas([0, 0], [1, 0]), celulas([1, 0], [0, 0]));
     expect(distanciaDoRastro(idaEVolta)).toBe(2);
     expect(montarRastro(null, celulas([2, 3], [3, 3], [4, 4]))).toEqual(
       celulas([2, 3], [3, 3], [4, 4]),
@@ -522,20 +485,16 @@ describe('distância e caminho', () => {
     expect(normalizarRastro(celulas([1, 1], [501, 2]))).toBeNull();
     expect(normalizarRastro(celulas([1, 1], [-1, 2]))).toBeNull();
     expect(normalizarRastro(celulas([1, 1.5], [2, 2]))).toBeNull();
-    expect(
-      normalizarRastro([{ col: 1, lin: 1, extra: true }, celula(2, 2)]),
-    ).toEqual(celulas([1, 1], [2, 2]));
+    expect(normalizarRastro([{ col: 1, lin: 1, extra: true }, celula(2, 2)])).toEqual(
+      celulas([1, 1], [2, 2]),
+    );
     const longo = Array.from({ length: 60 }, (_, i) => celula(i, 0));
     expect(normalizarRastro(longo)).toHaveLength(RASTRO_VERTICES_MAX);
   });
 
   it('rastrosIguais', () => {
-    expect(
-      rastrosIguais(celulas([1, 1], [2, 2]), celulas([1, 1], [2, 2])),
-    ).toBe(true);
-    expect(
-      rastrosIguais(celulas([1, 1], [2, 2]), celulas([1, 1], [2, 3])),
-    ).toBe(false);
+    expect(rastrosIguais(celulas([1, 1], [2, 2]), celulas([1, 1], [2, 2]))).toBe(true);
+    expect(rastrosIguais(celulas([1, 1], [2, 2]), celulas([1, 1], [2, 3]))).toBe(false);
     expect(rastrosIguais(celulas([1, 1]), celulas([1, 1], [2, 2]))).toBe(false);
     expect(rastrosIguais(null, celulas([1, 1]))).toBe(false);
     expect(rastrosIguais(null, null)).toBe(true);
@@ -564,9 +523,9 @@ describe('distância e caminho', () => {
   it('chaveDoMovimento', () => {
     expect(chaveDoMovimento(null)).toBeNull();
     expect(chaveDoMovimento(undefined)).toBeNull();
-    expect(
-      chaveDoMovimento({ seconds: 10, nanoseconds: 5, toMillis: () => 10000 }),
-    ).toBe('10:5');
+    expect(chaveDoMovimento({ seconds: 10, nanoseconds: 5, toMillis: () => 10000 })).toBe(
+      '10:5',
+    );
     expect(chaveDoMovimento(new Date(1234))).toBe('1234');
     expect(chaveDoMovimento({ toMillis: () => 99 })).toBe('99');
   });
@@ -575,10 +534,7 @@ describe('distância e caminho', () => {
     const t1 = { seconds: 1, nanoseconds: 0 };
     const t2 = { seconds: 2, nanoseconds: 0 };
     // Carga inicial: só registra.
-    const inicial = detectarMovimentos(null, [
-      { id: 'a', movidoEm: t1 },
-      { id: 'b' },
-    ]);
+    const inicial = detectarMovimentos(null, [{ id: 'a', movidoEm: t1 }, { id: 'b' }]);
     expect(inicial.movidos).toEqual([]);
 
     const mudou = detectarMovimentos(inicial.vistos, [
@@ -603,9 +559,7 @@ describe('distância e caminho', () => {
     expect(confirmado.movidos.map(token => token.id)).toEqual(['a', 'b']);
 
     // Token novo (revelado agora) não conta; o ausente sai do mapa.
-    const novo = detectarMovimentos(confirmado.vistos, [
-      { id: 'c', movidoEm: t2 },
-    ]);
+    const novo = detectarMovimentos(confirmado.vistos, [{ id: 'c', movidoEm: t2 }]);
     expect(novo.movidos).toEqual([]);
     expect([...novo.vistos.keys()]).toEqual(['c']);
   });
@@ -613,18 +567,9 @@ describe('distância e caminho', () => {
 
 describe('recursos', () => {
   it('normalizarRecurso converte strings, arredonda e limita', () => {
-    expect(normalizarRecurso({ atual: '7.6', max: '20' })).toEqual({
-      atual: 8,
-      max: 20,
-    });
-    expect(normalizarRecurso({ atual: 30, max: 20 })).toEqual({
-      atual: 20,
-      max: 20,
-    });
-    expect(normalizarRecurso({ atual: -3, max: 20 })).toEqual({
-      atual: 0,
-      max: 20,
-    });
+    expect(normalizarRecurso({ atual: '7.6', max: '20' })).toEqual({ atual: 8, max: 20 });
+    expect(normalizarRecurso({ atual: 30, max: 20 })).toEqual({ atual: 20, max: 20 });
+    expect(normalizarRecurso({ atual: -3, max: 20 })).toEqual({ atual: 0, max: 20 });
     expect(normalizarRecurso({ max: 12 })).toEqual({ atual: 12, max: 12 });
     expect(normalizarRecurso({ atual: 5, max: 200000 })).toEqual({
       atual: 5,
@@ -639,11 +584,7 @@ describe('recursos', () => {
   it('recursosDaFicha lê hp, o legado saude e os máximos em formatos diferentes', () => {
     expect(
       recursosDaFicha({
-        status: {
-          hp: { atual: 12 },
-          energia: { atual: 3 },
-          fadiga: { atual: '4' },
-        },
+        status: { hp: { atual: 12 }, energia: { atual: 3 }, fadiga: { atual: '4' } },
         statusMaximos: { hp: 20, energia: 10, fadiga: 6 },
       }),
     ).toEqual({
@@ -658,22 +599,12 @@ describe('recursos', () => {
       }).pv,
     ).toEqual({ atual: 5, max: 9 });
     // Sem statusMaximos: o máximo guardado no próprio status.
-    expect(
-      recursosDaFicha({ status: { hp: { atual: 2, maximo: 8 } } }).pv,
-    ).toEqual({
+    expect(recursosDaFicha({ status: { hp: { atual: 2, maximo: 8 } } }).pv).toEqual({
       atual: 2,
       max: 8,
     });
-    expect(recursosDaFicha({})).toEqual({
-      pv: null,
-      energia: null,
-      fadiga: null,
-    });
-    expect(recursosDaFicha(null)).toEqual({
-      pv: null,
-      energia: null,
-      fadiga: null,
-    });
+    expect(recursosDaFicha({})).toEqual({ pv: null, energia: null, fadiga: null });
+    expect(recursosDaFicha(null)).toEqual({ pv: null, energia: null, fadiga: null });
   });
 
   it('recursosIniciais começa cheio e omite os ausentes', () => {
@@ -705,12 +636,10 @@ describe('recursos', () => {
         fadiga: null,
         numeros: true,
       });
-      expect(
-        recursosDoToken(JOGADOR, FICHA, { uid: 'u9', veTudo: true }).numeros,
-      ).toBe(true);
-      expect(recursosDoToken(JOGADOR, FICHA, { uid: 'u2' }).numeros).toBe(
-        false,
+      expect(recursosDoToken(JOGADOR, FICHA, { uid: 'u9', veTudo: true }).numeros).toBe(
+        true,
       );
+      expect(recursosDoToken(JOGADOR, FICHA, { uid: 'u2' }).numeros).toBe(false);
       expect(recursosDoToken(JOGADOR, null, { uid: 'u1' })).toBeNull();
     });
 
@@ -723,14 +652,12 @@ describe('recursos', () => {
         numeros: true,
       });
       expect(
-        recursosDoToken({ ...NPC, mostrarRecursos: 'barra' }, null, {
-          uid: 'u1',
-        }).numeros,
+        recursosDoToken({ ...NPC, mostrarRecursos: 'barra' }, null, { uid: 'u1' })
+          .numeros,
       ).toBe(false);
       expect(
-        recursosDoToken({ ...NPC, mostrarRecursos: 'numeros' }, null, {
-          uid: 'u1',
-        }).numeros,
+        recursosDoToken({ ...NPC, mostrarRecursos: 'numeros' }, null, { uid: 'u1' })
+          .numeros,
       ).toBe(true);
     });
 
@@ -761,23 +688,19 @@ describe('recursos', () => {
 
 describe('condições do token', () => {
   const CATALOGO = new Map([
-    [
-      'c1',
-      { id: 'c1', nome: 'Envenenado', linkImagem: 'https://ex.com/v.png' },
-    ],
+    ['c1', { id: 'c1', nome: 'Envenenado', linkImagem: 'https://ex.com/v.png' }],
     ['c2', { id: 'c2', Nome: 'Atordoado', linkImagem: 'http://ex.com/a.png' }],
     ['c3', { id: 'c3' }],
   ]);
 
   it('normalizarCondicoesDoToken tira inválidos e repetidos e limita', () => {
-    expect(normalizarCondicoesDoToken(['c1', 'c1', '', 7, null, 'c2'])).toEqual(
-      ['c1', 'c2'],
-    );
+    expect(normalizarCondicoesDoToken(['c1', 'c1', '', 7, null, 'c2'])).toEqual([
+      'c1',
+      'c2',
+    ]);
     expect(normalizarCondicoesDoToken('c1')).toEqual([]);
     const muitas = Array.from({ length: 30 }, (_, i) => `c${i}`);
-    expect(normalizarCondicoesDoToken(muitas)).toHaveLength(
-      TOKEN_CONDICOES_MAX,
-    );
+    expect(normalizarCondicoesDoToken(muitas)).toHaveLength(TOKEN_CONDICOES_MAX);
   });
 
   it('jogador: condicoesAtivas da ficha, com stack', () => {
@@ -794,18 +717,12 @@ describe('condições do token', () => {
 
   it('npc: ids do token; fallback de Nome e ícone não https vira null', () => {
     expect(
-      condicoesDoToken(
-        { tipo: 'npc', condicoes: ['c2', 'c3', 'x'] },
-        null,
-        CATALOGO,
-      ),
+      condicoesDoToken({ tipo: 'npc', condicoes: ['c2', 'c3', 'x'] }, null, CATALOGO),
     ).toEqual([
       { id: 'c2', nome: 'Atordoado', icone: null, stack: null },
       { id: 'c3', nome: 'Condição', icone: null, stack: null },
     ]);
-    expect(
-      condicoesDoToken({ tipo: 'npc', condicoes: ['c1'] }, null, null),
-    ).toEqual([]);
+    expect(condicoesDoToken({ tipo: 'npc', condicoes: ['c1'] }, null, null)).toEqual([]);
   });
 
   it('detalhesDosTokens omite tokens sem nada a mostrar', () => {
@@ -816,9 +733,7 @@ describe('condições do token', () => {
       { id: 't4', tipo: 'jogador', refId: 'p-sem-ficha', donos: [] },
     ];
     const detalhes = detalhesDosTokens(tokens, {
-      fichas: {
-        p1: { status: { hp: { atual: 1 } }, statusMaximos: { hp: 2 } },
-      },
+      fichas: { p1: { status: { hp: { atual: 1 } }, statusMaximos: { hp: 2 } } },
       catalogoPorId: CATALOGO,
       uid: 'u1',
     });
@@ -828,12 +743,7 @@ describe('condições do token', () => {
     expect(detalhes.t2).toEqual({
       recursos: null,
       condicoes: [
-        {
-          id: 'c1',
-          nome: 'Envenenado',
-          icone: 'https://ex.com/v.png',
-          stack: null,
-        },
+        { id: 'c1', nome: 'Envenenado', icone: 'https://ex.com/v.png', stack: null },
       ],
     });
   });
@@ -853,9 +763,7 @@ describe('distanciaEntreTokens / escolherReferencia', () => {
     // 3×3 em (0,0) ocupa 0–2; 3×3 em (6,1) ocupa 6–8: vão de 3 colunas.
     expect(distanciaEntreTokens(t(0, 0, 3), t(6, 1, 3))).toBe(4);
     // Sem tamanho = 1×1.
-    expect(distanciaEntreTokens({ col: 0, lin: 0 }, { col: 5, lin: 2 })).toBe(
-      5,
-    );
+    expect(distanciaEntreTokens({ col: 0, lin: 0 }, { col: 5, lin: 2 })).toBe(5);
   });
 
   it('escolherReferencia: selecionado, último movido, primeiro do jogador', () => {
@@ -865,25 +773,16 @@ describe('distanciaEntreTokens / escolherReferencia', () => {
       { id: 'c', donos: ['u1'] },
     ];
     const podeMover = token => token.donos.includes('u1');
-    expect(
-      escolherReferencia(tokens, { selecionadoId: 'a', podeMover }).id,
-    ).toBe('a');
-    expect(escolherReferencia(tokens, { ultimoId: 'c', podeMover }).id).toBe(
-      'c',
-    );
+    expect(escolherReferencia(tokens, { selecionadoId: 'a', podeMover }).id).toBe('a');
+    expect(escolherReferencia(tokens, { ultimoId: 'c', podeMover }).id).toBe('c');
     // Último que não pode mais mover: volta ao primeiro dele.
-    expect(escolherReferencia(tokens, { ultimoId: 'a', podeMover }).id).toBe(
-      'b',
-    );
+    expect(escolherReferencia(tokens, { ultimoId: 'a', podeMover }).id).toBe('b');
     expect(
       escolherReferencia(tokens, { mestre: true, podeMover: () => true }),
     ).toBeNull();
     expect(
-      escolherReferencia(tokens, {
-        mestre: true,
-        ultimoId: 'a',
-        podeMover: () => true,
-      }).id,
+      escolherReferencia(tokens, { mestre: true, ultimoId: 'a', podeMover: () => true })
+        .id,
     ).toBe('a');
     expect(escolherReferencia([], { podeMover })).toBeNull();
   });
@@ -904,17 +803,13 @@ describe('aura', () => {
 
   it('areaDaAura: quadrado em volta do token, recortado ao mundo', () => {
     const limites = { colunas: 10, linhas: 8 };
-    expect(
-      areaDaAura({ col: 3, lin: 3, tamanho: 2 }, { raio: 1 }, limites),
-    ).toEqual({
+    expect(areaDaAura({ col: 3, lin: 3, tamanho: 2 }, { raio: 1 }, limites)).toEqual({
       col: 2,
       lin: 2,
       colunas: 4,
       linhas: 4,
     });
-    expect(
-      areaDaAura({ col: 0, lin: 7, tamanho: 1 }, { raio: 3 }, limites),
-    ).toEqual({
+    expect(areaDaAura({ col: 0, lin: 7, tamanho: 1 }, { raio: 3 }, limites)).toEqual({
       col: 0,
       lin: 4,
       colunas: 4,
@@ -935,29 +830,10 @@ describe('sinais (pings)', () => {
 
   it('normalizarPing limita coordenadas e valida nome', () => {
     expect(
-      normalizarPing({
-        uid: 'u1',
-        x: 10.4,
-        y: -5,
-        puxar: 'sim',
-        nome: ' Aldric ',
-      }),
-    ).toEqual({
-      uid: 'u1',
-      x: 10,
-      y: 0,
-      puxar: false,
-      nome: 'Aldric',
-      criadoEm: null,
-    });
+      normalizarPing({ uid: 'u1', x: 10.4, y: -5, puxar: 'sim', nome: ' Aldric ' }),
+    ).toEqual({ uid: 'u1', x: 10, y: 0, puxar: false, nome: 'Aldric', criadoEm: null });
     expect(
-      normalizarPing({
-        uid: 'u1',
-        x: 1e9,
-        y: 2,
-        puxar: true,
-        nome: 'x'.repeat(101),
-      }),
+      normalizarPing({ uid: 'u1', x: 1e9, y: 2, puxar: true, nome: 'x'.repeat(101) }),
     ).toEqual({
       uid: 'u1',
       x: PING_COORDENADA_MAX,
@@ -975,36 +851,26 @@ describe('sinais (pings)', () => {
     const inicial = detectarPings(null, [{ uid: 'u1', criadoEm: t(1) }]);
     expect(inicial.novos).toEqual([]);
 
-    const mesmo = detectarPings(inicial.vistos, [
-      { uid: 'u1', criadoEm: t(1) },
-    ]);
+    const mesmo = detectarPings(inicial.vistos, [{ uid: 'u1', criadoEm: t(1) }]);
     expect(mesmo.novos).toEqual([]);
 
     const novo = detectarPings(mesmo.vistos, [{ uid: 'u1', criadoEm: t(2) }]);
     expect(novo.novos.map(p => p.uid)).toEqual(['u1']);
 
     // Pendente (null) mantém a chave anterior.
-    const pendente = detectarPings(novo.vistos, [
-      { uid: 'u1', criadoEm: null },
-    ]);
+    const pendente = detectarPings(novo.vistos, [{ uid: 'u1', criadoEm: null }]);
     expect(pendente.novos).toEqual([]);
     expect(pendente.vistos.get('u1')).toBe('2:0');
   });
 
   it('detectarPings: uid novo depois da carga é sinal (só quando confirmado)', () => {
     const inicial = detectarPings(null, []);
-    const confirmado = detectarPings(inicial.vistos, [
-      { uid: 'u2', criadoEm: t(5) },
-    ]);
+    const confirmado = detectarPings(inicial.vistos, [{ uid: 'u2', criadoEm: t(5) }]);
     expect(confirmado.novos.map(p => p.uid)).toEqual(['u2']);
 
-    const pendente = detectarPings(inicial.vistos, [
-      { uid: 'u3', criadoEm: null },
-    ]);
+    const pendente = detectarPings(inicial.vistos, [{ uid: 'u3', criadoEm: null }]);
     expect(pendente.novos).toEqual([]);
-    const depois = detectarPings(pendente.vistos, [
-      { uid: 'u3', criadoEm: t(6) },
-    ]);
+    const depois = detectarPings(pendente.vistos, [{ uid: 'u3', criadoEm: t(6) }]);
     expect(depois.novos.map(p => p.uid)).toEqual(['u3']);
   });
 
@@ -1025,34 +891,22 @@ describe('combate (Fase 3A): travamento, corrida, deslocamento e PP', () => {
   it('podeMoverToken segue o travamento da cena', () => {
     const { LIVRE, TURNO, CONGELADO } = TRAVAMENTOS;
     expect(podeMoverToken(meu, 'u1', false, { travamento: LIVRE })).toBe(true);
-    expect(podeMoverToken(meu, 'u1', false, { travamento: CONGELADO })).toBe(
-      false,
-    );
+    expect(podeMoverToken(meu, 'u1', false, { travamento: CONGELADO })).toBe(false);
     // Só na sua vez: fora de combate (sem token da vez) é livre.
     expect(podeMoverToken(meu, 'u1', false, { travamento: TURNO })).toBe(true);
     expect(
-      podeMoverToken(meu, 'u1', false, {
-        travamento: TURNO,
-        tokenDaVezId: 't1',
-      }),
+      podeMoverToken(meu, 'u1', false, { travamento: TURNO, tokenDaVezId: 't1' }),
     ).toBe(true);
     expect(
-      podeMoverToken(meu, 'u1', false, {
-        travamento: TURNO,
-        tokenDaVezId: 't9',
-      }),
+      podeMoverToken(meu, 'u1', false, { travamento: TURNO, tokenDaVezId: 't9' }),
     ).toBe(false);
     // Livre ignora a vez; o mestre ignora tudo; token alheio nunca.
     expect(podeMoverToken(meu, 'u1', false, { tokenDaVezId: 't9' })).toBe(true);
     expect(
-      podeMoverToken({ id: 't2', donos: [] }, 'm', true, {
-        travamento: CONGELADO,
-      }),
+      podeMoverToken({ id: 't2', donos: [] }, 'm', true, { travamento: CONGELADO }),
     ).toBe(true);
     expect(
-      podeMoverToken({ id: 't2', donos: [] }, 'u1', false, {
-        travamento: LIVRE,
-      }),
+      podeMoverToken({ id: 't2', donos: [] }, 'u1', false, { travamento: LIVRE }),
     ).toBe(false);
   });
 
@@ -1068,19 +922,15 @@ describe('combate (Fase 3A): travamento, corrida, deslocamento e PP', () => {
 
   it('config: padrão 2×; validar recusa fora da lista', () => {
     expect(GRID_CONFIG_PADRAO.multiplicadorCorrida).toBe(2);
-    expect(
-      configDoGrid({ multiplicadorCorrida: 1.5 }).multiplicadorCorrida,
-    ).toBe(1.5);
+    expect(configDoGrid({ multiplicadorCorrida: 1.5 }).multiplicadorCorrida).toBe(1.5);
     expect(
       validarConfigGrid({ ...GRID_CONFIG_PADRAO, multiplicadorCorrida: 1.5 }),
     ).toBeNull();
-    expect(
-      validarConfigGrid({ ...GRID_CONFIG_PADRAO, multiplicadorCorrida: 3 }),
-    ).toBe('Correr: 2× ou 1,5×.');
-    // O travamento não faz parte da config ("Salvar grid" não sobrescreve).
-    expect(configDoGrid({ travamento: 'turno' })).not.toHaveProperty(
-      'travamento',
+    expect(validarConfigGrid({ ...GRID_CONFIG_PADRAO, multiplicadorCorrida: 3 })).toBe(
+      'Correr: 2× ou 1,5×.',
     );
+    // O travamento não faz parte da config ("Salvar grid" não sobrescreve).
+    expect(configDoGrid({ travamento: 'turno' })).not.toHaveProperty('travamento');
   });
 
   it('normalizarDeslocamento / deslocamentoDoToken', () => {
@@ -1097,9 +947,7 @@ describe('combate (Fase 3A): travamento, corrida, deslocamento e PP', () => {
   });
 
   it('prontidaoDaFicha: cópias top-level primeiro, depois estadoCombate/total', () => {
-    expect(
-      prontidaoDaFicha({ prontidaoAtual: 5, prontidaoMaximaEfetiva: 20 }),
-    ).toEqual({
+    expect(prontidaoDaFicha({ prontidaoAtual: 5, prontidaoMaximaEfetiva: 20 })).toEqual({
       atual: 5,
       max: 20,
     });
@@ -1132,11 +980,7 @@ describe('combate (Fase 3A): travamento, corrida, deslocamento e PP', () => {
       pp: { atual: 3, max: 10 },
     });
     expect(doJogador.outro).toBeUndefined();
-    const doMestre = detalhesDosTokens(tokens, {
-      fichas,
-      uid: 'm',
-      veTudo: true,
-    });
+    const doMestre = detalhesDosTokens(tokens, { fichas, uid: 'm', veTudo: true });
     expect(doMestre.outro.pp).toEqual({ atual: 4, max: 10 });
   });
 });

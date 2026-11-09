@@ -40,9 +40,7 @@ describe('preparar', () => {
 
 describe('rotuloDeRolagem', () => {
   it('prefixa pelo tipo', () => {
-    expect(rotuloDeRolagem('ataque', 'Golpe Duplo')).toBe(
-      'Ataque: Golpe Duplo',
-    );
+    expect(rotuloDeRolagem('ataque', 'Golpe Duplo')).toBe('Ataque: Golpe Duplo');
     expect(rotuloDeRolagem('defesa', 'Esquiva')).toBe('Defesa: Esquiva');
     expect(rotuloDeRolagem('arte', 'Bola de Fogo')).toBe('Arte: Bola de Fogo');
   });
@@ -71,30 +69,17 @@ describe('autorDoToken', () => {
   });
 
   it('sem imagem no token usa a da ficha', () => {
-    const token = {
-      nome: 'Wesley',
-      tipo: 'jogador',
-      refId: 'p1',
-      imagemUrl: null,
-    };
+    const token = { nome: 'Wesley', tipo: 'jogador', refId: 'p1', imagemUrl: null };
     expect(
-      autorDoToken(token, { uid: 'u1', personagensDoUsuario: [minha] })
-        .autorAvatar,
+      autorDoToken(token, { uid: 'u1', personagensDoUsuario: [minha] }).autorAvatar,
     ).toBe('https://x.com/ficha.png');
   });
 
   it('token sem ficha minha usa o personagem padrão, ou null', () => {
-    const token = {
-      nome: 'Lobo',
-      tipo: 'avulso',
-      refId: null,
-      imagemUrl: null,
-    };
+    const token = { nome: 'Lobo', tipo: 'avulso', refId: null, imagemUrl: null };
     const usuario = { uid: 'u1', personagensDoUsuario: [minha] };
     expect(autorDoToken(token, usuario)).toBeNull();
-    expect(
-      autorDoToken(token, { ...usuario, personagemPadraoId: 'p1' }),
-    ).toMatchObject({
+    expect(autorDoToken(token, { ...usuario, personagemPadraoId: 'p1' })).toMatchObject({
       personagemId: 'p1',
       autorNome: 'Lobo',
       isMestre: false,
@@ -102,15 +87,10 @@ describe('autorDoToken', () => {
   });
 
   it('mestre em NPC, criatura e avulso usa a persona do tipo', () => {
-    const personas = [
-      { id: 'npc:n1', avatar: 'https://x.com/npc.png', persona: 'npc' },
-    ];
+    const personas = [{ id: 'npc:n1', avatar: 'https://x.com/npc.png', persona: 'npc' }];
     const base = { uid: 'm1', mestre: true, personas };
     expect(
-      autorDoToken(
-        { nome: 'Guarda', tipo: 'npc', refId: 'n1', imagemUrl: null },
-        base,
-      ),
+      autorDoToken({ nome: 'Guarda', tipo: 'npc', refId: 'n1', imagemUrl: null }, base),
     ).toEqual({
       uid: 'm1',
       personagemId: null,
@@ -141,11 +121,7 @@ describe('autorDoToken', () => {
   it('mestre em token de jogador não rola', () => {
     const token = { nome: 'Wesley', tipo: 'jogador', refId: 'p1' };
     expect(
-      autorDoToken(token, {
-        uid: 'm1',
-        mestre: true,
-        personagensDoUsuario: [minha],
-      }),
+      autorDoToken(token, { uid: 'm1', mestre: true, personagensDoUsuario: [minha] }),
     ).toBeNull();
   });
 

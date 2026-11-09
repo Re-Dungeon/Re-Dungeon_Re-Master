@@ -7,7 +7,7 @@ import { isUrlImagemValida } from 'common/utils/chat';
 // veem. Posições e tamanhos dos tokens são guardados em CÉLULAS (não em px de
 // tela), então não dependem do zoom nem da resolução de quem está vendo. Os
 // limites espelham o bloco "Grid da campanha" do firestore.rules. Mantido em
-// sincronia com a cópia do site dos jogadores.
+// sincronia com a outra cópia (site dos jogadores ↔ Re:Master).
 
 export const TIPOS_TOKEN = {
   JOGADOR: 'jogador',
@@ -48,11 +48,7 @@ export const MULTIPLICADOR_CORRIDA_PADRAO = 2;
 // Travar movimento (cena `travamento`, regra): livre; em combate, só o token
 // da vez; ou só o mestre move. Fica FORA do GRID_CONFIG_PADRAO para o "Salvar
 // grid" do mestre não sobrescrever o que ele escolheu na barra.
-export const TRAVAMENTOS = {
-  LIVRE: 'livre',
-  TURNO: 'turno',
-  CONGELADO: 'congelado',
-};
+export const TRAVAMENTOS = { LIVRE: 'livre', TURNO: 'turno', CONGELADO: 'congelado' };
 // Deslocamento do token em metros (só o mestre grava; ausente = padrão).
 export const DESLOCAMENTO_PADRAO = 9;
 export const DESLOCAMENTO_MAX = 999; // regra
@@ -92,9 +88,7 @@ const normalizarMetros = valor => {
 // "1,5"/1.5 → 1.5; fora da lista → o padrão (2×).
 export const normalizarMultiplicadorCorrida = valor => {
   const numero = Number(String(valor ?? '').replace(',', '.'));
-  return MULTIPLICADORES_CORRIDA.includes(numero)
-    ? numero
-    : MULTIPLICADOR_CORRIDA_PADRAO;
+  return MULTIPLICADORES_CORRIDA.includes(numero) ? numero : MULTIPLICADOR_CORRIDA_PADRAO;
 };
 
 export const normalizarTravamento = valor =>
@@ -113,8 +107,7 @@ export const configDoGrid = doc =>
 // Valores do formulário do mestre → payload gravável (números inteiros, URL
 // sem espaços ou null).
 export const normalizarConfigGrid = valores => {
-  const url =
-    typeof valores.imagemUrl === 'string' ? valores.imagemUrl.trim() : '';
+  const url = typeof valores.imagemUrl === 'string' ? valores.imagemUrl.trim() : '';
   return {
     imagemUrl: url || null,
     celula: Math.round(Number(valores.celula)),
@@ -124,9 +117,7 @@ export const normalizarConfigGrid = valores => {
     corGrade: valores.corGrade,
     opacidadeGrade: Number(valores.opacidadeGrade),
     metrosPorQuadrado: normalizarMetros(valores.metrosPorQuadrado),
-    multiplicadorCorrida: normalizarMultiplicadorCorrida(
-      valores.multiplicadorCorrida,
-    ),
+    multiplicadorCorrida: normalizarMultiplicadorCorrida(valores.multiplicadorCorrida),
   };
 };
 
@@ -208,10 +199,7 @@ export const dimensoesDoMundo = (config, imagem) => {
     return {
       largura: imagem.largura,
       altura: imagem.altura,
-      colunas: Math.max(
-        1,
-        Math.ceil((imagem.largura - deslocamentoX) / celula),
-      ),
+      colunas: Math.max(1, Math.ceil((imagem.largura - deslocamentoX) / celula)),
       linhas: Math.max(1, Math.ceil((imagem.altura - deslocamentoY) / celula)),
     };
   }
@@ -241,10 +229,7 @@ export const vistaFocadaNoToken = ({
   zoomMax,
   celulaMinimaPx = 44,
 }) => {
-  const zoom = Math.min(
-    Math.max(zoomEncaixe, celulaMinimaPx / config.celula),
-    zoomMax,
-  );
+  const zoom = Math.min(Math.max(zoomEncaixe, celulaMinimaPx / config.celula), zoomMax);
   const lado = (token.tamanho ?? 1) * config.celula;
   const { x, y } = posicaoEmPx(config, token.col, token.lin);
   return {
@@ -290,8 +275,7 @@ export const podeMoverToken = (
   if (ehMestre) return true;
   if (!uid || !(token.donos ?? []).includes(uid)) return false;
   if (travamento === TRAVAMENTOS.CONGELADO) return false;
-  if (travamento === TRAVAMENTOS.TURNO && tokenDaVezId)
-    return token.id === tokenDaVezId;
+  if (travamento === TRAVAMENTOS.TURNO && tokenDaVezId) return token.id === tokenDaVezId;
   return true;
 };
 
@@ -358,8 +342,7 @@ export const validarToken = token => {
   if (token.imagemUrl !== null && !isUrlImagemValida(token.imagemUrl)) {
     return 'Informe um link https:// de imagem válido (ou deixe em branco).';
   }
-  if (!Object.values(TIPOS_TOKEN).includes(token.tipo))
-    return 'Tipo de token inválido.';
+  if (!Object.values(TIPOS_TOKEN).includes(token.tipo)) return 'Tipo de token inválido.';
   if (!inteiroEntre(token.tamanho, TOKEN_TAMANHO_MIN, TOKEN_TAMANHO_MAX)) {
     return `O tamanho deve ser entre ${TOKEN_TAMANHO_MIN} e ${TOKEN_TAMANHO_MAX} células.`;
   }
@@ -379,8 +362,7 @@ export const validarToken = token => {
 export const ordenarTokens = tokens =>
   [...tokens].sort(
     (a, b) =>
-      (b.tamanho ?? 1) - (a.tamanho ?? 1) ||
-      (a.nome ?? '').localeCompare(b.nome ?? ''),
+      (b.tamanho ?? 1) - (a.tamanho ?? 1) || (a.nome ?? '').localeCompare(b.nome ?? ''),
   );
 
 // ── Rastro do movimento, distância e régua ─────────────────────────────────
@@ -449,9 +431,7 @@ export const simplificarCaminho = pontos => {
   if (celulas.length <= 2) return celulas;
   const resultado = [celulas[0]];
   for (let i = 1; i < celulas.length - 1; i += 1) {
-    if (
-      !mesmaDirecao(resultado[resultado.length - 1], celulas[i], celulas[i + 1])
-    ) {
+    if (!mesmaDirecao(resultado[resultado.length - 1], celulas[i], celulas[i + 1])) {
       resultado.push(celulas[i]);
     }
   }
@@ -462,14 +442,12 @@ export const simplificarCaminho = pontos => {
 // Quadrados percorridos ao longo do rastro.
 export const distanciaDoRastro = pontos =>
   (pontos ?? []).reduce(
-    (total, ponto, i) =>
-      i === 0 ? 0 : total + distanciaChebyshev(pontos[i - 1], ponto),
+    (total, ponto, i) => (i === 0 ? 0 : total + distanciaChebyshev(pontos[i - 1], ponto)),
     0,
   );
 
 // Rastros longos demais perdem o começo (a regra aceita até o máximo).
-export const limitarRastro = (pontos, max = RASTRO_VERTICES_MAX) =>
-  pontos.slice(-max);
+export const limitarRastro = (pontos, max = RASTRO_VERTICES_MAX) => pontos.slice(-max);
 
 // Movimento que começa onde o rastro ainda visível termina (setas, arrastos
 // seguidos) continua o mesmo rastro; senão o novo substitui.
@@ -499,9 +477,7 @@ export const normalizarRastro = valor => {
       inteiroEntre(ponto.col, 0, GRID_POSICAO_MAX) &&
       inteiroEntre(ponto.lin, 0, GRID_POSICAO_MAX),
   );
-  return valido
-    ? limitarRastro(valor.map(({ col, lin }) => ({ col, lin })))
-    : null;
+  return valido ? limitarRastro(valor.map(({ col, lin }) => ({ col, lin }))) : null;
 };
 
 export const rastrosIguais = (a, b) => {
@@ -526,8 +502,7 @@ export const celulaNoPonto = (config, x, y, limites) =>
 
 // 4.5 → "4,5"; 6 → "6"; até 2 casas (sem Intl: o resultado não depende da
 // localidade do navegador).
-export const formatarMetros = valor =>
-  String(arredondar2(valor)).replace('.', ',');
+export const formatarMetros = valor => String(arredondar2(valor)).replace('.', ',');
 
 export const formatarDistancia = (
   quadrados,
@@ -539,14 +514,10 @@ export const formatarDistancia = (
 // → chave comparável, ou null.
 export const chaveDoMovimento = movidoEm => {
   if (movidoEm === undefined || movidoEm === null) return null;
-  if (
-    typeof movidoEm.seconds === 'number' &&
-    typeof movidoEm.nanoseconds === 'number'
-  ) {
+  if (typeof movidoEm.seconds === 'number' && typeof movidoEm.nanoseconds === 'number') {
     return `${movidoEm.seconds}:${movidoEm.nanoseconds}`;
   }
-  if (typeof movidoEm.toMillis === 'function')
-    return String(movidoEm.toMillis());
+  if (typeof movidoEm.toMillis === 'function') return String(movidoEm.toMillis());
   if (movidoEm instanceof Date) return String(movidoEm.getTime());
   return String(movidoEm);
 };
@@ -582,18 +553,10 @@ export const detectarMovimentos = (vistosAnteriores, tokens) => {
 // "regra" espelham o firestore.rules.
 
 export const RECURSOS_TOKEN = ['pv', 'energia', 'fadiga'];
-export const ROTULOS_RECURSO = {
-  pv: 'PV',
-  energia: 'Energia',
-  fadiga: 'Fadiga',
-};
+export const ROTULOS_RECURSO = { pv: 'PV', energia: 'Energia', fadiga: 'Fadiga' };
 export const RECURSO_MAX = 99999; // regra
 // O que os jogadores veem dos recursos de um token que não é de jogador.
-export const MODOS_RECURSOS = {
-  OCULTO: 'oculto',
-  BARRA: 'barra',
-  NUMEROS: 'numeros',
-}; // regra
+export const MODOS_RECURSOS = { OCULTO: 'oculto', BARRA: 'barra', NUMEROS: 'numeros' }; // regra
 export const TOKEN_CONDICOES_MAX = 20; // regra
 export const TOKEN_CONDICOES_VISIVEIS = 3;
 const CONDICAO_ID_MAX = 200;
@@ -640,16 +603,13 @@ export const normalizarRecurso = valor => {
   const maxLimitado = Math.min(max, RECURSO_MAX);
   const atual = vazio(valor.atual) ? NaN : Math.round(Number(valor.atual));
   return {
-    atual: Number.isFinite(atual)
-      ? limitar(atual, 0, maxLimitado)
-      : maxLimitado,
+    atual: Number.isFinite(atual) ? limitar(atual, 0, maxLimitado) : maxLimitado,
     max: maxLimitado,
   };
 };
 
 // statusMaximos.* pode ser número ou { maximo } (fichas antigas).
-const maximoDe = valor =>
-  valor && typeof valor === 'object' ? valor.maximo : valor;
+const maximoDe = valor => (valor && typeof valor === 'object' ? valor.maximo : valor);
 
 // Ficha (personagens/{id}) → { pv, energia, fadiga }, cada um ou null.
 // `hp` é o nome atual; `saude`, o legado.
@@ -664,16 +624,8 @@ export const recursosDaFicha = ficha => {
       maximos.hp ?? maximos.saude,
       status.hp?.maximo ?? status.saude?.maximo,
     ),
-    energia: recurso(
-      status.energia?.atual,
-      maximos.energia,
-      status.energia?.maximo,
-    ),
-    fadiga: recurso(
-      status.fadiga?.atual,
-      maximos.fadiga,
-      status.fadiga?.maximo,
-    ),
+    energia: recurso(status.energia?.atual, maximos.energia, status.energia?.maximo),
+    fadiga: recurso(status.fadiga?.atual, maximos.fadiga, status.fadiga?.maximo),
   };
 };
 
@@ -699,11 +651,7 @@ const algumRecurso = recursos => RECURSOS_TOKEN.some(id => recursos[id]);
 // { pv, energia, fadiga, numeros } ou null (nada a mostrar). Jogador: barras
 // para todos, números só para os donos e o mestre. Demais: o mestre vê tudo;
 // os jogadores, conforme `mostrarRecursos`. O sigilo é só da interface.
-export const recursosDoToken = (
-  token,
-  ficha,
-  { uid = null, veTudo = false } = {},
-) => {
+export const recursosDoToken = (token, ficha, { uid = null, veTudo = false } = {}) => {
   if (token.tipo === TIPOS_TOKEN.JOGADOR) {
     if (!ficha) return null;
     const recursos = recursosDaFicha(ficha);
@@ -765,8 +713,7 @@ export const normalizarCondicoesDoToken = valor => {
   return [...new Set(ids)].slice(0, TOKEN_CONDICOES_MAX);
 };
 
-export const nomeDaCondicao = condicao =>
-  condicao?.nome || condicao?.Nome || 'Condição';
+export const nomeDaCondicao = condicao => condicao?.nome || condicao?.Nome || 'Condição';
 
 const condicoesAtivasDaFicha = ficha =>
   (Array.isArray(ficha?.condicoesAtivas) ? ficha.condicoesAtivas : [])
@@ -784,10 +731,7 @@ export const condicoesDoToken = (token, ficha, catalogoPorId) => {
   const ativas =
     token.tipo === TIPOS_TOKEN.JOGADOR
       ? condicoesAtivasDaFicha(ficha)
-      : normalizarCondicoesDoToken(token.condicoes).map(id => ({
-          id,
-          stack: null,
-        }));
+      : normalizarCondicoesDoToken(token.condicoes).map(id => ({ id, stack: null }));
   return ativas
     .filter(({ id }) => catalogo.has(id))
     .map(({ id, stack }) => {
@@ -795,9 +739,7 @@ export const condicoesDoToken = (token, ficha, catalogoPorId) => {
       return {
         id,
         nome: nomeDaCondicao(condicao),
-        icone: isUrlImagemValida(condicao?.linkImagem)
-          ? condicao.linkImagem
-          : null,
+        icone: isUrlImagemValida(condicao?.linkImagem) ? condicao.linkImagem : null,
         stack,
       };
     });
@@ -858,8 +800,7 @@ export const escolherReferencia = (
   tokens,
   { selecionadoId = null, ultimoId = null, mestre = false, podeMover },
 ) => {
-  const selecionado =
-    selecionadoId && tokens.find(token => token.id === selecionadoId);
+  const selecionado = selecionadoId && tokens.find(token => token.id === selecionadoId);
   if (selecionado) return selecionado;
   const ultimo = ultimoId && tokens.find(token => token.id === ultimoId);
   if (ultimo && podeMover(ultimo)) return ultimo;
@@ -888,10 +829,7 @@ export const areaDaAura = (token, aura, limites) => {
       0,
       Math.min(limites.colunas, token.col + tamanho + aura.raio) - col,
     ),
-    linhas: Math.max(
-      0,
-      Math.min(limites.linhas, token.lin + tamanho + aura.raio) - lin,
-    ),
+    linhas: Math.max(0, Math.min(limites.linhas, token.lin + tamanho + aura.raio) - lin),
   };
 };
 
@@ -911,18 +849,11 @@ export const normalizarPing = doc => {
   if (!doc || typeof doc.uid !== 'string' || !doc.uid) return null;
   const x = Number(doc.x);
   const y = Number(doc.y);
-  if (
-    vazio(doc.x) ||
-    vazio(doc.y) ||
-    !Number.isFinite(x) ||
-    !Number.isFinite(y)
-  ) {
+  if (vazio(doc.x) || vazio(doc.y) || !Number.isFinite(x) || !Number.isFinite(y)) {
     return null;
   }
   const nome =
-    typeof doc.nome === 'string' &&
-    doc.nome.trim() &&
-    doc.nome.length <= PING_NOME_MAX
+    typeof doc.nome === 'string' && doc.nome.trim() && doc.nome.length <= PING_NOME_MAX
       ? doc.nome.trim()
       : null;
   return {
@@ -969,8 +900,7 @@ export const detectarPings = (vistosAnteriores, pings) => {
 export const normalizarDeslocamento = valor => {
   if (vazio(valor)) return null;
   const numero = Number(String(valor).replace(',', '.'));
-  if (!Number.isFinite(numero) || numero < 0 || numero > DESLOCAMENTO_MAX)
-    return null;
+  if (!Number.isFinite(numero) || numero < 0 || numero > DESLOCAMENTO_MAX) return null;
   return arredondar2(numero);
 };
 

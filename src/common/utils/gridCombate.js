@@ -21,11 +21,7 @@ export const COMBATE_RODADA_MAX = 9999; // regra
 // Raio máximo (quadrados) do alcance de movimento desenhado.
 export const ALCANCE_QUADRADOS_MAX = 50;
 // Verde = até Mover; amarelo = até Correr; vermelho = além.
-export const CORES_ALCANCE = {
-  mover: '#4caf50',
-  correr: '#f5c542',
-  alem: '#e05555',
-};
+export const CORES_ALCANCE = { mover: '#4caf50', correr: '#f5c542', alem: '#e05555' };
 
 const PRIMARIOS_DA_REACAO = ['agilidade', 'percepcao', 'sorte'];
 
@@ -44,15 +40,11 @@ const numero = valor => {
 
 // cultivoBonus.<categoria>.<atributo> pode ser número ou { [rank]: número }.
 const somaNumerica = valor => {
-  if (typeof valor === 'number' || typeof valor === 'string')
-    return numero(valor);
+  if (typeof valor === 'number' || typeof valor === 'string') return numero(valor);
   if (Array.isArray(valor))
     return valor.reduce((total, item) => total + somaNumerica(item), 0);
   if (valor && typeof valor === 'object') {
-    return Object.values(valor).reduce(
-      (total, item) => total + somaNumerica(item),
-      0,
-    );
+    return Object.values(valor).reduce((total, item) => total + somaNumerica(item), 0);
   }
   return 0;
 };
@@ -65,8 +57,7 @@ const somaNumerica = valor => {
 export const reacaoDaFicha = ficha => {
   if (!ficha || typeof ficha !== 'object') return null;
   const salva = ficha.secundariosTotais?.reacao;
-  if (!vazio(salva) && Number.isFinite(Number(salva)))
-    return Math.round(Number(salva));
+  if (!vazio(salva) && Number.isFinite(Number(salva))) return Math.round(Number(salva));
   const cultivo = ficha.cultivoBonus ?? {};
   const primario = chave => {
     const total = ficha.atributosTotais?.[chave];
@@ -85,9 +76,7 @@ export const reacaoDaFicha = ficha => {
     numero(ficha.secundariosBonus?.reacao) +
     somaNumerica(cultivo.secundarios?.reacao);
   return Math.round(
-    Math.ceil(((agilidade * 0.5 + percepcao * 0.3 + sorte * 0.2) / 250) * 6) +
-      6 +
-      ajuste,
+    Math.ceil(((agilidade * 0.5 + percepcao * 0.3 + sorte * 0.2) / 250) * 6) + 6 + ajuste,
   );
 };
 
@@ -178,21 +167,13 @@ export const avancarTurno = (combate, passo) => {
   const total = combate.ordem.length;
   if (passo > 0) {
     if (combate.indice + 1 < total) {
-      return {
-        indice: combate.indice + 1,
-        rodada: combate.rodada,
-        novaRodada: false,
-      };
+      return { indice: combate.indice + 1, rodada: combate.rodada, novaRodada: false };
     }
     if (combate.rodada >= COMBATE_RODADA_MAX) return null;
     return { indice: 0, rodada: combate.rodada + 1, novaRodada: true };
   }
   if (combate.indice > 0) {
-    return {
-      indice: combate.indice - 1,
-      rodada: combate.rodada,
-      novaRodada: false,
-    };
+    return { indice: combate.indice - 1, rodada: combate.rodada, novaRodada: false };
   }
   if (combate.rodada <= 1) return null;
   return { indice: total - 1, rodada: combate.rodada - 1, novaRodada: false };
@@ -233,12 +214,7 @@ export const montarInicioDoCombate = (ordem, tokens) => {
   const primeiro = porId.get(ordem[0]?.tokenId) ?? null;
   const visivel = tokenVisivel(primeiro);
   return {
-    estado: {
-      ordem,
-      indice: 0,
-      rodada: 1,
-      inicioTurno: posicaoValida(primeiro),
-    },
+    estado: { ordem, indice: 0, rodada: 1, inicioTurno: posicaoValida(primeiro) },
     mensagem: {
       evento: 'inicio',
       rodada: 1,
@@ -269,9 +245,7 @@ export const inserirNoCombate = (combate, entrada) => {
     d20: inteiroEntre(entrada.d20, 1, 20) ? entrada.d20 : null,
     reacao: inteiro(entrada.reacao),
   };
-  const achada = combate.ordem.findIndex(
-    item => compararIniciativa(nova, item) < 0,
-  );
+  const achada = combate.ordem.findIndex(item => compararIniciativa(nova, item) < 0);
   const posicao = achada < 0 ? combate.ordem.length : achada;
   const ordem = [
     ...combate.ordem.slice(0, posicao),
@@ -312,8 +286,7 @@ export const removerDoCombate = (combate, tokenId, tokens) => {
   const rodada = passou
     ? Math.min(combate.rodada + 1, COMBATE_RODADA_MAX)
     : combate.rodada;
-  const token =
-    (tokens ?? []).find(item => item.id === ordem[indice].tokenId) ?? null;
+  const token = (tokens ?? []).find(item => item.id === ordem[indice].tokenId) ?? null;
   return {
     patch: { ordem, indice, rodada, inicioTurno: posicaoValida(token) },
     mudouTurno: true,
@@ -326,8 +299,7 @@ export const moverNoCombate = (combate, tokenId, passo) => {
   if (!combate) return null;
   const de = combate.ordem.findIndex(item => item.tokenId === tokenId);
   const para = de + passo;
-  if (de < 0 || para < 0 || para >= combate.ordem.length || para === de)
-    return null;
+  if (de < 0 || para < 0 || para >= combate.ordem.length || para === de) return null;
   const ordem = [...combate.ordem];
   [ordem[de], ordem[para]] = [ordem[para], ordem[de]];
   let { indice } = combate;
@@ -380,20 +352,12 @@ export const origemDoAlcance = (token, combate) =>
 
 // Metros → quadrados inteiros (9 m / 1,5 m / 2× → 6 e 12), até
 // ALCANCE_QUADRADOS_MAX.
-export const quadradosDeMovimento = (
-  deslocamento,
-  metrosPorQuadrado,
-  multiplicador,
-) => {
-  const metros =
-    metrosPorQuadrado > 0 ? metrosPorQuadrado : METROS_POR_QUADRADO_PADRAO;
+export const quadradosDeMovimento = (deslocamento, metrosPorQuadrado, multiplicador) => {
+  const metros = metrosPorQuadrado > 0 ? metrosPorQuadrado : METROS_POR_QUADRADO_PADRAO;
   const fator = normalizarMultiplicadorCorrida(multiplicador);
   const quadrados = valor =>
     limitar(Math.floor(valor / metros + 1e-9), 0, ALCANCE_QUADRADOS_MAX);
-  return {
-    mover: quadrados(deslocamento),
-    correr: quadrados(deslocamento * fator),
-  };
+  return { mover: quadrados(deslocamento), correr: quadrados(deslocamento * fator) };
 };
 
 const VIZINHOS = [
@@ -419,14 +383,8 @@ export const distanciasDeMovimento = ({
   limites,
   bloqueadas = null,
 }) => {
-  const maxCol = Math.min(
-    Math.max(limites.colunas - tamanho, 0),
-    GRID_POSICAO_MAX,
-  );
-  const maxLin = Math.min(
-    Math.max(limites.linhas - tamanho, 0),
-    GRID_POSICAO_MAX,
-  );
+  const maxCol = Math.min(Math.max(limites.colunas - tamanho, 0), GRID_POSICAO_MAX);
+  const maxLin = Math.min(Math.max(limites.linhas - tamanho, 0), GRID_POSICAO_MAX);
   const livre = (col, lin) => {
     if (!bloqueadas) return true;
     for (let dl = 0; dl < tamanho; dl += 1) {
@@ -488,8 +446,7 @@ export const faixasDoAlcance = (distancias, { mover, correr, tamanho = 1 }) => {
       for (let dc = 0; dc < tamanho; dc += 1) {
         const chaveCelula = chaveDaCelula(col + dc, lin + dl);
         const anterior = celulas.get(chaveCelula);
-        if (anterior === undefined || passos < anterior)
-          celulas.set(chaveCelula, passos);
+        if (anterior === undefined || passos < anterior) celulas.set(chaveCelula, passos);
       }
     }
   });
@@ -497,9 +454,7 @@ export const faixasDoAlcance = (distancias, { mover, correr, tamanho = 1 }) => {
   celulas.forEach((passos, chave) => {
     const [col, lin] = chave.split(',').map(Number);
     if (!porLinha.has(lin)) porLinha.set(lin, []);
-    porLinha
-      .get(lin)
-      .push({ col, faixa: faixaDaDistancia(passos, { mover, correr }) });
+    porLinha.get(lin).push({ col, faixa: faixaDaDistancia(passos, { mover, correr }) });
   });
   const faixas = { mover: [], correr: [] };
   [...porLinha.keys()]
@@ -510,28 +465,16 @@ export const faixasDoAlcance = (distancias, { mover, correr, tamanho = 1 }) => {
         .get(lin)
         .sort((a, b) => a.col - b.col)
         .forEach(({ col, faixa }) => {
-          if (
-            trecho &&
-            trecho.faixa === faixa &&
-            trecho.col + trecho.colunas === col
-          ) {
+          if (trecho && trecho.faixa === faixa && trecho.col + trecho.colunas === col) {
             trecho.colunas += 1;
             return;
           }
           if (trecho)
-            faixas[trecho.faixa].push({
-              col: trecho.col,
-              lin,
-              colunas: trecho.colunas,
-            });
+            faixas[trecho.faixa].push({ col: trecho.col, lin, colunas: trecho.colunas });
           trecho = { col, faixa, colunas: 1 };
         });
       if (trecho)
-        faixas[trecho.faixa].push({
-          col: trecho.col,
-          lin,
-          colunas: trecho.colunas,
-        });
+        faixas[trecho.faixa].push({ col: trecho.col, lin, colunas: trecho.colunas });
     });
   return faixas;
 };

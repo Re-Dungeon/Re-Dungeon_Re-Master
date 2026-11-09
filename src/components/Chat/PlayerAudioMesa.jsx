@@ -22,7 +22,7 @@ import { carregarApiYoutube } from 'common/utils/youtubeApi';
 // se afasta do ponto da mesa, aplica volume/mudo de quem está vendo e devolve
 // título/duração/bloqueio/erro por `onStatus`. A página o monta fora do
 // ChatSala, para seguir tocando com o painel de chat fechado. Cópia idêntica
-// no site dos jogadores.
+// (site dos jogadores ↔ Re:Master).
 
 // YT.PlayerState
 const ENCERRADO = 0;

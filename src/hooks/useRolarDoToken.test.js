@@ -45,21 +45,14 @@ describe('useRolarDoToken', () => {
       rotulo: 'Ataque: Golpe Duplo',
     });
     expect(mensagem.secreta).toBeUndefined();
-    expect(mensagem.rolagem.grupos[0]).toMatchObject({
-      quantidade: 2,
-      faces: 6,
-    });
+    expect(mensagem.rolagem.grupos[0]).toMatchObject({ quantidade: 2, faces: 6 });
     expect(mensagem.rolagem.modificador).toBe(3);
   });
 
   it('aceita o prefixo /r e omite o rótulo vazio', async () => {
     const { result } = renderHook(() => useRolarDoToken('camp', { onErro }));
     await act(async () => {
-      await result.current({
-        autor: AUTOR_TOKEN,
-        expressao: '/r d20',
-        rotulo: '  ',
-      });
+      await result.current({ autor: AUTOR_TOKEN, expressao: '/r d20', rotulo: '  ' });
     });
     expect(addChatMensagem.mock.calls[0][1].rotulo).toBeUndefined();
   });

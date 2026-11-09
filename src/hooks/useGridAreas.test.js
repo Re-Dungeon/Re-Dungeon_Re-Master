@@ -8,10 +8,7 @@ import {
   subscribeGridAreas,
   updateGridArea,
 } from 'service/storage';
-import {
-  AREAS_POR_CENA_MAX,
-  AREAS_POR_PESSOA_MAX,
-} from 'common/utils/gridAreas';
+import { AREAS_POR_CENA_MAX, AREAS_POR_PESSOA_MAX } from 'common/utils/gridAreas';
 import useGridAreas from './useGridAreas';
 
 vi.mock('service/storage', () => ({
@@ -82,11 +79,7 @@ describe('useGridAreas', () => {
         doc('pendente', { createdAt: null }),
       ]),
     );
-    expect(result.current.areas.map(area => area.id)).toEqual([
-      'a',
-      'b',
-      'pendente',
-    ]);
+    expect(result.current.areas.map(area => area.id)).toEqual(['a', 'b', 'pendente']);
   });
 
   it('inativo não assina; trocar de cena esvazia', () => {
@@ -123,17 +116,10 @@ describe('useGridAreas', () => {
   });
 
   it('criar recusa acima dos limites por pessoa e por cena', async () => {
-    const nova = {
-      forma: 'raio',
-      origem: { col: 0, lin: 0 },
-      metros: 3,
-      cor: '#e05555',
-    };
+    const nova = { forma: 'raio', origem: { col: 0, lin: 0 }, metros: 3, cor: '#e05555' };
     const { result } = renderAreas();
     act(() =>
-      emitir(
-        Array.from({ length: AREAS_POR_PESSOA_MAX }, (_, i) => doc(`m${i}`)),
-      ),
+      emitir(Array.from({ length: AREAS_POR_PESSOA_MAX }, (_, i) => doc(`m${i}`))),
     );
     let ok;
     await act(async () => {
@@ -163,10 +149,7 @@ describe('useGridAreas', () => {
     const { result } = renderAreas();
     act(() => emitir([doc('a')]));
     await act(async () => {
-      await result.current.atualizar('a', {
-        origem: { col: 3, lin: 3 },
-        alvo: null,
-      });
+      await result.current.atualizar('a', { origem: { col: 3, lin: 3 }, alvo: null });
       await result.current.remover('a');
     });
     expect(updateGridArea).toHaveBeenCalledWith('c', 'cena', 'a', {

@@ -11,7 +11,8 @@
     "eslint-fix": "eslint src/ --fix",
     "lint": "npm run eslint",
     "prettier": "prettier --write src/**/*.{js,jsx}",
-    "test": "vitest"
+    "test": "vitest",
+    "check:shared": "node scripts/check-shared.mjs"
   },
   "dependencies": {
     "@codemirror/language": "^6.13.1",

@@ -121,17 +121,13 @@ describe('useGridCampanha — rastros', () => {
       onChange({ id: cenaId, nome: cenaId, celula: 50 });
       return vi.fn();
     });
-    subscribeGridTokens.mockImplementation(
-      (_campanhaId, cenaId, opcoes, onChange) => {
-        emitirTokens = onChange;
-        if (cenaId === 'cena-1') {
-          onChange(
-            opcoes.incluirOcultos ? [ALDRIC, OGRO, SOMBRA] : [ALDRIC, OGRO],
-          );
-        } else onChange([]);
-        return vi.fn();
-      },
-    );
+    subscribeGridTokens.mockImplementation((_campanhaId, cenaId, opcoes, onChange) => {
+      emitirTokens = onChange;
+      if (cenaId === 'cena-1') {
+        onChange(opcoes.incluirOcultos ? [ALDRIC, OGRO, SOMBRA] : [ALDRIC, OGRO]);
+      } else onChange([]);
+      return vi.fn();
+    });
     moverGridToken.mockResolvedValue();
   });
 
@@ -255,21 +251,10 @@ describe('useGridCampanha — rastros', () => {
       gravacao = result.current.mover(ALDRIC, 3, 2, caminho);
     });
     expect(result.current.rastrosAtivos).toEqual([
-      expect.objectContaining({
-        tokenId: 't1',
-        pontos: caminho,
-        saindo: false,
-      }),
+      expect.objectContaining({ tokenId: 't1', pontos: caminho, saindo: false }),
     ]);
     const { chave } = result.current.rastrosAtivos[0];
-    expect(moverGridToken).toHaveBeenCalledWith(
-      'camp-1',
-      'cena-1',
-      't1',
-      3,
-      2,
-      caminho,
-    );
+    expect(moverGridToken).toHaveBeenCalledWith('camp-1', 'cena-1', 't1', 3, 2, caminho);
     await act(() => gravacao);
 
     // Snapshot local (pendente) e depois o confirmado.
@@ -289,17 +274,10 @@ describe('useGridCampanha — rastros', () => {
         { col: 1, lin: 3 },
       ]),
     );
-    expect(moverGridToken).toHaveBeenCalledWith(
-      'camp-1',
-      'cena-1',
-      't1',
-      1,
-      3,
-      [
-        { col: 1, lin: 1 },
-        { col: 1, lin: 3 },
-      ],
-    );
+    expect(moverGridToken).toHaveBeenCalledWith('camp-1', 'cena-1', 't1', 1, 3, [
+      { col: 1, lin: 1 },
+      { col: 1, lin: 3 },
+    ]);
   });
 
   it('dois movimentos seguidos (setas) encadeiam o rastro', async () => {
@@ -307,17 +285,10 @@ describe('useGridCampanha — rastros', () => {
     await act(() => result.current.mover(ALDRIC, 1, 2));
     await act(() => result.current.mover({ ...ALDRIC, lin: 2 }, 1, 3));
 
-    expect(moverGridToken).toHaveBeenLastCalledWith(
-      'camp-1',
-      'cena-1',
-      't1',
-      1,
-      3,
-      [
-        { col: 1, lin: 1 },
-        { col: 1, lin: 3 },
-      ],
-    );
+    expect(moverGridToken).toHaveBeenLastCalledWith('camp-1', 'cena-1', 't1', 1, 3, [
+      { col: 1, lin: 1 },
+      { col: 1, lin: 3 },
+    ]);
     expect(result.current.rastrosAtivos).toHaveLength(1);
     expect(result.current.rastrosAtivos[0].pontos).toEqual([
       { col: 1, lin: 1 },
@@ -335,38 +306,17 @@ describe('useGridCampanha — rastros', () => {
 
     await act(() => result.current.mover(ALDRIC, 1, 2));
     expect(moverGridToken).toHaveBeenCalledTimes(2);
-    expect(moverGridToken).toHaveBeenNthCalledWith(
-      1,
-      'camp-1',
-      'cena-1',
-      't1',
-      1,
-      2,
-      [
-        { col: 1, lin: 1 },
-        { col: 1, lin: 2 },
-      ],
-    );
-    expect(moverGridToken).toHaveBeenNthCalledWith(
-      2,
-      'camp-1',
-      'cena-1',
-      't1',
-      1,
-      2,
-    );
+    expect(moverGridToken).toHaveBeenNthCalledWith(1, 'camp-1', 'cena-1', 't1', 1, 2, [
+      { col: 1, lin: 1 },
+      { col: 1, lin: 2 },
+    ]);
+    expect(moverGridToken).toHaveBeenNthCalledWith(2, 'camp-1', 'cena-1', 't1', 1, 2);
     expect(result.current.erro).toBeNull();
     // O rastro continua na tela (local).
     expect(result.current.rastrosAtivos).toHaveLength(1);
 
     await act(() => result.current.mover({ ...ALDRIC, lin: 2 }, 2, 2));
-    expect(moverGridToken).toHaveBeenLastCalledWith(
-      'camp-1',
-      'cena-1',
-      't1',
-      2,
-      2,
-    );
+    expect(moverGridToken).toHaveBeenLastCalledWith('camp-1', 'cena-1', 't1', 2, 2);
   });
 
   it('falha ao mover apaga o rastro local e mostra o erro', async () => {
@@ -411,11 +361,7 @@ describe('useGridCampanha — rastros', () => {
 
 describe('useGridCampanha — sinais e detalhes dos tokens', () => {
   const ALDRIC_JOGADOR = { ...ALDRIC, refId: 'p1' };
-  const OGRO_NPC = {
-    ...OGRO,
-    pv: { atual: 10, max: 20 },
-    mostrarRecursos: 'barra',
-  };
+  const OGRO_NPC = { ...OGRO, pv: { atual: 10, max: 20 }, mostrarRecursos: 'barra' };
   const FICHA = {
     status: { hp: { atual: 4 } },
     statusMaximos: { hp: 8 },
@@ -434,12 +380,10 @@ describe('useGridCampanha — sinais e detalhes dos tokens', () => {
       onChange({ id: cenaId, nome: cenaId, celula: 50 });
       return vi.fn();
     });
-    subscribeGridTokens.mockImplementation(
-      (_campanhaId, _cenaId, _opcoes, onChange) => {
-        onChange([ALDRIC_JOGADOR, OGRO_NPC]);
-        return vi.fn();
-      },
-    );
+    subscribeGridTokens.mockImplementation((_campanhaId, _cenaId, _opcoes, onChange) => {
+      onChange([ALDRIC_JOGADOR, OGRO_NPC]);
+      return vi.fn();
+    });
     subscribePersonagem.mockImplementation((_id, onChange) => {
       onChange(FICHA);
       return vi.fn();
@@ -461,12 +405,7 @@ describe('useGridCampanha — sinais e detalhes dos tokens', () => {
       expect.any(Function),
     );
     expect(result.current.detalhes.t1).toEqual({
-      recursos: {
-        pv: { atual: 4, max: 8 },
-        energia: null,
-        fadiga: null,
-        numeros: true,
-      },
+      recursos: { pv: { atual: 4, max: 8 }, energia: null, fadiga: null, numeros: true },
       condicoes: [{ id: 'c1', nome: 'Envenenado', icone: null, stack: 2 }],
     });
     // 'barra': o jogador vê a barra, sem números.
@@ -489,18 +428,10 @@ describe('useGridCampanha — sinais e detalhes dos tokens', () => {
       expect.any(Function),
     );
     act(() =>
-      emitirPings([
-        { uid: 'm1', x: 5, y: 6, puxar: true, criadoEm: horario(3) },
-      ]),
+      emitirPings([{ uid: 'm1', x: 5, y: 6, puxar: true, criadoEm: horario(3) }]),
     );
     expect(result.current.pings).toEqual([
-      expect.objectContaining({
-        uid: 'm1',
-        x: 5,
-        y: 6,
-        puxar: true,
-        cor: '#e8cb85',
-      }),
+      expect.objectContaining({ uid: 'm1', x: 5, y: 6, puxar: true, cor: '#e8cb85' }),
     ]);
 
     act(() => {
@@ -542,23 +473,19 @@ describe('useGridCampanha — combate e travamento', () => {
       onChange({ id: cenaId, ...cena });
       return vi.fn();
     });
-    subscribeGridTokens.mockImplementation(
-      (_campanhaId, _cenaId, _opcoes, onChange) => {
-        onChange([ALDRIC_JOGADOR, OGRO, BRINA]);
-        return vi.fn();
-      },
-    );
+    subscribeGridTokens.mockImplementation((_campanhaId, _cenaId, _opcoes, onChange) => {
+      onChange([ALDRIC_JOGADOR, OGRO, BRINA]);
+      return vi.fn();
+    });
     subscribePersonagem.mockImplementation((_id, onChange) => {
       onChange(FICHA);
       return vi.fn();
     });
     subscribeGridPings.mockImplementation(() => vi.fn());
-    subscribeGridCombate.mockImplementation(
-      (_campanhaId, _cenaId, onChange) => {
-        onChange(combateDoc);
-        return vi.fn();
-      },
-    );
+    subscribeGridCombate.mockImplementation((_campanhaId, _cenaId, onChange) => {
+      onChange(combateDoc);
+      return vi.fn();
+    });
     alterarGridCombate.mockResolvedValue(true);
   });
 
@@ -584,9 +511,7 @@ describe('useGridCampanha — combate e travamento', () => {
     const congelado = renderGrid();
     expect(congelado.result.current.travamento).toBe('congelado');
     expect(congelado.result.current.podeMover(ALDRIC_JOGADOR)).toBe(false);
-    expect(renderGrid({ isMestre: true }).result.current.podeMover(OGRO)).toBe(
-      true,
-    );
+    expect(renderGrid({ isMestre: true }).result.current.podeMover(OGRO)).toBe(true);
   });
 
   it('"só na sua vez": em combate, só o token da vez; fora de combate, livre', () => {
@@ -605,17 +530,9 @@ describe('useGridCampanha — combate e travamento', () => {
 
   it('expõe combate, token da vez, meuTurno, fichas e o PP no detalhe do dono', async () => {
     combateDoc = emCombate(0);
-    const autor = {
-      uid: 'u1',
-      personagemId: 'p1',
-      autorNome: 'Aldric',
-      isMestre: false,
-    };
+    const autor = { uid: 'u1', personagemId: 'p1', autorNome: 'Aldric', isMestre: false };
     const { result } = renderGrid({ autorCombate: autor });
-    expect(result.current.combate).toMatchObject({
-      indice: 0,
-      tokenDaVezId: 't1',
-    });
+    expect(result.current.combate).toMatchObject({ indice: 0, tokenDaVezId: 't1' });
     expect(result.current.tokenDaVez.id).toBe('t1');
     expect(result.current.meuTurno).toBe(true);
     expect(result.current.fichas).toEqual({ p1: FICHA });
@@ -625,16 +542,10 @@ describe('useGridCampanha — combate e travamento', () => {
       await result.current.encerrarTurno();
     });
     const calcular = alterarGridCombate.mock.calls[0][2];
-    expect(alterarGridCombate.mock.calls[0].slice(0, 2)).toEqual([
-      'camp-1',
-      'cena-1',
-    ]);
+    expect(alterarGridCombate.mock.calls[0].slice(0, 2)).toEqual(['camp-1', 'cena-1']);
     expect(calcular(emCombate(0))).toMatchObject({
       patch: { indice: 1 },
-      mensagem: {
-        autorNome: 'Aldric',
-        combate: { evento: 'turno', nome: 'Ogro' },
-      },
+      mensagem: { autorNome: 'Aldric', combate: { evento: 'turno', nome: 'Ogro' } },
     });
   });
 });
@@ -652,41 +563,26 @@ describe('useGridCampanha — mapa (Fase 3B)', () => {
       onChange({ id: cenaId, nome: cenaId, celula: 50 });
       return vi.fn();
     });
-    subscribeGridTokens.mockImplementation(
-      (_campanhaId, _cenaId, _opcoes, onChange) => {
-        onChange([ALDRIC]);
-        return vi.fn();
-      },
-    );
-    subscribeGridCamadas.mockImplementation(
-      (_campanhaId, _cenaId, onChange) => {
-        onChange({ paredes: PAREDE, nevoa: { ativa: true, trechos: '0:0' } });
-        return vi.fn();
-      },
-    );
+    subscribeGridTokens.mockImplementation((_campanhaId, _cenaId, _opcoes, onChange) => {
+      onChange([ALDRIC]);
+      return vi.fn();
+    });
+    subscribeGridCamadas.mockImplementation((_campanhaId, _cenaId, onChange) => {
+      onChange({ paredes: PAREDE, nevoa: { ativa: true, trechos: '0:0' } });
+      return vi.fn();
+    });
     subscribeGridMarcadores.mockImplementation(
       (_campanhaId, _cenaId, _opcoes, onChange) => {
         onChange([
-          {
-            id: 'm1',
-            col: 1,
-            lin: 1,
-            icone: 'porta',
-            cor: '#ffffff',
-            titulo: 'Porta',
-          },
+          { id: 'm1', col: 1, lin: 1, icone: 'porta', cor: '#ffffff', titulo: 'Porta' },
         ]);
         return vi.fn();
       },
     );
-    subscribeGridDesenhos.mockImplementation(
-      (_campanhaId, _cenaId, onChange) => {
-        onChange([
-          { id: 'd1', uid: 'u1', cor: '#ffffff', pontos: [0, 0, 5, 5] },
-        ]);
-        return vi.fn();
-      },
-    );
+    subscribeGridDesenhos.mockImplementation((_campanhaId, _cenaId, onChange) => {
+      onChange([{ id: 'd1', uid: 'u1', cor: '#ffffff', pontos: [0, 0, 5, 5] }]);
+      return vi.fn();
+    });
     moverGridToken.mockResolvedValue();
   });
 
@@ -696,10 +592,7 @@ describe('useGridCampanha — mapa (Fase 3B)', () => {
     expect(result.current.camadas.nevoa.ativa).toBe(true);
     expect(result.current.camadas.nevoa.reveladas.has('0,0')).toBe(true);
     expect(result.current.marcadores).toHaveLength(1);
-    expect(result.current.desenhos[0]).toMatchObject({
-      id: 'd1',
-      proprio: true,
-    });
+    expect(result.current.desenhos[0]).toMatchObject({ id: 'd1', proprio: true });
     expect(result.current.apagarTodosDesenhos).toBeUndefined();
     expect(subscribeGridMarcadores).toHaveBeenCalledWith(
       'camp-1',
@@ -708,9 +601,9 @@ describe('useGridCampanha — mapa (Fase 3B)', () => {
       expect.any(Function),
       expect.any(Function),
     );
-    expect(
-      renderGrid({ isMestre: true }).result.current.apagarTodosDesenhos,
-    ).toEqual(expect.any(Function));
+    expect(renderGrid({ isMestre: true }).result.current.apagarTodosDesenhos).toEqual(
+      expect.any(Function),
+    );
   });
 
   it('expõe as áreas da cena e as ações; removerTodas só para o mestre', async () => {
@@ -735,11 +628,7 @@ describe('useGridCampanha — mapa (Fase 3B)', () => {
       expect.any(Function),
     );
     expect(result.current.areas).toHaveLength(1);
-    expect(result.current.areas[0]).toMatchObject({
-      id: 'a1',
-      forma: 'raio',
-      alvo: null,
-    });
+    expect(result.current.areas[0]).toMatchObject({ id: 'a1', forma: 'raio', alvo: null });
     expect(result.current.acoesAreas.criar).toEqual(expect.any(Function));
     await act(() => result.current.acoesAreas.removerTodas());
     expect(removeGridAreas).not.toHaveBeenCalled();
@@ -772,9 +661,7 @@ describe('useGridCampanha — mapa (Fase 3B)', () => {
 
   it('desenhar e editarCamada chegam ao storage; permission-denied do jogador é silencioso', async () => {
     const mestre = renderGrid({ isMestre: true }).result;
-    await act(() =>
-      mestre.current.desenhar({ cor: '#ffffff', pontos: [0, 0, 9, 9] }),
-    );
+    await act(() => mestre.current.desenhar({ cor: '#ffffff', pontos: [0, 0, 9, 9] }));
     expect(addGridDesenho).toHaveBeenCalledWith(
       'camp-1',
       'cena-1',

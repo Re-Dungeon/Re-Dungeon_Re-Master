@@ -299,7 +299,6 @@ describe('Chat (Re:Master)', () => {
 
   it('mestre pode apagar mensagem de jogador', async () => {
     const user = userEvent.setup();
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
     renderChat();
     await screen.findByText('Abro a porta devagar.');
 
@@ -307,6 +306,8 @@ describe('Chat (Re:Master)', () => {
       name: /apagar mensagem/i,
     });
     await user.click(primeiroApagar);
+    // Confirmação no diálogo do ChatMensagem (não mais window.confirm).
+    await user.click(await screen.findByRole('button', { name: 'Excluir' }));
 
     await waitFor(() =>
       expect(removeChatMensagem).toHaveBeenCalledWith('c1', 'msg1'),

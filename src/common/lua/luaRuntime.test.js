@@ -32,9 +32,7 @@ describe('criarExecucao — API da macro', () => {
       'local n = inputQuery("Nome:", "Fulano") enviar("oi " .. n)',
       ['Wesley'],
     );
-    expect(pedidos).toEqual([
-      { tipo: 'input', pergunta: 'Nome:', padrao: 'Fulano' },
-    ]);
+    expect(pedidos).toEqual([{ tipo: 'input', pergunta: 'Nome:', padrao: 'Fulano' }]);
     expect(fim.saidas).toEqual([{ tipo: 'texto', texto: 'oi Wesley' }]);
   });
 
@@ -43,31 +41,19 @@ describe('criarExecucao — API da macro', () => {
       'local i, t = choose("Arma:", {"Espada", "Arco"}, 9) enviar(i .. "=" .. t)',
       [2],
     );
-    expect(pedidos[0]).toEqual({
-      tipo: 'choose',
-      titulo: 'Arma:',
-      opcoes: ['Espada', 'Arco'],
-      padrao: 2,
-    });
+    expect(pedidos[0]).toEqual({ tipo: 'choose', titulo: 'Arma:', opcoes: ['Espada', 'Arco'], padrao: 2 });
     expect(fim.saidas[0].texto).toBe('2=Arco');
   });
 
   it('resposta nula vira nil no Lua', () => {
-    const { fim } = executar('local r = inputQuery("?") enviar(tostring(r))', [
-      null,
-    ]);
+    const { fim } = executar('local r = inputQuery("?") enviar(tostring(r))', [null]);
     expect(fim.saidas[0].texto).toBe('nil');
   });
 
   it('rolar publica a rolagem e devolve o total; rolarLocal é silencioso', () => {
-    const { fim } = executar(
-      'local a = rolar("2d6+1") local b = rolarLocal("1d4") local c = rolarLocal("") enviar(a .. "/" .. b .. "/" .. c)',
-    );
+    const { fim } = executar('local a = rolar("2d6+1") local b = rolarLocal("1d4") local c = rolarLocal("") enviar(a .. "/" .. b .. "/" .. c)');
     expect(fim.saidas).toHaveLength(2);
-    expect(fim.saidas[0]).toMatchObject({
-      tipo: 'rolagem',
-      rolagem: { total: 7, termos: [1] },
-    });
+    expect(fim.saidas[0]).toMatchObject({ tipo: 'rolagem', rolagem: { total: 7, termos: [1] } });
     expect(fim.saidas[1].texto).toBe('7/3/0');
   });
 
@@ -77,96 +63,54 @@ describe('criarExecucao — API da macro', () => {
   });
 
   it('expressão de rolagem inválida vira erro Lua', () => {
-    expect(executar('rolar("1d7")').erro).toMatch(
-      /rolar\("1d7"\): Dados permitidos/,
-    );
+    expect(executar('rolar("1d7")').erro).toMatch(/rolar\("1d7"\): Dados permitidos/);
   });
 
   it('math.random usa o gerador injetado e respeita a faixa', () => {
-    const { fim } = executar(
-      'enviar(math.random(1, 6) .. "," .. math.random(10) .. "," .. tostring(math.random() < 1))',
-    );
+    const { fim } = executar('enviar(math.random(1, 6) .. "," .. math.random(10) .. "," .. tostring(math.random() < 1))');
     expect(fim.saidas[0].texto).toBe('3,3,true');
   });
 });
 
 describe('criarExecucao — isolamento e limites', () => {
-  it.each([
-    'os',
-    'io',
-    'require',
-    'load',
-    'loadstring',
-    'dofile',
-    'loadfile',
-    'debug',
-    'package',
-    'print',
-    'coroutine',
-  ])('%s não existe para a macro', nome => {
-    const { fim } = executar(`enviar(tostring(${nome}))`);
-    expect(fim.saidas[0].texto).toBe('nil');
-  });
+  it.each(['os', 'io', 'require', 'load', 'loadstring', 'dofile', 'loadfile', 'debug', 'package', 'print', 'coroutine'])(
+    '%s não existe para a macro',
+    nome => {
+      const { fim } = executar(`enviar(tostring(${nome}))`);
+      expect(fim.saidas[0].texto).toBe('nil');
+    },
+  );
 
   it('laço infinito é interrompido', () => {
-    const { erro } = executar('while true do end', [], {
-      limiteInstrucoes: 100_000,
-    });
+    const { erro } = executar('while true do end', [], { limiteInstrucoes: 100_000 });
     expect(erro).toMatch(/limite de processamento/);
   });
 
   it('erro de sintaxe e de execução trazem a linha', () => {
     expect(executar('local x = \n x +').erro).toMatch(/^macro:2:/);
-    expect(executar('local t = nil\nlocal y = t.campo').erro).toMatch(
-      /^macro:2:.*index a nil value/,
-    );
+    expect(executar('local t = nil\nlocal y = t.campo').erro).toMatch(/^macro:2:.*index a nil value/);
   });
 
   it(`no máximo ${LIMITE_ENVIAR} enviar por execução`, () => {
-    expect(executar('for i = 1, 6 do enviar(i) end').erro).toMatch(
-      /no máximo 5 mensagens/,
-    );
+    expect(executar('for i = 1, 6 do enviar(i) end').erro).toMatch(/no máximo 5 mensagens/);
   });
 
   it('pcall captura erros dentro da macro', () => {
-    const { fim } = executar(
-      'local ok = pcall(function() error("x") end) enviar(tostring(ok))',
-    );
+    const { fim } = executar('local ok = pcall(function() error("x") end) enviar(tostring(ok))');
     expect(fim.saidas[0].texto).toBe('false');
   });
 });
 
 describe('macro de exemplo dano_impacto (sem alterações)', () => {
   it('roda do início ao fim e envia o resultado', () => {
-    const respostas = [
-      'Wesley',
-      'queda',
-      '6',
-      12,
-      '2',
-      '1',
-      '40',
-      '1d6+2',
-      '0',
-    ];
+    const respostas = ['Wesley', 'queda', '6', 12, '2', '1', '40', '1d6+2', '0'];
     const { fim, pedidos, erro } = executar(danoImpacto, respostas);
 
     expect(erro).toBeUndefined();
     expect(pedidos.map(p => p.tipo)).toEqual([
-      'input',
-      'input',
-      'input',
-      'choose',
-      'input',
-      'input',
-      'input',
-      'input',
-      'input',
+      'input', 'input', 'input', 'choose', 'input', 'input', 'input', 'input', 'input',
     ]);
-    expect(pedidos[3]).toMatchObject({
-      titulo: 'Escolha a superficie do impacto:',
-      padrao: 10,
-    });
+    expect(pedidos[3]).toMatchObject({ titulo: 'Escolha a superficie do impacto:', padrao: 10 });
     expect(pedidos[3].opcoes).toHaveLength(21);
     expect(pedidos[7]).toMatchObject({ padrao: '0' });
 
