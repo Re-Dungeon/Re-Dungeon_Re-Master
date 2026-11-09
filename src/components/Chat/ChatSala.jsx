@@ -53,8 +53,10 @@ import {
   ComposerAcoes,
   ComposerEntrada,
   ComposerWrapper,
+  ListaArea,
   ListaMensagens,
   ListaVazia,
+  NovasMensagensPilula,
 } from './styles';
 
 // Distância (px) do fim da lista dentro da qual consideramos que o usuário
@@ -94,6 +96,12 @@ const ChatSala = ({
   const [erroComando, setErroComando] = useState(null);
   const listaRef = useRef(null);
   const acompanhandoRef = useRef(true);
+  // Mensagens que chegaram no fim da lista enquanto o usuário estava lendo mais
+  // acima (pílula "Novas mensagens"). `ultimoIdRef` = última mensagem já vista
+  // da lista: só o que vem DEPOIS dela conta (mensagens antigas carregadas no
+  // topo, ou a troca de campanha, não contam).
+  const [naoLidas, setNaoLidas] = useState(0);
+  const ultimoIdRef = useRef(null);
   // Histórico do campo (↑/↓): o texto bruto enviado, guardado por chave (a
   // página passa uma por campanha). Trocou a chave, relê o da nova.
   const [historicoEstado, setHistoricoEstado] = useState(() => ({
@@ -122,8 +130,19 @@ const ChatSala = ({
   );
   useEffect(() => {
     const lista = listaRef.current;
+    const ultimoId = mensagensVisiveis[mensagensVisiveis.length - 1]?.id ?? null;
+    const anteriorId = ultimoIdRef.current;
+    ultimoIdRef.current = ultimoId;
     if (lista && acompanhandoRef.current) {
       lista.scrollTop = lista.scrollHeight;
+      setNaoLidas(0);
+      return;
+    }
+    if (anteriorId && ultimoId !== anteriorId) {
+      const indice = mensagensVisiveis.findIndex(mensagem => mensagem.id === anteriorId);
+      if (indice >= 0) {
+        setNaoLidas(atual => atual + (mensagensVisiveis.length - 1 - indice));
+      }
     }
   }, [mensagensVisiveis]);
 
@@ -131,6 +150,14 @@ const ChatSala = ({
     const lista = listaRef.current;
     acompanhandoRef.current =
       lista.scrollHeight - lista.scrollTop - lista.clientHeight < MARGEM_AUTOSCROLL;
+    if (acompanhandoRef.current) setNaoLidas(0);
+  };
+
+  const irParaNovas = () => {
+    const lista = listaRef.current;
+    acompanhandoRef.current = true;
+    if (lista) lista.scrollTop = lista.scrollHeight;
+    setNaoLidas(0);
   };
 
   const registrarEnvio = enviado => {
@@ -257,35 +284,42 @@ const ChatSala = ({
         {cabecalho && <div style={{ flex: '1 1 auto', minWidth: 0 }}>{cabecalho}</div>}
       </ChatHeader>
 
-      <ListaMensagens
-        ref={listaRef}
-        onScroll={handleScroll}
-        aria-label="Mensagens"
-        role="log"
-        data-chat-scroll-area="true"
-      >
-        {carregando && (
-          <ListaVazia>
-            <CircularProgress size={24} sx={{ color: 'var(--color-primary)' }} />
-          </ListaVazia>
+      <ListaArea>
+        <ListaMensagens
+          ref={listaRef}
+          onScroll={handleScroll}
+          aria-label="Mensagens"
+          role="log"
+          data-chat-scroll-area="true"
+        >
+          {carregando && (
+            <ListaVazia>
+              <CircularProgress size={24} sx={{ color: 'var(--color-primary)' }} />
+            </ListaVazia>
+          )}
+          {!carregando && mensagensVisiveis.length === 0 && (
+            <ListaVazia>Nenhuma mensagem ainda. Comece a conversa!</ListaVazia>
+          )}
+          {!carregando &&
+            mensagensVisiveis.map(mensagem => {
+              const minha = mensagem.uid === currentUid;
+              return (
+                <ChatMensagem
+                  key={mensagem.id}
+                  mensagem={mensagem}
+                  minha={minha}
+                  podeApagar={minha || podeApagarTodas}
+                  onApagar={onApagar}
+                />
+              );
+            })}
+        </ListaMensagens>
+        {naoLidas > 0 && (
+          <NovasMensagensPilula type="button" onClick={irParaNovas}>
+            Novas mensagens ({naoLidas}) ↓
+          </NovasMensagensPilula>
         )}
-        {!carregando && mensagensVisiveis.length === 0 && (
-          <ListaVazia>Nenhuma mensagem ainda. Comece a conversa!</ListaVazia>
-        )}
-        {!carregando &&
-          mensagensVisiveis.map(mensagem => {
-            const minha = mensagem.uid === currentUid;
-            return (
-              <ChatMensagem
-                key={mensagem.id}
-                mensagem={mensagem}
-                minha={minha}
-                podeApagar={minha || podeApagarTodas}
-                onApagar={onApagar}
-              />
-            );
-          })}
-      </ListaMensagens>
+      </ListaArea>
 
       <ComposerWrapper onSubmit={handleSubmit}>
         {audio?.bloqueado && (
