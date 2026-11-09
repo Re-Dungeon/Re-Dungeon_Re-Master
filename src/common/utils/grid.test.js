@@ -57,7 +57,9 @@ import {
   TRAVAMENTOS,
   deslocamentoDoToken,
   detalhesDosTokens,
+  normalizarCondicoesDuracao,
   normalizarDeslocamento,
+  rodadasRestantes,
   normalizarMultiplicadorCorrida,
   normalizarTravamento,
   prontidaoDaFicha,
@@ -1024,5 +1026,70 @@ describe('edição do valor atual de recursos', () => {
     expect(valorDigitadoDoRecurso(12, null)).toBeNull();
     expect(valorDigitadoDoRecurso(12, 'x')).toBeNull();
     expect(valorDigitadoDoRecurso(undefined, '-3')).toBeNull();
+  });
+});
+
+describe('duração das condições do token', () => {
+  const CATALOGO = new Map([
+    ['c1', { id: 'c1', nome: 'Envenenado' }],
+    ['c2', { id: 'c2', nome: 'Atordoado' }],
+  ]);
+
+  it('normalizarCondicoesDuracao: só pares válidos (rodadaFim inteiro ≥ 1)', () => {
+    expect(normalizarCondicoesDuracao(null)).toEqual({});
+    expect(normalizarCondicoesDuracao(['c1'])).toEqual({});
+    expect(
+      normalizarCondicoesDuracao({ c1: 3, c2: 0, c3: 1.5, c4: '2', ' ': 2, c5: 1 }),
+    ).toEqual({ c1: 3, c5: 1 });
+    const muitas = Object.fromEntries(Array.from({ length: 30 }, (_, i) => [`c${i}`, 2]));
+    expect(Object.keys(normalizarCondicoesDuracao(muitas))).toHaveLength(
+      TOKEN_CONDICOES_MAX,
+    );
+  });
+
+  it('rodadasRestantes conta a rodada atual; sem combate, a rodada 1', () => {
+    expect(rodadasRestantes(5, 4)).toBe(2);
+    expect(rodadasRestantes(5, 5)).toBe(1);
+    expect(rodadasRestantes(5, 6)).toBeNull();
+    expect(rodadasRestantes(5, null)).toBe(5);
+    expect(rodadasRestantes(undefined, 2)).toBeNull();
+  });
+
+  it('npc: restam só nas condições com duração; jogador ignora o campo', () => {
+    const npc = {
+      tipo: 'npc',
+      condicoes: ['c1', 'c2'],
+      condicoesDuracao: { c1: 6 },
+    };
+    expect(condicoesDoToken(npc, null, CATALOGO, { rodada: 4 })).toEqual([
+      { id: 'c1', nome: 'Envenenado', icone: null, stack: null, restam: 3 },
+      { id: 'c2', nome: 'Atordoado', icone: null, stack: null },
+    ]);
+    // Sem combate: a duração inteira (rodada 1).
+    expect(condicoesDoToken(npc, null, CATALOGO)[0].restam).toBe(6);
+    // Vencida e ainda não limpa: sem "restam".
+    expect(condicoesDoToken(npc, null, CATALOGO, { rodada: 7 })[0]).not.toHaveProperty(
+      'restam',
+    );
+    const ficha = { condicoesAtivas: [{ condicaoId: 'c1', stack: 1 }] };
+    expect(
+      condicoesDoToken(
+        { tipo: 'jogador', condicoesDuracao: { c1: 9 } },
+        ficha,
+        CATALOGO,
+        { rodada: 1 },
+      )[0],
+    ).not.toHaveProperty('restam');
+  });
+
+  it('detalhesDosTokens leva a rodada até as condições', () => {
+    const tokens = [
+      { id: 't', tipo: 'npc', condicoes: ['c1'], condicoesDuracao: { c1: 3 } },
+    ];
+    const detalhes = detalhesDosTokens(tokens, {
+      catalogoPorId: CATALOGO,
+      rodada: 2,
+    });
+    expect(detalhes.t.condicoes[0].restam).toBe(2);
   });
 });

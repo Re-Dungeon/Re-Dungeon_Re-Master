@@ -1,7 +1,14 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
+import useMediaQuery from '@mui/material/useMediaQuery';
 import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
@@ -13,6 +20,8 @@ import StopIcon from '@mui/icons-material/Stop';
 import SportsMartialArtsIcon from '@mui/icons-material/SportsMartialArts';
 import SettingsIcon from '@mui/icons-material/Settings';
 import BoltIcon from '@mui/icons-material/Bolt';
+import GroupIcon from '@mui/icons-material/Group';
+import KeyboardIcon from '@mui/icons-material/Keyboard';
 import { useAuth } from 'context/AuthContext';
 import { useCampanha } from 'context/CampanhaContext';
 import { useSnackbar } from 'context/SnackbarContext';
@@ -37,6 +46,7 @@ import { ACOES_CAMADA, CAMADAS } from 'common/utils/gridCamadas';
 import {
   GRID_CENAS_MAX,
   GRID_TOKENS_POR_CENA_MAX,
+  METROS_POR_QUADRADO_PADRAO,
   dimensoesDoMundo,
   limitarPosicao,
   montarCena,
@@ -46,7 +56,12 @@ import {
   normalizarTravamento,
   validarToken,
 } from 'common/utils/grid';
+import {
+  TIPO_EVENTO_SESSAO,
+  registrarEventoSessao,
+} from 'common/utils/sessaoLog';
 import useAvisarAcoesChat from 'hooks/useAvisarAcoesChat';
+import useFichasDoGrid from 'hooks/useFichasDoGrid';
 import useGridCampanha from 'hooks/useGridCampanha';
 import useRolarDoToken from 'hooks/useRolarDoToken';
 import { autorDoToken } from 'common/utils/gridRolagem';
@@ -57,30 +72,44 @@ import { PERSONA_MESTRE, autorDaPersona } from 'pages/Chat/chatPersonas';
 import useFontesDaMesa from 'pages/Chat/useFontesDaMesa';
 import AcoesEmLote from './AcoesEmLote';
 import AdicionarTokenDialog from './AdicionarTokenDialog';
+import AtalhosDialog from './AtalhosDialog';
 import CenaDialog from './CenaDialog';
 import CenasBarra from './CenasBarra';
 import FerramentasMapa from './FerramentasMapa';
 import GridConfigPainel from './GridConfigPainel';
+import GrupoPainel from './GrupoPainel';
+import MaisAcoesMenu from './MaisAcoesMenu';
 import IniciarCombateDialog from './IniciarCombateDialog';
 import MarcadorDialog from './MarcadorDialog';
 import ParticipantesCombateDialog from './ParticipantesCombateDialog';
 import TokenPainel from './TokenPainel';
 import {
+  ACOES_ATALHO,
   FERRAMENTAS,
   OPCOES_FERRAMENTA_PADRAO,
   OPCOES_TRAVAMENTO,
+  acaoDoAtalho,
   alternarSelecao,
+  alvoEhDigitacao,
+  celulasParaRevelarEmVolta,
+  chaveDasFichasDoGrupo,
   copiaDoToken,
+  haDialogoAberto,
   jogadoresSemToken,
+  linhasDoGrupo,
   montarTokensEmLote,
+  ocultoAlvoDosTokens,
   patchesDeCondicaoEmLote,
   patchesDeDanoEmLote,
+  patchesDeExpiracaoDeCondicoes,
   patchesDeOcultoEmLote,
   reacaoDoToken,
   tokensDeJogadoresFaltantes,
 } from './gridMestre';
+import { MOBILE_MEDIA, MOBILE_QUERY } from './styles';
 import useCombateMestre from './useCombateMestre';
 import useCenasDoGrid from './useCenasDoGrid';
+import useDesfazerCamadas from './useDesfazerCamadas';
 
 const MAPAS_VAZIOS = { campanhaId: null, lista: [] };
 const SEM_CONDICOES = [];
@@ -111,6 +140,8 @@ const Grid = () => {
   const { campanhaAtiva, loadingCampanhas } = useCampanha();
   const { notifyError, notifySuccess } = useSnackbar();
   const navigate = useNavigate();
+  // Celular (< 600px): ações secundárias da barra vão para o menu "Mais".
+  const celular = useMediaQuery(MOBILE_MEDIA);
   const campanhaId = campanhaAtiva?.id ?? null;
 
   const fontes = useFontesDaMesa(campanhaAtiva, { incluirJogadores: true });
@@ -174,6 +205,10 @@ const Grid = () => {
   const [participantesAberto, setParticipantesAberto] = useState(false);
   const [chatAberto, setChatAberto] = useState(true);
   const [tokenRolando, setTokenRolando] = useState(null);
+  const [atalhosAberto, setAtalhosAberto] = useState(false);
+  // Painel "Grupo" e o último pedido de centralizar num token ({ tokenId, chave }).
+  const [grupoAberto, setGrupoAberto] = useState(false);
+  const [focoToken, setFocoToken] = useState(null);
   // Ferramenta do mapa (Fase 3B) e suas opções; marcador em criação/edição:
   // { marcador } | { celula } | null.
   const [ferramenta, setFerramenta] = useState(FERRAMENTAS.MOVER);
@@ -204,13 +239,15 @@ const Grid = () => {
       .catch(error => {
         // eslint-disable-next-line no-console
         console.error('Falha ao carregar os mapas da campanha:', error);
+        if (active)
+          notifyError('Não foi possível carregar os Mapas da campanha.');
       });
     return () => {
       active = false;
     };
-  }, [campanhaAtiva]);
+  }, [campanhaAtiva, notifyError]);
 
-  // Falha não é erro para o mestre: os tokens só ficam sem as condições.
+  // Falha não trava o mestre (os tokens só ficam sem as condições), mas avisa.
   useEffect(() => {
     if (!universoId) return undefined;
     let active = true;
@@ -222,11 +259,14 @@ const Grid = () => {
       .catch(error => {
         // eslint-disable-next-line no-console
         console.error('Falha ao carregar o catálogo de condições:', error);
+        if (active) {
+          notifyError('Não foi possível carregar as Condições do universo.');
+        }
       });
     return () => {
       active = false;
     };
-  }, [universoId]);
+  }, [universoId, notifyError]);
 
   // Erros das escutas vão para o Snackbar global.
   useEffect(() => {
@@ -254,6 +294,30 @@ const Grid = () => {
   );
   const emLote = selecionadosTokens.length >= 2;
 
+  // Painel do grupo: as fichas de TODOS os jogáveis da campanha, ao vivo (só
+  // enquanto o painel está aberto; o grid em si escuta só os tokens da cena).
+  const fichasDoGrupo = useFichasDoGrid(
+    chaveDasFichasDoGrupo(fontes.jogadores),
+    {
+      ativo: grupoAberto,
+    },
+  );
+  const catalogoPorId = useMemo(
+    () => new Map(catalogoCondicoes.map(condicao => [condicao.id, condicao])),
+    [catalogoCondicoes],
+  );
+  const linhasGrupo = useMemo(
+    () =>
+      grupoAberto
+        ? linhasDoGrupo(fontes.jogadores, {
+            fichas: fichasDoGrupo,
+            tokens: grid.tokens,
+            catalogoPorId,
+          })
+        : [],
+    [grupoAberto, fontes.jogadores, fichasDoGrupo, grid.tokens, catalogoPorId],
+  );
+
   const limparSelecao = useCallback(() => {
     setSelecionadoId(null);
     setSelecionadosIds(SEM_SELECAO);
@@ -273,6 +337,16 @@ const Grid = () => {
   const handleSelecionar = token => {
     setSelecionadoId(token?.id ?? null);
     setSelecionadosIds(SEM_SELECAO);
+  };
+
+  // Painel do grupo: seleciona o token do personagem e centraliza o mapa nele.
+  const handleFocarToken = token => {
+    setFerramenta(FERRAMENTAS.MOVER);
+    handleSelecionar(token);
+    setFocoToken(atual => ({
+      tokenId: token.id,
+      chave: (atual?.chave ?? 0) + 1,
+    }));
   };
 
   const handleAlternarSelecao = token => {
@@ -329,7 +403,62 @@ const Grid = () => {
     autor: autorMestre,
     tentar,
     notifySuccess,
+    campanha: campanhaAtiva,
+    cenaNome: cenaAberta ? nomeDaCena(cenaAberta) : '',
   });
+  // Condições com duração (NPCs): quando a rodada do combate passa do fim
+  // delas, saem do token — num lote só. Roda aqui, no Grid do mestre, a cada
+  // mudança de rodada ou de tokens (jogadores também passam o turno); é
+  // idempotente, e a chave evita regravar o mesmo lote enquanto ele não volta.
+  const rodadaAtual = grid.combate?.rodada ?? null;
+  const limpezaRef = useRef(null);
+  useEffect(() => {
+    if (!campanhaId || !cenaAbertaId || rodadaAtual === null) return;
+    const { patches, expiradas } = patchesDeExpiracaoDeCondicoes(
+      grid.tokens,
+      rodadaAtual,
+    );
+    if (patches.length === 0) {
+      limpezaRef.current = null;
+      return;
+    }
+    const chave = `${cenaAbertaId}|${rodadaAtual}|${patches
+      .map(
+        ({ id, patch }) =>
+          `${id}:${Object.keys(patch.condicoesDuracao).join(',')}`,
+      )
+      .join(';')}`;
+    if (limpezaRef.current === chave) return;
+    limpezaRef.current = chave;
+    updateGridTokensEmLote(campanhaId, cenaAbertaId, patches)
+      .then(() => {
+        const nomes = expiradas.map(item => item.nome).join(', ');
+        notifySuccess(`Condições vencidas removidas: ${nomes}.`);
+      })
+      .catch(error => {
+        // eslint-disable-next-line no-console
+        console.error('Falha ao remover as condições vencidas:', error);
+        notifyError('Não foi possível remover as condições vencidas.');
+      });
+  }, [
+    campanhaId,
+    cenaAbertaId,
+    grid.tokens,
+    notifyError,
+    notifySuccess,
+    rodadaAtual,
+  ]);
+
+  // Paredes/névoa: cada edição guarda o estado anterior para o Ctrl+Z.
+  const camadasDesfazer = useDesfazerCamadas({
+    campanhaId,
+    cenaId: cenaAbertaId,
+    camadas: grid.camadas,
+    editarCamada: grid.editarCamada,
+    preencherCamada: grid.preencherCamada,
+    tentar,
+  });
+
   const reacaoDoTokenDaMesa = token =>
     reacaoDoToken(token, { fichas: grid.fichas, fontes });
 
@@ -338,8 +467,15 @@ const Grid = () => {
     setPrevia(null);
   };
 
+  const abrirConfig = () => {
+    setPrevia(null);
+    setGrupoAberto(false);
+    setConfigAberta(true);
+  };
+
   const abrirCena = cenaId => {
     setCenaEscolhidaId(cenaId);
+    setFocoToken(null);
     limparSelecao();
     setMarcadorEditando(null);
     fecharConfig();
@@ -407,6 +543,13 @@ const Grid = () => {
     );
     if (!ok) return;
     const cena = cenas.find(c => c.id === cenaId);
+    if (cena) {
+      registrarEventoSessao(
+        campanhaAtiva,
+        TIPO_EVENTO_SESSAO.CENA_GRID_ATIVADA,
+        `Cena do grid ativada: "${nomeDaCena(cena)}".`,
+      );
+    }
     notifySuccess(
       cena
         ? `Os jogadores agora veem "${nomeDaCena(cena)}".`
@@ -656,10 +799,68 @@ const Grid = () => {
     );
 
   // ── Mapa: ferramentas, névoa, paredes e marcadores (Fase 3B) ───────────
+  // Ao ir para a Névoa a seleção fica: "Revelar em volta" usa o token escolhido.
   const handleFerramenta = nova => {
     setFerramenta(nova);
-    limparSelecao();
+    if (nova !== FERRAMENTAS.NEVOA) limparSelecao();
   };
+
+  // ── Atalhos de teclado ─────────────────────────────────────────────────
+  // H: oculta o(s) selecionado(s); se todos já estão ocultos, revela.
+  const handleOcultarSelecao = async () => {
+    let alvos = [];
+    if (emLote) alvos = selecionadosTokens;
+    else if (selecionado) alvos = [selecionado];
+    if (alvos.length === 0) return;
+    const oculto = ocultoAlvoDosTokens(alvos);
+    if (alvos.length >= 2) await handleOcultoEmLote(oculto);
+    else await handleAlterarToken({ oculto });
+  };
+
+  const executarAtalho = ({ acao, ferramenta: nova }) => {
+    switch (acao) {
+      case ACOES_ATALHO.PROXIMO_TURNO:
+        if (grid.combate) grid.mudarTurno(1);
+        break;
+      case ACOES_ATALHO.TURNO_ANTERIOR:
+        if (grid.combate) grid.mudarTurno(-1);
+        break;
+      case ACOES_ATALHO.OCULTAR:
+        handleOcultarSelecao();
+        break;
+      case ACOES_ATALHO.EXCLUIR:
+        if (emLote) handleExcluirEmLote();
+        else if (selecionado) handleRemoverToken();
+        break;
+      case ACOES_ATALHO.FERRAMENTA:
+        if (cenaAberta && nova !== ferramenta) handleFerramenta(nova);
+        break;
+      case ACOES_ATALHO.DESFAZER:
+        camadasDesfazer.desfazer();
+        break;
+      case ACOES_ATALHO.AJUDA:
+        setAtalhosAberto(true);
+        break;
+      default:
+    }
+  };
+  // A escuta é registrada uma vez e chama sempre a versão mais recente.
+  const atalhoRef = useRef(null);
+  useEffect(() => {
+    atalhoRef.current = executarAtalho;
+  });
+  useEffect(() => {
+    const aoTeclar = event => {
+      if (event.defaultPrevented) return;
+      if (alvoEhDigitacao(event.target) || haDialogoAberto()) return;
+      const atalho = acaoDoAtalho(event);
+      if (!atalho) return;
+      event.preventDefault();
+      atalhoRef.current?.(atalho);
+    };
+    window.addEventListener('keydown', aoTeclar);
+    return () => window.removeEventListener('keydown', aoTeclar);
+  }, []);
 
   const handleNevoaAtiva = ativa => grid.definirNevoaAtiva(ativa);
 
@@ -670,12 +871,38 @@ const Grid = () => {
     ) {
       return;
     }
-    await grid.preencherCamada(CAMADAS.NEVOA, acao, limites);
+    await camadasDesfazer.preencher(CAMADAS.NEVOA, acao, limites);
+  };
+
+  // Névoa: revela um raio (em metros) em volta do(s) token(s) selecionado(s).
+  const tokensParaRevelar = emLote
+    ? selecionadosTokens
+    : selecionado
+      ? [selecionado]
+      : [];
+  const handleRevelarEmVolta = async metros => {
+    const celulas = celulasParaRevelarEmVolta(
+      tokensParaRevelar,
+      metros,
+      config.metrosPorQuadrado ?? METROS_POR_QUADRADO_PADRAO,
+      limites,
+    );
+    if (celulas.length === 0) return;
+    await camadasDesfazer.editar(
+      CAMADAS.NEVOA,
+      ACOES_CAMADA.ADICIONAR,
+      celulas,
+      limites,
+    );
   };
 
   const handleLimparParedes = async () => {
     if (!window.confirm('Limpar todas as paredes desta cena?')) return;
-    await grid.preencherCamada(CAMADAS.PAREDES, ACOES_CAMADA.REMOVER, limites);
+    await camadasDesfazer.preencher(
+      CAMADAS.PAREDES,
+      ACOES_CAMADA.REMOVER,
+      limites,
+    );
   };
 
   const handleSalvarMarcador = async dados => {
@@ -726,6 +953,48 @@ const Grid = () => {
 
   if (!campanhaAtiva) return null;
 
+  // Ações secundárias da barra no celular (as mesmas dos botões do desktop).
+  const itensMenuMais = [
+    {
+      chave: 'config',
+      rotulo: 'Configurar grid',
+      onClick: abrirConfig,
+      disabled: !cenaAberta || configAberta,
+    },
+    ...OPCOES_TRAVAMENTO.map((opcao, indice) => ({
+      chave: `movimento-${opcao.value}`,
+      rotulo: `Movimento: ${opcao.label}`,
+      onClick: () => handleTravamento({ target: { value: opcao.value } }),
+      disabled: !cenaAberta,
+      selecionado: normalizarTravamento(grid.travamento) === opcao.value,
+      separador: indice === 0,
+    })),
+    ...(grid.combate
+      ? [
+          {
+            chave: 'participantes',
+            rotulo: 'Participantes do combate',
+            onClick: () => setParticipantesAberto(true),
+            separador: true,
+          },
+        ]
+      : []),
+    {
+      chave: 'acoes-chat',
+      rotulo: avisarAcoesChat
+        ? 'Ações no chat: ligado'
+        : 'Ações no chat: desligado',
+      onClick: handleAvisarAcoesChat,
+      disabled: !campanhaId,
+      separador: true,
+    },
+    {
+      chave: 'atalhos',
+      rotulo: 'Atalhos do teclado',
+      onClick: () => setAtalhosAberto(true),
+    },
+  ];
+
   let aviso = null;
   if (carregandoCenas || (cenaAbertaId && grid.carregando)) {
     aviso = 'Carregando o grid…';
@@ -775,15 +1044,23 @@ const Grid = () => {
             </Button>
           ))}
         <Button
-          startIcon={<SettingsIcon />}
-          onClick={() => {
-            setPrevia(null);
-            setConfigAberta(true);
-          }}
-          disabled={!cenaAberta || configAberta}
+          startIcon={<GroupIcon />}
+          aria-pressed={grupoAberto}
+          onClick={() => setGrupoAberto(aberto => !aberto)}
+          disabled={configAberta}
+          title="Painel do grupo: PV, Energia, Fadiga, PP e condições dos jogadores"
         >
-          Configurar grid
+          Grupo
         </Button>
+        {!celular && (
+          <Button
+            startIcon={<SettingsIcon />}
+            onClick={abrirConfig}
+            disabled={!cenaAberta || configAberta}
+          >
+            Configurar grid
+          </Button>
+        )}
         <Button
           variant="contained"
           startIcon={<AddIcon />}
@@ -792,29 +1069,33 @@ const Grid = () => {
         >
           Adicionar token
         </Button>
-        <TextField
-          select
-          size="small"
-          label="Movimento"
-          value={normalizarTravamento(grid.travamento)}
-          onChange={handleTravamento}
-          disabled={!cenaAberta}
-          sx={{ minWidth: 150 }}
-        >
-          {OPCOES_TRAVAMENTO.map(opcao => (
-            <MenuItem key={opcao.value} value={opcao.value}>
-              {opcao.label}
-            </MenuItem>
-          ))}
-        </TextField>
+        {!celular && (
+          <TextField
+            select
+            size="small"
+            label="Movimento"
+            value={normalizarTravamento(grid.travamento)}
+            onChange={handleTravamento}
+            disabled={!cenaAberta}
+            sx={{ minWidth: 150 }}
+          >
+            {OPCOES_TRAVAMENTO.map(opcao => (
+              <MenuItem key={opcao.value} value={opcao.value}>
+                {opcao.label}
+              </MenuItem>
+            ))}
+          </TextField>
+        )}
         {grid.combate ? (
           <>
-            <Button
-              startIcon={<GroupsIcon />}
-              onClick={() => setParticipantesAberto(true)}
-            >
-              Participantes
-            </Button>
+            {!celular && (
+              <Button
+                startIcon={<GroupsIcon />}
+                onClick={() => setParticipantesAberto(true)}
+              >
+                Participantes
+              </Button>
+            )}
             <Button
               color="error"
               startIcon={<StopIcon />}
@@ -832,17 +1113,28 @@ const Grid = () => {
             Iniciar combate
           </Button>
         )}
-        <Button
-          startIcon={<BoltIcon />}
-          aria-pressed={avisarAcoesChat}
-          onClick={handleAvisarAcoesChat}
-          disabled={!campanhaId}
-          title="Mostrar no chat as ações que os jogadores fazem pela Central de Ações durante o combate"
-        >
-          {avisarAcoesChat
-            ? 'Ações no chat: ligado'
-            : 'Ações no chat: desligado'}
-        </Button>
+        {!celular && (
+          <Button
+            startIcon={<BoltIcon />}
+            aria-pressed={avisarAcoesChat}
+            onClick={handleAvisarAcoesChat}
+            disabled={!campanhaId}
+            title="Mostrar no chat as ações que os jogadores fazem pela Central de Ações durante o combate"
+          >
+            {avisarAcoesChat
+              ? 'Ações no chat: ligado'
+              : 'Ações no chat: desligado'}
+          </Button>
+        )}
+        {!celular && (
+          <Button
+            startIcon={<KeyboardIcon />}
+            onClick={() => setAtalhosAberto(true)}
+            title="Atalhos do teclado (?)"
+          >
+            Atalhos
+          </Button>
+        )}
         <Button
           startIcon={<ChatOutlinedIcon />}
           aria-pressed={chatAberto}
@@ -850,6 +1142,7 @@ const Grid = () => {
         >
           {chatAberto ? 'Ocultar chat' : 'Mostrar chat'}
         </Button>
+        {celular && <MaisAcoesMenu itens={itensMenuMais} />}
       </Box>
 
       <CenasBarra
@@ -892,6 +1185,10 @@ const Grid = () => {
             onNevoaAtiva={handleNevoaAtiva}
             onPreencherNevoa={handlePreencherNevoa}
             onLimparParedes={handleLimparParedes}
+            onDesfazer={camadasDesfazer.desfazer}
+            podeDesfazer={camadasDesfazer.podeDesfazer}
+            podeRevelarEmVolta={tokensParaRevelar.length > 0}
+            onRevelarEmVolta={handleRevelarEmVolta}
             desabilitado={!cenaAberta}
           />
           <Box
@@ -933,7 +1230,7 @@ const Grid = () => {
               marcadores={grid.marcadores}
               desenhos={grid.desenhos}
               onEditarCamada={({ camada, acao, celulas }) =>
-                grid.editarCamada(camada, acao, celulas, limites)
+                camadasDesfazer.editar(camada, acao, celulas, limites)
               }
               onCelulaMarcador={celula => setMarcadorEditando({ celula })}
               onMarcadorClique={marcador => setMarcadorEditando({ marcador })}
@@ -948,6 +1245,7 @@ const Grid = () => {
               podeEditarArea={podeEditarAreaMestre}
               podeRolarToken={podeRolarTokenMestre}
               onRolarToken={setTokenRolando}
+              focoToken={focoToken}
             />
             {selecionado && ferramenta === FERRAMENTAS.MOVER && (
               <TokenPainel
@@ -966,6 +1264,7 @@ const Grid = () => {
                     ? () => setTokenRolando(selecionado)
                     : undefined
                 }
+                rodada={rodadaAtual}
                 abaixoDaFaixa={Boolean(grid.combate)}
               />
             )}
@@ -980,6 +1279,15 @@ const Grid = () => {
                 onAdicionarAoCombate={handleAdicionarAoCombateEmLote}
                 onExcluir={handleExcluirEmLote}
                 onFechar={limparSelecao}
+                abaixoDaFaixa={Boolean(grid.combate)}
+              />
+            )}
+            {grupoAberto && !configAberta && (
+              <GrupoPainel
+                linhas={linhasGrupo}
+                selecionadoId={selecionadoId}
+                onFocar={handleFocarToken}
+                onFechar={() => setGrupoAberto(false)}
                 abaixoDaFaixa={Boolean(grid.combate)}
               />
             )}
@@ -1003,6 +1311,8 @@ const Grid = () => {
           sx={{
             width: { xs: '100%', md: 380 },
             height: { xs: '45%', md: 'auto' },
+            // Celular: o mapa ganha mais espaço.
+            [MOBILE_QUERY]: { height: '35%' },
             flexShrink: 0,
             minHeight: 0,
             display: chatAberto ? 'flex' : 'none',
@@ -1015,11 +1325,19 @@ const Grid = () => {
             npcs={fontes.npcs}
             criaturas={fontes.criaturas}
             titulo="Chat"
+            onRecarregarFontes={
+              fontes.recarregar ? () => fontes.recarregar() : undefined
+            }
           />
         </Box>
       </Box>
 
       {dialogoConfirmacao}
+
+      <AtalhosDialog
+        open={atalhosAberto}
+        onClose={() => setAtalhosAberto(false)}
+      />
 
       <RolarDoTokenDialog
         open={Boolean(tokenRolando)}
@@ -1037,6 +1355,9 @@ const Grid = () => {
         onAdicionar={handleAdicionar}
         jogadoresFaltando={jogadoresFaltando}
         onAdicionarJogadores={handleAdicionarJogadores}
+        onRecarregarFontes={
+          fontes.recarregar ? () => fontes.recarregar() : undefined
+        }
       />
 
       {iniciarAberto && (

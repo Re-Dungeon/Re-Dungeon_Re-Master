@@ -22,7 +22,7 @@ import {
   validarConfigGrid,
 } from 'common/utils/grid';
 import { OPCOES_CORRIDA } from './gridMestre';
-import { painelAbaixoDaFaixaSx, painelCabecalhoSx, painelSx } from './styles';
+import { painelCabecalhoSx, painelLadoSx } from './styles';
 
 const paraValores = config => ({
   imagemUrl: config.imagemUrl ?? '',
@@ -96,11 +96,7 @@ const GridConfigPainel = ({
 
   return (
     <Box
-      sx={{
-        ...painelSx,
-        right: 12,
-        ...(abaixoDaFaixa ? painelAbaixoDaFaixaSx : {}),
-      }}
+      sx={painelLadoSx('right', abaixoDaFaixa)}
       role="region"
       aria-label="Configurar grid"
     >

@@ -80,6 +80,13 @@ RecursoEditavel.propTypes = {
   onAlterar: PropTypes.func.isRequired,
 };
 
+// "Atordoado ×2 (3 rod.)": stack e, nas condições com duração (NPC), as
+// rodadas que restam.
+const rotuloDaCondicao = condicao => {
+  const nome = condicao.stack > 1 ? `${condicao.nome} ×${condicao.stack}` : condicao.nome;
+  return condicao.restam ? `${nome} (${condicao.restam} rod.)` : nome;
+};
+
 // Cartão de um token no mapa (hover no desktop, toque no celular — cópia nos
 // dois sites, mudou um, mude o outro): nome, PV/Energia/Fadiga (só com
 // `recursos.numeros`), condições e a distância (`distancia`, texto pronto) até
@@ -115,13 +122,7 @@ const TokenDetalhe = ({
   }
   if (pp) linhas.push(`PP ${pp.atual}/${pp.max}`);
   if (condicoes?.length) {
-    linhas.push(
-      condicoes
-        .map(condicao =>
-          condicao.stack > 1 ? `${condicao.nome} ×${condicao.stack}` : condicao.nome,
-        )
-        .join(', '),
-    );
+    linhas.push(condicoes.map(rotuloDaCondicao).join(', '));
   }
   if (distancia) linhas.push(distancia);
   if (!linhas.length && !linhasEditaveis.length) return null;
@@ -156,7 +157,11 @@ TokenDetalhe.propTypes = {
   nome: PropTypes.string,
   recursos: PropTypes.object,
   condicoes: PropTypes.arrayOf(
-    PropTypes.shape({ nome: PropTypes.string, stack: PropTypes.number }),
+    PropTypes.shape({
+      nome: PropTypes.string,
+      stack: PropTypes.number,
+      restam: PropTypes.number,
+    }),
   ),
   distancia: PropTypes.string,
   pp: PropTypes.shape({ atual: PropTypes.number, max: PropTypes.number }),

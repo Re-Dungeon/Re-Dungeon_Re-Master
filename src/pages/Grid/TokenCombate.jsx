@@ -21,14 +21,18 @@ import {
   nomeDaCondicao,
   normalizarAura,
   normalizarCondicoesDoToken,
+  normalizarCondicoesDuracao,
   normalizarDeslocamento,
   normalizarModoRecursos,
   normalizarRecurso,
+  rodadasRestantes,
 } from 'common/utils/grid';
 import {
   OPCOES_MOSTRAR_RECURSOS,
   ajustarRecurso,
   auraEscolhida,
+  duracaoComCondicao,
+  patchDeCondicoesDoToken,
   recursoDigitado,
 } from './gridMestre';
 
@@ -212,7 +216,13 @@ ResumoDoJogador.propTypes = {
  * aqui); a aura vale para todos os tipos. O sigilo dos recursos é só da
  * interface (o doc do token é legível por quem vê a cena).
  */
-const TokenCombate = ({ token, condicoes, detalhe, onAlterar }) => {
+const TokenCombate = ({
+  token,
+  condicoes,
+  detalhe,
+  onAlterar,
+  rodada = null,
+}) => {
   const ehJogador = token.tipo === TIPOS_TOKEN.JOGADOR;
   const catalogoPorId = useMemo(
     () => new Map(condicoes.map(condicao => [condicao.id, condicao])),
@@ -221,6 +231,7 @@ const TokenCombate = ({ token, condicoes, detalhe, onAlterar }) => {
   const idsDoToken = normalizarCondicoesDoToken(token.condicoes);
   const conhecidas = idsDoToken.filter(id => catalogoPorId.has(id));
   const desconhecidas = idsDoToken.filter(id => !catalogoPorId.has(id));
+  const duracao = normalizarCondicoesDuracao(token.condicoesDuracao);
   const aura = normalizarAura(token.aura);
   const deslocamento = deslocamentoDoToken(token);
 
@@ -275,16 +286,43 @@ const TokenCombate = ({ token, condicoes, detalhe, onAlterar }) => {
               !conhecidas.includes(id)
             }
             onChange={(_event, ids) =>
-              onAlterar({
-                condicoes: [...ids, ...desconhecidas].slice(
-                  0,
-                  TOKEN_CONDICOES_MAX,
+              onAlterar(
+                patchDeCondicoesDoToken(
+                  token,
+                  [...ids, ...desconhecidas].slice(0, TOKEN_CONDICOES_MAX),
                 ),
-              })
+              )
             }
             noOptionsText="Nenhuma condição neste universo"
             renderInput={params => <TextField {...params} label="Condições" />}
           />
+          {conhecidas.length > 0 && (
+            <Box
+              sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}
+              role="group"
+              aria-label="Duração das condições"
+            >
+              <Typography variant="caption" sx={{ color: 'var(--text-muted)' }}>
+                Duração em rodadas, a contar de agora (vazio = sem prazo).
+                {rodada === null
+                  ? ' Sem combate, conta a partir da rodada 1.'
+                  : ` Rodada atual: ${rodada}.`}
+              </Typography>
+              {conhecidas.map(id => (
+                <CampoNumero
+                  key={id}
+                  label={`Rodadas de ${nomeDaCondicao(catalogoPorId.get(id))}`}
+                  valor={rodadasRestantes(duracao[id], rodada) ?? ''}
+                  onConfirmar={texto => {
+                    const nova = duracaoComCondicao(token, id, texto, rodada);
+                    if (nova[id] !== duracao[id]) {
+                      onAlterar({ condicoesDuracao: nova });
+                    }
+                  }}
+                />
+              ))}
+            </Box>
+          )}
         </>
       )}
 
@@ -367,6 +405,7 @@ TokenCombate.propTypes = {
     fadiga: PropTypes.object,
     mostrarRecursos: PropTypes.string,
     condicoes: PropTypes.arrayOf(PropTypes.string),
+    condicoesDuracao: PropTypes.object,
     aura: PropTypes.shape({ raio: PropTypes.number, cor: PropTypes.string }),
     deslocamento: PropTypes.number,
   }).isRequired,
@@ -379,6 +418,8 @@ TokenCombate.propTypes = {
     pp: PropTypes.shape({ atual: PropTypes.number, max: PropTypes.number }),
   }),
   onAlterar: PropTypes.func.isRequired,
+  // Rodada atual do combate da cena (null = sem combate).
+  rodada: PropTypes.number,
 };
 
 export default TokenCombate;

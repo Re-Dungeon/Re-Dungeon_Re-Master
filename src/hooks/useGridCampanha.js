@@ -459,9 +459,11 @@ const useGridCampanha = (
     () => new Map(catalogoCondicoes.map(condicao => [condicao.id, condicao])),
     [catalogoCondicoes],
   );
+  // Rodada do combate: as condições com duração mostram as rodadas que restam.
+  const rodada = combate?.rodada ?? null;
   const detalhes = useMemo(
-    () => detalhesDosTokens(tokens, { fichas, catalogoPorId, uid, veTudo }),
-    [tokens, fichas, catalogoPorId, uid, veTudo],
+    () => detalhesDosTokens(tokens, { fichas, catalogoPorId, uid, veTudo, rodada }),
+    [tokens, fichas, catalogoPorId, uid, veTudo, rodada],
   );
   const rastrosAtivos = useMemo(
     () =>

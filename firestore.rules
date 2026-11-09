@@ -789,7 +789,7 @@ service cloud.firestore {
       return data.keys().hasOnly(['nome', 'imagemUrl', 'tipo', 'refId', 'col', 'lin', 'tamanho',
                                   'donos', 'oculto', 'rastro', 'movidoEm',
                                   'pv', 'energia', 'fadiga', 'mostrarRecursos', 'condicoes', 'aura',
-                                  'deslocamento',
+                                  'deslocamento', 'condicoesDuracao',
                                   'createdAt', 'updatedAt']) &&
         data.keys().hasAll(['nome', 'tipo', 'col', 'lin', 'tamanho', 'donos', 'oculto']) &&
         data.nome is string && data.nome.size() > 0 && data.nome.size() <= 100 &&
@@ -801,6 +801,9 @@ service cloud.firestore {
         data.tamanho is int && data.tamanho >= 1 && data.tamanho <= 10 &&
         data.donos is list && data.donos.size() <= 20 &&
         data.oculto is bool &&
+        // Duração das condições de NPC: { condicaoId: rodadaFim } (common/utils/grid.js).
+        (!('condicoesDuracao' in data) ||
+         (data.condicoesDuracao is map && data.condicoesDuracao.size() <= 20)) &&
         gridRastroValido(data) &&
         gridCombateValido(data);
     }

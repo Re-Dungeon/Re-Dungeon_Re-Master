@@ -9,7 +9,7 @@ import Typography from '@mui/material/Typography';
 import CloseIcon from '@mui/icons-material/Close';
 import { nomeDaCondicao } from 'common/utils/grid';
 import { patchesDeDanoEmLote } from './gridMestre';
-import { painelAbaixoDaFaixaSx, painelCabecalhoSx, painelSx } from './styles';
+import { painelCabecalhoSx, painelLadoSx } from './styles';
 
 const legendaSx = { color: 'var(--text-muted)' };
 
@@ -57,11 +57,7 @@ const AcoesEmLote = ({
 
   return (
     <Box
-      sx={{
-        ...painelSx,
-        left: 12,
-        ...(abaixoDaFaixa ? painelAbaixoDaFaixaSx : {}),
-      }}
+      sx={painelLadoSx('left', abaixoDaFaixa)}
       role="region"
       aria-label="Ações em lote"
     >

@@ -1,3 +1,7 @@
+// Celular (abaixo de 600px): o único breakpoint de celular do app.
+export const MOBILE_QUERY = '@media (max-width: 599.95px)';
+export const MOBILE_MEDIA = '(max-width: 599.95px)';
+
 // Painéis flutuantes sobre o mapa (token selecionado / configuração do grid).
 export const painelSx = {
   position: 'absolute',
@@ -22,8 +26,30 @@ export const painelSx = {
 export const painelAbaixoDaFaixaSx = {
   top: 92,
   maxHeight: 'calc(100% - 160px)',
-  // No celular os botões da faixa quebram para uma segunda linha.
-  '@media (max-width: 599.95px)': { top: 150, maxHeight: 'calc(100% - 220px)' },
+  // No celular os painéis viram folha na base (painelLadoSx) e a faixa fica livre.
+};
+
+// Painel de um lado do mapa (`lado` = 'left' | 'right'). A partir de 600px é
+// o cartão flutuante de 300px de sempre; no celular vira uma folha na base do
+// mapa, de ponta a ponta (a faixa de iniciativa fica livre no topo). O bloco do
+// celular entra por último de propósito, para vencer o `left/right: 12`.
+export const painelLadoSx = (lado, abaixoDaFaixa = false) => {
+  const sx = { ...painelSx, [lado]: 12 };
+  if (abaixoDaFaixa) {
+    sx.top = painelAbaixoDaFaixaSx.top;
+    sx.maxHeight = painelAbaixoDaFaixaSx.maxHeight;
+  }
+  sx[MOBILE_QUERY] = {
+    top: 'auto',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    width: 'auto',
+    maxWidth: 'none',
+    maxHeight: '55%',
+    borderRadius: '16px 16px 0 0',
+  };
+  return sx;
 };
 
 export const painelCabecalhoSx = {
