@@ -202,6 +202,7 @@ const ChatMestre = ({ campanha, npcs, criaturas, titulo }) => {
         onApagar={apagar}
         macros={macros}
         audio={audio}
+        chaveHistorico={`reDungeonChatHistorico_${campanha.id}`}
         cabecalho={
           <>
             <Typography sx={{ color: 'var(--text-primary)', fontWeight: 700 }}>
