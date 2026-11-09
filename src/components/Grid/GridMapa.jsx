@@ -309,6 +309,7 @@ const GridMapa = ({
   podeEditarRecursos,
   onAlterarRecurso,
   onRolarToken,
+  focoToken = null,
 }) => {
   const ehMeu = ehMeuToken ?? podeMover;
   const bloqueadas = camadas?.bloqueadas ?? null;
@@ -374,6 +375,8 @@ const GridMapa = ({
   const [seguido, setSeguido] = useState(null);
   // Chave do último sinal de "puxar vista" já aplicado.
   const [puxadaAplicada, setPuxadaAplicada] = useState(null);
+  // Chave do último pedido de foco (`focoToken`) já aplicado.
+  const [focoAplicado, setFocoAplicado] = useState(null);
   // Último token que a pessoa moveu/tocou (referência da distância).
   const [referenciaId, setReferenciaId] = useState(null);
   // Cartão do token: sob o mouse (desktop) ou tocado (celular, por um tempo).
@@ -473,6 +476,22 @@ const GridMapa = ({
       chave: config.imagemUrl,
       suave: true,
     });
+  } else if (focoToken && focoToken.chave !== focoAplicado && viewport.largura > 0) {
+    // Pedido de fora (painel do grupo): centraliza no token, uma vez por chave.
+    setFocoAplicado(focoToken.chave);
+    const alvo = tokens.find(token => token.id === focoToken.tokenId);
+    if (alvo) {
+      setSeguindo(false);
+      setVistaManual({
+        ...centralizarVista(
+          vista,
+          centroDaCelula(config, alvo.col, alvo.lin, alvo.tamanho ?? 1),
+          viewport,
+        ),
+        chave: config.imagemUrl,
+        suave: true,
+      });
+    }
   }
 
   // A roda do mouse precisa de listener não-passivo (preventDefault) — lê a
@@ -2327,6 +2346,12 @@ GridMapa.propTypes = {
   podeEditarRecursos: PropTypes.func,
   onAlterarRecurso: PropTypes.func,
   onRolarToken: PropTypes.func,
+  // Pedido de fora para centralizar a vista num token (zoom mantido): vale uma
+  // vez por `chave` nova — { tokenId, chave }.
+  focoToken: PropTypes.shape({
+    tokenId: PropTypes.string.isRequired,
+    chave: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+  }),
 };
 
 export default GridMapa;

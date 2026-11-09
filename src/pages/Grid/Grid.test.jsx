@@ -1993,4 +1993,118 @@ describe('Grid (Re:Master)', () => {
       expect(propsDoMapa.ferramenta).toBe('mover');
     });
   });
+  describe('painel do grupo', () => {
+    const FICHA_ALDRIC = {
+      status: {
+        hp: { atual: 12, maximo: 20 },
+        energia: { atual: 5, maximo: 10 },
+      },
+      condicoesAtivas: [{ condicaoId: 'cond1', stack: 2 }],
+      prontidaoAtual: 3,
+      prontidaoMaximaEfetiva: 6,
+    };
+
+    beforeEach(() => {
+      getPersonagensJogaveis.mockResolvedValue([
+        {
+          id: 'pj1',
+          uid: 'jogador-1',
+          tipo: 'Personagem Jogável',
+          nome: 'Aldric',
+          universo: 'u1',
+          campanhas: ['c1'],
+        },
+        {
+          id: 'pj2',
+          uid: 'jogador-2',
+          tipo: 'Personagem Jogável',
+          nome: 'Brina',
+          universo: 'u1',
+          campanhas: ['c1'],
+        },
+      ]);
+      subscribePersonagem.mockImplementation((id, onChange) => {
+        onChange(id === 'pj1' ? FICHA_ALDRIC : null);
+        return () => {};
+      });
+    });
+
+    it('lista todos os jogáveis da campanha com barras, PP e condições', async () => {
+      const user = userEvent.setup();
+      renderGrid();
+      await screen.findByRole('button', { name: /Aldric, coluna/ });
+      expect(
+        screen.queryByRole('region', { name: 'Grupo' }),
+      ).not.toBeInTheDocument();
+
+      await user.click(screen.getByRole('button', { name: 'Grupo' }));
+      const painel = await screen.findByRole('region', { name: 'Grupo' });
+
+      // Escuta as fichas dos dois, mesmo a Brina não estando na cena.
+      await waitFor(() => {
+        const ids = subscribePersonagem.mock.calls.map(c => c[0]);
+        expect(ids).toEqual(expect.arrayContaining(['pj1', 'pj2']));
+      });
+      const aldric = await within(painel).findByRole('button', {
+        name: 'Selecionar Aldric no mapa',
+      });
+      expect(aldric).toHaveTextContent('PP 3/6');
+      expect(aldric).toHaveTextContent('12/20');
+      expect(aldric).toHaveTextContent('5/10');
+      expect(aldric).toHaveTextContent('Envenenado ×2');
+      const brina = within(painel).getByRole('button', {
+        name: 'Brina (sem token nesta cena)',
+      });
+      expect(brina).toHaveAttribute('aria-disabled', 'true');
+      expect(brina).toHaveTextContent('Sem dados da ficha');
+    });
+
+    it('clicar num personagem com token seleciona e centraliza nele', async () => {
+      const user = userEvent.setup();
+      renderGrid();
+      await screen.findByRole('button', { name: /Aldric, coluna/ });
+      await user.click(screen.getByRole('button', { name: 'Grupo' }));
+      const painel = await screen.findByRole('region', { name: 'Grupo' });
+
+      await user.click(
+        within(painel).getByRole('button', {
+          name: 'Selecionar Aldric no mapa',
+        }),
+      );
+      expect(
+        await screen.findByRole('region', { name: 'Token selecionado' }),
+      ).toBeInTheDocument();
+      expect(propsDoMapa.selecionadoId).toBe('t1');
+      expect(propsDoMapa.focoToken).toEqual({ tokenId: 't1', chave: 1 });
+
+      await user.click(
+        within(painel).getByRole('button', {
+          name: 'Selecionar Aldric no mapa',
+        }),
+      );
+      expect(propsDoMapa.focoToken.chave).toBe(2);
+    });
+
+    it('fecha pelo X e some enquanto "Configurar grid" está aberto', async () => {
+      const user = userEvent.setup();
+      renderGrid();
+      await screen.findByRole('button', { name: /Aldric, coluna/ });
+      await user.click(screen.getByRole('button', { name: 'Grupo' }));
+      await user.click(
+        await screen.findByRole('button', { name: 'Fechar grupo' }),
+      );
+      expect(
+        screen.queryByRole('region', { name: 'Grupo' }),
+      ).not.toBeInTheDocument();
+
+      await user.click(screen.getByRole('button', { name: 'Grupo' }));
+      await screen.findByRole('region', { name: 'Grupo' });
+      await user.click(screen.getByRole('button', { name: 'Configurar grid' }));
+      await screen.findByRole('region', { name: 'Configurar grid' });
+      expect(
+        screen.queryByRole('region', { name: 'Grupo' }),
+      ).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Grupo' })).toBeDisabled();
+    });
+  });
 });

@@ -12,6 +12,9 @@ import {
   montarToken,
   normalizarAura,
   normalizarCondicoesDoToken,
+  condicoesDoToken,
+  prontidaoDaFicha,
+  recursosDaFicha,
   valorDigitadoDoRecurso,
   normalizarRecurso,
   primeiraCelulaLivre,
@@ -515,3 +518,47 @@ export const haDialogoAberto = (doc = document) =>
 // "H": se todos os tokens já estão ocultos, revela; senão oculta todos.
 export const ocultoAlvoDosTokens = tokens =>
   !(tokens.length > 0 && tokens.every(token => token.oculto));
+
+// ── Painel do grupo ──────────────────────────────────────────────────────
+// Uma linha por personagem jogável da campanha (`jogadores` de
+// useFontesDaMesa), com os dados ao vivo da ficha (`fichas[refId]`, de
+// useFichasDoGrid): PV/Energia/Fadiga, PP e condições ativas (nomes do
+// catálogo do universo), e o token dele na cena aberta (ou null).
+// `ficha` null = ainda carregando ou indisponível: a linha vem sem dados.
+export const linhasDoGrupo = (
+  jogadores,
+  { fichas = {}, tokens = [], catalogoPorId = null } = {},
+) =>
+  jogadores
+    .map(jogador => {
+      const ficha = fichas[jogador.refId] ?? null;
+      return {
+        refId: jogador.refId,
+        uid: jogador.uid ?? null,
+        nome: jogador.label,
+        avatar: jogador.avatar ?? null,
+        semFicha: !ficha,
+        recursos: ficha ? recursosDaFicha(ficha) : null,
+        pp: ficha ? prontidaoDaFicha(ficha) : null,
+        condicoes: ficha
+          ? condicoesDoToken(
+              { tipo: TIPOS_TOKEN.JOGADOR },
+              ficha,
+              catalogoPorId,
+            )
+          : [],
+        token:
+          tokens.find(
+            token =>
+              token.tipo === TIPOS_TOKEN.JOGADOR &&
+              token.refId === jogador.refId,
+          ) ?? null,
+      };
+    })
+    .sort((a, b) => String(a.nome).localeCompare(String(b.nome), 'pt-BR'));
+
+// Ids das fichas do grupo numa string estável (a chave de useFichasDoGrid).
+export const chaveDasFichasDoGrupo = jogadores =>
+  [...new Set(jogadores.map(jogador => jogador.refId).filter(Boolean))]
+    .sort()
+    .join('|');

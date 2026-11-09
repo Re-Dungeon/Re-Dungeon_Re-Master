@@ -2,7 +2,7 @@ import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 
-import { GRID_CONFIG_PADRAO } from 'common/utils/grid';
+import { GRID_CONFIG_PADRAO, centroDaCelula } from 'common/utils/grid';
 import GridMapa from './GridMapa';
 
 // O jsdom não tem PointerEvent: sem ele o fireEvent.pointer* cria um Event
@@ -618,6 +618,30 @@ describe('GridMapa — sinais, estado dos tokens, auras e seguir', () => {
     fireEvent.pointerUp(viewportDe(), ponteiro(345, 425));
     expect(transformDe(mundoDe(container)).x).toBeCloseTo(depois.x + 20);
     expect(mundoDe(container).style.transition).toBe('');
+  });
+
+  it('focoToken centraliza a vista no token uma vez por chave (zoom mantido)', () => {
+    comViewport();
+    const { container, rerender } = render(mapa());
+    const antes = transformDe(mundoDe(container));
+    const alvo = centroDaCelula(GRID_CONFIG_PADRAO, 2, 3, 1);
+
+    rerender(mapa({ focoToken: { tokenId: 't1', chave: 1 } }));
+    const depois = transformDe(mundoDe(container));
+    expect(depois.zoom).toBe(antes.zoom);
+    expect(depois.x).toBeCloseTo(400 - alvo.x * antes.zoom);
+    expect(depois.y).toBeCloseTo(300 - alvo.y * antes.zoom);
+
+    // A mesma chave não puxa de novo depois de um pan.
+    fireEvent.pointerDown(viewportDe(), ponteiro(325, 425));
+    fireEvent.pointerMove(viewportDe(), ponteiro(345, 425));
+    fireEvent.pointerUp(viewportDe(), ponteiro(345, 425));
+    rerender(mapa({ focoToken: { tokenId: 't1', chave: 1 } }));
+    expect(transformDe(mundoDe(container)).x).toBeCloseTo(depois.x + 20);
+
+    // Chave nova (mesmo token) centraliza outra vez.
+    rerender(mapa({ focoToken: { tokenId: 't1', chave: 2 } }));
+    expect(transformDe(mundoDe(container)).x).toBeCloseTo(depois.x);
   });
 
   it('barras de recursos e ícones de condição (+N) sobre o token', () => {

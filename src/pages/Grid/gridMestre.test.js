@@ -5,6 +5,8 @@ import {
   FERRAMENTAS,
   acaoDoAtalho,
   alvoEhDigitacao,
+  chaveDasFichasDoGrupo,
+  linhasDoGrupo,
   haDialogoAberto,
   ocultoAlvoDosTokens,
   OPCOES_ACAO,
@@ -616,5 +618,63 @@ describe('ocultoAlvoDosTokens', () => {
       false,
     );
     expect(ocultoAlvoDosTokens([])).toBe(true);
+  });
+});
+
+describe('linhasDoGrupo', () => {
+  const JOGADORES = [
+    { refId: 'p2', uid: 'u2', label: 'Brina', avatar: 'https://ex.com/b.png' },
+    { refId: 'p1', uid: 'u1', label: 'Aldric', avatar: null },
+  ];
+  const FICHA = {
+    status: { hp: { atual: 4, maximo: 10 } },
+    condicoesAtivas: [
+      { condicaoId: 'c1', stack: 3 },
+      { condicaoId: 'fora-do-catalogo', stack: 1 },
+    ],
+    prontidaoAtual: 2,
+    prontidaoMaximaEfetiva: 5,
+  };
+  const CATALOGO = new Map([['c1', { id: 'c1', nome: 'Sangrando' }]]);
+
+  it('uma linha por jogável, em ordem alfabética, com o token da cena', () => {
+    const token = { id: 't9', tipo: 'jogador', refId: 'p1' };
+    const linhas = linhasDoGrupo(JOGADORES, {
+      fichas: { p1: FICHA },
+      tokens: [{ id: 'x', tipo: 'npc', refId: 'p1' }, token],
+      catalogoPorId: CATALOGO,
+    });
+    expect(linhas.map(l => l.nome)).toEqual(['Aldric', 'Brina']);
+    const [aldric, brina] = linhas;
+    expect(aldric.token).toBe(token);
+    expect(aldric.recursos.pv).toEqual({ atual: 4, max: 10 });
+    expect(aldric.pp).toEqual({ atual: 2, max: 5 });
+    expect(aldric.condicoes).toEqual([
+      { id: 'c1', nome: 'Sangrando', icone: null, stack: 3 },
+    ]);
+    expect(aldric.semFicha).toBe(false);
+    // Sem ficha ao vivo e sem token na cena: linha vazia.
+    expect(brina).toMatchObject({
+      semFicha: true,
+      recursos: null,
+      pp: null,
+      condicoes: [],
+      token: null,
+      avatar: 'https://ex.com/b.png',
+    });
+  });
+});
+
+describe('chaveDasFichasDoGrupo', () => {
+  it('ids únicos e ordenados, sem vazios', () => {
+    expect(
+      chaveDasFichasDoGrupo([
+        { refId: 'b' },
+        { refId: 'a' },
+        { refId: 'b' },
+        { refId: null },
+      ]),
+    ).toBe('a|b');
+    expect(chaveDasFichasDoGrupo([])).toBe('');
   });
 });

@@ -19,6 +19,7 @@ import StopIcon from '@mui/icons-material/Stop';
 import SportsMartialArtsIcon from '@mui/icons-material/SportsMartialArts';
 import SettingsIcon from '@mui/icons-material/Settings';
 import BoltIcon from '@mui/icons-material/Bolt';
+import GroupIcon from '@mui/icons-material/Group';
 import KeyboardIcon from '@mui/icons-material/Keyboard';
 import { useAuth } from 'context/AuthContext';
 import { useCampanha } from 'context/CampanhaContext';
@@ -54,6 +55,7 @@ import {
   validarToken,
 } from 'common/utils/grid';
 import useAvisarAcoesChat from 'hooks/useAvisarAcoesChat';
+import useFichasDoGrid from 'hooks/useFichasDoGrid';
 import useGridCampanha from 'hooks/useGridCampanha';
 import useRolarDoToken from 'hooks/useRolarDoToken';
 import { autorDoToken } from 'common/utils/gridRolagem';
@@ -69,6 +71,7 @@ import CenaDialog from './CenaDialog';
 import CenasBarra from './CenasBarra';
 import FerramentasMapa from './FerramentasMapa';
 import GridConfigPainel from './GridConfigPainel';
+import GrupoPainel from './GrupoPainel';
 import IniciarCombateDialog from './IniciarCombateDialog';
 import MarcadorDialog from './MarcadorDialog';
 import ParticipantesCombateDialog from './ParticipantesCombateDialog';
@@ -81,9 +84,11 @@ import {
   acaoDoAtalho,
   alternarSelecao,
   alvoEhDigitacao,
+  chaveDasFichasDoGrupo,
   copiaDoToken,
   haDialogoAberto,
   jogadoresSemToken,
+  linhasDoGrupo,
   montarTokensEmLote,
   ocultoAlvoDosTokens,
   patchesDeCondicaoEmLote,
@@ -188,6 +193,9 @@ const Grid = () => {
   const [chatAberto, setChatAberto] = useState(true);
   const [tokenRolando, setTokenRolando] = useState(null);
   const [atalhosAberto, setAtalhosAberto] = useState(false);
+  // Painel "Grupo" e o último pedido de centralizar num token ({ tokenId, chave }).
+  const [grupoAberto, setGrupoAberto] = useState(false);
+  const [focoToken, setFocoToken] = useState(null);
   // Ferramenta do mapa (Fase 3B) e suas opções; marcador em criação/edição:
   // { marcador } | { celula } | null.
   const [ferramenta, setFerramenta] = useState(FERRAMENTAS.MOVER);
@@ -268,6 +276,30 @@ const Grid = () => {
   );
   const emLote = selecionadosTokens.length >= 2;
 
+  // Painel do grupo: as fichas de TODOS os jogáveis da campanha, ao vivo (só
+  // enquanto o painel está aberto; o grid em si escuta só os tokens da cena).
+  const fichasDoGrupo = useFichasDoGrid(
+    chaveDasFichasDoGrupo(fontes.jogadores),
+    {
+      ativo: grupoAberto,
+    },
+  );
+  const catalogoPorId = useMemo(
+    () => new Map(catalogoCondicoes.map(condicao => [condicao.id, condicao])),
+    [catalogoCondicoes],
+  );
+  const linhasGrupo = useMemo(
+    () =>
+      grupoAberto
+        ? linhasDoGrupo(fontes.jogadores, {
+            fichas: fichasDoGrupo,
+            tokens: grid.tokens,
+            catalogoPorId,
+          })
+        : [],
+    [grupoAberto, fontes.jogadores, fichasDoGrupo, grid.tokens, catalogoPorId],
+  );
+
   const limparSelecao = useCallback(() => {
     setSelecionadoId(null);
     setSelecionadosIds(SEM_SELECAO);
@@ -287,6 +319,16 @@ const Grid = () => {
   const handleSelecionar = token => {
     setSelecionadoId(token?.id ?? null);
     setSelecionadosIds(SEM_SELECAO);
+  };
+
+  // Painel do grupo: seleciona o token do personagem e centraliza o mapa nele.
+  const handleFocarToken = token => {
+    setFerramenta(FERRAMENTAS.MOVER);
+    handleSelecionar(token);
+    setFocoToken(atual => ({
+      tokenId: token.id,
+      chave: (atual?.chave ?? 0) + 1,
+    }));
   };
 
   const handleAlternarSelecao = token => {
@@ -354,6 +396,7 @@ const Grid = () => {
 
   const abrirCena = cenaId => {
     setCenaEscolhidaId(cenaId);
+    setFocoToken(null);
     limparSelecao();
     setMarcadorEditando(null);
     fecharConfig();
@@ -843,9 +886,19 @@ const Grid = () => {
             </Button>
           ))}
         <Button
+          startIcon={<GroupIcon />}
+          aria-pressed={grupoAberto}
+          onClick={() => setGrupoAberto(aberto => !aberto)}
+          disabled={configAberta}
+          title="Painel do grupo: PV, Energia, Fadiga, PP e condições dos jogadores"
+        >
+          Grupo
+        </Button>
+        <Button
           startIcon={<SettingsIcon />}
           onClick={() => {
             setPrevia(null);
+            setGrupoAberto(false);
             setConfigAberta(true);
           }}
           disabled={!cenaAberta || configAberta}
@@ -1023,6 +1076,7 @@ const Grid = () => {
               podeEditarArea={podeEditarAreaMestre}
               podeRolarToken={podeRolarTokenMestre}
               onRolarToken={setTokenRolando}
+              focoToken={focoToken}
             />
             {selecionado && ferramenta === FERRAMENTAS.MOVER && (
               <TokenPainel
@@ -1055,6 +1109,15 @@ const Grid = () => {
                 onAdicionarAoCombate={handleAdicionarAoCombateEmLote}
                 onExcluir={handleExcluirEmLote}
                 onFechar={limparSelecao}
+                abaixoDaFaixa={Boolean(grid.combate)}
+              />
+            )}
+            {grupoAberto && !configAberta && (
+              <GrupoPainel
+                linhas={linhasGrupo}
+                selecionadoId={selecionadoId}
+                onFocar={handleFocarToken}
+                onFechar={() => setGrupoAberto(false)}
                 abaixoDaFaixa={Boolean(grid.combate)}
               />
             )}
