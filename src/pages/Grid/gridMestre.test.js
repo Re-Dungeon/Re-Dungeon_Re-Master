@@ -4,7 +4,12 @@ import {
   ACOES_ATALHO,
   FERRAMENTAS,
   acaoDoAtalho,
+  DURACAO_CONDICAO_MAX,
   alvoEhDigitacao,
+  duracaoComCondicao,
+  patchDeCondicoesDoToken,
+  patchesDeExpiracaoDeCondicoes,
+  rodadaFimDaDuracao,
   chaveDasFichasDoGrupo,
   linhasDoGrupo,
   haDialogoAberto,
@@ -676,5 +681,89 @@ describe('chaveDasFichasDoGrupo', () => {
       ]),
     ).toBe('a|b');
     expect(chaveDasFichasDoGrupo([])).toBe('');
+  });
+});
+
+describe('duração das condições (condicoesDuracao)', () => {
+  const NPC = {
+    id: 'n1',
+    nome: 'Goblin',
+    tipo: 'npc',
+    condicoes: ['a', 'b', 'c'],
+    condicoesDuracao: { a: 2, b: 5 },
+  };
+
+  it('rodadaFimDaDuracao: R + N − 1, sem combate a partir da rodada 1', () => {
+    expect(rodadaFimDaDuracao('3', 4)).toBe(6);
+    expect(rodadaFimDaDuracao(1, 4)).toBe(4);
+    expect(rodadaFimDaDuracao('3')).toBe(3);
+    expect(rodadaFimDaDuracao('3', null)).toBe(3);
+    expect(rodadaFimDaDuracao('', 2)).toBeNull();
+    expect(rodadaFimDaDuracao('0', 2)).toBeNull();
+    expect(rodadaFimDaDuracao('abc', 2)).toBeNull();
+    expect(rodadaFimDaDuracao('500', 1)).toBe(DURACAO_CONDICAO_MAX);
+  });
+
+  it('duracaoComCondicao põe, troca e tira a chave (vazio = sem prazo)', () => {
+    expect(duracaoComCondicao(NPC, 'c', '2', 3)).toEqual({ a: 2, b: 5, c: 4 });
+    expect(duracaoComCondicao(NPC, 'a', '1', 3)).toEqual({ a: 3, b: 5 });
+    expect(duracaoComCondicao(NPC, 'a', '', 3)).toEqual({ b: 5 });
+    // Não muda o token.
+    expect(NPC.condicoesDuracao).toEqual({ a: 2, b: 5 });
+  });
+
+  it('patchDeCondicoesDoToken tira a duração de quem saiu', () => {
+    expect(patchDeCondicoesDoToken(NPC, ['a', 'c'])).toEqual({
+      condicoes: ['a', 'c'],
+      condicoesDuracao: { a: 2 },
+    });
+    // Sem duração afetada, o campo nem entra no patch.
+    expect(patchDeCondicoesDoToken(NPC, ['a', 'b'])).toEqual({
+      condicoes: ['a', 'b'],
+    });
+    expect(
+      patchDeCondicoesDoToken({ ...NPC, condicoesDuracao: undefined }, ['x']),
+    ).toEqual({ condicoes: ['x'] });
+  });
+
+  it('patchesDeExpiracaoDeCondicoes: vence quando a rodada passa do fim', () => {
+    const jogador = { id: 'j', tipo: 'jogador', condicoesDuracao: { a: 1 } };
+    // Rodada 2: "a" (fim 2) ainda vale.
+    expect(patchesDeExpiracaoDeCondicoes([NPC, jogador], 2)).toEqual({
+      patches: [],
+      expiradas: [],
+    });
+    // Rodada 3: "a" venceu; "b" (fim 5) e "c" (sem prazo) ficam.
+    expect(patchesDeExpiracaoDeCondicoes([NPC, jogador], 3)).toEqual({
+      patches: [
+        {
+          id: 'n1',
+          patch: { condicoes: ['b', 'c'], condicoesDuracao: { b: 5 } },
+        },
+      ],
+      expiradas: [{ tokenId: 'n1', nome: 'Goblin', ids: ['a'] }],
+    });
+    // Rodada 6: as duas com prazo venceram.
+    const { patches } = patchesDeExpiracaoDeCondicoes([NPC], 6);
+    expect(patches[0].patch).toEqual({
+      condicoes: ['c'],
+      condicoesDuracao: {},
+    });
+    // Sem combate (rodada nula) nada vence; idempotente depois de gravar.
+    expect(patchesDeExpiracaoDeCondicoes([NPC], null).patches).toEqual([]);
+    expect(
+      patchesDeExpiracaoDeCondicoes([{ ...NPC, ...patches[0].patch }], 6)
+        .patches,
+    ).toEqual([]);
+  });
+
+  it('remover uma condição em lote leva a duração junto', () => {
+    const { patches } = patchesDeCondicaoEmLote([NPC], 'a', false);
+    expect(patches).toEqual([
+      {
+        id: 'n1',
+        patch: { condicoes: ['b', 'c'], condicoesDuracao: { b: 5 } },
+      },
+    ]);
   });
 });

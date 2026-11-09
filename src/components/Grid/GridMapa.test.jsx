@@ -620,6 +620,29 @@ describe('GridMapa — sinais, estado dos tokens, auras e seguir', () => {
     expect(mundoDe(container).style.transition).toBe('');
   });
 
+  it('cartão do token mostra as rodadas que restam das condições com duração', () => {
+    const { container } = render(
+      mapa({
+        detalhes: {
+          t2: {
+            recursos: null,
+            condicoes: [
+              { id: 'c1', nome: 'Atordoado', icone: null, stack: null, restam: 2 },
+              { id: 'c2', nome: 'Cego', icone: null, stack: 2, restam: 5 },
+              { id: 'c3', nome: 'Lento', icone: null, stack: null },
+            ],
+          },
+        },
+      }),
+    );
+    fireEvent.pointerOver(screen.getByRole('button', { name: /Goblin/ }), {
+      pointerType: 'mouse',
+    });
+    expect(container.querySelector('[data-detalhe]')).toHaveTextContent(
+      'Atordoado (2 rod.), Cego ×2 (5 rod.), Lento',
+    );
+  });
+
   it('focoToken centraliza a vista no token uma vez por chave (zoom mantido)', () => {
     comViewport();
     const { container, rerender } = render(mapa());

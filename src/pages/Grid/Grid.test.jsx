@@ -2107,4 +2107,154 @@ describe('Grid (Re:Master)', () => {
       expect(screen.getByRole('button', { name: 'Grupo' })).toBeDisabled();
     });
   });
+  describe('duração das condições de NPC', () => {
+    const OGRO = {
+      ...TOKENS_POR_CENA['cena-1'][1],
+      condicoes: ['cond1', 'cond2'],
+      condicoesDuracao: { cond1: 6, cond2: 5 },
+    };
+    const VENCIDA = { ...OGRO, condicoesDuracao: { cond1: 2, cond2: 5 } };
+    const ORDEM = [
+      { tokenId: 't1', iniciativa: 12, d20: 6, reacao: 6 },
+      { tokenId: 't2', iniciativa: 9, d20: 9, reacao: 0 },
+    ];
+    const combateNaRodada = rodada => ({
+      ordem: ORDEM,
+      indice: 0,
+      rodada,
+      inicioTurno: { col: 1, lin: 1 },
+      turnoEm: { seconds: 10, nanoseconds: 0 },
+    });
+    const emitir = ({ ogro = OGRO, rodada = null } = {}) => {
+      subscribeGridTokens.mockImplementation(
+        (_id, cenaId, _opcoes, onChange) => {
+          onChange(
+            cenaId === 'cena-1' ? [TOKENS_POR_CENA['cena-1'][0], ogro] : [],
+          );
+          return vi.fn();
+        },
+      );
+      subscribeGridCombate.mockImplementation((_id, _cenaId, onChange) => {
+        onChange(rodada === null ? null : combateNaRodada(rodada));
+        return vi.fn();
+      });
+    };
+    const abrirOgro = async user => {
+      renderGrid();
+      (await screen.findByRole('button', { name: /Ogro, coluna/ })).focus();
+      await user.keyboard('{Enter}');
+      return screen.findByRole('region', { name: 'Token selecionado' });
+    };
+
+    beforeEach(() => {
+      updateGridTokensEmLote.mockResolvedValue();
+    });
+
+    it('o mestre define quantas rodadas a condição dura (sem combate, a partir da 1)', async () => {
+      const user = userEvent.setup();
+      emitir({ ogro: { ...OGRO, condicoesDuracao: {} } });
+      const painel = await abrirOgro(user);
+
+      const campo = within(painel).getByLabelText('Rodadas de Atordoado');
+      await user.type(campo, '3{Enter}');
+      await waitFor(() =>
+        expect(updateGridToken).toHaveBeenCalledWith('c1', 'cena-1', 't2', {
+          condicoesDuracao: { cond2: 3 },
+        }),
+      );
+    });
+
+    it('em combate, a duração conta a partir da rodada atual e mostra o que resta', async () => {
+      const user = userEvent.setup();
+      emitir({ rodada: 4 });
+      const painel = await abrirOgro(user);
+
+      // cond2 vai até a rodada 5: restam 2 (contando a atual).
+      const campo = within(painel).getByLabelText('Rodadas de Atordoado');
+      expect(campo).toHaveValue('2');
+      await user.clear(campo);
+      await user.type(campo, '4{Enter}');
+      await waitFor(() =>
+        expect(updateGridToken).toHaveBeenCalledWith('c1', 'cena-1', 't2', {
+          condicoesDuracao: { cond1: 6, cond2: 7 },
+        }),
+      );
+
+      // Vazio = sem prazo: a chave sai.
+      updateGridToken.mockClear();
+      await user.clear(campo);
+      await user.keyboard('{Enter}');
+      await waitFor(() =>
+        expect(updateGridToken).toHaveBeenCalledWith('c1', 'cena-1', 't2', {
+          condicoesDuracao: { cond1: 6 },
+        }),
+      );
+    });
+
+    it('tirar a condição pelo painel também tira a duração dela', async () => {
+      const user = userEvent.setup();
+      emitir({
+        ogro: { ...OGRO, condicoes: ['cond2'], condicoesDuracao: { cond2: 5 } },
+      });
+      const painel = await abrirOgro(user);
+
+      await user.click(
+        within(painel).getByRole('combobox', { name: 'Condições' }),
+      );
+      await user.keyboard('{Backspace}');
+      await waitFor(() =>
+        expect(updateGridToken).toHaveBeenCalledWith('c1', 'cena-1', 't2', {
+          condicoes: [],
+          condicoesDuracao: {},
+        }),
+      );
+    });
+
+    it('a rodada que passa do fim remove as condições vencidas num lote só', async () => {
+      emitir({ ogro: VENCIDA, rodada: 3 });
+      renderGrid();
+
+      await waitFor(() =>
+        expect(updateGridTokensEmLote).toHaveBeenCalledWith('c1', 'cena-1', [
+          {
+            id: 't2',
+            patch: { condicoes: ['cond2'], condicoesDuracao: { cond2: 5 } },
+          },
+        ]),
+      );
+      expect(updateGridTokensEmLote).toHaveBeenCalledTimes(1);
+      await waitFor(() =>
+        expect(notifySuccess).toHaveBeenCalledWith(
+          'Condições vencidas removidas: Ogro.',
+        ),
+      );
+    });
+
+    it('ainda no prazo ou sem combate, nada é removido', async () => {
+      emitir({ ogro: VENCIDA, rodada: 2 });
+      const { unmount } = renderGrid();
+      await screen.findByRole('button', { name: /Ogro, coluna/ });
+      expect(updateGridTokensEmLote).not.toHaveBeenCalled();
+      unmount();
+
+      emitir({ ogro: VENCIDA });
+      renderGrid();
+      await screen.findByRole('button', { name: /Ogro, coluna/ });
+      expect(updateGridTokensEmLote).not.toHaveBeenCalled();
+    });
+
+    it('falha ao limpar avisa uma vez', async () => {
+      emitir({ ogro: VENCIDA, rodada: 3 });
+      updateGridTokensEmLote.mockRejectedValue(new Error('negado'));
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      renderGrid();
+
+      await waitFor(() =>
+        expect(notifyError).toHaveBeenCalledWith(
+          'Não foi possível remover as condições vencidas.',
+        ),
+      );
+      expect(updateGridTokensEmLote).toHaveBeenCalledTimes(1);
+    });
+  });
 });

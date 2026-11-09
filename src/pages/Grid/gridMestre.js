@@ -13,6 +13,7 @@ import {
   normalizarAura,
   normalizarCondicoesDoToken,
   condicoesDoToken,
+  normalizarCondicoesDuracao,
   prontidaoDaFicha,
   recursosDaFicha,
   valorDigitadoDoRecurso,
@@ -343,6 +344,78 @@ export const patchesDeDanoEmLote = (tokens, texto) => {
   return resultado;
 };
 
+// ── Duração das condições de NPC (`condicoesDuracao`) ──────────────────────
+export const DURACAO_CONDICAO_MAX = 99;
+
+// "Dura N rodadas" a partir da rodada `rodadaAtual` (sem combate, a 1): última
+// rodada em que a condição vale (R + N − 1). null = texto vazio/inválido, ou
+// seja, duração indefinida.
+export const rodadaFimDaDuracao = (rodadas, rodadaAtual = null) => {
+  const texto = String(rodadas ?? '').trim();
+  if (texto === '') return null;
+  const n = Math.round(Number(texto.replace(',', '.')));
+  if (!Number.isFinite(n) || n < 1) return null;
+  const rodada = Number.isInteger(rodadaAtual) ? rodadaAtual : 1;
+  return rodada + Math.min(n, DURACAO_CONDICAO_MAX) - 1;
+};
+
+// Novo `condicoesDuracao` do token com a duração digitada de uma condição
+// (texto vazio = indefinida: tira a chave).
+export const duracaoComCondicao = (token, condicaoId, texto, rodadaAtual) => {
+  const duracao = { ...normalizarCondicoesDuracao(token.condicoesDuracao) };
+  const fim = rodadaFimDaDuracao(texto, rodadaAtual);
+  if (fim === null) delete duracao[condicaoId];
+  else duracao[condicaoId] = fim;
+  return duracao;
+};
+
+// Patch de uma nova lista de condições do token: tira de `condicoesDuracao` as
+// chaves das condições que saíram (só inclui o campo se algo mudou).
+export const patchDeCondicoesDoToken = (token, novosIds) => {
+  const duracao = normalizarCondicoesDuracao(token.condicoesDuracao);
+  const mantidas = Object.fromEntries(
+    Object.entries(duracao).filter(([id]) => novosIds.includes(id)),
+  );
+  const mudou = Object.keys(mantidas).length !== Object.keys(duracao).length;
+  return {
+    condicoes: novosIds,
+    ...(mudou ? { condicoesDuracao: mantidas } : {}),
+  };
+};
+
+// Condições vencidas quando o combate chega à `rodada`: as com rodadaFim <
+// rodada saem de `condicoes` e de `condicoesDuracao` (npc/criatura/avulso;
+// a do jogador vive na ficha). Idempotente: depois de gravar, nada mais vence.
+// Resultado: { patches: [{ id, patch }], expiradas: [{ tokenId, nome, ids }] }.
+export const patchesDeExpiracaoDeCondicoes = (tokens, rodada) => {
+  const resultado = { patches: [], expiradas: [] };
+  if (!Number.isInteger(rodada)) return resultado;
+  tokens.forEach(token => {
+    if (ehJogador(token)) return;
+    const duracao = normalizarCondicoesDuracao(token.condicoesDuracao);
+    const vencidas = Object.keys(duracao).filter(id => duracao[id] < rodada);
+    if (vencidas.length === 0) return;
+    const restantes = Object.fromEntries(
+      Object.entries(duracao).filter(([id]) => !vencidas.includes(id)),
+    );
+    resultado.patches.push({
+      id: token.id,
+      patch: {
+        condicoes: normalizarCondicoesDoToken(token.condicoes).filter(
+          id => !vencidas.includes(id),
+        ),
+        condicoesDuracao: restantes,
+      },
+    });
+    resultado.expiradas.push({
+      tokenId: token.id,
+      nome: token.nome,
+      ids: vencidas,
+    });
+  });
+  return resultado;
+};
+
 // Adicionar/remover uma condição do catálogo em vários tokens. Só npc/
 // criatura/avulso (a do jogador está na ficha). Quem já está no estado
 // pedido (ou, ao adicionar, já tem o máximo de condições) não gera patch.
@@ -370,7 +443,10 @@ export const patchesDeCondicaoEmLote = (tokens, condicaoId, adicionar) => {
     } else if (tem) {
       resultado.patches.push({
         id: token.id,
-        patch: { condicoes: ids.filter(id => id !== condicaoId) },
+        patch: patchDeCondicoesDoToken(
+          token,
+          ids.filter(id => id !== condicaoId),
+        ),
       });
     }
   });

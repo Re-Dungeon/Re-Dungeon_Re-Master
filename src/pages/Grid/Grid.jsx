@@ -93,6 +93,7 @@ import {
   ocultoAlvoDosTokens,
   patchesDeCondicaoEmLote,
   patchesDeDanoEmLote,
+  patchesDeExpiracaoDeCondicoes,
   patchesDeOcultoEmLote,
   reacaoDoToken,
   tokensDeJogadoresFaltantes,
@@ -386,6 +387,49 @@ const Grid = () => {
     tentar,
     notifySuccess,
   });
+  // Condições com duração (NPCs): quando a rodada do combate passa do fim
+  // delas, saem do token — num lote só. Roda aqui, no Grid do mestre, a cada
+  // mudança de rodada ou de tokens (jogadores também passam o turno); é
+  // idempotente, e a chave evita regravar o mesmo lote enquanto ele não volta.
+  const rodadaAtual = grid.combate?.rodada ?? null;
+  const limpezaRef = useRef(null);
+  useEffect(() => {
+    if (!campanhaId || !cenaAbertaId || rodadaAtual === null) return;
+    const { patches, expiradas } = patchesDeExpiracaoDeCondicoes(
+      grid.tokens,
+      rodadaAtual,
+    );
+    if (patches.length === 0) {
+      limpezaRef.current = null;
+      return;
+    }
+    const chave = `${cenaAbertaId}|${rodadaAtual}|${patches
+      .map(
+        ({ id, patch }) =>
+          `${id}:${Object.keys(patch.condicoesDuracao).join(',')}`,
+      )
+      .join(';')}`;
+    if (limpezaRef.current === chave) return;
+    limpezaRef.current = chave;
+    updateGridTokensEmLote(campanhaId, cenaAbertaId, patches)
+      .then(() => {
+        const nomes = expiradas.map(item => item.nome).join(', ');
+        notifySuccess(`Condições vencidas removidas: ${nomes}.`);
+      })
+      .catch(error => {
+        // eslint-disable-next-line no-console
+        console.error('Falha ao remover as condições vencidas:', error);
+        notifyError('Não foi possível remover as condições vencidas.');
+      });
+  }, [
+    campanhaId,
+    cenaAbertaId,
+    grid.tokens,
+    notifyError,
+    notifySuccess,
+    rodadaAtual,
+  ]);
+
   const reacaoDoTokenDaMesa = token =>
     reacaoDoToken(token, { fichas: grid.fichas, fontes });
 
@@ -1095,6 +1139,7 @@ const Grid = () => {
                     ? () => setTokenRolando(selecionado)
                     : undefined
                 }
+                rodada={rodadaAtual}
                 abaixoDaFaixa={Boolean(grid.combate)}
               />
             )}

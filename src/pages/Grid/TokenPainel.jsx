@@ -41,6 +41,7 @@ const TokenPainel = ({
   onDuplicar,
   onFechar,
   onRolar,
+  rodada = null,
   abaixoDaFaixa = false,
 }) => {
   const [valores, setValores] = useState({
@@ -153,6 +154,7 @@ const TokenPainel = ({
         condicoes={condicoes}
         detalhe={detalhe}
         onAlterar={onAlterar}
+        rodada={rodada}
       />
 
       <TextField
@@ -276,6 +278,7 @@ TokenPainel.propTypes = {
     }),
     mostrarRecursos: PropTypes.string,
     condicoes: PropTypes.arrayOf(PropTypes.string),
+    condicoesDuracao: PropTypes.object,
     aura: PropTypes.shape({ raio: PropTypes.number, cor: PropTypes.string }),
     deslocamento: PropTypes.number,
   }).isRequired,
@@ -298,6 +301,8 @@ TokenPainel.propTypes = {
   onDuplicar: PropTypes.func,
   onFechar: PropTypes.func.isRequired,
   onRolar: PropTypes.func,
+  // Rodada atual do combate da cena (null = sem combate): duração das condições.
+  rodada: PropTypes.number,
   // Combate em andamento: a faixa de iniciativa ocupa o topo do mapa.
   abaixoDaFaixa: PropTypes.bool,
 };

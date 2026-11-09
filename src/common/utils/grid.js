@@ -730,6 +730,33 @@ export const normalizarCondicoesDoToken = valor => {
   return [...new Set(ids)].slice(0, TOKEN_CONDICOES_MAX);
 };
 
+// `condicoesDuracao` do token (só npc/criatura/avulso): { [condicaoId]:
+// rodadaFim } — a condição vale até o fim dessa rodada do combate (inclusive) e
+// sai sozinha quando a rodada passa dela. Uma condição que dura N rodadas,
+// posta na rodada R, grava rodadaFim = R + N − 1 (sem combate, R = 1). Devolve
+// só os pares válidos (id curto, rodadaFim inteiro ≥ 1), no máximo
+// TOKEN_CONDICOES_MAX.
+export const normalizarCondicoesDuracao = valor => {
+  if (!valor || typeof valor !== 'object' || Array.isArray(valor)) return {};
+  return Object.fromEntries(
+    Object.entries(valor)
+      .filter(
+        ([id, fim]) =>
+          id.trim() && id.length <= CONDICAO_ID_MAX && Number.isInteger(fim) && fim >= 1,
+      )
+      .slice(0, TOKEN_CONDICOES_MAX),
+  );
+};
+
+// Rodadas que ainda restam (contando a atual) a uma condição com `rodadaFim`;
+// null se não tem duração ou já passou. Sem combate (`rodada` null) a conta é
+// a da rodada 1: a duração aparece inteira.
+export const rodadasRestantes = (rodadaFim, rodada = null) => {
+  if (!Number.isInteger(rodadaFim)) return null;
+  const restam = rodadaFim - (Number.isInteger(rodada) ? rodada : 1) + 1;
+  return restam >= 1 ? restam : null;
+};
+
 export const nomeDaCondicao = condicao => condicao?.nome || condicao?.Nome || 'Condição';
 
 const condicoesAtivasDaFicha = ficha =>
@@ -740,11 +767,16 @@ const condicoesAtivasDaFicha = ficha =>
       stack: Number.isFinite(Number(item.stack)) ? Number(item.stack) : null,
     }));
 
-// Condições do token → [{ id, nome, icone, stack }] (ids fora do catálogo
-// são pulados). Jogador: `condicoesAtivas` da ficha (com stack); demais: as
-// do token (o mestre escolhe).
-export const condicoesDoToken = (token, ficha, catalogoPorId) => {
+// Condições do token → [{ id, nome, icone, stack, restam? }] (ids fora do
+// catálogo são pulados). Jogador: `condicoesAtivas` da ficha (com stack);
+// demais: as do token (o mestre escolhe), com `restam` (rodadas que faltam, de
+// `condicoesDuracao` e da `rodada` do combate) quando têm duração.
+export const condicoesDoToken = (token, ficha, catalogoPorId, { rodada = null } = {}) => {
   const catalogo = catalogoPorId ?? new Map();
+  const duracao =
+    token.tipo === TIPOS_TOKEN.JOGADOR
+      ? {}
+      : normalizarCondicoesDuracao(token.condicoesDuracao);
   const ativas =
     token.tipo === TIPOS_TOKEN.JOGADOR
       ? condicoesAtivasDaFicha(ficha)
@@ -753,11 +785,13 @@ export const condicoesDoToken = (token, ficha, catalogoPorId) => {
     .filter(({ id }) => catalogo.has(id))
     .map(({ id, stack }) => {
       const condicao = catalogo.get(id);
+      const restam = rodadasRestantes(duracao[id], rodada);
       return {
         id,
         nome: nomeDaCondicao(condicao),
         icone: isUrlImagemValida(condicao?.linkImagem) ? condicao.linkImagem : null,
         stack,
+        ...(restam ? { restam } : {}),
       };
     });
 };
@@ -780,7 +814,7 @@ export const prontidaoDaFicha = ficha =>
 // jogador). `pp` (Prontidão da ficha) só para os donos do token e o mestre.
 export const detalhesDosTokens = (
   tokens,
-  { fichas = {}, catalogoPorId = null, uid = null, veTudo = false } = {},
+  { fichas = {}, catalogoPorId = null, uid = null, veTudo = false, rodada = null } = {},
 ) => {
   const detalhes = {};
   tokens.forEach(token => {
@@ -789,7 +823,7 @@ export const detalhesDosTokens = (
         ? (fichas?.[token.refId] ?? null)
         : null;
     const recursos = recursosDoToken(token, ficha, { uid, veTudo });
-    const condicoes = condicoesDoToken(token, ficha, catalogoPorId);
+    const condicoes = condicoesDoToken(token, ficha, catalogoPorId, { rodada });
     const dono = Boolean(uid) && (token.donos ?? []).includes(uid);
     const pp = ficha && (veTudo || dono) ? prontidaoDaFicha(ficha) : null;
     if (recursos || condicoes.length || pp) {
