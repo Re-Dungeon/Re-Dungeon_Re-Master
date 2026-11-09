@@ -13,6 +13,7 @@ import {
   encerrarGridCombate,
   iniciarGridCombate,
 } from 'service/storage';
+import { inserirVariosNoCombate, removerVariosDoCombate } from './gridMestre';
 
 /**
  * Ações do mestre sobre o combate da cena aberta (Fase 3A): iniciar (rola
@@ -139,7 +140,61 @@ const useCombateMestre = ({
     [alterar],
   );
 
-  return { iniciar, encerrar, adicionar, remover, mover };
+  // Ação em lote: vários tokens entram no combate numa transação só, cada um
+  // rolando a própria iniciativa. `entradas` = [{ tokenId, reacao }]. Devolve
+  // quantos entraram (0 = ninguém / falha).
+  const adicionarVarios = useCallback(
+    async entradas => {
+      if (!combate || entradas.length === 0) return 0;
+      const novos = entradas.filter(
+        entrada =>
+          !combate.ordem.some(item => item.tokenId === entrada.tokenId),
+      );
+      if (novos.length === 0) return 0;
+      const roladas = rolarIniciativa(novos);
+      const ok = await alterar(
+        servidor => inserirVariosNoCombate(servidor, roladas),
+        'Não foi possível adicionar ao combate.',
+      );
+      return ok ? novos.length : 0;
+    },
+    [alterar, combate],
+  );
+
+  // Ação em lote: tira vários do combate numa transação só (sem perguntar —
+  // quem chama já confirmou). Se saírem todos, o combate é encerrado.
+  const removerVarios = useCallback(
+    async tokenIds => {
+      if (!combate) return true;
+      const participantes = tokenIds.filter(id =>
+        combate.ordem.some(item => item.tokenId === id),
+      );
+      if (participantes.length === 0) return true;
+      if (participantes.length >= combate.ordem.length) {
+        return encerrar({ confirmar: false });
+      }
+      const ok = await alterar(servidor => {
+        const resultado = removerVariosDoCombate(
+          servidor,
+          participantes,
+          tokens,
+        );
+        return resultado?.encerrar ? null : resultado;
+      }, 'Não foi possível tirar do combate.');
+      return Boolean(ok);
+    },
+    [alterar, combate, encerrar, tokens],
+  );
+
+  return {
+    iniciar,
+    encerrar,
+    adicionar,
+    remover,
+    mover,
+    adicionarVarios,
+    removerVarios,
+  };
 };
 
 export default useCombateMestre;

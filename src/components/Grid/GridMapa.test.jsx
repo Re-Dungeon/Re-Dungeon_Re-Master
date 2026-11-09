@@ -114,6 +114,86 @@ describe('GridMapa', () => {
     expect(onSelecionar).toHaveBeenCalledWith(TOKENS[0]);
   });
 
+  describe('seleção múltipla (onAlternarSelecao)', () => {
+    const viewportDe = () =>
+      screen.getByRole('application', { name: 'Grid da campanha' });
+    const ponteiro = (clientX, clientY, extra = {}) => ({
+      clientX,
+      clientY,
+      pointerId: 1,
+      pointerType: 'mouse',
+      button: 0,
+      ...extra,
+    });
+    const clicar = (token, modificadores = {}) => {
+      fireEvent.pointerDown(token, ponteiro(110, 160, modificadores));
+      fireEvent.pointerUp(viewportDe(), ponteiro(110, 160, modificadores));
+    };
+
+    it('Shift/Ctrl/Cmd-clique alterna o token em vez de selecionar', () => {
+      const onSelecionar = vi.fn();
+      const onAlternarSelecao = vi.fn();
+      renderMapa({ onSelecionar, onAlternarSelecao, podeMover: () => true });
+      const wesley = screen.getByRole('button', { name: /Wesley/ });
+
+      clicar(wesley, { shiftKey: true });
+      clicar(wesley, { ctrlKey: true });
+      clicar(wesley, { metaKey: true });
+      expect(onAlternarSelecao).toHaveBeenCalledTimes(3);
+      expect(onAlternarSelecao).toHaveBeenCalledWith(TOKENS[0]);
+      expect(onSelecionar).not.toHaveBeenCalled();
+    });
+
+    it('clique simples continua selecionando; o fundo limpa a seleção', () => {
+      const onSelecionar = vi.fn();
+      const onAlternarSelecao = vi.fn();
+      renderMapa({ onSelecionar, onAlternarSelecao, podeMover: () => true });
+
+      clicar(screen.getByRole('button', { name: /Wesley/ }));
+      expect(onSelecionar).toHaveBeenCalledWith(TOKENS[0]);
+
+      fireEvent.pointerDown(viewportDe(), ponteiro(325, 425, { shiftKey: true }));
+      fireEvent.pointerUp(viewportDe(), ponteiro(325, 425, { shiftKey: true }));
+      expect(onAlternarSelecao).not.toHaveBeenCalled();
+    });
+
+    it('sem onAlternarSelecao, Shift-clique no token seleciona como sempre', () => {
+      const onSelecionar = vi.fn();
+      renderMapa({ onSelecionar, podeMover: () => true });
+      clicar(screen.getByRole('button', { name: /Wesley/ }), { shiftKey: true });
+      expect(onSelecionar).toHaveBeenCalledWith(TOKENS[0]);
+    });
+
+    it('realça todos os selecionadosIds e Shift+Enter alterna pelo teclado', () => {
+      const onSelecionar = vi.fn();
+      const onAlternarSelecao = vi.fn();
+      renderMapa({
+        onSelecionar,
+        onAlternarSelecao,
+        selecionadosIds: ['t1', 't2'],
+      });
+      expect(screen.getByRole('button', { name: /Wesley/ })).toHaveAttribute(
+        'aria-pressed',
+        'true',
+      );
+      expect(screen.getByRole('button', { name: /Goblin/ })).toHaveAttribute(
+        'aria-pressed',
+        'true',
+      );
+      expect(screen.getByRole('button', { name: /Emboscada/ })).toHaveAttribute(
+        'aria-pressed',
+        'false',
+      );
+
+      fireEvent.keyDown(screen.getByRole('button', { name: /Emboscada/ }), {
+        key: 'Enter',
+        shiftKey: true,
+      });
+      expect(onAlternarSelecao).toHaveBeenCalledWith(TOKENS[2]);
+      expect(onSelecionar).not.toHaveBeenCalled();
+    });
+  });
+
   it('mostra o aviso e os controles de zoom', () => {
     renderMapa({ aviso: 'O mestre ainda não montou o grid desta campanha.' });
     expect(screen.getByRole('status')).toHaveTextContent(
@@ -618,7 +698,12 @@ describe('GridMapa — sinais, estado dos tokens, auras e seguir', () => {
         condicoes: [],
       },
       t2: {
-        recursos: { pv: { atual: 3, max: 10 }, energia: null, fadiga: null, numeros: true },
+        recursos: {
+          pv: { atual: 3, max: 10 },
+          energia: null,
+          fadiga: null,
+          numeros: true,
+        },
         condicoes: [],
       },
     };
@@ -1471,7 +1556,12 @@ describe('GridMapa — ações (Fase 3C)', () => {
     ...extra,
   });
   const cone = (extra = {}) =>
-    raio({ forma: 'cone', origem: { col: 1, lin: 1 }, alvo: { col: 3, lin: 1 }, ...extra });
+    raio({
+      forma: 'cone',
+      origem: { col: 1, lin: 1 },
+      alvo: { col: 3, lin: 1 },
+      ...extra,
+    });
 
   const armarArea = (nome, metros) => {
     fireEvent.click(screen.getByRole('button', { name: 'Área' }));
@@ -1608,7 +1698,9 @@ describe('GridMapa — ações (Fase 3C)', () => {
       rerender(mapa({ areas: [cone()], acoesAreas, podeEditarArea: () => false }));
       fireEvent.click(screen.getByRole('button', { name: /Cone/ }));
       expect(document.querySelector('[data-area-alca]')).toBeNull();
-      expect(screen.queryByRole('button', { name: 'Remover área' })).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole('button', { name: 'Remover área' }),
+      ).not.toBeInTheDocument();
     });
 
     it('as áreas ficam sobre a névoa e sob os tokens', () => {

@@ -1662,6 +1662,35 @@ export const updateGridToken = (campanhaId, cenaId, tokenId, patch) =>
 export const removeGridToken = (campanhaId, cenaId, tokenId) =>
   deleteDoc(doc(gridTokensRef(campanhaId, cenaId), tokenId));
 
+// Ações em lote do mestre (seleção múltipla do Grid): um único writeBatch
+// (a cena comporta até 200 tokens, bem abaixo do limite de 500 do Firestore).
+// `alteracoes` = [{ id, patch }]; cada update ganha `updatedAt`, como em
+// `updateGridToken`.
+export const updateGridTokensEmLote = async (
+  campanhaId,
+  cenaId,
+  alteracoes,
+) => {
+  if (!alteracoes?.length) return;
+  const batch = writeBatch(db);
+  alteracoes.forEach(({ id, patch }) =>
+    batch.update(doc(gridTokensRef(campanhaId, cenaId), id), {
+      ...patch,
+      updatedAt: serverTimestamp(),
+    }),
+  );
+  await batch.commit();
+};
+
+export const removeGridTokensEmLote = async (campanhaId, cenaId, tokenIds) => {
+  if (!tokenIds?.length) return;
+  const batch = writeBatch(db);
+  tokenIds.forEach(id =>
+    batch.delete(doc(gridTokensRef(campanhaId, cenaId), id)),
+  );
+  await batch.commit();
+};
+
 // ── Música da mesa — rmCampanhas/{id}/audio/atual ──────────────────────────
 // Estado da faixa do YouTube que toca para todos com a mesa aberta (modelo em
 // common/utils/audioMesa.js). Mesmo bloco do site dos jogadores: membros

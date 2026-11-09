@@ -127,7 +127,10 @@ import {
 // vendo. Arrastar um token que `podeMover` aceita chama `onMover(token, col,
 // lin, caminho)` uma vez, ao soltar, já na célula mais próxima — `caminho` =
 // células atravessadas, da origem ao destino; com o token focado as setas
-// movem uma célula. Clique sem arrastar chama `onSelecionar(token|null)`.
+// movem uma célula. Clique sem arrastar chama `onSelecionar(token|null)`; com
+// `onAlternarSelecao` (só o mestre passa), Shift/Ctrl/Cmd-clique num token chama
+// `onAlternarSelecao(token)` em vez disso (seleção múltipla; `selecionadosIds`
+// realça os escolhidos como o `selecionadoId`).
 // Durante o arraste aparecem o fantasma na origem, o caminho e a distância
 // (somada ao rastro ainda visível do token, como todos verão após soltar);
 // `rastros` são os rastros dos últimos movimentos (useGridCampanha). Régua
@@ -261,6 +264,11 @@ const conteudoDoToken = token =>
     (token.nome?.[0]?.toUpperCase() ?? '?')
   );
 
+const SEM_SELECIONADOS = [];
+
+// Shift/Ctrl/Cmd pressionado: o clique alterna o token na seleção múltipla.
+const alternaSelecao = event => Boolean(event.shiftKey || event.ctrlKey || event.metaKey);
+
 const corDoToken = token => COR_TIPO_TOKEN[token.tipo] ?? COR_TIPO_TOKEN.avulso;
 
 const GridMapa = ({
@@ -269,7 +277,9 @@ const GridMapa = ({
   podeMover,
   onMover,
   selecionadoId = null,
+  selecionadosIds = SEM_SELECIONADOS,
   onSelecionar,
+  onAlternarSelecao,
   onImagemCarregada,
   aviso = null,
   rastros = SEM_RASTROS,
@@ -478,7 +488,10 @@ const GridMapa = ({
     const elemento = viewportRef.current;
     if (!elemento) return undefined;
     const aoRolar = event => {
-      if (event.target instanceof Element && event.target.closest('[data-chat-scroll-area]')) {
+      if (
+        event.target instanceof Element &&
+        event.target.closest('[data-chat-scroll-area]')
+      ) {
         return;
       }
       event.preventDefault();
@@ -1147,6 +1160,10 @@ const GridMapa = ({
         Boolean(atual.token && recursosEditaveis(atual.token)),
       );
     }
+    if (onAlternarSelecao && atual.token && alternaSelecao(event)) {
+      onAlternarSelecao(atual.token);
+      return;
+    }
     onSelecionar?.(atual.token);
   };
 
@@ -1182,7 +1199,8 @@ const GridMapa = ({
       onRolarToken(token);
     } else if ((event.key === 'Enter' || event.key === ' ') && onSelecionar) {
       event.preventDefault();
-      onSelecionar(token);
+      if (onAlternarSelecao && alternaSelecao(event)) onAlternarSelecao(token);
+      else onSelecionar(token);
     }
   };
 
@@ -1308,28 +1326,30 @@ const GridMapa = ({
   const colunasMundo = mundo.colunas;
   const linhasMundo = mundo.linhas;
   const areasCalculadas = areas.map(area => {
-        const editada = edicaoArea?.id === area.id ? { ...area, ...edicaoArea } : area;
-        const celulasDaEditada = celulasDaArea(editada, metrosPorQuadrado, {
-          colunas: colunasMundo,
-          linhas: linhasMundo,
-        });
-        const { origem } = editada;
-        return {
-          ...editada,
-          celulas: celulasDaEditada,
-          atingidos: descreverAtingidos(tokensAtingidos(celulasDaEditada, tokens), {
-            veTudo: mestre,
-          }),
-          alvoEfetivo:
-            editada.forma === AREA_FORMAS.RAIO
-              ? null
-              : (editada.alvo ?? {
-                  col:
-                    origem.col + 1 < colunasMundo ? origem.col + 1 : Math.max(origem.col - 1, 0),
-                  lin: origem.lin,
-                }),
-        };
-      });
+    const editada = edicaoArea?.id === area.id ? { ...area, ...edicaoArea } : area;
+    const celulasDaEditada = celulasDaArea(editada, metrosPorQuadrado, {
+      colunas: colunasMundo,
+      linhas: linhasMundo,
+    });
+    const { origem } = editada;
+    return {
+      ...editada,
+      celulas: celulasDaEditada,
+      atingidos: descreverAtingidos(tokensAtingidos(celulasDaEditada, tokens), {
+        veTudo: mestre,
+      }),
+      alvoEfetivo:
+        editada.forma === AREA_FORMAS.RAIO
+          ? null
+          : (editada.alvo ?? {
+              col:
+                origem.col + 1 < colunasMundo
+                  ? origem.col + 1
+                  : Math.max(origem.col - 1, 0),
+              lin: origem.lin,
+            }),
+    };
+  });
   const areaPrevia = previaArea
     ? {
         ...previaArea,
@@ -1342,7 +1362,10 @@ const GridMapa = ({
     : null;
   const celulaNoViewportPx = alvoCelula => {
     const centro = centroDaCelula(config, alvoCelula.col, alvoCelula.lin);
-    return { left: vista.x + centro.x * vista.zoom, top: vista.y + centro.y * vista.zoom };
+    return {
+      left: vista.x + centro.x * vista.zoom,
+      top: vista.y + centro.y * vista.zoom,
+    };
   };
   const rotulosDasAreas = areasCalculadas.map(area => ({
     ...area,
@@ -1449,9 +1472,7 @@ const GridMapa = ({
           : `${formatarDistancia(quadrados, metrosPorQuadrado)} de ${referencia.nome}`,
       style: {
         left:
-          limite > meiaLargura
-            ? Math.min(Math.max(centro, meiaLargura), limite)
-            : centro,
+          limite > meiaLargura ? Math.min(Math.max(centro, meiaLargura), limite) : centro,
         top: vista.y + (canto.y + lado + alturaNome) * vista.zoom + FOLGA_DETALHE,
       },
     };
@@ -1722,7 +1743,8 @@ const GridMapa = ({
             arraste?.tokenId === token.id &&
             !(arraste.soltando && token.col === arraste.col && token.lin === arraste.lin);
           const posicao = emArraste ? arraste : posicaoEmPx(config, token.col, token.lin);
-          const selecionado = token.id === selecionadoId;
+          const selecionado =
+            token.id === selecionadoId || selecionadosIds.includes(token.id);
           const daVez = Boolean(combate) && combate.tokenDaVezId === token.id;
           const lado = tamanho * celula;
           return (
@@ -2099,7 +2121,9 @@ const GridMapa = ({
             metrosPorQuadrado={metrosPorQuadrado}
             corPadrao={corAreaPadrao}
             onRemoverTodas={
-              mestre && acoesAreas.removerTodas ? () => acoesAreas.removerTodas() : undefined
+              mestre && acoesAreas.removerTodas
+                ? () => acoesAreas.removerTodas()
+                : undefined
             }
           />
         )}
@@ -2146,7 +2170,12 @@ GridMapa.propTypes = {
   podeMover: PropTypes.func.isRequired,
   onMover: PropTypes.func.isRequired,
   selecionadoId: PropTypes.string,
+  // Seleção múltipla (só o mestre): ids realçados além do `selecionadoId`.
+  selecionadosIds: PropTypes.arrayOf(PropTypes.string),
   onSelecionar: PropTypes.func,
+  // Shift/Ctrl/Cmd-clique (ou Enter/Espaço com a tecla) num token: alterna-o na
+  // seleção múltipla. Sem ela, o clique com tecla se comporta como sempre.
+  onAlternarSelecao: PropTypes.func,
   // Recebe { url, largura, altura } quando a imagem carrega — para quem
   // precisa dos limites do grid fora daqui (ex.: posicionar token novo).
   onImagemCarregada: PropTypes.func,

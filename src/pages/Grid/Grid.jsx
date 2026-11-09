@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -16,6 +16,7 @@ import BoltIcon from '@mui/icons-material/Bolt';
 import { useAuth } from 'context/AuthContext';
 import { useCampanha } from 'context/CampanhaContext';
 import { useSnackbar } from 'context/SnackbarContext';
+import useConfirmacao from 'components/ConfirmDialog/useConfirmacao';
 import {
   addGridCena,
   addGridTokens,
@@ -24,10 +25,12 @@ import {
   getRmMapasPorCampanha,
   removeGridCena,
   removeGridToken,
+  removeGridTokensEmLote,
   setGridAvisarAcoesChat,
   setGridCenaAtiva,
   updateGridCena,
   updateGridToken,
+  updateGridTokensEmLote,
 } from 'service/storage';
 import { ROUTE_PATHS } from 'common/constants/routes';
 import { ACOES_CAMADA, CAMADAS } from 'common/utils/gridCamadas';
@@ -52,6 +55,7 @@ import RolarDoTokenDialog from 'components/Grid/RolarDoTokenDialog';
 import ChatMestre from 'pages/Chat/ChatMestre';
 import { PERSONA_MESTRE, autorDaPersona } from 'pages/Chat/chatPersonas';
 import useFontesDaMesa from 'pages/Chat/useFontesDaMesa';
+import AcoesEmLote from './AcoesEmLote';
 import AdicionarTokenDialog from './AdicionarTokenDialog';
 import CenaDialog from './CenaDialog';
 import CenasBarra from './CenasBarra';
@@ -65,9 +69,13 @@ import {
   FERRAMENTAS,
   OPCOES_FERRAMENTA_PADRAO,
   OPCOES_TRAVAMENTO,
+  alternarSelecao,
   copiaDoToken,
   jogadoresSemToken,
   montarTokensEmLote,
+  patchesDeCondicaoEmLote,
+  patchesDeDanoEmLote,
+  patchesDeOcultoEmLote,
   reacaoDoToken,
   tokensDeJogadoresFaltantes,
 } from './gridMestre';
@@ -82,6 +90,9 @@ const podeEditarAreaMestre = () => true;
 // O mestre rola por NPC/criatura/avulso; o token de jogador é do jogador.
 const podeRolarTokenMestre = token => token.tipo !== 'jogador';
 const SEM_GRUPOS_DE_ROLAGEM = [];
+const SEM_SELECAO = [];
+
+const plural = (n, singular, pluralTexto) => (n === 1 ? singular : pluralTexto);
 
 /**
  * Grid (mapa tático) da Campanha ativa, em CENAS, compartilhado em tempo real
@@ -150,6 +161,10 @@ const Grid = () => {
   const { erro: erroGrid, limparErro: limparErroGrid } = grid;
 
   const [selecionadoId, setSelecionadoId] = useState(null);
+  // Seleção múltipla (Shift/Ctrl-clique): vazia ou com ≥ 2 tokens — com um só
+  // vale `selecionadoId` (alternarSelecao em gridMestre.js).
+  const [selecionadosIds, setSelecionadosIds] = useState(SEM_SELECAO);
+  const [confirmar, dialogoConfirmacao] = useConfirmacao();
   const [configAberta, setConfigAberta] = useState(false);
   const [previa, setPrevia] = useState(null);
   const [adicionarAberto, setAdicionarAberto] = useState(false);
@@ -233,6 +248,43 @@ const Grid = () => {
   );
   const selecionado =
     grid.tokens.find(token => token.id === selecionadoId) ?? null;
+  const selecionadosTokens = useMemo(
+    () => grid.tokens.filter(token => selecionadosIds.includes(token.id)),
+    [grid.tokens, selecionadosIds],
+  );
+  const emLote = selecionadosTokens.length >= 2;
+
+  const limparSelecao = useCallback(() => {
+    setSelecionadoId(null);
+    setSelecionadosIds(SEM_SELECAO);
+  }, []);
+
+  // Esc limpa a seleção (única ou múltipla).
+  const temSelecao = Boolean(selecionadoId) || selecionadosIds.length > 0;
+  useEffect(() => {
+    if (!temSelecao) return undefined;
+    const aoTeclar = event => {
+      if (event.key === 'Escape' && !event.defaultPrevented) limparSelecao();
+    };
+    window.addEventListener('keydown', aoTeclar);
+    return () => window.removeEventListener('keydown', aoTeclar);
+  }, [temSelecao, limparSelecao]);
+
+  const handleSelecionar = token => {
+    setSelecionadoId(token?.id ?? null);
+    setSelecionadosIds(SEM_SELECAO);
+  };
+
+  const handleAlternarSelecao = token => {
+    const proxima = alternarSelecao(
+      { selecionadoId, selecionadosIds },
+      token.id,
+    );
+    setSelecionadoId(proxima.selecionadoId);
+    setSelecionadosIds(
+      proxima.selecionadosIds.length ? proxima.selecionadosIds : SEM_SELECAO,
+    );
+  };
 
   // "Rolar…" de um token: a rolagem sai no chat como o NPC/criatura (persona
   // do tipo), com o rótulo de onde veio. O mestre não tem opções prontas aqui
@@ -288,7 +340,7 @@ const Grid = () => {
 
   const abrirCena = cenaId => {
     setCenaEscolhidaId(cenaId);
-    setSelecionadoId(null);
+    limparSelecao();
     setMarcadorEditando(null);
     fecharConfig();
   };
@@ -461,7 +513,128 @@ const Grid = () => {
         ),
       'Não foi possível remover o token.',
     );
-    if (ok) setSelecionadoId(null);
+    if (ok) limparSelecao();
+  };
+
+  // ── Ações em lote (seleção múltipla) ───────────────────────────────────
+  const gravarLote = async (patches, mensagemErro) => {
+    if (patches.length === 0) {
+      notifySuccess('Nenhum token precisava de mudança.');
+      return false;
+    }
+    const ok = await tentar(
+      () =>
+        updateGridTokensEmLote(campanhaId, cenaAbertaId, patches).then(
+          () => true,
+        ),
+      mensagemErro,
+    );
+    return Boolean(ok);
+  };
+
+  const handleDanoEmLote = async texto => {
+    const { patches, jogadores, semPv } = patchesDeDanoEmLote(
+      selecionadosTokens,
+      texto,
+    );
+    if (patches.length === 0) {
+      notifyError(
+        'Nenhum PV mudou: use -N, +N ou N, em tokens com PV (jogadores ficam de fora).',
+      );
+      return false;
+    }
+    if (!(await gravarLote(patches, 'Não foi possível aplicar o dano.'))) {
+      return false;
+    }
+    const fora = jogadores + semPv;
+    const ignorados = fora
+      ? ` (${fora} ${plural(fora, 'ignorado', 'ignorados')})`
+      : '';
+    notifySuccess(
+      `PV alterado em ${patches.length} ${plural(patches.length, 'token', 'tokens')}${ignorados}.`,
+    );
+    return true;
+  };
+
+  const handleCondicaoEmLote = async (condicaoId, adicionar) => {
+    const { patches, jogadores, cheios } = patchesDeCondicaoEmLote(
+      selecionadosTokens,
+      condicaoId,
+      adicionar,
+    );
+    if (
+      !(await gravarLote(patches, 'Não foi possível alterar as condições.'))
+    ) {
+      return;
+    }
+    const extras = [
+      jogadores
+        ? `${jogadores} ${plural(jogadores, 'jogador ignorado', 'jogadores ignorados')}`
+        : '',
+      cheios ? `${cheios} sem espaço para mais condições` : '',
+    ].filter(Boolean);
+    const acao = adicionar ? 'adicionada a' : 'removida de';
+    notifySuccess(
+      `Condição ${acao} ${patches.length} ${plural(patches.length, 'token', 'tokens')}${extras.length ? ` (${extras.join('; ')})` : ''}.`,
+    );
+  };
+
+  const handleOcultoEmLote = async oculto => {
+    const patches = patchesDeOcultoEmLote(selecionadosTokens, oculto);
+    if (
+      !(await gravarLote(patches, 'Não foi possível alterar a visibilidade.'))
+    ) {
+      return;
+    }
+    const estado = oculto ? 'ocultado' : 'revelado';
+    notifySuccess(
+      `${patches.length} ${plural(patches.length, 'token', 'tokens')} ${estado}${patches.length === 1 ? '' : 's'}.`,
+    );
+  };
+
+  const handleAdicionarAoCombateEmLote = async () => {
+    const entradas = selecionadosTokens
+      .filter(
+        token => !grid.combate?.ordem.some(item => item.tokenId === token.id),
+      )
+      .map(token => ({
+        tokenId: token.id,
+        reacao: reacaoDoTokenDaMesa(token) ?? 0,
+      }));
+    if (entradas.length === 0) {
+      notifyError('Todos os tokens selecionados já estão no combate.');
+      return;
+    }
+    const entraram = await combate.adicionarVarios(entradas);
+    if (entraram > 0) {
+      notifySuccess(
+        `${entraram} ${plural(entraram, 'token entrou', 'tokens entraram')} no combate (iniciativa rolada).`,
+      );
+    }
+  };
+
+  const handleExcluirEmLote = async () => {
+    const ids = selecionadosTokens.map(token => token.id);
+    const noCombate =
+      grid.combate?.ordem.filter(item => ids.includes(item.tokenId)).length ??
+      0;
+    const nomes = selecionadosTokens.map(token => token.nome).join(', ');
+    const confirmado = await confirmar({
+      titulo: `Excluir ${ids.length} tokens da cena?`,
+      mensagem: `${nomes} sairão da cena.${noCombate ? ' Quem estiver no combate sai dele também.' : ''}`,
+      confirmarTexto: 'Excluir',
+    });
+    if (!confirmado) return;
+    // Quem sai da cena sai também do combate (se saírem todos, ele acaba).
+    if (noCombate && !(await combate.removerVarios(ids))) return;
+    const ok = await tentar(
+      () =>
+        removeGridTokensEmLote(campanhaId, cenaAbertaId, ids).then(() => true),
+      'Não foi possível excluir os tokens.',
+    );
+    if (!ok) return;
+    limparSelecao();
+    notifySuccess(`${ids.length} tokens excluídos.`);
   };
 
   const handleTravamento = event =>
@@ -485,7 +658,7 @@ const Grid = () => {
   // ── Mapa: ferramentas, névoa, paredes e marcadores (Fase 3B) ───────────
   const handleFerramenta = nova => {
     setFerramenta(nova);
-    setSelecionadoId(null);
+    limparSelecao();
   };
 
   const handleNevoaAtiva = ativa => grid.definirNevoaAtiva(ativa);
@@ -739,7 +912,9 @@ const Grid = () => {
               onMover={grid.mover}
               rastros={grid.rastrosAtivos}
               selecionadoId={selecionadoId}
-              onSelecionar={token => setSelecionadoId(token?.id ?? null)}
+              selecionadosIds={selecionadosIds}
+              onSelecionar={handleSelecionar}
+              onAlternarSelecao={handleAlternarSelecao}
               onImagemCarregada={setImagemCarregada}
               aviso={aviso}
               mestre
@@ -785,12 +960,26 @@ const Grid = () => {
                 onAlterar={handleAlterarToken}
                 onRemover={handleRemoverToken}
                 onDuplicar={handleDuplicarToken}
-                onFechar={() => setSelecionadoId(null)}
+                onFechar={limparSelecao}
                 onRolar={
                   podeRolarTokenMestre(selecionado)
                     ? () => setTokenRolando(selecionado)
                     : undefined
                 }
+                abaixoDaFaixa={Boolean(grid.combate)}
+              />
+            )}
+            {emLote && ferramenta === FERRAMENTAS.MOVER && (
+              <AcoesEmLote
+                tokens={selecionadosTokens}
+                condicoes={catalogoCondicoes}
+                emCombate={Boolean(grid.combate)}
+                onDano={handleDanoEmLote}
+                onCondicao={handleCondicaoEmLote}
+                onOculto={handleOcultoEmLote}
+                onAdicionarAoCombate={handleAdicionarAoCombateEmLote}
+                onExcluir={handleExcluirEmLote}
+                onFechar={limparSelecao}
                 abaixoDaFaixa={Boolean(grid.combate)}
               />
             )}
@@ -829,6 +1018,8 @@ const Grid = () => {
           />
         </Box>
       </Box>
+
+      {dialogoConfirmacao}
 
       <RolarDoTokenDialog
         open={Boolean(tokenRolando)}
