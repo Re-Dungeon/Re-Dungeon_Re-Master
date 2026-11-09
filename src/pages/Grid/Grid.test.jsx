@@ -19,6 +19,8 @@ const removeGridCena = vi.fn();
 const addGridTokens = vi.fn();
 const updateGridToken = vi.fn();
 const removeGridToken = vi.fn();
+const updateGridTokensEmLote = vi.fn();
+const removeGridTokensEmLote = vi.fn();
 const moverGridToken = vi.fn();
 const getPersonagens = vi.fn();
 const getPersonagensJogaveis = vi.fn();
@@ -66,6 +68,8 @@ vi.mock('service/storage', () => ({
   addGridTokens: (...args) => addGridTokens(...args),
   updateGridToken: (...args) => updateGridToken(...args),
   removeGridToken: (...args) => removeGridToken(...args),
+  updateGridTokensEmLote: (...args) => updateGridTokensEmLote(...args),
+  removeGridTokensEmLote: (...args) => removeGridTokensEmLote(...args),
   moverGridToken: (...args) => moverGridToken(...args),
   subscribeGridPings: (...args) => subscribeGridPings(...args),
   setGridPing: (...args) => setGridPing(...args),
@@ -1515,6 +1519,292 @@ describe('Grid (Re:Master)', () => {
         'd1',
         'd2',
       ]);
+    });
+  });
+
+  describe('seleção múltipla e ações em lote', () => {
+    const GOBLIN = {
+      id: 'g1',
+      nome: 'Goblin',
+      tipo: 'criatura',
+      col: 3,
+      lin: 3,
+      tamanho: 1,
+      donos: [],
+      oculto: false,
+      pv: { atual: 10, max: 12 },
+      condicoes: ['cond2'],
+    };
+    const GOBLIN_2 = {
+      ...GOBLIN,
+      id: 'g2',
+      nome: 'Goblin 2',
+      tipo: 'npc',
+      col: 4,
+      pv: { atual: 3, max: 8 },
+      condicoes: [],
+    };
+    const ALDRIC = { ...TOKENS_POR_CENA['cena-1'][0] };
+
+    beforeEach(() => {
+      subscribeGridTokens.mockImplementation(
+        (_id, _cenaId, _opcoes, onChange) => {
+          onChange([GOBLIN, GOBLIN_2, ALDRIC]);
+          return vi.fn();
+        },
+      );
+      updateGridTokensEmLote.mockResolvedValue();
+      removeGridTokensEmLote.mockResolvedValue();
+    });
+
+    const selecionar = async (...tokens) => {
+      await screen.findByRole('button', { name: /Goblin, coluna/ });
+      tokens.forEach(token => act(() => propsDoMapa.onAlternarSelecao(token)));
+      return screen.findByRole('region', { name: 'Ações em lote' });
+    };
+
+    it('Shift-clique em 2 tokens troca o painel do token pela barra de lote', async () => {
+      renderGrid();
+      await screen.findByRole('button', { name: /Goblin, coluna/ });
+
+      // Um token só: continua o painel individual.
+      act(() => propsDoMapa.onAlternarSelecao(GOBLIN));
+      expect(
+        await screen.findByRole('region', { name: 'Token selecionado' }),
+      ).toBeInTheDocument();
+      expect(propsDoMapa.selecionadoId).toBe('g1');
+
+      act(() => propsDoMapa.onAlternarSelecao(GOBLIN_2));
+      const barra = await screen.findByRole('region', {
+        name: 'Ações em lote',
+      });
+      expect(
+        screen.queryByRole('region', { name: 'Token selecionado' }),
+      ).not.toBeInTheDocument();
+      expect(within(barra).getByText('2 tokens selecionados')).toBeVisible();
+      expect(propsDoMapa.selecionadosIds).toEqual(['g1', 'g2']);
+
+      // Clique simples volta ao token único.
+      act(() => propsDoMapa.onSelecionar(GOBLIN_2));
+      expect(
+        await screen.findByRole('region', { name: 'Token selecionado' }),
+      ).toBeInTheDocument();
+      expect(propsDoMapa.selecionadosIds).toEqual([]);
+    });
+
+    it('Esc limpa a seleção', async () => {
+      const user = userEvent.setup();
+      renderGrid();
+      await selecionar(GOBLIN, GOBLIN_2);
+
+      await user.keyboard('{Escape}');
+      await waitFor(() =>
+        expect(
+          screen.queryByRole('region', { name: 'Ações em lote' }),
+        ).not.toBeInTheDocument(),
+      );
+      expect(propsDoMapa.selecionadosIds).toEqual([]);
+    });
+
+    it('"-5" tira 5 de PV de cada selecionado, num lote só, e ignora jogadores', async () => {
+      const user = userEvent.setup();
+      renderGrid();
+      const barra = await selecionar(GOBLIN, GOBLIN_2, ALDRIC);
+      expect(within(barra).getByRole('note')).toHaveTextContent(
+        '1 jogador (PV e condições vêm da ficha)',
+      );
+
+      await user.type(within(barra).getByLabelText('Dano/cura (PV)'), '-5');
+      await user.click(within(barra).getByRole('button', { name: 'Aplicar' }));
+
+      await waitFor(() =>
+        expect(updateGridTokensEmLote).toHaveBeenCalledWith('c1', 'cena-1', [
+          { id: 'g1', patch: { pv: { atual: 5, max: 12 } } },
+          { id: 'g2', patch: { pv: { atual: 0, max: 8 } } },
+        ]),
+      );
+      expect(updateGridTokensEmLote).toHaveBeenCalledTimes(1);
+      expect(updateGridToken).not.toHaveBeenCalled();
+      expect(notifySuccess).toHaveBeenCalledWith(
+        'PV alterado em 2 tokens (1 ignorado).',
+      );
+    });
+
+    it('dano que não muda nenhum PV avisa em vez de gravar', async () => {
+      const user = userEvent.setup();
+      renderGrid();
+      const barra = await selecionar(GOBLIN, ALDRIC);
+
+      await user.type(within(barra).getByLabelText('Dano/cura (PV)'), 'abc');
+      await user.click(within(barra).getByRole('button', { name: 'Aplicar' }));
+      await waitFor(() => expect(notifyError).toHaveBeenCalled());
+      expect(updateGridTokensEmLote).not.toHaveBeenCalled();
+    });
+
+    it('adiciona e remove uma condição dos NPCs/criaturas selecionados', async () => {
+      const user = userEvent.setup();
+      renderGrid();
+      const barra = await selecionar(GOBLIN, GOBLIN_2);
+
+      await user.click(within(barra).getByLabelText('Condição'));
+      await user.click(
+        await screen.findByRole('option', { name: 'Envenenado' }),
+      );
+      await user.click(
+        within(barra).getByRole('button', { name: 'Adicionar condição' }),
+      );
+      await waitFor(() =>
+        expect(updateGridTokensEmLote).toHaveBeenCalledWith('c1', 'cena-1', [
+          { id: 'g1', patch: { condicoes: ['cond2', 'cond1'] } },
+          { id: 'g2', patch: { condicoes: ['cond1'] } },
+        ]),
+      );
+
+      updateGridTokensEmLote.mockClear();
+      await user.click(
+        within(barra).getByRole('button', { name: 'Remover condição' }),
+      );
+      // Ninguém tem "Envenenado" ainda (os tokens não mudaram na escuta):
+      // nada a gravar.
+      await waitFor(() =>
+        expect(notifySuccess).toHaveBeenCalledWith(
+          'Nenhum token precisava de mudança.',
+        ),
+      );
+      expect(updateGridTokensEmLote).not.toHaveBeenCalled();
+    });
+
+    it('Ocultar e Revelar gravam oculto só de quem está diferente', async () => {
+      const user = userEvent.setup();
+      renderGrid();
+      const barra = await selecionar(GOBLIN, GOBLIN_2, ALDRIC);
+
+      await user.click(within(barra).getByRole('button', { name: 'Ocultar' }));
+      await waitFor(() =>
+        expect(updateGridTokensEmLote).toHaveBeenCalledWith('c1', 'cena-1', [
+          { id: 'g1', patch: { oculto: true } },
+          { id: 'g2', patch: { oculto: true } },
+          { id: 't1', patch: { oculto: true } },
+        ]),
+      );
+    });
+
+    it('Excluir pede confirmação e remove todos de uma vez', async () => {
+      const user = userEvent.setup();
+      renderGrid();
+      const barra = await selecionar(GOBLIN, GOBLIN_2);
+
+      await user.click(
+        within(barra).getByRole('button', { name: 'Excluir 2 tokens' }),
+      );
+      const dialogo = await screen.findByRole('dialog');
+      expect(dialogo).toHaveTextContent('Excluir 2 tokens da cena?');
+      expect(removeGridTokensEmLote).not.toHaveBeenCalled();
+
+      await user.click(
+        within(dialogo).getByRole('button', { name: 'Excluir' }),
+      );
+      await waitFor(() =>
+        expect(removeGridTokensEmLote).toHaveBeenCalledWith('c1', 'cena-1', [
+          'g1',
+          'g2',
+        ]),
+      );
+      await waitFor(() =>
+        expect(
+          screen.queryByRole('region', { name: 'Ações em lote' }),
+        ).not.toBeInTheDocument(),
+      );
+    });
+
+    it('cancelar a confirmação não exclui nada', async () => {
+      const user = userEvent.setup();
+      renderGrid();
+      const barra = await selecionar(GOBLIN, GOBLIN_2);
+
+      await user.click(
+        within(barra).getByRole('button', { name: 'Excluir 2 tokens' }),
+      );
+      const dialogo = await screen.findByRole('dialog');
+      await user.click(
+        within(dialogo).getByRole('button', { name: 'Cancelar' }),
+      );
+      expect(removeGridTokensEmLote).not.toHaveBeenCalled();
+    });
+
+    it('em combate: "Adicionar ao combate" rola a iniciativa de todos numa transação só', async () => {
+      const user = userEvent.setup();
+      const COMBATE = {
+        ordem: [{ tokenId: 't1', iniciativa: 12, d20: 6, reacao: 6 }],
+        indice: 0,
+        rodada: 1,
+        inicioTurno: { col: 1, lin: 1 },
+        turnoEm: { seconds: 10, nanoseconds: 0 },
+      };
+      subscribeGridCombate.mockImplementation((_id, _cenaId, onChange) => {
+        onChange(COMBATE);
+        return vi.fn();
+      });
+      renderGrid();
+      const barra = await selecionar(GOBLIN, GOBLIN_2);
+
+      await user.click(
+        within(barra).getByRole('button', { name: 'Adicionar ao combate' }),
+      );
+      await waitFor(() => expect(alterarGridCombate).toHaveBeenCalledTimes(1));
+      const resultado = alterarGridCombate.mock.calls[0][2](COMBATE);
+      expect(resultado.patch.ordem.map(e => e.tokenId).sort()).toEqual([
+        'g1',
+        'g2',
+        't1',
+      ]);
+      await waitFor(() =>
+        expect(notifySuccess).toHaveBeenCalledWith(
+          expect.stringContaining('2 tokens entraram no combate'),
+        ),
+      );
+    });
+
+    it('em combate: Excluir tira os participantes do combate antes de apagar os tokens', async () => {
+      const user = userEvent.setup();
+      const COMBATE = {
+        ordem: [
+          { tokenId: 'g1', iniciativa: 15, d20: 9, reacao: 6 },
+          { tokenId: 't1', iniciativa: 12, d20: 6, reacao: 6 },
+          { tokenId: 'g2', iniciativa: 3, d20: 3, reacao: 0 },
+        ],
+        indice: 1,
+        rodada: 1,
+        inicioTurno: { col: 1, lin: 1 },
+        turnoEm: { seconds: 10, nanoseconds: 0 },
+      };
+      subscribeGridCombate.mockImplementation((_id, _cenaId, onChange) => {
+        onChange(COMBATE);
+        return vi.fn();
+      });
+      renderGrid();
+      const barra = await selecionar(GOBLIN, GOBLIN_2);
+
+      await user.click(
+        within(barra).getByRole('button', { name: 'Excluir 2 tokens' }),
+      );
+      const dialogo = await screen.findByRole('dialog');
+      expect(dialogo).toHaveTextContent('Quem estiver no combate sai dele');
+      await user.click(
+        within(dialogo).getByRole('button', { name: 'Excluir' }),
+      );
+
+      await waitFor(() =>
+        expect(removeGridTokensEmLote).toHaveBeenCalledWith('c1', 'cena-1', [
+          'g1',
+          'g2',
+        ]),
+      );
+      expect(alterarGridCombate).toHaveBeenCalledTimes(1);
+      const resultado = alterarGridCombate.mock.calls[0][2](COMBATE);
+      expect(resultado.patch.ordem.map(e => e.tokenId)).toEqual(['t1']);
+      // A vez era do Aldric (t1): continua dele.
+      expect(resultado.patch.indice).toBe(0);
     });
   });
 });

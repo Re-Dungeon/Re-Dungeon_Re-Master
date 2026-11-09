@@ -1,6 +1,6 @@
 // Funções puras do chat de campanha (rmCampanhas/{id}/chatMensagens).
-// Mantidas em sincronia com a cópia do site dos jogadores
-// (Ficha-RPG---Re-Dungeon-, mesmo arquivo/mesmos testes) e com o bloco do chat no `firestore.rules` — os limites aqui (tamanho do
+// Mantidas em sincronia com a cópia do Re:Master (mesmo arquivo/mesmos testes)
+// e com o bloco do chat no `firestore.rules` — os limites aqui (tamanho do
 // texto/URL, valores de `tipo`) são os mesmos que a regra exige.
 
 export const CHAT_TEXTO_MAX = 2000;
@@ -29,11 +29,7 @@ export const PERSONAS = {
   JOGADOR: 'jogador',
 };
 
-export const PERSONAS_DO_MESTRE = [
-  PERSONAS.MESTRE,
-  PERSONAS.NPC,
-  PERSONAS.CRIATURA,
-];
+export const PERSONAS_DO_MESTRE = [PERSONAS.MESTRE, PERSONAS.NPC, PERSONAS.CRIATURA];
 
 const ROTULO_PERSONA = {
   [PERSONAS.NPC]: 'NPC',
@@ -59,8 +55,7 @@ const HOSTS_MIDIA_DIRETA = [
 ];
 
 const ehHostMidiaDireta = hostname =>
-  HOSTS_MIDIA_DIRETA.includes(hostname) ||
-  /^media\d+\.giphy\.com$/.test(hostname);
+  HOSTS_MIDIA_DIRETA.includes(hostname) || /^media\d+\.giphy\.com$/.test(hostname);
 
 // Só aceita URL direta do arquivo de imagem — páginas como tenor.com/view/...
 // ou giphy.com/gifs/... são HTML e não renderizam num <img>.
@@ -152,12 +147,7 @@ export const normalizarRotulo = rotulo =>
     .replace(/\s+/g, ' ')
     .slice(0, ROTULO_ROLAGEM_MAX) || null;
 
-export const montarMensagemRolagem = (
-  autor,
-  rolagem,
-  secreta = false,
-  rotulo = null,
-) => {
+export const montarMensagemRolagem = (autor, rolagem, secreta = false, rotulo = null) => {
   const rotuloNormalizado = normalizarRotulo(rotulo);
   return {
     ...camposAutor(autor),
@@ -204,14 +194,7 @@ export const formatarIniciativa = ({ nome, total, d20, reacao }) =>
 
 export const montarMensagemCombate = (
   autor,
-  {
-    evento,
-    cenaId,
-    rodada = null,
-    nome = null,
-    oculto = false,
-    iniciativa = null,
-  },
+  { evento, cenaId, rodada = null, nome = null, oculto = false, iniciativa = null },
 ) => ({
   ...camposAutor(autor),
   tipo: TIPOS_MENSAGEM.COMBATE,
@@ -295,7 +278,31 @@ const paraDate = valor => {
   if (!valor) return null;
   if (valor instanceof Date) return valor;
   if (typeof valor.toDate === 'function') return valor.toDate();
+  if (valor instanceof Number || typeof valor === 'number') {
+    const data = new Date(valor);
+    return Number.isNaN(data.getTime()) ? null : data;
+  }
+  if (typeof valor === 'string') {
+    const data = new Date(valor);
+    return Number.isNaN(data.getTime()) ? null : data;
+  }
   return null;
+};
+
+export const ehMesmoDiaLocal = (createdAt, agora = new Date()) => {
+  const data = paraDate(createdAt);
+  if (!data) return true;
+  return (
+    data.getFullYear() === agora.getFullYear() &&
+    data.getMonth() === agora.getMonth() &&
+    data.getDate() === agora.getDate()
+  );
+};
+
+export const filtrarMensagensHistorico = (mensagens, mostrarHistorico = false, agora = new Date()) => {
+  if (!Array.isArray(mensagens)) return [];
+  if (mostrarHistorico) return mensagens;
+  return mensagens.filter(mensagem => ehMesmoDiaLocal(mensagem?.createdAt, agora));
 };
 
 const doisDigitos = numero => String(numero).padStart(2, '0');
@@ -315,27 +322,57 @@ export const formatarHorarioMensagem = (createdAt, agora = new Date()) => {
     : `${doisDigitos(data.getDate())}/${doisDigitos(data.getMonth() + 1)} ${hora}`;
 };
 
-// Mesmo critério do Re:Master (pages/Jogadores/jogadoresUtils.js) para "jogador
-// na campanha": personagem jogável (tipo ausente = jogável, docs antigos) cuja
-// lista `campanhas` contém a campanha. Companheiros ficam de fora.
+// Mesmo critério do Re:Master para "jogador na campanha": personagem jogável
+// (tipo ausente = jogável, docs antigos) cuja lista `campanhas` contém a
+// campanha. Companheiros vinculados também entram na mesa, mas NPC/Criatura
+// continuam bloqueados — o vínculo é ao personagem base e não a um tipo de
+// ficha jogável.
 const TIPO_JOGAVEL = 'Personagem Jogável';
 
+const campanhasDoPersonagem = personagem =>
+  Array.isArray(personagem?.campanhas) ? personagem.campanhas.filter(Boolean) : [];
+
 const ehJogavel = personagem =>
-  (personagem.tipo ?? TIPO_JOGAVEL) === TIPO_JOGAVEL &&
-  !personagem.companheiroDe;
+  (personagem?.tipo ?? TIPO_JOGAVEL) === TIPO_JOGAVEL && !personagem?.companheiroDe;
 
-export const personagensNaCampanha = (personagens, campanhaId) =>
-  personagens.filter(
-    personagem =>
-      ehJogavel(personagem) &&
-      (personagem.campanhas ?? []).includes(campanhaId),
-  );
+const ehCompanheiro = personagem => Boolean(personagem?.companheiroDe);
 
-export const campanhaIdsDosPersonagens = personagens =>
-  Array.from(
-    new Set(
-      personagens
-        .filter(ehJogavel)
-        .flatMap(personagem => personagem.campanhas ?? []),
-    ),
-  );
+export const personagensNaCampanha = (personagens = [], campanhaId) => {
+  const lista = Array.isArray(personagens) ? personagens : [];
+  return lista.filter(personagem => {
+    if (ehJogavel(personagem)) {
+      return campanhasDoPersonagem(personagem).includes(campanhaId);
+    }
+    if (!ehCompanheiro(personagem)) {
+      return false;
+    }
+    if (campanhasDoPersonagem(personagem).includes(campanhaId)) {
+      return true;
+    }
+    const base = lista.find(item => item?.id === personagem.companheiroDe);
+    return Boolean(base) && campanhasDoPersonagem(base).includes(campanhaId);
+  });
+};
+
+export const campanhaIdsDosPersonagens = personagens => {
+  const lista = Array.isArray(personagens) ? personagens : [];
+  const ids = new Set();
+
+  lista.forEach(personagem => {
+    if (!ehJogavel(personagem) && !ehCompanheiro(personagem)) {
+      return;
+    }
+    campanhasDoPersonagem(personagem).forEach(campanhaId => ids.add(campanhaId));
+
+    if (!ehCompanheiro(personagem)) {
+      return;
+    }
+
+    const base = lista.find(item => item?.id === personagem.companheiroDe);
+    if (base) {
+      campanhasDoPersonagem(base).forEach(campanhaId => ids.add(campanhaId));
+    }
+  });
+
+  return Array.from(ids);
+};

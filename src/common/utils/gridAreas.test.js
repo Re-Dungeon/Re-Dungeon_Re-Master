@@ -129,12 +129,7 @@ describe('celulasDaArea', () => {
 
   it('linha rumo a (3,1) com n=6 termina em (6,2)', () => {
     const linha = celulasDaArea(
-      {
-        forma: 'linha',
-        origem: { col: 0, lin: 0 },
-        alvo: { col: 3, lin: 1 },
-        metros: 6,
-      },
+      { forma: 'linha', origem: { col: 0, lin: 0 }, alvo: { col: 3, lin: 1 }, metros: 6 },
       1,
     );
     expect(linha).toHaveLength(6);
@@ -162,16 +157,7 @@ describe('celulasDaArea', () => {
     // quadrante SE 3×3 (dc,dl ∈ 0..2) sem a origem = 8 células
     expect(cone).toHaveLength(8);
     expect(chaves(cone).sort()).toEqual(
-      [
-        '10,11',
-        '10,12',
-        '11,10',
-        '11,11',
-        '11,12',
-        '12,10',
-        '12,11',
-        '12,12',
-      ].sort(),
+      ['10,11', '10,12', '11,10', '11,11', '11,12', '12,10', '12,11', '12,12'].sort(),
     );
   });
 
@@ -220,9 +206,7 @@ describe('tokensAtingidos / descreverAtingidos', () => {
     const celulas = [{ col: 5, lin: 5 }];
     const grande = { id: 'g', col: 4, lin: 4, tamanho: 2, nome: 'Grande' };
     const longe = { id: 'l', col: 7, lin: 7, tamanho: 1, nome: 'Longe' };
-    expect(tokensAtingidos(celulas, [grande, longe]).map(t => t.id)).toEqual([
-      'g',
-    ]);
+    expect(tokensAtingidos(celulas, [grande, longe]).map(t => t.id)).toEqual(['g']);
   });
 
   it('descreve nenhum, lista curta e excedente', () => {
@@ -245,12 +229,8 @@ describe('tokensAtingidos / descreverAtingidos', () => {
 
 describe('rotuloDaArea / podeEditarArea', () => {
   it('rotula forma, metros e quadrados', () => {
-    expect(rotuloDaArea({ forma: 'cone', metros: 9 }, 1.5)).toBe(
-      'Cone · 9 m (6 q)',
-    );
-    expect(rotuloDaArea({ forma: 'raio', metros: 4.5 }, 1.5)).toBe(
-      'Raio · 4,5 m (3 q)',
-    );
+    expect(rotuloDaArea({ forma: 'cone', metros: 9 }, 1.5)).toBe('Cone · 9 m (6 q)');
+    expect(rotuloDaArea({ forma: 'raio', metros: 4.5 }, 1.5)).toBe('Raio · 4,5 m (3 q)');
   });
 
   it('autor ou quem vê tudo edita', () => {

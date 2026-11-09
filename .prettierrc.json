@@ -13,5 +13,29 @@
   "singleQuote": true,
   "tabWidth": 2,
   "trailingComma": "all",
-  "useTabs": false
+  "useTabs": false,
+  "overrides": [
+    {
+      "files": [
+        "src/components/Chat/**",
+        "src/components/Grid/**",
+        "src/components/ImageLightbox/**",
+        "src/common/lua/**",
+        "src/common/utils/chat*.js",
+        "src/common/utils/grid*.js",
+        "src/hooks/useAudioMesa.js",
+        "src/hooks/useAvisarAcoesChat*.js",
+        "src/hooks/useChatCampanha.js",
+        "src/hooks/useFichasDoGrid*.js",
+        "src/hooks/useGrid*.js",
+        "src/hooks/useMembroDoChat.js",
+        "src/hooks/useRolarDoToken*.js",
+        "scripts/check-shared.mjs",
+        "src/components/ConfirmDialog/**"
+      ],
+      "options": {
+        "printWidth": 90
+      }
+    }
+  ]
 }

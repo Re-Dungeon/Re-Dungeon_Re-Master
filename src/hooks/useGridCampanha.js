@@ -82,10 +82,7 @@ const useGridCampanha = (
   const [erro, setErro] = useState(null);
   // Dados guardados junto da campanha/cena a que pertencem: ao trocar,
   // `carregando` volta a true sem setState síncrono no efeito.
-  const [ponteiro, setPonteiro] = useState({
-    campanhaId: null,
-    cenaAtivaId: null,
-  });
+  const [ponteiro, setPonteiro] = useState({ campanhaId: null, cenaAtivaId: null });
   const [cenaRecebida, setCenaRecebida] = useState({ chave: null, cena: null });
   const [tokensRecebidos, setTokensRecebidos] = useState({
     chave: null,
@@ -123,8 +120,7 @@ const useGridCampanha = (
   const alterarRastro = useCallback(
     (chaveCena, tokenId, id, alterar) =>
       definirRastros(atual => {
-        const entrada =
-          atual.chave === chaveCena ? atual.porToken[tokenId] : null;
+        const entrada = atual.chave === chaveCena ? atual.porToken[tokenId] : null;
         if (!entrada || (id && entrada.chave !== id)) return atual;
         const porToken = { ...atual.porToken };
         const nova = alterar(entrada);
@@ -141,8 +137,7 @@ const useGridCampanha = (
         rastrosRef.current.chave === chaveCena
           ? rastrosRef.current.porToken[tokenId]
           : null;
-      if (entrada && (!id || entrada.chave === id))
-        limparTemporizadores(tokenId);
+      if (entrada && (!id || entrada.chave === id)) limparTemporizadores(tokenId);
       alterarRastro(chaveCena, tokenId, id, () => null);
     },
     [alterarRastro, limparTemporizadores],
@@ -193,10 +188,7 @@ const useGridCampanha = (
   // Snapshot de tokens da cena: rastro para quem acabou de se mover.
   const processarMovimentos = useCallback(
     (chaveCena, tokens) => {
-      const { vistos, movidos } = detectarMovimentos(
-        vistosRef.current.mapa,
-        tokens,
-      );
+      const { vistos, movidos } = detectarMovimentos(vistosRef.current.mapa, tokens);
       vistosRef.current = { chave: chaveCena, mapa: vistos };
       const idsMovidos = new Set();
       movidos.forEach(token => {
@@ -204,8 +196,7 @@ const useGridCampanha = (
         const pontos = normalizarRastro(token.rastro);
         const valido = pontos && mesmaCelula(pontos[pontos.length - 1], token);
         const atual = rastrosRef.current;
-        const local =
-          atual.chave === chaveCena ? atual.porToken[token.id] : null;
+        const local = atual.chave === chaveCena ? atual.porToken[token.id] : null;
         if (!valido) apagarRastro(chaveCena, token.id);
         // Confirmação do meu movimento: já está na tela, sem piscar de novo.
         else if (local?.aguardando && rastrosIguais(local.pontos, pontos)) {
@@ -219,10 +210,7 @@ const useGridCampanha = (
       Object.values(atual.porToken).forEach(entrada => {
         if (entrada.aguardando || idsMovidos.has(entrada.tokenId)) return;
         const token = tokens.find(t => t.id === entrada.tokenId);
-        if (
-          !token ||
-          !mesmaCelula(token, entrada.pontos[entrada.pontos.length - 1])
-        ) {
+        if (!token || !mesmaCelula(token, entrada.pontos[entrada.pontos.length - 1])) {
           apagarRastro(chaveCena, entrada.tokenId);
         }
       });
@@ -313,57 +301,43 @@ const useGridCampanha = (
       temporizadores.clear();
       definirRastros(() => RASTROS_VAZIOS);
     };
-  }, [
-    campanhaId,
-    cenaId,
-    chave,
-    podeOuvir,
-    veTudo,
-    processarMovimentos,
-    definirRastros,
-  ]);
+  }, [campanhaId, cenaId, chave, podeOuvir, veTudo, processarMovimentos, definirRastros]);
 
   const carregando =
     !ponteiroCarregado ||
-    (chave !== null &&
-      (cenaRecebida.chave !== chave || tokensRecebidos.chave !== chave));
+    (chave !== null && (cenaRecebida.chave !== chave || tokensRecebidos.chave !== chave));
   const cena = chave && cenaRecebida.chave === chave ? cenaRecebida.cena : null;
   const config = useMemo(() => configDoGrid(cena), [cena]);
   const tokens =
-    chave && tokensRecebidos.chave === chave
-      ? tokensRecebidos.tokens
-      : SEM_TOKENS;
+    chave && tokensRecebidos.chave === chave ? tokensRecebidos.tokens : SEM_TOKENS;
   const travamento = normalizarTravamento(cena?.travamento);
 
-  const { combate, tokenDaVez, meuTurno, mudarTurno, encerrarTurno } =
-    useGridCombate(campanhaId, cenaId, {
+  const { combate, tokenDaVez, meuTurno, mudarTurno, encerrarTurno } = useGridCombate(
+    campanhaId,
+    cenaId,
+    {
       ativo: Boolean(podeOuvir && chave),
       uid,
       veTudo,
       tokens,
       autor: autorCombate,
       onErro: setErro,
-    });
+    },
+  );
   const tokenDaVezId = combate?.tokenDaVezId ?? null;
 
   const ativoNaCena = Boolean(podeOuvir && chave);
-  const {
-    bloqueadas,
-    nevoa,
-    editarCamada,
-    definirNevoaAtiva,
-    preencherCamada,
-  } = useGridCamadas(campanhaId, cenaId, {
-    ativo: ativoNaCena,
-    veTudo,
-    onErro: setErro,
-  });
-  const { marcadores, criarMarcador, salvarMarcador, apagarMarcador } =
-    useGridMarcadores(campanhaId, cenaId, {
+  const { bloqueadas, nevoa, editarCamada, definirNevoaAtiva, preencherCamada } =
+    useGridCamadas(campanhaId, cenaId, { ativo: ativoNaCena, veTudo, onErro: setErro });
+  const { marcadores, criarMarcador, salvarMarcador, apagarMarcador } = useGridMarcadores(
+    campanhaId,
+    cenaId,
+    {
       ativo: ativoNaCena,
       veTudo,
       onErro: setErro,
-    });
+    },
+  );
   const { desenhos, desenhar, apagarMeus, apagarTodos } = useGridDesenhos(
     campanhaId,
     cenaId,
@@ -385,10 +359,7 @@ const useGridCampanha = (
     [uid, veTudo, travamento, tokenDaVezId],
   );
   // Tokens da pessoa, mesmo com o movimento travado (GridMapa, prop `ehMeu`).
-  const ehMeu = useCallback(
-    token => podeMoverToken(token, uid, veTudo),
-    [uid, veTudo],
-  );
+  const ehMeu = useCallback(token => podeMoverToken(token, uid, veTudo), [uid, veTudo]);
 
   // `caminho` (opcional): células atravessadas, da posição atual do token até
   // col/lin (GridMapa); sem ele, o rastro é a linha reta origem → destino.
@@ -483,9 +454,7 @@ const useGridCampanha = (
         .join('|'),
     [tokens],
   );
-  const fichas = useFichasDoGrid(idsDasFichas, {
-    ativo: Boolean(podeOuvir && chave),
-  });
+  const fichas = useFichasDoGrid(idsDasFichas, { ativo: Boolean(podeOuvir && chave) });
   const catalogoPorId = useMemo(
     () => new Map(catalogoCondicoes.map(condicao => [condicao.id, condicao])),
     [catalogoCondicoes],

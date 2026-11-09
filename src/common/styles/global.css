@@ -28,6 +28,9 @@
   --bg-card: #171B22;
 
   --accent-primary: #C43A2F;
+  /* Destaque do mestre no chat compartilhado (components/Chat/styles.js usa
+     rgba(var(--chat-destaque-rgb), a); no site dos jogadores é o dourado). */
+  --chat-destaque-rgb: 196, 58, 47;
   --accent-secondary: #8F231C;
   --accent-glow: rgba(196, 58, 47, 0.24);
 

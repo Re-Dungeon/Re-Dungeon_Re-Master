@@ -1,6 +1,6 @@
 import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 
 import { GRID_CONFIG_PADRAO } from 'common/utils/grid';
 import GridMapa from './GridMapa';
@@ -74,9 +74,7 @@ describe('GridMapa', () => {
     expect(screen.getByRole('button', { name: /Goblin/ })).toHaveStyle({
       width: '100px',
     });
-    expect(
-      screen.getByRole('button', { name: /Emboscada.*oculto/ }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Emboscada.*oculto/ })).toBeInTheDocument();
     expect(screen.getByText('Wesley Chase')).toBeInTheDocument();
   });
 
@@ -101,9 +99,7 @@ describe('GridMapa', () => {
   it('não deixa o token sair do grid', () => {
     const onMover = vi.fn();
     renderMapa({ onMover, podeMover: () => true });
-    fireEvent.keyDown(screen.getByRole('button', { name: /Goblin/ }), {
-      key: 'ArrowUp',
-    });
+    fireEvent.keyDown(screen.getByRole('button', { name: /Goblin/ }), { key: 'ArrowUp' });
     expect(onMover).not.toHaveBeenCalled();
   });
 
@@ -114,10 +110,88 @@ describe('GridMapa', () => {
       'aria-pressed',
       'true',
     );
-    fireEvent.keyDown(screen.getByRole('button', { name: /Wesley/ }), {
-      key: 'Enter',
-    });
+    fireEvent.keyDown(screen.getByRole('button', { name: /Wesley/ }), { key: 'Enter' });
     expect(onSelecionar).toHaveBeenCalledWith(TOKENS[0]);
+  });
+
+  describe('seleção múltipla (onAlternarSelecao)', () => {
+    const viewportDe = () =>
+      screen.getByRole('application', { name: 'Grid da campanha' });
+    const ponteiro = (clientX, clientY, extra = {}) => ({
+      clientX,
+      clientY,
+      pointerId: 1,
+      pointerType: 'mouse',
+      button: 0,
+      ...extra,
+    });
+    const clicar = (token, modificadores = {}) => {
+      fireEvent.pointerDown(token, ponteiro(110, 160, modificadores));
+      fireEvent.pointerUp(viewportDe(), ponteiro(110, 160, modificadores));
+    };
+
+    it('Shift/Ctrl/Cmd-clique alterna o token em vez de selecionar', () => {
+      const onSelecionar = vi.fn();
+      const onAlternarSelecao = vi.fn();
+      renderMapa({ onSelecionar, onAlternarSelecao, podeMover: () => true });
+      const wesley = screen.getByRole('button', { name: /Wesley/ });
+
+      clicar(wesley, { shiftKey: true });
+      clicar(wesley, { ctrlKey: true });
+      clicar(wesley, { metaKey: true });
+      expect(onAlternarSelecao).toHaveBeenCalledTimes(3);
+      expect(onAlternarSelecao).toHaveBeenCalledWith(TOKENS[0]);
+      expect(onSelecionar).not.toHaveBeenCalled();
+    });
+
+    it('clique simples continua selecionando; o fundo limpa a seleção', () => {
+      const onSelecionar = vi.fn();
+      const onAlternarSelecao = vi.fn();
+      renderMapa({ onSelecionar, onAlternarSelecao, podeMover: () => true });
+
+      clicar(screen.getByRole('button', { name: /Wesley/ }));
+      expect(onSelecionar).toHaveBeenCalledWith(TOKENS[0]);
+
+      fireEvent.pointerDown(viewportDe(), ponteiro(325, 425, { shiftKey: true }));
+      fireEvent.pointerUp(viewportDe(), ponteiro(325, 425, { shiftKey: true }));
+      expect(onAlternarSelecao).not.toHaveBeenCalled();
+    });
+
+    it('sem onAlternarSelecao, Shift-clique no token seleciona como sempre', () => {
+      const onSelecionar = vi.fn();
+      renderMapa({ onSelecionar, podeMover: () => true });
+      clicar(screen.getByRole('button', { name: /Wesley/ }), { shiftKey: true });
+      expect(onSelecionar).toHaveBeenCalledWith(TOKENS[0]);
+    });
+
+    it('realça todos os selecionadosIds e Shift+Enter alterna pelo teclado', () => {
+      const onSelecionar = vi.fn();
+      const onAlternarSelecao = vi.fn();
+      renderMapa({
+        onSelecionar,
+        onAlternarSelecao,
+        selecionadosIds: ['t1', 't2'],
+      });
+      expect(screen.getByRole('button', { name: /Wesley/ })).toHaveAttribute(
+        'aria-pressed',
+        'true',
+      );
+      expect(screen.getByRole('button', { name: /Goblin/ })).toHaveAttribute(
+        'aria-pressed',
+        'true',
+      );
+      expect(screen.getByRole('button', { name: /Emboscada/ })).toHaveAttribute(
+        'aria-pressed',
+        'false',
+      );
+
+      fireEvent.keyDown(screen.getByRole('button', { name: /Emboscada/ }), {
+        key: 'Enter',
+        shiftKey: true,
+      });
+      expect(onAlternarSelecao).toHaveBeenCalledWith(TOKENS[2]);
+      expect(onSelecionar).not.toHaveBeenCalled();
+    });
   });
 
   it('mostra o aviso e os controles de zoom', () => {
@@ -125,20 +199,13 @@ describe('GridMapa', () => {
     expect(screen.getByRole('status')).toHaveTextContent(
       'O mestre ainda não montou o grid',
     );
-    expect(
-      screen.getByRole('button', { name: 'Aproximar' }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: 'Centralizar mapa' }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Aproximar' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Centralizar mapa' })).toBeInTheDocument();
   });
 
   it('com imagem, desenha a imagem de fundo', () => {
     const { container } = renderMapa({
-      config: {
-        ...GRID_CONFIG_PADRAO,
-        imagemUrl: 'https://exemplo.com/mapa.png',
-      },
+      config: { ...GRID_CONFIG_PADRAO, imagemUrl: 'https://exemplo.com/mapa.png' },
     });
     expect(
       container.querySelector('img[src="https://exemplo.com/mapa.png"]'),
@@ -173,9 +240,7 @@ describe('GridMapa', () => {
       expect(container.querySelector('[data-fantasma]')).not.toBeNull();
 
       // Soltar grava (onMover) e, ao terminar, libera a posição do arraste.
-      await act(async () =>
-        fireEvent.pointerUp(viewportDe(), ponteiro(210, 210)),
-      );
+      await act(async () => fireEvent.pointerUp(viewportDe(), ponteiro(210, 210)));
       expect(onMover).toHaveBeenCalledWith(TOKENS[0], 4, 4, [
         { col: 2, lin: 3 },
         { col: 3, lin: 3 },
@@ -309,14 +374,8 @@ describe('GridMapa', () => {
       const mundo = container.querySelector('[data-token-id]').parentElement;
       const transformAntes = mundo.style.transform;
 
-      fireEvent.pointerDown(
-        viewportDe(),
-        ponteiro(325, 425, { shiftKey: true }),
-      );
-      fireEvent.pointerMove(
-        viewportDe(),
-        ponteiro(425, 425, { shiftKey: true }),
-      );
+      fireEvent.pointerDown(viewportDe(), ponteiro(325, 425, { shiftKey: true }));
+      fireEvent.pointerMove(viewportDe(), ponteiro(425, 425, { shiftKey: true }));
       fireEvent.pointerUp(viewportDe(), ponteiro(425, 425));
       expect(screen.getByText('2 q · 3 m')).toBeInTheDocument();
       expect(mundo.style.transform).toBe(transformAntes);
@@ -334,8 +393,7 @@ describe('GridMapa', () => {
 });
 
 describe('GridMapa — sinais, estado dos tokens, auras e seguir', () => {
-  const viewportDe = () =>
-    screen.getByRole('application', { name: 'Grid da campanha' });
+  const viewportDe = () => screen.getByRole('application', { name: 'Grid da campanha' });
   const ponteiro = (clientX, clientY, extra = {}) => ({
     clientX,
     clientY,
@@ -344,8 +402,7 @@ describe('GridMapa — sinais, estado dos tokens, auras e seguir', () => {
     button: 0,
     ...extra,
   });
-  const mundoDe = container =>
-    container.querySelector('[data-token-id]').parentElement;
+  const mundoDe = container => container.querySelector('[data-token-id]').parentElement;
   const transformDe = elemento => {
     const [, x, y, zoom] = elemento.style.transform
       .match(/translate\((.+)px, (.+)px\) scale\((.+)\)/)
@@ -439,10 +496,7 @@ describe('GridMapa — sinais, estado dos tokens, auras e seguir', () => {
     it('pinça cancela a pressão longa; sem onPing não há sinal', () => {
       const onPing = vi.fn();
       renderMapa({ onPing });
-      fireEvent.pointerDown(
-        viewportDe(),
-        ponteiro(100, 100, { pointerType: 'touch' }),
-      );
+      fireEvent.pointerDown(viewportDe(), ponteiro(100, 100, { pointerType: 'touch' }));
       fireEvent.pointerDown(
         viewportDe(),
         ponteiro(200, 200, { pointerType: 'touch', pointerId: 2 }),
@@ -527,16 +581,7 @@ describe('GridMapa — sinais, estado dos tokens, auras e seguir', () => {
 
   it('desenha os sinais recebidos com o nome', () => {
     const { container } = renderMapa({
-      pings: [
-        {
-          chave: 'u2-1',
-          uid: 'u2',
-          x: 100,
-          y: 80,
-          nome: 'Brina',
-          cor: '#5b7cfa',
-        },
-      ],
+      pings: [{ chave: 'u2-1', uid: 'u2', x: 100, y: 80, nome: 'Brina', cor: '#5b7cfa' }],
     });
     const sinal = container.querySelector('[data-ping="u2"]');
     expect(sinal).toHaveStyle({ left: '100px', top: '80px' });
@@ -551,32 +596,14 @@ describe('GridMapa — sinais, estado dos tokens, auras e seguir', () => {
 
     rerender(
       mapa({
-        pings: [
-          {
-            chave: 'eu-1',
-            uid: 'u1',
-            x: 10,
-            y: 10,
-            puxar: true,
-            proprio: true,
-          },
-        ],
+        pings: [{ chave: 'eu-1', uid: 'u1', x: 10, y: 10, puxar: true, proprio: true }],
       }),
     );
     expect(transformDe(mundoDe(container))).toEqual(antes);
 
     rerender(
       mapa({
-        pings: [
-          {
-            chave: 'm-1',
-            uid: 'm',
-            x: 500,
-            y: 300,
-            puxar: true,
-            proprio: false,
-          },
-        ],
+        pings: [{ chave: 'm-1', uid: 'm', x: 500, y: 300, puxar: true, proprio: false }],
       }),
     );
     const depois = transformDe(mundoDe(container));
@@ -624,9 +651,7 @@ describe('GridMapa — sinais, estado dos tokens, auras e seguir', () => {
     expect(wesley.querySelector('[data-barra="energia"]')).toBeNull();
     expect(wesley.querySelectorAll('[data-condicao]')).toHaveLength(3);
     expect(wesley.querySelector('[data-condicoes]')).toHaveTextContent('+1');
-    expect(
-      container.querySelector('[data-token-id="t2"] [data-barra]'),
-    ).toBeNull();
+    expect(container.querySelector('[data-token-id="t2"] [data-barra]')).toBeNull();
   });
 
   it('hover num token mostra o cartão com a distância borda a borda do meu token', () => {
@@ -642,9 +667,7 @@ describe('GridMapa — sinais, estado dos tokens, auras e seguir', () => {
         condicoes: [{ id: 'c1', nome: 'Envenenado', icone: null, stack: 2 }],
       },
     });
-    const { container, rerender } = render(
-      mapa({ detalhes: detalhesCom(false) }),
-    );
+    const { container, rerender } = render(mapa({ detalhes: detalhesCom(false) }));
     const goblin = screen.getByRole('button', { name: /Goblin/ });
 
     fireEvent.pointerOver(goblin, { pointerType: 'mouse' });
@@ -657,12 +680,106 @@ describe('GridMapa — sinais, estado dos tokens, auras e seguir', () => {
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
 
     rerender(mapa({ detalhes: detalhesCom(true) }));
-    expect(container.querySelector('[data-detalhe]')).toHaveTextContent(
-      'PV 3/10',
-    );
+    expect(container.querySelector('[data-detalhe]')).toHaveTextContent('PV 3/10');
 
     fireEvent.pointerOut(goblin, { pointerType: 'mouse' });
     expect(container.querySelector('[data-detalhe]')).toBeNull();
+  });
+
+  describe('cartão editável do dono', () => {
+    const detalhes = {
+      t1: {
+        recursos: {
+          pv: { atual: 5, max: 10 },
+          energia: { atual: 0, max: 4 },
+          fadiga: null,
+          numeros: true,
+        },
+        condicoes: [],
+      },
+      t2: {
+        recursos: {
+          pv: { atual: 3, max: 10 },
+          energia: null,
+          fadiga: null,
+          numeros: true,
+        },
+        condicoes: [],
+      },
+    };
+    const editavel = props =>
+      renderMapa({
+        detalhes,
+        podeEditarRecursos: token => token.id === 't1',
+        onAlterarRecurso: vi.fn(() => Promise.resolve()),
+        ...props,
+      });
+
+    it('+ e digitar chamam onAlterarRecurso com o valor limitado a 0..max', () => {
+      const onAlterarRecurso = vi.fn(() => Promise.resolve());
+      const { container } = editavel({ onAlterarRecurso });
+      fireEvent.pointerOver(screen.getByRole('button', { name: /Wesley/ }), {
+        pointerType: 'mouse',
+      });
+      const cartao = container.querySelector('[data-detalhe]');
+      fireEvent.click(within(cartao).getByRole('button', { name: 'Aumentar PV' }));
+      expect(onAlterarRecurso).toHaveBeenLastCalledWith(
+        expect.objectContaining({ id: 't1' }),
+        'pv',
+        6,
+      );
+      expect(
+        within(cartao).getByRole('button', { name: 'Diminuir Energia' }),
+      ).toBeDisabled();
+      const campo = within(cartao).getByLabelText('Energia atual');
+      fireEvent.change(campo, { target: { value: '40' } });
+      fireEvent.blur(campo);
+      expect(onAlterarRecurso).toHaveBeenLastCalledWith(
+        expect.objectContaining({ id: 't1' }),
+        'energia',
+        4,
+      );
+    });
+
+    it('cartão de outro token ou sem as props não é editável', () => {
+      const { container, unmount } = editavel();
+      fireEvent.pointerOver(screen.getByRole('button', { name: /Goblin/ }), {
+        pointerType: 'mouse',
+      });
+      expect(container.querySelector('[data-detalhe]')).toHaveTextContent('PV 3/10');
+      expect(container.querySelector('[data-recurso]')).toBeNull();
+      unmount();
+
+      const sem = renderMapa({ detalhes });
+      fireEvent.pointerOver(screen.getByRole('button', { name: /Wesley/ }), {
+        pointerType: 'mouse',
+      });
+      expect(sem.container.querySelector('[data-detalhe]')).toHaveTextContent('PV 5/10');
+      expect(sem.container.querySelector('[data-recurso]')).toBeNull();
+    });
+
+    it('fica aberto com o mouse no cartão e o toque o fixa (sem sumir em 3 s)', () => {
+      vi.useFakeTimers();
+      const { container } = editavel();
+      const wesley = screen.getByRole('button', { name: /Wesley/ });
+      fireEvent.pointerOver(wesley, { pointerType: 'mouse' });
+      fireEvent.pointerOut(wesley, { pointerType: 'mouse' });
+      fireEvent.pointerOver(container.querySelector('[data-detalhe]'), {
+        pointerType: 'mouse',
+      });
+      act(() => vi.advanceTimersByTime(1000));
+      expect(container.querySelector('[data-detalhe]')).not.toBeNull();
+      fireEvent.pointerOut(container.querySelector('[data-detalhe]'), {
+        pointerType: 'mouse',
+      });
+      act(() => vi.advanceTimersByTime(1000));
+      expect(container.querySelector('[data-detalhe]')).toBeNull();
+
+      fireEvent.pointerDown(wesley, ponteiro(125, 175, { pointerType: 'touch' }));
+      fireEvent.pointerUp(viewportDe(), ponteiro(125, 175, { pointerType: 'touch' }));
+      act(() => vi.advanceTimersByTime(10000));
+      expect(container.querySelector('[data-recurso="pv"]')).not.toBeNull();
+    });
   });
 
   it('toque num token mostra o cartão por 3 s', () => {
@@ -670,10 +787,7 @@ describe('GridMapa — sinais, estado dos tokens, auras e seguir', () => {
     const { container } = renderMapa();
     const goblin = screen.getByRole('button', { name: /Goblin/ });
     fireEvent.pointerDown(goblin, ponteiro(40, 40, { pointerType: 'touch' }));
-    fireEvent.pointerUp(
-      viewportDe(),
-      ponteiro(40, 40, { pointerType: 'touch' }),
-    );
+    fireEvent.pointerUp(viewportDe(), ponteiro(40, 40, { pointerType: 'touch' }));
     expect(container.querySelector('[data-detalhe]')).toHaveTextContent(
       '2 q · 3 m de Wesley Chase',
     );
@@ -720,9 +834,7 @@ describe('GridMapa — sinais, estado dos tokens, auras e seguir', () => {
     expect(vista.x).toBeCloseTo(400 - 125 * zoom);
     expect(vista.y).toBeCloseTo(300 - 175 * zoom);
 
-    rerender(
-      mapa({ tokens: [{ ...TOKENS[0], col: 6 }, TOKENS[1], TOKENS[2]] }),
-    );
+    rerender(mapa({ tokens: [{ ...TOKENS[0], col: 6 }, TOKENS[1], TOKENS[2]] }));
     vista = transformDe(mundoDe(container));
     expect(vista.x).toBeCloseTo(400 - 325 * zoom);
 
@@ -739,8 +851,7 @@ describe('GridMapa — sinais, estado dos tokens, auras e seguir', () => {
 });
 
 describe('GridMapa — combate (Fase 3A)', () => {
-  const viewportDe = () =>
-    screen.getByRole('application', { name: 'Grid da campanha' });
+  const viewportDe = () => screen.getByRole('application', { name: 'Grid da campanha' });
   const ponteiro = (clientX, clientY, extra = {}) => ({
     clientX,
     clientY,
@@ -750,12 +861,7 @@ describe('GridMapa — combate (Fase 3A)', () => {
     ...extra,
   });
   // Já normalizado (useGridCampanha → combate).
-  const combate = ({
-    indice = 0,
-    rodada = 2,
-    inicioTurno = null,
-    ordem,
-  } = {}) => {
+  const combate = ({ indice = 0, rodada = 2, inicioTurno = null, ordem } = {}) => {
     const lista = ordem ?? [
       { tokenId: 't1', iniciativa: 18, d20: 13, reacao: 5 },
       { tokenId: 't2', iniciativa: 12, d20: 10, reacao: 2 },
@@ -796,9 +902,7 @@ describe('GridMapa — combate (Fase 3A)', () => {
   const transformDe = container => {
     const [, x, y, zoom] = container
       .querySelector('[data-token-id]')
-      .parentElement.style.transform.match(
-        /translate\((.+)px, (.+)px\) scale\((.+)\)/,
-      )
+      .parentElement.style.transform.match(/translate\((.+)px, (.+)px\) scale\((.+)\)/)
       .map(Number);
     return { x, y, zoom };
   };
@@ -825,9 +929,10 @@ describe('GridMapa — combate (Fase 3A)', () => {
     expect(screen.getByText('Rodada 2')).toBeInTheDocument();
     const lista = screen.getByRole('list', { name: 'Ordem de iniciativa' });
     const retratos = lista.querySelectorAll('button');
-    expect(
-      [...retratos].map(botao => botao.getAttribute('aria-label')),
-    ).toEqual(['Centralizar em Wesley Chase', 'Centralizar em Goblin']);
+    expect([...retratos].map(botao => botao.getAttribute('aria-label'))).toEqual([
+      'Centralizar em Wesley Chase',
+      'Centralizar em Goblin',
+    ]);
     expect(retratos[0]).toHaveAttribute('aria-current', 'true');
     expect(retratos[1]).not.toHaveAttribute('aria-current');
     expect(retratos[0]).toHaveTextContent('18');
@@ -845,9 +950,7 @@ describe('GridMapa — combate (Fase 3A)', () => {
   });
 
   it('mestre vê o oculto na faixa; jogador, na vez do oculto, vê "Vez do mestre"', () => {
-    const { rerender } = render(
-      mapa({ combate: combate({ indice: 2 }), mestre: true }),
-    );
+    const { rerender } = render(mapa({ combate: combate({ indice: 2 }), mestre: true }));
     expect(
       screen.getByRole('button', { name: 'Centralizar em Emboscada' }),
     ).toHaveAttribute('aria-current', 'true');
@@ -864,9 +967,7 @@ describe('GridMapa — combate (Fase 3A)', () => {
     comViewport();
     const { container } = render(mapa({ combate: combate() }));
     const { zoom } = transformDe(container);
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Centralizar em Goblin' }),
-    );
+    fireEvent.click(screen.getByRole('button', { name: 'Centralizar em Goblin' }));
     // Goblin 2×2 em (0,0): centro (50, 50).
     const vista = transformDe(container);
     expect(vista.zoom).toBe(zoom);
@@ -883,9 +984,7 @@ describe('GridMapa — combate (Fase 3A)', () => {
       'Seu turno! Restaurar PP',
     ];
     rotulos.forEach(rotulo =>
-      expect(
-        screen.queryByRole('button', { name: rotulo }),
-      ).not.toBeInTheDocument(),
+      expect(screen.queryByRole('button', { name: rotulo })).not.toBeInTheDocument(),
     );
 
     const acoes = {
@@ -905,9 +1004,7 @@ describe('GridMapa — combate (Fase 3A)', () => {
     expect(acoes.encerrarTurno).toHaveBeenCalledTimes(1);
     expect(acoes.restaurarPp).toHaveBeenCalledTimes(1);
 
-    rerender(
-      mapa({ combate: combate(), acoesCombate: { encerrarTurno: vi.fn() } }),
-    );
+    rerender(mapa({ combate: combate(), acoesCombate: { encerrarTurno: vi.fn() } }));
     expect(
       screen.queryByRole('button', { name: 'Próximo turno' }),
     ).not.toBeInTheDocument();
@@ -932,9 +1029,7 @@ describe('GridMapa — combate (Fase 3A)', () => {
     // Correr 12 → linhas 0–15.
     expect(correr).toHaveLength(16);
 
-    await act(async () =>
-      fireEvent.pointerUp(viewportDe(), ponteiro(160, 160)),
-    );
+    await act(async () => fireEvent.pointerUp(viewportDe(), ponteiro(160, 160)));
     expect(container.querySelector('[data-alcance]')).toBeNull();
   });
 
@@ -945,9 +1040,7 @@ describe('GridMapa — combate (Fase 3A)', () => {
     fireEvent.pointerUp(viewportDe(), ponteiro(40, 40));
     expect(container.querySelector('[data-alcance]')).toBeNull();
 
-    const wesley = screen.getByRole('button', {
-      name: /^Wesley Chase, coluna/,
-    });
+    const wesley = screen.getByRole('button', { name: /^Wesley Chase, coluna/ });
     fireEvent.pointerDown(wesley, ponteiro(110, 160));
     fireEvent.pointerUp(viewportDe(), ponteiro(110, 160));
     expect(container.querySelector('[data-alcance="mover"]')).not.toBeNull();
@@ -970,20 +1063,11 @@ describe('GridMapa — combate (Fase 3A)', () => {
       ponteiro(110, 160),
     );
     fireEvent.pointerMove(viewportDe(), ponteiro(160, 160)); // → (3,3): 3 desde (0,3)
-    expect(screen.getByText('3 q · 4,5 m')).toHaveAttribute(
-      'data-faixa',
-      'mover',
-    );
+    expect(screen.getByText('3 q · 4,5 m')).toHaveAttribute('data-faixa', 'mover');
     fireEvent.pointerMove(viewportDe(), ponteiro(410, 160)); // → (8,3): 8
-    expect(screen.getByText('8 q · 12 m')).toHaveAttribute(
-      'data-faixa',
-      'correr',
-    );
+    expect(screen.getByText('8 q · 12 m')).toHaveAttribute('data-faixa', 'correr');
     fireEvent.pointerMove(viewportDe(), ponteiro(760, 160)); // → (15,3): 15
-    expect(screen.getByText('15 q · 22,5 m')).toHaveAttribute(
-      'data-faixa',
-      'alem',
-    );
+    expect(screen.getByText('15 q · 22,5 m')).toHaveAttribute('data-faixa', 'alem');
   });
 
   it('usa o deslocamento do token e o multiplicador de corrida da cena', () => {
@@ -1000,12 +1084,8 @@ describe('GridMapa — combate (Fase 3A)', () => {
     );
     fireEvent.pointerMove(viewportDe(), ponteiro(160, 160));
     // 3 m → Mover 2 (linhas 1–5); 1,5× → Correr 3 (linhas 0–6).
-    expect(container.querySelectorAll('[data-alcance="mover"]')).toHaveLength(
-      5,
-    );
-    expect(container.querySelectorAll('[data-alcance="correr"]')).toHaveLength(
-      7,
-    );
+    expect(container.querySelectorAll('[data-alcance="mover"]')).toHaveLength(5);
+    expect(container.querySelectorAll('[data-alcance="correr"]')).toHaveLength(7);
   });
 
   it('aviso do travamento só para o jogador; o aviso de status continua com a faixa', () => {
@@ -1028,34 +1108,24 @@ describe('GridMapa — combate (Fase 3A)', () => {
 
   it('com o movimento travado, o token continua sendo a referência ("Seguir token")', () => {
     render(mapa({ podeMover: () => false, ehMeu: podeMoverDoJogador }));
-    expect(
-      screen.getByRole('button', { name: 'Seguir token' }),
-    ).not.toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Seguir token' })).not.toBeDisabled();
   });
 
   it('cartão do token mostra o PP (quando o detalhe traz)', () => {
     const { container } = render(
       mapa({
-        detalhes: {
-          t1: { recursos: null, condicoes: [], pp: { atual: 3, max: 10 } },
-        },
+        detalhes: { t1: { recursos: null, condicoes: [], pp: { atual: 3, max: 10 } } },
       }),
     );
-    fireEvent.pointerOver(
-      screen.getByRole('button', { name: /^Wesley Chase, coluna/ }),
-      {
-        pointerType: 'mouse',
-      },
-    );
-    expect(container.querySelector('[data-detalhe]')).toHaveTextContent(
-      'PP 3/10',
-    );
+    fireEvent.pointerOver(screen.getByRole('button', { name: /^Wesley Chase, coluna/ }), {
+      pointerType: 'mouse',
+    });
+    expect(container.querySelector('[data-detalhe]')).toHaveTextContent('PP 3/10');
   });
 });
 
 describe('GridMapa — mapa (Fase 3B)', () => {
-  const viewportDe = () =>
-    screen.getByRole('application', { name: 'Grid da campanha' });
+  const viewportDe = () => screen.getByRole('application', { name: 'Grid da campanha' });
   const ponteiro = (clientX, clientY, extra = {}) => ({
     clientX,
     clientY,
@@ -1064,8 +1134,7 @@ describe('GridMapa — mapa (Fase 3B)', () => {
     button: 0,
     ...extra,
   });
-  const mundoDe = container =>
-    container.querySelector('[data-token-id]').parentElement;
+  const mundoDe = container => container.querySelector('[data-token-id]').parentElement;
   const transformDe = elemento => {
     const [, x, y, zoom] = elemento.style.transform
       .match(/translate\((.+)px, (.+)px\) scale\((.+)\)/)
@@ -1101,13 +1170,9 @@ describe('GridMapa — mapa (Fase 3B)', () => {
       const rotulo = screen.getByText('Parede no caminho');
       expect(rotulo).toHaveAttribute('data-faixa', 'bloqueado');
 
-      await act(async () =>
-        fireEvent.pointerUp(viewportDe(), ponteiro(160, 160)),
-      );
+      await act(async () => fireEvent.pointerUp(viewportDe(), ponteiro(160, 160)));
       expect(onMover).not.toHaveBeenCalled();
-      expect(screen.getByRole('status')).toHaveTextContent(
-        'Há uma parede no caminho.',
-      );
+      expect(screen.getByRole('status')).toHaveTextContent('Há uma parede no caminho.');
       expect(container.querySelector('[data-fantasma]')).toBeNull();
     });
 
@@ -1116,9 +1181,7 @@ describe('GridMapa — mapa (Fase 3B)', () => {
       render(mapa({ onMover, camadas, mestre: true, podeMover: () => true }));
       arrastarWesley();
       expect(screen.queryByText('Parede no caminho')).not.toBeInTheDocument();
-      await act(async () =>
-        fireEvent.pointerUp(viewportDe(), ponteiro(160, 160)),
-      );
+      await act(async () => fireEvent.pointerUp(viewportDe(), ponteiro(160, 160)));
       expect(onMover).toHaveBeenCalledTimes(1);
     });
 
@@ -1157,21 +1220,13 @@ describe('GridMapa — mapa (Fase 3B)', () => {
         nevoa: { ativa: true, reveladas: new Set() },
       };
       const { container, unmount } = render(mapa({ camadas }));
-      expect(
-        screen.getByRole('button', { name: /Wesley/ }),
-      ).toBeInTheDocument();
-      expect(
-        screen.queryByRole('button', { name: /Goblin/ }),
-      ).not.toBeInTheDocument();
-      expect(
-        container.querySelector('[data-camada="nevoa"] path'),
-      ).not.toBeNull();
+      expect(screen.getByRole('button', { name: /Wesley/ })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /Goblin/ })).not.toBeInTheDocument();
+      expect(container.querySelector('[data-camada="nevoa"] path')).not.toBeNull();
       unmount();
 
       render(mapa({ camadas, mestre: true }));
-      expect(
-        screen.getByRole('button', { name: /Goblin/ }),
-      ).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Goblin/ })).toBeInTheDocument();
     });
 
     it('token 2×2 com uma célula na luz continua visível', () => {
@@ -1180,18 +1235,14 @@ describe('GridMapa — mapa (Fase 3B)', () => {
         nevoa: { ativa: true, reveladas: new Set(['1,1']) },
       };
       render(mapa({ camadas }));
-      expect(
-        screen.getByRole('button', { name: /Goblin/ }),
-      ).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Goblin/ })).toBeInTheDocument();
     });
 
     it('névoa desligada não cobre nada', () => {
       const { container } = render(
         mapa({ camadas: { bloqueadas: new Set(), nevoa: semNevoa } }),
       );
-      expect(
-        screen.getByRole('button', { name: /Goblin/ }),
-      ).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Goblin/ })).toBeInTheDocument();
       expect(container.querySelector('[data-camada="nevoa"]')).toBeNull();
     });
   });
@@ -1226,31 +1277,17 @@ describe('GridMapa — mapa (Fase 3B)', () => {
 
   describe('desenhar', () => {
     const tracar = async tipo => {
-      fireEvent.pointerDown(
-        viewportDe(),
-        ponteiro(10, 10, { pointerType: tipo }),
-      );
-      fireEvent.pointerMove(
-        viewportDe(),
-        ponteiro(60, 10, { pointerType: tipo }),
-      );
-      fireEvent.pointerMove(
-        viewportDe(),
-        ponteiro(100, 50, { pointerType: tipo }),
-      );
+      fireEvent.pointerDown(viewportDe(), ponteiro(10, 10, { pointerType: tipo }));
+      fireEvent.pointerMove(viewportDe(), ponteiro(60, 10, { pointerType: tipo }));
+      fireEvent.pointerMove(viewportDe(), ponteiro(100, 50, { pointerType: tipo }));
       await act(async () =>
-        fireEvent.pointerUp(
-          viewportDe(),
-          ponteiro(100, 50, { pointerType: tipo }),
-        ),
+        fireEvent.pointerUp(viewportDe(), ponteiro(100, 50, { pointerType: tipo })),
       );
     };
 
     it('o botão só existe com onDesenhar e fica desabilitado fora de Mover', () => {
       const { unmount } = render(mapa());
-      expect(
-        screen.queryByRole('button', { name: 'Desenhar' }),
-      ).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Desenhar' })).not.toBeInTheDocument();
       unmount();
       render(mapa({ onDesenhar: vi.fn(), ferramenta: 'paredes' }));
       expect(screen.getByRole('button', { name: 'Desenhar' })).toBeDisabled();
@@ -1284,9 +1321,7 @@ describe('GridMapa — mapa (Fase 3B)', () => {
         ponteiro(110, 160),
       );
       fireEvent.pointerMove(viewportDe(), ponteiro(200, 160));
-      await act(async () =>
-        fireEvent.pointerUp(viewportDe(), ponteiro(200, 160)),
-      );
+      await act(async () => fireEvent.pointerUp(viewportDe(), ponteiro(200, 160)));
       expect(onMover).not.toHaveBeenCalled();
       expect(onDesenhar).toHaveBeenCalledTimes(1);
     });
@@ -1323,12 +1358,7 @@ describe('GridMapa — mapa (Fase 3B)', () => {
       const apagarMeus = vi.fn();
       const apagarTodos = vi.fn();
       vi.spyOn(window, 'confirm').mockReturnValue(true);
-      render(
-        mapa({
-          onDesenhar: vi.fn(),
-          acoesDesenho: { apagarMeus, apagarTodos },
-        }),
-      );
+      render(mapa({ onDesenhar: vi.fn(), acoesDesenho: { apagarMeus, apagarTodos } }));
       const desenhar = screen.getByRole('button', { name: 'Desenhar' });
       const regua = screen.getByRole('button', { name: 'Régua' });
       fireEvent.click(desenhar);
@@ -1337,9 +1367,7 @@ describe('GridMapa — mapa (Fase 3B)', () => {
       expect(regua).toHaveAttribute('aria-pressed', 'true');
       fireEvent.click(desenhar);
       expect(regua).toHaveAttribute('aria-pressed', 'false');
-      fireEvent.click(
-        screen.getByRole('button', { name: 'Apagar meus desenhos' }),
-      );
+      fireEvent.click(screen.getByRole('button', { name: 'Apagar meus desenhos' }));
       fireEvent.click(screen.getByRole('button', { name: 'Apagar todos' }));
       expect(apagarMeus).toHaveBeenCalled();
       expect(apagarTodos).toHaveBeenCalled();
@@ -1348,14 +1376,10 @@ describe('GridMapa — mapa (Fase 3B)', () => {
     it('mostra os desenhos recebidos', () => {
       const { container } = render(
         mapa({
-          desenhos: [
-            { id: 'd1', cor: '#ffffff', pontos: [0, 0, 10, 10], proprio: true },
-          ],
+          desenhos: [{ id: 'd1', cor: '#ffffff', pontos: [0, 0, 10, 10], proprio: true }],
         }),
       );
-      expect(
-        container.querySelector('[data-desenho="d1"] polyline'),
-      ).not.toBeNull();
+      expect(container.querySelector('[data-desenho="d1"] polyline')).not.toBeNull();
     });
   });
 
@@ -1373,9 +1397,7 @@ describe('GridMapa — mapa (Fase 3B)', () => {
       fireEvent.pointerDown(viewportDe(), ponteiro(60, 60)); // (1,1)
       fireEvent.pointerMove(viewportDe(), ponteiro(160, 60)); // (3,1)
       expect(onEditarCamada).not.toHaveBeenCalled();
-      await act(async () =>
-        fireEvent.pointerUp(viewportDe(), ponteiro(160, 60)),
-      );
+      await act(async () => fireEvent.pointerUp(viewportDe(), ponteiro(160, 60)));
       expect(onEditarCamada).toHaveBeenCalledTimes(1);
       const { camada, acao, celulas } = onEditarCamada.mock.calls[0][0];
       expect(camada).toBe('paredes');
@@ -1392,9 +1414,7 @@ describe('GridMapa — mapa (Fase 3B)', () => {
 
     it('retângulo na névoa; a prévia de remover fica vermelha até gravar', async () => {
       let terminar;
-      const onEditarCamada = vi.fn(
-        () => new Promise(resolve => (terminar = resolve)),
-      );
+      const onEditarCamada = vi.fn(() => new Promise(resolve => (terminar = resolve)));
       const { container } = render(
         mapa({
           ferramenta: 'nevoa',
@@ -1439,17 +1459,13 @@ describe('GridMapa — mapa (Fase 3B)', () => {
     it('com a ferramenta de edição o token não arrasta', async () => {
       const onMover = vi.fn();
       const onEditarCamada = vi.fn().mockResolvedValue(true);
-      render(
-        mapa({ ferramenta: 'paredes', onEditarCamada, onMover, mestre: true }),
-      );
+      render(mapa({ ferramenta: 'paredes', onEditarCamada, onMover, mestre: true }));
       fireEvent.pointerDown(
         screen.getByRole('button', { name: /Wesley/ }),
         ponteiro(110, 160),
       );
       fireEvent.pointerMove(viewportDe(), ponteiro(210, 160));
-      await act(async () =>
-        fireEvent.pointerUp(viewportDe(), ponteiro(210, 160)),
-      );
+      await act(async () => fireEvent.pointerUp(viewportDe(), ponteiro(210, 160)));
       expect(onMover).not.toHaveBeenCalled();
       expect(onEditarCamada).toHaveBeenCalledTimes(1);
     });
@@ -1469,27 +1485,14 @@ describe('GridMapa — mapa (Fase 3B)', () => {
 
     it('mostra o pino; tocar abre o cartão e tocar fora fecha', () => {
       render(mapa({ marcadores: [marcador] }));
-      const pino = screen.getByRole('button', {
-        name: 'Marcador: Baú escondido',
-      });
+      const pino = screen.getByRole('button', { name: 'Marcador: Baú escondido' });
       fireEvent.pointerDown(pino, ponteiro(225, 225, { pointerType: 'touch' }));
-      fireEvent.pointerUp(
-        viewportDe(),
-        ponteiro(225, 225, { pointerType: 'touch' }),
-      );
-      const cartao = screen.getByRole('dialog', {
-        name: 'Marcador: Baú escondido',
-      });
+      fireEvent.pointerUp(viewportDe(), ponteiro(225, 225, { pointerType: 'touch' }));
+      const cartao = screen.getByRole('dialog', { name: 'Marcador: Baú escondido' });
       expect(cartao).toHaveTextContent('Atrás da estátua.');
 
-      fireEvent.pointerDown(
-        viewportDe(),
-        ponteiro(20, 20, { pointerType: 'touch' }),
-      );
-      fireEvent.pointerUp(
-        viewportDe(),
-        ponteiro(20, 20, { pointerType: 'touch' }),
-      );
+      fireEvent.pointerDown(viewportDe(), ponteiro(20, 20, { pointerType: 'touch' }));
+      fireEvent.pointerUp(viewportDe(), ponteiro(20, 20, { pointerType: 'touch' }));
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     });
 
@@ -1522,8 +1525,7 @@ describe('GridMapa — mapa (Fase 3B)', () => {
 });
 
 describe('GridMapa — ações (Fase 3C)', () => {
-  const viewportDe = () =>
-    screen.getByRole('application', { name: 'Grid da campanha' });
+  const viewportDe = () => screen.getByRole('application', { name: 'Grid da campanha' });
   const ponteiro = (clientX, clientY, extra = {}) => ({
     clientX,
     clientY,
@@ -1564,18 +1566,14 @@ describe('GridMapa — ações (Fase 3C)', () => {
   const armarArea = (nome, metros) => {
     fireEvent.click(screen.getByRole('button', { name: 'Área' }));
     fireEvent.click(screen.getByRole('button', { name: nome }));
-    fireEvent.change(screen.getByLabelText('Tamanho (m)'), {
-      target: { value: metros },
-    });
+    fireEvent.change(screen.getByLabelText('Tamanho (m)'), { target: { value: metros } });
     fireEvent.click(screen.getByRole('button', { name: 'Posicionar no mapa' }));
   };
 
   describe('templates de área', () => {
     it('só há o botão "Área" com acoesAreas.criar; fica desabilitado fora da ferramenta Mover', () => {
       const { rerender } = render(mapa());
-      expect(
-        screen.queryByRole('button', { name: 'Área' }),
-      ).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Área' })).not.toBeInTheDocument();
       rerender(mapa({ acoesAreas: { criar: vi.fn() } }));
       expect(screen.getByRole('button', { name: 'Área' })).toBeEnabled();
       rerender(mapa({ acoesAreas: { criar: vi.fn() }, ferramenta: 'paredes' }));
@@ -1585,9 +1583,7 @@ describe('GridMapa — ações (Fase 3C)', () => {
     it('arrastar no mapa cria a área com origem e alvo e desarma; não arrasta token', async () => {
       const criar = vi.fn(() => Promise.resolve());
       const onMover = vi.fn();
-      render(
-        mapa({ acoesAreas: { criar }, onMover, corAreaPadrao: '#5b7cfa' }),
-      );
+      render(mapa({ acoesAreas: { criar }, onMover, corAreaPadrao: '#5b7cfa' }));
       armarArea('Cone', '4,5');
       expect(screen.getByRole('status')).toHaveTextContent('posicionar o Cone');
 
@@ -1597,9 +1593,7 @@ describe('GridMapa — ações (Fase 3C)', () => {
         ponteiro(125, 175),
       );
       fireEvent.pointerMove(viewportDe(), ponteiro(275, 175));
-      await act(async () =>
-        fireEvent.pointerUp(viewportDe(), ponteiro(275, 175)),
-      );
+      await act(async () => fireEvent.pointerUp(viewportDe(), ponteiro(275, 175)));
 
       expect(onMover).not.toHaveBeenCalled();
       expect(criar).toHaveBeenCalledWith({
@@ -1617,9 +1611,7 @@ describe('GridMapa — ações (Fase 3C)', () => {
       render(mapa({ acoesAreas: { criar } }));
       armarArea('Raio', '3');
       fireEvent.pointerDown(viewportDe(), ponteiro(25, 25));
-      await act(async () =>
-        fireEvent.pointerUp(viewportDe(), ponteiro(25, 25)),
-      );
+      await act(async () => fireEvent.pointerUp(viewportDe(), ponteiro(25, 25)));
       expect(criar).toHaveBeenCalledTimes(1);
       expect(criar.mock.calls[0][0]).not.toHaveProperty('alvo');
 
@@ -1640,9 +1632,7 @@ describe('GridMapa — ações (Fase 3C)', () => {
     it('"Atinge" lista só os tokens recebidos; o mestre também vê os ocultos', () => {
       const area = raio({ origem: { col: 2, lin: 2 } });
       const { rerender } = render(mapa({ areas: [area] }));
-      fireEvent.click(
-        screen.getByRole('button', { name: /Raio · 1,5 m \(1 q\)/ }),
-      );
+      fireEvent.click(screen.getByRole('button', { name: /Raio · 1,5 m \(1 q\)/ }));
       expect(screen.getByRole('button', { expanded: true })).toHaveTextContent(
         'Wesley — Raio · 1,5 m (1 q) — Atinge: Wesley Chase, Goblin',
       );
@@ -1678,9 +1668,7 @@ describe('GridMapa — ações (Fase 3C)', () => {
       expect(alca).not.toBeNull();
       fireEvent.pointerDown(alca, ponteiro(175, 75));
       fireEvent.pointerMove(viewportDe(), ponteiro(275, 175));
-      await act(async () =>
-        fireEvent.pointerUp(viewportDe(), ponteiro(275, 175)),
-      );
+      await act(async () => fireEvent.pointerUp(viewportDe(), ponteiro(275, 175)));
       expect(atualizar).toHaveBeenCalledWith('a1', {
         origem: { col: 1, lin: 1 },
         alvo: { col: 5, lin: 3 },
@@ -1698,9 +1686,7 @@ describe('GridMapa — ações (Fase 3C)', () => {
       const alca = document.querySelector('[data-area-alca="origem"]');
       fireEvent.pointerDown(alca, ponteiro(75, 75));
       fireEvent.pointerMove(viewportDe(), ponteiro(175, 125));
-      await act(async () =>
-        fireEvent.pointerUp(viewportDe(), ponteiro(175, 125)),
-      );
+      await act(async () => fireEvent.pointerUp(viewportDe(), ponteiro(175, 125)));
       expect(atualizar).toHaveBeenCalledWith('a1', {
         origem: { col: 3, lin: 2 },
         alvo: { col: 5, lin: 2 },
@@ -1709,9 +1695,7 @@ describe('GridMapa — ações (Fase 3C)', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Remover área' }));
       expect(remover).toHaveBeenCalledWith('a1');
 
-      rerender(
-        mapa({ areas: [cone()], acoesAreas, podeEditarArea: () => false }),
-      );
+      rerender(mapa({ areas: [cone()], acoesAreas, podeEditarArea: () => false }));
       fireEvent.click(screen.getByRole('button', { name: /Cone/ }));
       expect(document.querySelector('[data-area-alca]')).toBeNull();
       expect(
@@ -1731,12 +1715,8 @@ describe('GridMapa — ações (Fase 3C)', () => {
       );
       const mundo = container.querySelector('[data-token-id]').parentElement;
       const filhos = [...mundo.children];
-      const posicaoArea = filhos.findIndex(el =>
-        el.querySelector?.('[data-area="a1"]'),
-      );
-      const primeiroToken = filhos.findIndex(el =>
-        el.hasAttribute('data-token-id'),
-      );
+      const posicaoArea = filhos.findIndex(el => el.querySelector?.('[data-area="a1"]'));
+      const primeiroToken = filhos.findIndex(el => el.hasAttribute('data-token-id'));
       expect(posicaoArea).toBeGreaterThan(-1);
       expect(posicaoArea).toBeLessThan(primeiroToken);
       // A névoa é a camada imediatamente anterior ao grupo das áreas.
@@ -1752,49 +1732,31 @@ describe('GridMapa — ações (Fase 3C)', () => {
 
     it('jogador: tocar no próprio token mostra "Rolar…"; no alheio, não; vazio e Esc escondem', () => {
       const onRolarToken = vi.fn();
-      render(
-        mapa({ podeRolarToken: token => token.id === 't1', onRolarToken }),
-      );
-      expect(
-        screen.queryByRole('button', { name: /Rolar/ }),
-      ).not.toBeInTheDocument();
+      render(mapa({ podeRolarToken: token => token.id === 't1', onRolarToken }));
+      expect(screen.queryByRole('button', { name: /Rolar/ })).not.toBeInTheDocument();
 
       tocar(screen.getByRole('button', { name: /Goblin/ }), 25, 25);
-      expect(
-        screen.queryByRole('button', { name: /Rolar/ }),
-      ).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /Rolar/ })).not.toBeInTheDocument();
 
       tocar(screen.getByRole('button', { name: /Wesley/ }), 125, 175);
       fireEvent.click(screen.getByRole('button', { name: 'Rolar…' }));
       expect(onRolarToken).toHaveBeenCalledWith(TOKENS[0]);
 
       tocar(viewportDe(), 400, 400);
-      expect(
-        screen.queryByRole('button', { name: /Rolar/ }),
-      ).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /Rolar/ })).not.toBeInTheDocument();
 
       tocar(screen.getByRole('button', { name: /Wesley/ }), 125, 175);
-      expect(
-        screen.getByRole('button', { name: 'Rolar…' }),
-      ).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Rolar…' })).toBeInTheDocument();
       fireEvent.keyDown(window, { key: 'Escape' });
-      expect(
-        screen.queryByRole('button', { name: /Rolar/ }),
-      ).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /Rolar/ })).not.toBeInTheDocument();
     });
 
     it('a tecla R no token focado abre a rolagem só quando é permitido', () => {
       const onRolarToken = vi.fn();
-      render(
-        mapa({ podeRolarToken: token => token.id === 't1', onRolarToken }),
-      );
-      fireEvent.keyDown(screen.getByRole('button', { name: /Goblin/ }), {
-        key: 'r',
-      });
+      render(mapa({ podeRolarToken: token => token.id === 't1', onRolarToken }));
+      fireEvent.keyDown(screen.getByRole('button', { name: /Goblin/ }), { key: 'r' });
       expect(onRolarToken).not.toHaveBeenCalled();
-      fireEvent.keyDown(screen.getByRole('button', { name: /Wesley/ }), {
-        key: 'r',
-      });
+      fireEvent.keyDown(screen.getByRole('button', { name: /Wesley/ }), { key: 'r' });
       expect(onRolarToken).toHaveBeenCalledWith(TOKENS[0]);
     });
 
@@ -1806,13 +1768,9 @@ describe('GridMapa — ações (Fase 3C)', () => {
         onRolarToken: vi.fn(),
       };
       const { rerender } = render(mapa({ ...props, selecionadoId: 't2' }));
-      expect(
-        screen.getByRole('button', { name: 'Rolar…' }),
-      ).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Rolar…' })).toBeInTheDocument();
       rerender(mapa({ ...props, selecionadoId: 't1' }));
-      expect(
-        screen.queryByRole('button', { name: /Rolar/ }),
-      ).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /Rolar/ })).not.toBeInTheDocument();
     });
   });
 });

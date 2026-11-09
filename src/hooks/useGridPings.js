@@ -25,17 +25,9 @@ const PINGS_VAZIOS = { chave: null, porUid: {} };
 const useGridPings = (
   campanhaId,
   cenaId,
-  {
-    ativo = true,
-    uid,
-    nome = null,
-    mestreId = null,
-    podePuxar = false,
-    onErro,
-  },
+  { ativo = true, uid, nome = null, mestreId = null, podePuxar = false, onErro },
 ) => {
-  const chave =
-    ativo && campanhaId && cenaId ? `${campanhaId}/${cenaId}` : null;
+  const chave = ativo && campanhaId && cenaId ? `${campanhaId}/${cenaId}` : null;
   // Sinais na tela, da cena `chave` (trocar de cena esvazia sem setState no
   // efeito). Os refs só são lidos em callbacks/efeitos.
   const [estado, setEstado] = useState(PINGS_VAZIOS);
@@ -152,10 +144,7 @@ const useGridPings = (
     if (!chave || estado.chave !== chave) return SEM_PINGS;
     const lista = Object.values(estado.porUid);
     return lista.length
-      ? lista.map(entrada => ({
-          ...entrada,
-          cor: corDoPing(entrada.uid, mestreId),
-        }))
+      ? lista.map(entrada => ({ ...entrada, cor: corDoPing(entrada.uid, mestreId) }))
       : SEM_PINGS;
   }, [chave, estado, mestreId]);
 

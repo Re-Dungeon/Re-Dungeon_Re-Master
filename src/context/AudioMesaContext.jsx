@@ -33,3 +33,17 @@ AudioMesaProvider.propTypes = {
 };
 
 export const useAudioMesaContext = () => useContext(AudioMesaContext);
+
+// Música da mesa vista pelo chat (hooks/useChatCampanha.js, cópia
+// compartilhada com o site dos jogadores). Cada app liga o áudio do seu
+// jeito — aqui vem do provider da campanha ativa e, sem provider, de um
+// player próprio; no site dos jogadores o chat registra a faixa num player
+// global. A assinatura é a mesma nos dois arquivos.
+export const useAudioDoChat = (campanhaId, { podeControlar }) => {
+  const audioContext = useAudioMesaContext();
+  const audioFallback = useAudioMesa(campanhaId, {
+    ativo: Boolean(campanhaId) && !audioContext,
+    podeControlar,
+  });
+  return audioContext ?? audioFallback;
+};

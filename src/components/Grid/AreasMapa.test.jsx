@@ -32,9 +32,7 @@ describe('AreasGrid', () => {
     );
     expect(container.querySelectorAll('[data-area="a1"] rect')).toHaveLength(1);
     expect(container.querySelectorAll('[data-area="a1"] line')).toHaveLength(1);
-    expect(
-      container.querySelectorAll('[data-area="previa"] rect'),
-    ).toHaveLength(1);
+    expect(container.querySelectorAll('[data-area="previa"] rect')).toHaveLength(1);
   });
 });
 
@@ -69,26 +67,18 @@ describe('AreaRotulos', () => {
   it('selecionada: texto completo, lixeira e alças que iniciam o gesto', () => {
     const p = props();
     const { container } = render(<AreaRotulos {...p} selecionadaId="a1" />);
-    expect(
-      screen.getByText('Wesley — Cone · 9 m (6 q) — Atinge: Goblin'),
-    ).toBeTruthy();
+    expect(screen.getByText('Wesley — Cone · 9 m (6 q) — Atinge: Goblin')).toBeTruthy();
     fireEvent.click(screen.getByLabelText('Remover área'));
     expect(p.onRemover).toHaveBeenCalledWith('a1');
     const alcas = container.querySelectorAll('[data-area-alca]');
     expect(alcas).toHaveLength(2);
     fireEvent.pointerDown(container.querySelector('[data-area-alca="alvo"]'));
-    expect(p.onAlcaPointerDown).toHaveBeenCalledWith(
-      'a1',
-      'alvo',
-      expect.anything(),
-    );
+    expect(p.onAlcaPointerDown).toHaveBeenCalledWith('a1', 'alvo', expect.anything());
   });
 
   it('sem permissão: sem lixeira nem alças; raio só tem a origem', () => {
     const p = props();
-    const { container, rerender } = render(
-      <AreaRotulos {...p} selecionadaId="a2" />,
-    );
+    const { container, rerender } = render(<AreaRotulos {...p} selecionadaId="a2" />);
     expect(screen.queryByLabelText('Remover área')).toBeNull();
     expect(container.querySelectorAll('[data-area-alca]')).toHaveLength(0);
     rerender(
@@ -125,9 +115,7 @@ describe('AreaPopover', () => {
     const { onPosicionar, onClose } = montar();
     const botao = screen.getByText('Posicionar no mapa');
     expect(botao.closest('button').disabled).toBe(true);
-    fireEvent.change(screen.getByLabelText('Tamanho (m)'), {
-      target: { value: '9' },
-    });
+    fireEvent.change(screen.getByLabelText('Tamanho (m)'), { target: { value: '9' } });
     expect(screen.getByText('= 6 q')).toBeTruthy();
     fireEvent.click(screen.getByText('Raio'));
     fireEvent.click(screen.getByLabelText('Cor #f5a742'));

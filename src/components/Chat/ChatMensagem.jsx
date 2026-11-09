@@ -1,6 +1,12 @@
 import React, { useState } from 'react';
 import PropTypes from 'prop-types';
 import Avatar from '@mui/material/Avatar';
+import Button from '@mui/material/Button';
+import Dialog from '@mui/material/Dialog';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
+import DialogContentText from '@mui/material/DialogContentText';
+import DialogTitle from '@mui/material/DialogTitle';
 import IconButton from '@mui/material/IconButton';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined';
 
@@ -9,6 +15,8 @@ import {
   formatarHorarioMensagem,
   rotuloPersona,
 } from 'common/utils/chat';
+
+import ImageLightbox from 'components/ImageLightbox/ImageLightbox';
 
 import CombateMensagem from './CombateMensagem';
 import RolagemMensagem from './RolagemMensagem';
@@ -29,28 +37,26 @@ import {
 
 const ChatMensagem = ({ mensagem, minha, podeApagar, onApagar }) => {
   const [imagemFalhou, setImagemFalhou] = useState(false);
+  const [imagemAmpliadaAberta, setImagemAmpliadaAberta] = useState(false);
+  const [confirmacaoExclusaoAberta, setConfirmacaoExclusaoAberta] = useState(false);
+
+  const confirmarExclusao = () => {
+    onApagar(mensagem);
+    setConfirmacaoExclusaoAberta(false);
+  };
 
   if (mensagem.tipo === TIPOS_MENSAGEM.ROLAGEM && mensagem.rolagem) {
     return (
-      <RolagemMensagem
-        mensagem={mensagem}
-        podeApagar={podeApagar}
-        onApagar={onApagar}
-      />
+      <RolagemMensagem mensagem={mensagem} podeApagar={podeApagar} onApagar={onApagar} />
     );
   }
   if (mensagem.tipo === TIPOS_MENSAGEM.COMBATE) {
     return (
-      <CombateMensagem
-        mensagem={mensagem}
-        podeApagar={podeApagar}
-        onApagar={onApagar}
-      />
+      <CombateMensagem mensagem={mensagem} podeApagar={podeApagar} onApagar={onApagar} />
     );
   }
 
-  const { autorNome, autorAvatar, isMestre, tipo, texto, url, createdAt } =
-    mensagem;
+  const { autorNome, autorAvatar, isMestre, tipo, texto, url, createdAt } = mensagem;
   const persona = rotuloPersona(mensagem);
 
   return (
@@ -62,15 +68,9 @@ const ChatMensagem = ({ mensagem, minha, podeApagar, onApagar }) => {
           width: 36,
           height: 36,
           fontSize: '0.9rem',
-          bgcolor: isMestre
-            ? 'rgba(196, 58, 47, 0.25)'
-            : 'rgba(91, 124, 250, 0.3)',
+          bgcolor: isMestre ? 'rgba(232, 203, 133, 0.25)' : 'rgba(91, 124, 250, 0.3)',
           color: isMestre ? 'var(--color-primary)' : 'var(--text-primary)',
-          '@media (max-width: 599.95px)': {
-            width: 30,
-            height: 30,
-            fontSize: '0.8rem',
-          },
+          '@media (max-width: 599.95px)': { width: 30, height: 30, fontSize: '0.8rem' },
         }}
       >
         {autorNome?.[0]?.toUpperCase()}
@@ -80,21 +80,35 @@ const ChatMensagem = ({ mensagem, minha, podeApagar, onApagar }) => {
         <MensagemCabecalho>
           <MensagemAutor $mestre={isMestre}>{autorNome}</MensagemAutor>
           {persona && <MensagemPersona>{persona}</MensagemPersona>}
-          <MensagemHorario>
-            {formatarHorarioMensagem(createdAt)}
-          </MensagemHorario>
+          <MensagemHorario>{formatarHorarioMensagem(createdAt)}</MensagemHorario>
         </MensagemCabecalho>
 
         {tipo === TIPOS_MENSAGEM.IMAGEM && !imagemFalhou && (
-          <a href={url} target="_blank" rel="noopener noreferrer">
+          <>
             <MensagemImagem
               src={url}
               alt={`Imagem enviada por ${autorNome}`}
               loading="lazy"
               referrerPolicy="no-referrer"
               onError={() => setImagemFalhou(true)}
+              onClick={() => setImagemAmpliadaAberta(true)}
+              onKeyDown={event => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  setImagemAmpliadaAberta(true);
+                }
+              }}
+              role="button"
+              tabIndex={0}
+              aria-label={`Abrir imagem ampliada de ${autorNome}`}
             />
-          </a>
+            <ImageLightbox
+              open={imagemAmpliadaAberta}
+              imageUrl={url}
+              imageAlt={`Imagem enviada por ${autorNome}`}
+              onClose={() => setImagemAmpliadaAberta(false)}
+            />
+          </>
         )}
         {tipo === TIPOS_MENSAGEM.IMAGEM && imagemFalhou && (
           <MensagemLink href={url} target="_blank" rel="noopener noreferrer">
@@ -116,7 +130,7 @@ const ChatMensagem = ({ mensagem, minha, podeApagar, onApagar }) => {
             <IconButton
               size="small"
               aria-label="Apagar mensagem"
-              onClick={() => onApagar(mensagem)}
+              onClick={() => setConfirmacaoExclusaoAberta(true)}
               sx={{ color: 'var(--text-muted)' }}
             >
               <DeleteOutlineIcon fontSize="inherit" />
@@ -124,6 +138,48 @@ const ChatMensagem = ({ mensagem, minha, podeApagar, onApagar }) => {
           </MensagemAcoes>
         )}
       </MensagemBalao>
+
+      <Dialog
+        open={confirmacaoExclusaoAberta}
+        onClose={() => setConfirmacaoExclusaoAberta(false)}
+        fullWidth
+        maxWidth="xs"
+        slotProps={{
+          paper: {
+            sx: {
+              borderRadius: 3,
+              border: '1px solid rgba(232, 203, 133, 0.4)',
+              background: 'linear-gradient(180deg, rgba(15, 13, 23, 0.98), rgba(10, 10, 18, 0.98))',
+              boxShadow: '0 24px 60px rgba(0, 0, 0, 0.55)',
+            },
+          },
+        }}
+      >
+        <DialogTitle sx={{ color: 'var(--color-primary)', fontWeight: 800, pb: 1.5 }}>
+          Excluir mensagem?
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ color: 'var(--text-secondary)', fontSize: '0.96rem' }}>
+            Essa ação remove a mensagem do chat e não pode ser desfeita.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2.5, pt: 1 }}>
+          <Button
+            onClick={() => setConfirmacaoExclusaoAberta(false)}
+            sx={{ color: 'var(--text-secondary)' }}
+          >
+            Cancelar
+          </Button>
+          <Button
+            onClick={confirmarExclusao}
+            variant="contained"
+            color="error"
+            sx={{ borderRadius: 999, px: 2.25, fontWeight: 700 }}
+          >
+            Excluir
+          </Button>
+        </DialogActions>
+      </Dialog>
     </MensagemLinha>
   );
 };
@@ -142,10 +198,7 @@ ChatMensagem.propTypes = {
     combate: PropTypes.object,
     texto: PropTypes.string,
     url: PropTypes.string,
-    createdAt: PropTypes.oneOfType([
-      PropTypes.object,
-      PropTypes.instanceOf(Date),
-    ]),
+    createdAt: PropTypes.oneOfType([PropTypes.object, PropTypes.instanceOf(Date)]),
   }).isRequired,
   minha: PropTypes.bool.isRequired,
   podeApagar: PropTypes.bool.isRequired,

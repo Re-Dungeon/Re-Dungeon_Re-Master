@@ -6,11 +6,7 @@ import { pontosDoDesenho } from 'common/utils/gridDesenho';
 
 import { CamadaDesenhos } from './stylesMapa';
 
-const COR_PREVIA = {
-  adicionar: '#4caf50',
-  remover: '#e05555',
-  apagar: '#e05555',
-};
+const COR_PREVIA = { adicionar: '#4caf50', remover: '#e05555', apagar: '#e05555' };
 
 // Desenhos livres, traço em curso e prévia do pincel (cópia nos dois sites —
 // mudou um, mude o outro), px do MUNDO, acima da névoa. `children` (caminho do
@@ -55,10 +51,7 @@ const CamadaAnotacoes = ({
       ))}
       {tracoAtual?.pontos?.length > 0 && (
         <g data-traco-atual="">
-          {linha(
-            tracoAtual.pontos.map(p => `${p.x},${p.y}`).join(' '),
-            tracoAtual.cor,
-          )}
+          {linha(tracoAtual.pontos.map(p => `${p.x},${p.y}`).join(' '), tracoAtual.cor)}
         </g>
       )}
       {trechosPrevia.map(trecho => (

@@ -10,8 +10,7 @@ let execucao = null;
 
 const postarPasso = passo => {
   if (passo.pedido) self.postMessage({ tipo: 'pedido', pedido: passo.pedido });
-  else if (passo.fim)
-    self.postMessage({ tipo: 'fim', saidas: passo.fim.saidas });
+  else if (passo.fim) self.postMessage({ tipo: 'fim', saidas: passo.fim.saidas });
   else self.postMessage({ tipo: 'erro', mensagem: passo.erro });
 };
 
@@ -24,9 +23,6 @@ self.onmessage = ({ data }) => {
       postarPasso(execucao.responder(data.resposta));
     }
   } catch (error) {
-    self.postMessage({
-      tipo: 'erro',
-      mensagem: error?.message ?? String(error),
-    });
+    self.postMessage({ tipo: 'erro', mensagem: error?.message ?? String(error) });
   }
 };

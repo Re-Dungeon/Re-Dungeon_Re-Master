@@ -57,13 +57,7 @@ describe('ChatMensagem — combate', () => {
   });
 
   it('turno de oponente oculto, sem nome', () => {
-    renderMensagem({
-      evento: 'turno',
-      cenaId: 'c',
-      rodada: 2,
-      nome: null,
-      oculto: true,
-    });
+    renderMensagem({ evento: 'turno', cenaId: 'c', rodada: 2, nome: null, oculto: true });
     expect(screen.getByTestId('chat-mensagem')).toHaveTextContent(
       'Turno de um oponente oculto',
     );
@@ -82,25 +76,20 @@ describe('ChatMensagem — combate', () => {
     );
     unmount();
     renderMensagem({ evento: 'fim', cenaId: 'c' });
-    expect(screen.getByTestId('chat-mensagem')).toHaveTextContent(
-      'Combate encerrado',
-    );
+    expect(screen.getByTestId('chat-mensagem')).toHaveTextContent('Combate encerrado');
   });
 
-  it('apagar só com podeApagar', () => {
+  it('apagar só com podeApagar e confirma em popup estilizado', () => {
     const onApagar = vi.fn();
     const { unmount } = renderMensagem({ evento: 'fim', cenaId: 'c' });
     expect(
       screen.queryByRole('button', { name: 'Apagar mensagem' }),
     ).not.toBeInTheDocument();
     unmount();
-    renderMensagem(
-      { evento: 'fim', cenaId: 'c' },
-      { podeApagar: true, onApagar },
-    );
+    renderMensagem({ evento: 'fim', cenaId: 'c' }, { podeApagar: true, onApagar });
     fireEvent.click(screen.getByRole('button', { name: 'Apagar mensagem' }));
-    expect(onApagar).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'm1' }),
-    );
+    expect(screen.getByText('Excluir mensagem?')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Excluir' }));
+    expect(onApagar).toHaveBeenCalledWith(expect.objectContaining({ id: 'm1' }));
   });
 });

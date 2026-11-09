@@ -62,10 +62,7 @@ const RolagemDialog = ({ open, onClose, onRolar }) => {
       const linhasNovas = existente
         ? atual.linhas.map(linha =>
             linha.faces === faces
-              ? {
-                  ...linha,
-                  quantidade: String(paraInteiro(linha.quantidade) + 1 || 1),
-                }
+              ? { ...linha, quantidade: String(paraInteiro(linha.quantidade) + 1 || 1) }
               : linha,
           )
         : [...atual.linhas, { faces, quantidade: '1' }];
@@ -74,30 +71,21 @@ const RolagemDialog = ({ open, onClose, onRolar }) => {
   };
 
   const alterarQuantidade = (faces, quantidade) =>
-    atualizar({
-      linhas: linhas.map(l => (l.faces === faces ? { ...l, quantidade } : l)),
-    });
+    atualizar({ linhas: linhas.map(l => (l.faces === faces ? { ...l, quantidade } : l)) });
 
   const removerLinha = faces => {
     const restantes = linhas.filter(l => l.faces !== faces);
-    atualizar({
-      linhas: restantes,
-      passo: restantes.length ? PASSO_DETALHES : PASSO_DADOS,
-    });
+    atualizar({ linhas: restantes, passo: restantes.length ? PASSO_DETALHES : PASSO_DADOS });
   };
 
   const especificacao = especificacaoDoModal({
-    linhas: linhas.map(l => ({
-      faces: l.faces,
-      quantidade: paraInteiro(l.quantidade),
-    })),
+    linhas: linhas.map(l => ({ faces: l.faces, quantidade: paraInteiro(l.quantidade) })),
     bonus: paraInteiro(bonus),
     obstaculo: paraInteiro(obstaculo),
     secreta,
   });
   // `>= 0` também recusa NaN (campo com decimal/texto inválido).
-  const modificadoresInvalidos =
-    !(paraInteiro(bonus) >= 0) || !(paraInteiro(obstaculo) >= 0);
+  const modificadoresInvalidos = !(paraInteiro(bonus) >= 0) || !(paraInteiro(obstaculo) >= 0);
   const problema = modificadoresInvalidos
     ? `Bônus e obstáculo vão de 0 a ${MAX_VALOR_TERMO}.`
     : validarEspecificacao(especificacao);
@@ -121,12 +109,7 @@ const RolagemDialog = ({ open, onClose, onRolar }) => {
         <IconButton
           aria-label="Fechar"
           onClick={fechar}
-          sx={{
-            position: 'absolute',
-            right: 8,
-            top: 8,
-            color: 'var(--text-muted)',
-          }}
+          sx={{ position: 'absolute', right: 8, top: 8, color: 'var(--text-muted)' }}
         >
           <CloseIcon fontSize="small" />
         </IconButton>
@@ -137,12 +120,7 @@ const RolagemDialog = ({ open, onClose, onRolar }) => {
           <DialogContent>
             <GradeDados>
               {FACES_PERMITIDAS.map(faces => (
-                <button
-                  key={faces}
-                  type="button"
-                  aria-label={`d${faces}`}
-                  onClick={() => escolherDado(faces)}
-                >
+                <button key={faces} type="button" aria-label={`d${faces}`} onClick={() => escolherDado(faces)}>
                   <DadoIcone faces={faces} sx={{ fontSize: 40 }} />
                   <span>d{faces}</span>
                 </button>
@@ -151,9 +129,7 @@ const RolagemDialog = ({ open, onClose, onRolar }) => {
           </DialogContent>
           {linhas.length > 0 && (
             <DialogActions>
-              <Button onClick={() => atualizar({ passo: PASSO_DETALHES })}>
-                Voltar
-              </Button>
+              <Button onClick={() => atualizar({ passo: PASSO_DETALHES })}>Voltar</Button>
             </DialogActions>
           )}
         </>
@@ -161,40 +137,27 @@ const RolagemDialog = ({ open, onClose, onRolar }) => {
 
       {passo === PASSO_DETALHES && (
         <form onSubmit={rolar} noValidate>
-          <DialogContent
-            sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}
-          >
+          <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
             {linhas.map(linha => (
               <LinhaDado key={linha.faces}>
-                <DadoIcone
-                  faces={linha.faces}
-                  sx={{ fontSize: 28, color: 'var(--color-primary)' }}
-                />
+                <DadoIcone faces={linha.faces} sx={{ fontSize: 28, color: 'var(--color-primary)' }} />
                 <span>d{linha.faces}</span>
                 <TextField
                   type="number"
                   size="small"
                   label={`Quantidade de d${linha.faces}`}
                   value={linha.quantidade}
-                  onChange={event =>
-                    alterarQuantidade(linha.faces, event.target.value)
-                  }
+                  onChange={event => alterarQuantidade(linha.faces, event.target.value)}
                   slotProps={{ htmlInput: { min: 1, max: MAX_DADOS } }}
                   sx={{ flex: 1 }}
                 />
-                <IconButton
-                  aria-label={`Remover d${linha.faces}`}
-                  onClick={() => removerLinha(linha.faces)}
-                >
+                <IconButton aria-label={`Remover d${linha.faces}`} onClick={() => removerLinha(linha.faces)}>
                   <CloseIcon fontSize="small" />
                 </IconButton>
               </LinhaDado>
             ))}
 
-            <Button
-              onClick={() => atualizar({ passo: PASSO_DADOS })}
-              sx={{ alignSelf: 'flex-start' }}
-            >
+            <Button onClick={() => atualizar({ passo: PASSO_DADOS })} sx={{ alignSelf: 'flex-start' }}>
               + Adicionar outro dado
             </Button>
 
@@ -220,34 +183,19 @@ const RolagemDialog = ({ open, onClose, onRolar }) => {
             </Box>
 
             <FormControlLabel
-              control={
-                <Switch
-                  checked={secreta}
-                  onChange={event =>
-                    atualizar({ secreta: event.target.checked })
-                  }
-                />
-              }
+              control={<Switch checked={secreta} onChange={event => atualizar({ secreta: event.target.checked })} />}
               label="Rolagem secreta (só você e o mestre veem)"
             />
 
             {problema && (
-              <Typography
-                variant="body2"
-                role="alert"
-                sx={{ color: 'error.main' }}
-              >
+              <Typography variant="body2" role="alert" sx={{ color: 'error.main' }}>
                 {problema}
               </Typography>
             )}
           </DialogContent>
           <DialogActions>
             <Button onClick={fechar}>Cancelar</Button>
-            <Button
-              type="submit"
-              variant="contained"
-              disabled={Boolean(problema) || rolando}
-            >
+            <Button type="submit" variant="contained" disabled={Boolean(problema) || rolando}>
               Rolar
             </Button>
           </DialogActions>

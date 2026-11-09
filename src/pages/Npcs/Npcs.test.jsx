@@ -224,6 +224,8 @@ describe('Npcs (personagens do Universo vinculados à campanha ativa)', () => {
       expect(screen.getByText('Clonado nesta campanha')).toBeInTheDocument(),
     );
     await user.click(screen.getByLabelText('Remover clone de Grumnak, o Orc'));
+    // Confirmação antes de apagar.
+    await user.click(await screen.findByRole('button', { name: 'Excluir' }));
 
     await waitFor(() =>
       expect(removeRmCampanhaNpc).toHaveBeenCalledWith('c1', 'clone1'),

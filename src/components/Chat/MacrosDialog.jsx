@@ -26,16 +26,7 @@ import { MacroItem } from './styles';
 const MacrosDialog = ({ open, onClose, macros, onUsar }) => {
   // undefined = editor fechado; null = nova macro; objeto = editando.
   const [macroEditada, setMacroEditada] = useState(undefined);
-  const {
-    lista,
-    carregando,
-    podeGerenciar,
-    rodando,
-    salvar,
-    apagar,
-    mover,
-    testar,
-  } = macros;
+  const { lista, carregando, podeGerenciar, rodando, salvar, apagar, mover, testar } = macros;
 
   const usar = macro => {
     onClose();
@@ -43,8 +34,7 @@ const MacrosDialog = ({ open, onClose, macros, onUsar }) => {
   };
 
   const confirmarApagar = macro => {
-    if (window.confirm(`Apagar a macro "${macro.nome}"?`))
-      apagar(macro).catch(() => {});
+    if (window.confirm(`Apagar a macro "${macro.nome}"?`)) apagar(macro).catch(() => {});
   };
 
   return (
@@ -55,70 +45,36 @@ const MacrosDialog = ({ open, onClose, macros, onUsar }) => {
           <IconButton
             aria-label="Fechar"
             onClick={onClose}
-            sx={{
-              position: 'absolute',
-              right: 8,
-              top: 8,
-              color: 'var(--text-muted)',
-            }}
+            sx={{ position: 'absolute', right: 8, top: 8, color: 'var(--text-muted)' }}
           >
             <CloseIcon fontSize="small" />
           </IconButton>
         </DialogTitle>
-        <DialogContent
-          sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}
-        >
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
           {podeGerenciar && (
-            <Button
-              variant="outlined"
-              onClick={() => setMacroEditada(null)}
-              sx={{ alignSelf: 'flex-start', mb: 1 }}
-            >
+            <Button variant="outlined" onClick={() => setMacroEditada(null)} sx={{ alignSelf: 'flex-start', mb: 1 }}>
               + Adicionar macro
             </Button>
           )}
 
-          {carregando && (
-            <CircularProgress
-              size={24}
-              sx={{ alignSelf: 'center', color: 'var(--color-primary)' }}
-            />
-          )}
+          {carregando && <CircularProgress size={24} sx={{ alignSelf: 'center', color: 'var(--color-primary)' }} />}
           {!carregando && lista.length === 0 && (
-            <Typography
-              sx={{ color: 'var(--text-muted)', textAlign: 'center', py: 3 }}
-            >
-              {podeGerenciar
-                ? 'Nenhuma macro ainda. Adicione a primeira!'
-                : 'O mestre ainda não criou macros.'}
+            <Typography sx={{ color: 'var(--text-muted)', textAlign: 'center', py: 3 }}>
+              {podeGerenciar ? 'Nenhuma macro ainda. Adicione a primeira!' : 'O mestre ainda não criou macros.'}
             </Typography>
           )}
 
           {lista.map((macro, indice) => (
             <MacroItem key={macro.id}>
               <Box sx={{ flex: 1, minWidth: 0 }}>
-                <Typography
-                  sx={{
-                    color: 'var(--text-primary)',
-                    fontWeight: 700,
-                    overflowWrap: 'anywhere',
-                  }}
-                >
+                <Typography sx={{ color: 'var(--text-primary)', fontWeight: 700, overflowWrap: 'anywhere' }}>
                   {macro.nome}
                   {podeGerenciar && macro.somenteMestre && (
-                    <Chip
-                      label="só mestre"
-                      size="small"
-                      variant="outlined"
-                      sx={{ ml: 1, height: 20 }}
-                    />
+                    <Chip label="só mestre" size="small" variant="outlined" sx={{ ml: 1, height: 20 }} />
                   )}
                 </Typography>
                 {macro.descricao && (
-                  <Typography
-                    variant="body2"
-                    sx={{ color: 'var(--text-secondary)' }}
-                  >
+                  <Typography variant="body2" sx={{ color: 'var(--text-secondary)' }}>
                     {macro.descricao}
                   </Typography>
                 )}
@@ -151,20 +107,12 @@ const MacrosDialog = ({ open, onClose, macros, onUsar }) => {
                     </span>
                   </Tooltip>
                   <Tooltip title="Editar">
-                    <IconButton
-                      size="small"
-                      aria-label={`Editar ${macro.nome}`}
-                      onClick={() => setMacroEditada(macro)}
-                    >
+                    <IconButton size="small" aria-label={`Editar ${macro.nome}`} onClick={() => setMacroEditada(macro)}>
                       <EditOutlinedIcon fontSize="inherit" />
                     </IconButton>
                   </Tooltip>
                   <Tooltip title="Apagar">
-                    <IconButton
-                      size="small"
-                      aria-label={`Apagar ${macro.nome}`}
-                      onClick={() => confirmarApagar(macro)}
-                    >
+                    <IconButton size="small" aria-label={`Apagar ${macro.nome}`} onClick={() => confirmarApagar(macro)}>
                       <DeleteOutlineIcon fontSize="inherit" />
                     </IconButton>
                   </Tooltip>

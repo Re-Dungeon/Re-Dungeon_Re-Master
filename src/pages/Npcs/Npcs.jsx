@@ -18,6 +18,8 @@ import {
   ATRIBUTOS_PRIMARIOS_PERSONAGEM,
   ATRIBUTOS_SECUNDARIOS_PERSONAGEM,
 } from 'common/constants/atributosPersonagem';
+import { useSnackbar } from 'context/SnackbarContext';
+import useConfirmacao from 'components/ConfirmDialog/useConfirmacao';
 import { ehNpcDaCampanha } from './npcUtils';
 
 // A lista vem sempre de `personagens` (Re-Dungeon), filtrada por
@@ -25,6 +27,8 @@ import { ehNpcDaCampanha } from './npcUtils';
 // zero" aqui. `clones` (rmCampanhas/{id}/npcs) guarda só os campos extras que
 // o mestre preencheu para esta campanha, indexados por origemPersonagemId.
 const Npcs = () => {
+  const { notifyError } = useSnackbar();
+  const [confirmar, dialogoConfirmacao] = useConfirmacao();
   const navigate = useNavigate();
   const { currentUser, isAdmin } = useAuth();
   const { campanhaAtiva, loadingCampanhas } = useCampanha();
@@ -107,12 +111,23 @@ const Npcs = () => {
   };
 
   const handleRemoverClone = async clone => {
-    await removeRmCampanhaNpc(campanhaAtiva.id, clone.id);
-    setClones(prev => prev.filter(c => c.id !== clone.id));
+    const ok = await confirmar({
+      titulo: `Excluir o clone "${clone.nome ?? 'sem nome'}"?`,
+      mensagem:
+        'Só o clone desta campanha some; a ficha original no Re-Dungeon continua.',
+    });
+    if (!ok) return;
+    try {
+      await removeRmCampanhaNpc(campanhaAtiva.id, clone.id);
+      setClones(prev => prev.filter(c => c.id !== clone.id));
+    } catch {
+      notifyError('Não foi possível excluir o clone de NPC.');
+    }
   };
 
   return (
     <Box className="page-container">
+      {dialogoConfirmacao}
       <Box sx={{ mb: 3 }}>
         <Typography
           variant="h5"

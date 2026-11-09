@@ -1,17 +1,12 @@
 import fengari from 'fengari';
 
-import {
-  interpretarExpressaoRolagem,
-  randomUint32,
-  rolarEspecificacao,
-  rolarFace,
-} from 'common/utils/dados';
+import { interpretarExpressaoRolagem, randomUint32, rolarEspecificacao, rolarFace } from 'common/utils/dados';
 
 // Execução de macros Lua do chat (estilo Firecast) — Lua 5.3 via fengari.
 // Puro e síncrono: roda passo a passo e para nos pedidos ao usuário
 // (`inputQuery`/`choose`), devolvendo o pedido para quem chamou responder.
 // Em produção roda dentro de um Web Worker (macroWorker.js); nos testes roda
-// direto. Mantido em sincronia com a cópia do site dos jogadores.
+// direto. Mantido em sincronia com a outra cópia (site dos jogadores ↔ Re:Master).
 //
 // Isolamento: só as bibliotecas `base` (sem load/dofile/loadfile/print/
 // collectgarbage), `math`, `string` e `table` são abertas — sem `os`, `io`,
@@ -28,15 +23,7 @@ export const MACRO_TEXTO_MAX = 4000;
 
 const INTERVALO_HOOK = 1000;
 const NOME_CHUNK = '=macro'; // erros saem como "macro:12: mensagem"
-const GLOBAIS_REMOVIDAS = [
-  'dofile',
-  'loadfile',
-  'load',
-  'loadstring',
-  'collectgarbage',
-  'print',
-  'require',
-];
+const GLOBAIS_REMOVIDAS = ['dofile', 'loadfile', 'load', 'loadstring', 'collectgarbage', 'print', 'require'];
 
 const abrirBiblioteca = (L, nome, abridor) => {
   lauxlib.luaL_requiref(L, luaStr(nome), abridor, 1);
@@ -82,11 +69,9 @@ const instalarRandom = (L, randomFn) => {
     }
     const minimo = nargs >= 2 ? lauxlib.luaL_checkinteger(Lr, 1) : 1;
     const maximo = lauxlib.luaL_checkinteger(Lr, nargs >= 2 ? 2 : 1);
-    if (minimo > maximo)
-      return erroLua(Lr, "bad argument to 'random' (interval is empty)");
+    if (minimo > maximo) return erroLua(Lr, "bad argument to 'random' (interval is empty)");
     const tamanho = maximo - minimo + 1;
-    if (tamanho > 2 ** 32)
-      return erroLua(Lr, "bad argument to 'random' (interval too large)");
+    if (tamanho > 2 ** 32) return erroLua(Lr, "bad argument to 'random' (interval too large)");
     lua.lua_pushinteger(Lr, minimo - 1 + rolarFace(tamanho, randomFn));
     return 1;
   });
@@ -116,10 +101,7 @@ const opcoesDaTabela = (L, indice) => {
 // Respostas: `input` → string (ou null = cancelou a pergunta); `choose` →
 // índice 1-based (ou null). Cancelar a macro inteira é responsabilidade de
 // quem chama (simplesmente não chamar mais `responder`).
-export const criarExecucao = (
-  codigo,
-  { randomFn = randomUint32, limiteInstrucoes = LIMITE_INSTRUCOES } = {},
-) => {
+export const criarExecucao = (codigo, { randomFn = randomUint32, limiteInstrucoes = LIMITE_INSTRUCOES } = {}) => {
   const L = lauxlib.luaL_newstate();
   abrirBiblioteca(L, '_G', lualib.luaopen_base);
   abrirBiblioteca(L, 'math', lualib.luaopen_math);
@@ -138,16 +120,9 @@ export const criarExecucao = (
   definirFuncao(L, 'enviar', Lf => {
     const texto = textoDoArgumento(Lf, 1);
     quantidadeEnviar += 1;
-    if (quantidadeEnviar > LIMITE_ENVIAR)
-      return erroLua(
-        Lf,
-        `enviar: no máximo ${LIMITE_ENVIAR} mensagens por macro`,
-      );
+    if (quantidadeEnviar > LIMITE_ENVIAR) return erroLua(Lf, `enviar: no máximo ${LIMITE_ENVIAR} mensagens por macro`);
     if (texto.length > MACRO_TEXTO_MAX) {
-      return erroLua(
-        Lf,
-        `enviar: mensagem com mais de ${MACRO_TEXTO_MAX} caracteres`,
-      );
+      return erroLua(Lf, `enviar: mensagem com mais de ${MACRO_TEXTO_MAX} caracteres`);
     }
     if (texto.trim()) saidas.push({ tipo: 'texto', texto });
     return 0;
@@ -159,21 +134,11 @@ export const criarExecucao = (
       lua.lua_pushinteger(Lf, 0);
       return 1;
     }
-    const especificacao = interpretarExpressaoRolagem(expressao, {
-      exigirDado: publicar,
-    });
-    if (especificacao.erro)
-      return erroLua(
-        Lf,
-        `${nomeFuncao}("${expressao}"): ${especificacao.erro}`,
-      );
+    const especificacao = interpretarExpressaoRolagem(expressao, { exigirDado: publicar });
+    if (especificacao.erro) return erroLua(Lf, `${nomeFuncao}("${expressao}"): ${especificacao.erro}`);
     if (publicar) {
       quantidadeRolar += 1;
-      if (quantidadeRolar > LIMITE_ROLAR)
-        return erroLua(
-          Lf,
-          `rolar: no máximo ${LIMITE_ROLAR} rolagens por macro`,
-        );
+      if (quantidadeRolar > LIMITE_ROLAR) return erroLua(Lf, `rolar: no máximo ${LIMITE_ROLAR} rolagens por macro`);
     }
     const rolagem = rolarEspecificacao(especificacao, randomFn);
     if (publicar) saidas.push({ tipo: 'rolagem', rolagem });
@@ -196,17 +161,9 @@ export const criarExecucao = (
   definirFuncao(L, 'choose', Lf => {
     const titulo = textoDoArgumento(Lf, 1);
     const opcoes = opcoesDaTabela(Lf, 2);
-    const padrao = lua.lua_isnoneornil(Lf, 3)
-      ? 1
-      : lauxlib.luaL_checkinteger(Lf, 3);
-    if (opcoes.length === 0)
-      return erroLua(Lf, 'choose: a lista de opções está vazia');
-    pedidoAtual = {
-      tipo: 'choose',
-      titulo,
-      opcoes,
-      padrao: Math.min(Math.max(padrao, 1), opcoes.length),
-    };
+    const padrao = lua.lua_isnoneornil(Lf, 3) ? 1 : lauxlib.luaL_checkinteger(Lf, 3);
+    if (opcoes.length === 0) return erroLua(Lf, 'choose: a lista de opções está vazia');
+    pedidoAtual = { tipo: 'choose', titulo, opcoes, padrao: Math.min(Math.max(padrao, 1), opcoes.length) };
     return lua.lua_yield(Lf, 0);
   });
 
@@ -216,22 +173,14 @@ export const criarExecucao = (
     Lh => {
       instrucoes += INTERVALO_HOOK;
       if (instrucoes > limiteInstrucoes) {
-        erroLua(
-          Lh,
-          'a macro excedeu o limite de processamento (laço infinito?)',
-        );
+        erroLua(Lh, 'a macro excedeu o limite de processamento (laço infinito?)');
       }
     },
     lua.LUA_MASKCOUNT,
     INTERVALO_HOOK,
   );
 
-  const carregou = lauxlib.luaL_loadbuffer(
-    co,
-    luaStr(String(codigo ?? '')),
-    null,
-    luaStr(NOME_CHUNK),
-  );
+  const carregou = lauxlib.luaL_loadbuffer(co, luaStr(String(codigo ?? '')), null, luaStr(NOME_CHUNK));
 
   const continuar = nargs => {
     if (encerrada) return { erro: 'A macro já terminou.' };
@@ -240,8 +189,7 @@ export const criarExecucao = (
     if (status === lua.LUA_YIELD && pedidoAtual) return { pedido: pedidoAtual };
     encerrada = true;
     if (status === lua.LUA_OK) return { fim: { saidas } };
-    if (status === lua.LUA_YIELD)
-      return { erro: 'A macro tentou pausar fora de uma pergunta.' };
+    if (status === lua.LUA_YIELD) return { erro: 'A macro tentou pausar fora de uma pergunta.' };
     return { erro: lua.lua_tojsstring(co, -1) ?? 'erro desconhecido' };
   };
 

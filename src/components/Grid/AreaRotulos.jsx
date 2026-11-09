@@ -2,12 +2,7 @@ import React from 'react';
 import PropTypes from 'prop-types';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined';
 
-import {
-  AreaAlca,
-  AreaChip,
-  AreaChipLixeira,
-  AreaChipTexto,
-} from './stylesAcoes';
+import { AreaAlca, AreaChip, AreaChipLixeira, AreaChipTexto } from './stylesAcoes';
 
 // Rótulos e alças das áreas (cópia nos dois sites — mudou um, mude o outro),
 // em px do VIEWPORT. `posicaoDe(area)` → {left, top} do chip; a área
@@ -33,9 +28,7 @@ const AreaRotulos = ({
   areas.map(area => {
     const selecionada = area.id === selecionadaId;
     const texto = selecionada
-      ? [area.autorNome, area.rotulo, area.atingidos]
-          .filter(Boolean)
-          .join(' — ')
+      ? [area.autorNome, area.rotulo, area.atingidos].filter(Boolean).join(' — ')
       : area.rotulo;
     const { left, top } = posicaoDe(area);
     return (
@@ -70,11 +63,7 @@ const AreaRotulos = ({
                 key={alca}
                 data-area-alca={alca}
                 data-area-id={area.id}
-                style={{
-                  left: posicao.left,
-                  top: posicao.top,
-                  '--cor': area.cor,
-                }}
+                style={{ left: posicao.left, top: posicao.top, '--cor': area.cor }}
                 onPointerDown={evento => {
                   evento.stopPropagation();
                   onAlcaPointerDown(area.id, alca, evento);

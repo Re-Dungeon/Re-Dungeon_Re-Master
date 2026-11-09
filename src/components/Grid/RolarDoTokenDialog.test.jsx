@@ -74,9 +74,7 @@ describe('RolarDoTokenDialog', () => {
   it('mostra o erro devolvido e mantém aberto', async () => {
     const onRolar = vi.fn().mockResolvedValue({ erro: 'Expressão inválida' });
     const onClose = montar(onRolar);
-    fireEvent.change(screen.getByLabelText('Expressão'), {
-      target: { value: 'abc' },
-    });
+    fireEvent.change(screen.getByLabelText('Expressão'), { target: { value: 'abc' } });
     fireEvent.click(screen.getByText('Rolar'));
     expect(await screen.findByText('Expressão inválida')).toBeTruthy();
     expect(onClose).not.toHaveBeenCalled();
@@ -84,9 +82,9 @@ describe('RolarDoTokenDialog', () => {
 
   it('tem botão Fechar e limita o rótulo a 100', () => {
     const onClose = montar(vi.fn());
-    expect(
-      screen.getByLabelText('Rótulo (opcional)').getAttribute('maxlength'),
-    ).toBe('100');
+    expect(screen.getByLabelText('Rótulo (opcional)').getAttribute('maxlength')).toBe(
+      '100',
+    );
     fireEvent.click(screen.getByText('Fechar'));
     expect(onClose).toHaveBeenCalled();
   });

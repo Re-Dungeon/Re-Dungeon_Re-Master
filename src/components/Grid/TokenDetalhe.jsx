@@ -18,8 +18,7 @@ const RecursoEditavel = ({ id, recurso, onAlterar }) => {
   const [local, setLocal] = useState(null);
   const [rascunho, setRascunho] = useState(null);
 
-  const atual =
-    local && local.base === recurso.atual ? local.valor : recurso.atual;
+  const atual = local && local.base === recurso.atual ? local.valor : recurso.atual;
   const rotulo = ROTULOS_RECURSO[id];
 
   const gravar = valor => {
@@ -48,6 +47,7 @@ const RecursoEditavel = ({ id, recurso, onAlterar }) => {
         type="text"
         inputMode="numeric"
         aria-label={`${rotulo} atual`}
+        title="Digite o valor ou +N/-N para somar/tirar"
         value={rascunho ?? String(atual)}
         onChange={event => setRascunho(event.target.value)}
         onFocus={event => event.target.select()}
@@ -76,8 +76,7 @@ const RecursoEditavel = ({ id, recurso, onAlterar }) => {
 
 RecursoEditavel.propTypes = {
   id: PropTypes.string.isRequired,
-  recurso: PropTypes.shape({ atual: PropTypes.number, max: PropTypes.number })
-    .isRequired,
+  recurso: PropTypes.shape({ atual: PropTypes.number, max: PropTypes.number }).isRequired,
   onAlterar: PropTypes.func.isRequired,
 };
 
@@ -111,8 +110,7 @@ const TokenDetalhe = ({
       const recurso = recursos[id];
       if (!recurso) return;
       if (editavel) linhasEditaveis.push(id);
-      else
-        linhas.push(`${ROTULOS_RECURSO[id]} ${recurso.atual}/${recurso.max}`);
+      else linhas.push(`${ROTULOS_RECURSO[id]} ${recurso.atual}/${recurso.max}`);
     });
   }
   if (pp) linhas.push(`PP ${pp.atual}/${pp.max}`);
@@ -120,9 +118,7 @@ const TokenDetalhe = ({
     linhas.push(
       condicoes
         .map(condicao =>
-          condicao.stack > 1
-            ? `${condicao.nome} ×${condicao.stack}`
-            : condicao.nome,
+          condicao.stack > 1 ? `${condicao.nome} ×${condicao.stack}` : condicao.nome,
         )
         .join(', '),
     );

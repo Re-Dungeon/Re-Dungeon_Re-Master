@@ -88,9 +88,9 @@ describe('montarMensagem*', () => {
   });
 
   it('jogador nunca assume persona do mestre', () => {
-    expect(
-      montarMensagemTexto({ ...jogador, persona: 'npc' }, 'oi').persona,
-    ).toBe('jogador');
+    expect(montarMensagemTexto({ ...jogador, persona: 'npc' }, 'oi').persona).toBe(
+      'jogador',
+    );
   });
 
   it('mestre falando como NPC leva nome, avatar e persona do NPC', () => {
@@ -111,12 +111,7 @@ describe('montarMensagem*', () => {
   });
 
   it('persona desconhecida do mestre vira "mestre"', () => {
-    const mestre = {
-      uid: 'uid-m',
-      autorNome: 'Mestre',
-      isMestre: true,
-      persona: 'deus',
-    };
+    const mestre = { uid: 'uid-m', autorNome: 'Mestre', isMestre: true, persona: 'deus' };
     expect(montarMensagemTexto(mestre, 'x').persona).toBe('mestre');
   });
 
@@ -127,9 +122,7 @@ describe('montarMensagem*', () => {
       autorNome: 'Mestre',
       isMestre: true,
     };
-    expect(
-      montarMensagemImagem(mestre, ' https://exemplo.com/mapa.gif '),
-    ).toEqual({
+    expect(montarMensagemImagem(mestre, ' https://exemplo.com/mapa.gif ')).toEqual({
       uid: 'uid-m',
       personagemId: null,
       autorNome: 'Mestre',
@@ -170,42 +163,28 @@ describe('montarMensagemRolagem', () => {
 
   it('com rótulo, grava o rótulo normalizado', () => {
     expect(
-      montarMensagemRolagem(autor, rolagem, false, '  Ataque:   Golpe Duplo ')
-        .rotulo,
+      montarMensagemRolagem(autor, rolagem, false, '  Ataque:   Golpe Duplo ').rotulo,
     ).toBe('Ataque: Golpe Duplo');
   });
 
   it('rótulo ausente ou vazio é omitido', () => {
     expect(montarMensagemRolagem(autor, rolagem)).not.toHaveProperty('rotulo');
-    expect(
-      montarMensagemRolagem(autor, rolagem, false, '   '),
-    ).not.toHaveProperty('rotulo');
-    expect(
-      montarMensagemRolagem(autor, rolagem, false, null),
-    ).not.toHaveProperty('rotulo');
+    expect(montarMensagemRolagem(autor, rolagem, false, '   ')).not.toHaveProperty(
+      'rotulo',
+    );
+    expect(montarMensagemRolagem(autor, rolagem, false, null)).not.toHaveProperty(
+      'rotulo',
+    );
   });
 
   it('trunca o rótulo em ROTULO_ROLAGEM_MAX', () => {
-    const mensagem = montarMensagemRolagem(
-      autor,
-      rolagem,
-      false,
-      'x'.repeat(300),
-    );
+    const mensagem = montarMensagemRolagem(autor, rolagem, false, 'x'.repeat(300));
     expect(mensagem.rotulo).toHaveLength(ROTULO_ROLAGEM_MAX);
   });
 
   it('rótulo combinado com secreta', () => {
-    const mensagem = montarMensagemRolagem(
-      autor,
-      rolagem,
-      true,
-      'Arte: Bola de Fogo',
-    );
-    expect(mensagem).toMatchObject({
-      secreta: true,
-      rotulo: 'Arte: Bola de Fogo',
-    });
+    const mensagem = montarMensagemRolagem(autor, rolagem, true, 'Arte: Bola de Fogo');
+    expect(mensagem).toMatchObject({ secreta: true, rotulo: 'Arte: Bola de Fogo' });
   });
 });
 
@@ -220,18 +199,14 @@ describe('normalizarRotulo', () => {
 describe('montarMensagemMacro', () => {
   it('leva o nome da macro e o texto gerado', () => {
     const autor = { uid: 'u1', personagemId: 'p1', autorNome: 'Wesley Chase' };
-    expect(
-      montarMensagemMacro(autor, 'dano_impacto', 'DANO FINAL: 32'),
-    ).toMatchObject({
+    expect(montarMensagemMacro(autor, 'dano_impacto', 'DANO FINAL: 32')).toMatchObject({
       tipo: 'macro',
       macroNome: 'dano_impacto',
       texto: 'DANO FINAL: 32',
       url: null,
       persona: 'jogador',
     });
-    expect(montarMensagemMacro(autor, '', 'x'.repeat(5000)).texto).toHaveLength(
-      4000,
-    );
+    expect(montarMensagemMacro(autor, '', 'x'.repeat(5000)).texto).toHaveLength(4000);
   });
 });
 
@@ -256,9 +231,7 @@ describe('mesclarMensagens', () => {
 describe('rotuloPersona', () => {
   it('etiqueta só mensagens do mestre como NPC/Criatura', () => {
     expect(rotuloPersona({ isMestre: true, persona: 'npc' })).toBe('NPC');
-    expect(rotuloPersona({ isMestre: true, persona: 'criatura' })).toBe(
-      'Criatura',
-    );
+    expect(rotuloPersona({ isMestre: true, persona: 'criatura' })).toBe('Criatura');
     expect(rotuloPersona({ isMestre: true, persona: 'mestre' })).toBeNull();
     expect(rotuloPersona({ isMestre: true })).toBeNull();
     expect(rotuloPersona({ isMestre: false, persona: 'npc' })).toBeNull();
@@ -272,9 +245,7 @@ describe('normalizarAvatar', () => {
     );
     expect(normalizarAvatar('data:image/png;base64,AAAA')).toBeNull();
     expect(normalizarAvatar('')).toBeNull();
-    expect(
-      normalizarAvatar(`https://exemplo.com/${'a'.repeat(2000)}`),
-    ).toBeNull();
+    expect(normalizarAvatar(`https://exemplo.com/${'a'.repeat(2000)}`)).toBeNull();
   });
 });
 
@@ -282,9 +253,7 @@ describe('formatarHorarioMensagem', () => {
   const agora = new Date(2026, 9, 18, 20, 0);
 
   it('mostra só a hora para mensagens de hoje', () => {
-    expect(formatarHorarioMensagem(new Date(2026, 9, 18, 9, 5), agora)).toBe(
-      '09:05',
-    );
+    expect(formatarHorarioMensagem(new Date(2026, 9, 18, 9, 5), agora)).toBe('09:05');
   });
 
   it('mostra dia/mês para mensagens de outros dias', () => {
@@ -306,18 +275,21 @@ describe('personagensNaCampanha / campanhaIdsDosPersonagens', () => {
     { id: 'b', campanhas: ['c1'] },
     { id: 'npc', tipo: 'NPC', campanhas: ['c1', 'c3'] },
     { id: 'comp', companheiroDe: 'a', campanhas: ['c1'] },
+    { id: 'compSemCampanha', companheiroDe: 'a' },
     { id: 'sem' },
   ];
 
-  it('filtra só personagens jogáveis (tipo ausente conta) na campanha', () => {
+  it('filtra personagens jogáveis e companheiros vinculados à campanha', () => {
     expect(personagensNaCampanha(personagens, 'c1').map(p => p.id)).toEqual([
       'a',
       'b',
+      'comp',
+      'compSemCampanha',
     ]);
     expect(personagensNaCampanha(personagens, 'c3')).toEqual([]);
   });
 
-  it('lista ids únicos de campanhas dos personagens jogáveis', () => {
+  it('lista ids únicos de campanhas dos personagens jogáveis e companheiros', () => {
     expect(campanhaIdsDosPersonagens(personagens)).toEqual(['c1', 'c2']);
   });
 });
@@ -332,9 +304,7 @@ describe('mensagens de combate', () => {
         cenaId: 'cena-1',
         rodada: 1,
         nome: 'Wesley',
-        iniciativa: [
-          { nome: 'Wesley', total: 17, d20: 12, reacao: 5, lixo: 1 },
-        ],
+        iniciativa: [{ nome: 'Wesley', total: 17, d20: 12, reacao: 5, lixo: 1 }],
       }),
     ).toEqual({
       uid: 'm1',
@@ -374,8 +344,7 @@ describe('mensagens de combate', () => {
     expect(inicio.combate.nome).toHaveLength(100);
     expect(inicio.combate.iniciativa).toHaveLength(200);
     expect(
-      montarMensagemCombate(mestre, { evento: 'turno', cenaId: 'c', rodada: 2 })
-        .combate,
+      montarMensagemCombate(mestre, { evento: 'turno', cenaId: 'c', rodada: 2 }).combate,
     ).toEqual({
       evento: 'turno',
       cenaId: 'c',
@@ -383,21 +352,21 @@ describe('mensagens de combate', () => {
       nome: null,
       oculto: true,
     });
-    expect(
-      montarMensagemCombate(mestre, { evento: 'fim', cenaId: 'c' }).combate,
-    ).toEqual({
-      evento: 'fim',
-      cenaId: 'c',
-    });
+    expect(montarMensagemCombate(mestre, { evento: 'fim', cenaId: 'c' }).combate).toEqual(
+      {
+        evento: 'fim',
+        cenaId: 'c',
+      },
+    );
   });
 
   it('formatarIniciativa mostra a Reação com sinal', () => {
-    expect(
-      formatarIniciativa({ nome: 'Wesley', total: 17, d20: 12, reacao: 5 }),
-    ).toBe('Wesley 17 (d20 12 + Reação 5)');
-    expect(
-      formatarIniciativa({ nome: 'Goblin', total: 9, d20: 11, reacao: -2 }),
-    ).toBe('Goblin 9 (d20 11 − Reação 2)');
+    expect(formatarIniciativa({ nome: 'Wesley', total: 17, d20: 12, reacao: 5 })).toBe(
+      'Wesley 17 (d20 12 + Reação 5)',
+    );
+    expect(formatarIniciativa({ nome: 'Goblin', total: 9, d20: 11, reacao: -2 })).toBe(
+      'Goblin 9 (d20 11 − Reação 2)',
+    );
   });
 
   it('descreverMensagemCombate: os quatro eventos e o oponente oculto', () => {
@@ -414,20 +383,15 @@ describe('mensagens de combate', () => {
       linhas: ['Rodada 1 · Turno de Wesley'],
     });
     expect(
-      descreverMensagemCombate({
-        evento: 'rodada',
-        rodada: 3,
-        nome: null,
-        oculto: true,
-      }),
+      descreverMensagemCombate({ evento: 'rodada', rodada: 3, nome: null, oculto: true }),
     ).toEqual({
       titulo: 'Rodada 3',
       iniciativa: null,
       linhas: ['Turno de um oponente oculto'],
     });
-    expect(
-      descreverMensagemCombate({ evento: 'turno', nome: 'Brina' }).titulo,
-    ).toBe('Turno de Brina');
+    expect(descreverMensagemCombate({ evento: 'turno', nome: 'Brina' }).titulo).toBe(
+      'Turno de Brina',
+    );
     expect(descreverMensagemCombate({ evento: 'fim' })).toEqual({
       titulo: 'Combate encerrado',
       iniciativa: null,

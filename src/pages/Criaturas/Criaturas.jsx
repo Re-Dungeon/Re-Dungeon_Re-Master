@@ -18,6 +18,8 @@ import {
   ATRIBUTOS_PRIMARIOS_PERSONAGEM,
   ATRIBUTOS_SECUNDARIOS_PERSONAGEM,
 } from 'common/constants/atributosPersonagem';
+import { useSnackbar } from 'context/SnackbarContext';
+import useConfirmacao from 'components/ConfirmDialog/useConfirmacao';
 import { ehCriaturaDaCampanha } from './criaturaUtils';
 
 // Mesmo padrão de pages/Npcs/Npcs.jsx e pages/Jogadores/Jogadores.jsx: a
@@ -26,6 +28,8 @@ import { ehCriaturaDaCampanha } from './criaturaUtils';
 // guarda só os campos extras que o mestre preencheu para esta campanha,
 // indexados por origemPersonagemId.
 const Criaturas = () => {
+  const { notifyError } = useSnackbar();
+  const [confirmar, dialogoConfirmacao] = useConfirmacao();
   const navigate = useNavigate();
   const { currentUser, isAdmin } = useAuth();
   const { campanhaAtiva, loadingCampanhas } = useCampanha();
@@ -98,12 +102,23 @@ const Criaturas = () => {
   };
 
   const handleRemoverClone = async clone => {
-    await removeRmCampanhaCriatura(campanhaAtiva.id, clone.id);
-    setClones(prev => prev.filter(c => c.id !== clone.id));
+    const ok = await confirmar({
+      titulo: `Excluir o clone "${clone.nome ?? 'sem nome'}"?`,
+      mensagem:
+        'Só o clone desta campanha some; a ficha original no Re-Dungeon continua.',
+    });
+    if (!ok) return;
+    try {
+      await removeRmCampanhaCriatura(campanhaAtiva.id, clone.id);
+      setClones(prev => prev.filter(c => c.id !== clone.id));
+    } catch {
+      notifyError('Não foi possível excluir o clone de criatura.');
+    }
   };
 
   return (
     <Box className="page-container">
+      {dialogoConfirmacao}
       <Box sx={{ mb: 3 }}>
         <Typography
           variant="h5"

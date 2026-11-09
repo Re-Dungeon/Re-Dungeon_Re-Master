@@ -3,9 +3,9 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 
-const removeRmCampanha = vi.fn();
+const removeRmCampanhaCompleta = vi.fn();
 vi.mock('service/storage', () => ({
-  removeRmCampanha: (...args) => removeRmCampanha(...args),
+  removeRmCampanhaCompleta: (...args) => removeRmCampanhaCompleta(...args),
   getUniversos: vi.fn().mockResolvedValue([{ id: 'u1', Nome: 'Prime' }]),
 }));
 
@@ -110,7 +110,7 @@ describe('Campanha (lista + seletor de campanha ativa)', () => {
 
   it('remove uma campanha, limpa a ativa se era a removida, e recarrega', async () => {
     mockCampanhaState = { ...mockCampanhaState, campanhaAtivaId: 'c1' };
-    removeRmCampanha.mockResolvedValue(undefined);
+    removeRmCampanhaCompleta.mockResolvedValue(undefined);
     const user = userEvent.setup();
     renderCampanha();
 
@@ -121,7 +121,24 @@ describe('Campanha (lista + seletor de campanha ativa)', () => {
       screen.getByLabelText('Remover campanha Ascensão Carmesim'),
     );
 
-    await waitFor(() => expect(removeRmCampanha).toHaveBeenCalledWith('c1'));
+    // Confirmação exige digitar o nome; antes disso nada é apagado.
+    const confirmar = await screen.findByRole('button', {
+      name: 'Excluir campanha',
+    });
+    expect(confirmar).toBeDisabled();
+    await user.type(
+      screen.getByLabelText('Digite "Ascensão Carmesim" para confirmar'),
+      'Ascensão Carmesim',
+    );
+    expect(removeRmCampanhaCompleta).not.toHaveBeenCalled();
+    await user.click(confirmar);
+
+    await waitFor(() =>
+      expect(removeRmCampanhaCompleta).toHaveBeenCalledWith(
+        'c1',
+        expect.anything(),
+      ),
+    );
     expect(setCampanhaAtiva).toHaveBeenCalledWith(null);
     expect(recarregarCampanhas).toHaveBeenCalledTimes(1);
   });

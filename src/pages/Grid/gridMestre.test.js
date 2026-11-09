@@ -14,6 +14,16 @@ import {
   recursoDigitado,
   opcoesDeDonos,
   tokensDeJogadoresFaltantes,
+  QUANTIDADE_TOKENS_MAX,
+  copiaDoToken,
+  montarTokensEmLote,
+  nomesNumerados,
+  alternarSelecao,
+  inserirVariosNoCombate,
+  patchesDeCondicaoEmLote,
+  patchesDeDanoEmLote,
+  patchesDeOcultoEmLote,
+  removerVariosDoCombate,
 } from './gridMestre';
 
 describe('opcoesDeDonos', () => {
@@ -118,6 +128,19 @@ describe('combate do token', () => {
     expect(recursoDigitado(pv, 'atual', '7')).toEqual({ atual: 7, max: 20 });
     expect(recursoDigitado(pv, 'atual', '99')).toEqual({ atual: 20, max: 20 });
     expect(recursoDigitado(pv, 'atual', 'abc')).toBe(pv);
+    // Com sinal é relativo ao atual (dano/cura), limitado a 0..max.
+    expect(recursoDigitado({ atual: 12, max: 20 }, 'atual', '-7')).toEqual({
+      atual: 5,
+      max: 20,
+    });
+    expect(recursoDigitado({ atual: 12, max: 20 }, 'atual', '+5')).toEqual({
+      atual: 17,
+      max: 20,
+    });
+    expect(recursoDigitado({ atual: 12, max: 20 }, 'atual', '-99')).toEqual({
+      atual: 0,
+      max: 20,
+    });
     expect(recursoDigitado(null, 'atual', '3')).toBeNull();
   });
 
@@ -199,5 +222,301 @@ describe('ferramentas do mapa', () => {
       ACOES_CAMADA.ADICIONAR,
       ACOES_CAMADA.REMOVER,
     ]);
+  });
+});
+
+describe('várias cópias de token', () => {
+  const limites = { colunas: 5, linhas: 5 };
+
+  it('nomesNumerados: Goblin, Goblin 2, Goblin 3 e continua do maior usado', () => {
+    expect(nomesNumerados('Goblin', [], 3)).toEqual([
+      'Goblin',
+      'Goblin 2',
+      'Goblin 3',
+    ]);
+    expect(nomesNumerados('Goblin', ['Goblin', 'Goblin 4', 'Orc'], 2)).toEqual([
+      'Goblin 5',
+      'Goblin 6',
+    ]);
+    expect(nomesNumerados('Goblin', ['Goblin'], 1)).toEqual(['Goblin 2']);
+    expect(nomesNumerados('Orc (chefe)', ['Orc (chefe)'], 1)).toEqual([
+      'Orc (chefe) 2',
+    ]);
+    expect(nomesNumerados('  ', [], 1)).toEqual(['Token']);
+    expect(nomesNumerados('x', [], 999)).toHaveLength(QUANTIDADE_TOKENS_MAX);
+  });
+
+  it('nomesNumerados respeita o tamanho máximo do nome', () => {
+    const longo = 'a'.repeat(100);
+    const [, segundo] = nomesNumerados(longo, [], 2);
+    expect(segundo.length).toBeLessThanOrEqual(100);
+    expect(segundo.endsWith(' 2')).toBe(true);
+  });
+
+  it('montarTokensEmLote não empilha as cópias', () => {
+    const tokens = montarTokensEmLote(
+      { nome: 'Goblin', tipo: 'npc', tamanho: 1 },
+      3,
+      [{ id: 't', nome: 'Herói', col: 0, lin: 0, tamanho: 1 }],
+      limites,
+    );
+    expect(tokens.map(token => token.nome)).toEqual([
+      'Goblin',
+      'Goblin 2',
+      'Goblin 3',
+    ]);
+    expect(tokens.map(token => [token.col, token.lin])).toEqual([
+      [1, 0],
+      [2, 0],
+      [3, 0],
+    ]);
+  });
+
+  it('copiaDoToken mantém os campos de jogo e tira rastro/datas/posição', () => {
+    const original = {
+      id: 'a',
+      nome: 'Goblin',
+      tipo: 'npc',
+      tamanho: 1,
+      col: 0,
+      lin: 0,
+      donos: [],
+      oculto: true,
+      pv: { atual: 3, max: 7 },
+      condicoes: ['c1'],
+      rastro: [0, 0, 1, 1],
+      movidoEm: 5,
+      createdAt: 1,
+      updatedAt: 2,
+    };
+    const copia = copiaDoToken(original, [original], limites);
+    expect(copia).toEqual({
+      nome: 'Goblin 2',
+      tipo: 'npc',
+      tamanho: 1,
+      col: 1,
+      lin: 0,
+      donos: [],
+      oculto: true,
+      pv: { atual: 3, max: 7 },
+      condicoes: ['c1'],
+    });
+  });
+});
+
+describe('alternarSelecao', () => {
+  it('com 1 token vale selecionadoId; com ≥ 2, selecionadosIds', () => {
+    expect(alternarSelecao({}, 'a')).toEqual({
+      selecionadoId: 'a',
+      selecionadosIds: [],
+    });
+    // Shift-clique em outro token parte do selecionado atual.
+    expect(alternarSelecao({ selecionadoId: 'a' }, 'b')).toEqual({
+      selecionadoId: null,
+      selecionadosIds: ['a', 'b'],
+    });
+    expect(alternarSelecao({ selecionadosIds: ['a', 'b'] }, 'c')).toEqual({
+      selecionadoId: null,
+      selecionadosIds: ['a', 'b', 'c'],
+    });
+  });
+
+  it('alternar de novo tira o token; sobrando 1 volta ao selecionado único', () => {
+    expect(alternarSelecao({ selecionadosIds: ['a', 'b', 'c'] }, 'b')).toEqual({
+      selecionadoId: null,
+      selecionadosIds: ['a', 'c'],
+    });
+    expect(alternarSelecao({ selecionadosIds: ['a', 'b'] }, 'b')).toEqual({
+      selecionadoId: 'a',
+      selecionadosIds: [],
+    });
+    expect(alternarSelecao({ selecionadoId: 'a' }, 'a')).toEqual({
+      selecionadoId: null,
+      selecionadosIds: [],
+    });
+  });
+});
+
+describe('patchesDeDanoEmLote', () => {
+  const GOBLINS = [
+    { id: 'g1', tipo: 'criatura', pv: { atual: 10, max: 12 } },
+    { id: 'g2', tipo: 'npc', pv: { atual: 3, max: 8 } },
+    { id: 'g3', tipo: 'avulso', pv: { atual: 8, max: 8 } },
+  ];
+
+  it('"-5" tira do PV atual de cada um, sem passar de 0', () => {
+    const { patches } = patchesDeDanoEmLote(GOBLINS, '-5');
+    expect(patches).toEqual([
+      { id: 'g1', patch: { pv: { atual: 5, max: 12 } } },
+      { id: 'g2', patch: { pv: { atual: 0, max: 8 } } },
+      { id: 'g3', patch: { pv: { atual: 3, max: 8 } } },
+    ]);
+  });
+
+  it('"+5" cura limitado ao máximo; quem não muda não gera patch', () => {
+    const { patches } = patchesDeDanoEmLote(GOBLINS, '+5');
+    expect(patches).toEqual([
+      { id: 'g1', patch: { pv: { atual: 12, max: 12 } } },
+      { id: 'g2', patch: { pv: { atual: 8, max: 8 } } },
+    ]);
+  });
+
+  it('número sem sinal define o valor (limitado a 0..max)', () => {
+    const { patches } = patchesDeDanoEmLote(GOBLINS, '6');
+    expect(patches.map(p => [p.id, p.patch.pv.atual])).toEqual([
+      ['g1', 6],
+      ['g2', 6],
+      ['g3', 6],
+    ]);
+    // 99 vira o máximo de cada um; quem já estava cheio (g3) não muda.
+    expect(
+      patchesDeDanoEmLote(GOBLINS, '99').patches.map(p => [
+        p.id,
+        p.patch.pv.atual,
+      ]),
+    ).toEqual([
+      ['g1', 12],
+      ['g2', 8],
+    ]);
+  });
+
+  it('ignora jogadores e tokens sem PV, contando cada grupo', () => {
+    const resultado = patchesDeDanoEmLote(
+      [
+        { id: 'j1', tipo: 'jogador', pv: { atual: 5, max: 5 } },
+        { id: 'a1', tipo: 'avulso' },
+        GOBLINS[0],
+      ],
+      '-1',
+    );
+    expect(resultado.jogadores).toBe(1);
+    expect(resultado.semPv).toBe(1);
+    expect(resultado.patches).toEqual([
+      { id: 'g1', patch: { pv: { atual: 9, max: 12 } } },
+    ]);
+  });
+
+  it('texto vazio ou inválido não gera patch (mas ainda conta os ignorados)', () => {
+    expect(patchesDeDanoEmLote(GOBLINS, '').patches).toEqual([]);
+    expect(patchesDeDanoEmLote(GOBLINS, 'abc').patches).toEqual([]);
+    expect(
+      patchesDeDanoEmLote([{ id: 'j', tipo: 'jogador' }], '').jogadores,
+    ).toBe(1);
+  });
+});
+
+describe('patchesDeCondicaoEmLote', () => {
+  it('adiciona a condição a quem não a tem, mantendo as outras', () => {
+    const { patches } = patchesDeCondicaoEmLote(
+      [
+        { id: 'g1', tipo: 'criatura', condicoes: ['c2'] },
+        { id: 'g2', tipo: 'criatura', condicoes: ['c1'] },
+        { id: 'g3', tipo: 'npc' },
+      ],
+      'c1',
+      true,
+    );
+    expect(patches).toEqual([
+      { id: 'g1', patch: { condicoes: ['c2', 'c1'] } },
+      { id: 'g3', patch: { condicoes: ['c1'] } },
+    ]);
+  });
+
+  it('remove só de quem a tem', () => {
+    const { patches } = patchesDeCondicaoEmLote(
+      [
+        { id: 'g1', tipo: 'criatura', condicoes: ['c1', 'c2'] },
+        { id: 'g2', tipo: 'criatura', condicoes: ['c2'] },
+      ],
+      'c1',
+      false,
+    );
+    expect(patches).toEqual([{ id: 'g1', patch: { condicoes: ['c2'] } }]);
+  });
+
+  it('ignora jogadores e conta quem já está com o máximo de condições', () => {
+    const cheio = Array.from({ length: 20 }, (_, i) => `x${i}`);
+    const resultado = patchesDeCondicaoEmLote(
+      [
+        { id: 'j1', tipo: 'jogador' },
+        { id: 'g1', tipo: 'criatura', condicoes: cheio },
+      ],
+      'c1',
+      true,
+    );
+    expect(resultado).toEqual({ patches: [], jogadores: 1, cheios: 1 });
+  });
+});
+
+describe('patchesDeOcultoEmLote', () => {
+  it('muda só quem está diferente, inclusive jogadores', () => {
+    const tokens = [
+      { id: 'a', tipo: 'jogador', oculto: false },
+      { id: 'b', tipo: 'criatura', oculto: true },
+      { id: 'c', tipo: 'npc' },
+    ];
+    expect(patchesDeOcultoEmLote(tokens, true)).toEqual([
+      { id: 'a', patch: { oculto: true } },
+      { id: 'c', patch: { oculto: true } },
+    ]);
+    expect(patchesDeOcultoEmLote(tokens, false)).toEqual([
+      { id: 'b', patch: { oculto: false } },
+    ]);
+  });
+});
+
+describe('inserirVariosNoCombate / removerVariosDoCombate', () => {
+  const item = (tokenId, iniciativa) => ({
+    tokenId,
+    iniciativa,
+    d20: null,
+    reacao: 0,
+  });
+  const COMBATE = {
+    ordem: [item('a', 20), item('b', 10)],
+    indice: 1,
+    rodada: 2,
+  };
+
+  it('insere vários na ordem certa, acompanhando o token da vez', () => {
+    const resultado = inserirVariosNoCombate(COMBATE, [
+      item('c', 15),
+      item('d', 5),
+      item('a', 1),
+    ]);
+    expect(resultado.patch.ordem.map(i => i.tokenId)).toEqual([
+      'a',
+      'c',
+      'b',
+      'd',
+    ]);
+    // O token da vez ("b") foi de 1 para 2.
+    expect(resultado.patch.indice).toBe(2);
+    expect(resultado.mudouTurno).toBe(false);
+  });
+
+  it('null se ninguém novo entra', () => {
+    expect(inserirVariosNoCombate(COMBATE, [item('a', 1)])).toBeNull();
+  });
+
+  it('tira vários de uma vez; sair o token da vez passa o turno', () => {
+    const tokens = [{ id: 'c', col: 2, lin: 3 }];
+    const combate = {
+      ordem: [item('a', 20), item('b', 10), item('c', 5)],
+      indice: 1,
+      rodada: 1,
+    };
+    const resultado = removerVariosDoCombate(combate, ['a', 'b'], tokens);
+    expect(resultado.patch.ordem.map(i => i.tokenId)).toEqual(['c']);
+    expect(resultado.patch.indice).toBe(0);
+    expect(resultado.patch.inicioTurno).toEqual({ col: 2, lin: 3 });
+    expect(resultado.mudouTurno).toBe(true);
+  });
+
+  it('encerra se saem todos e devolve null se ninguém participa', () => {
+    expect(removerVariosDoCombate(COMBATE, ['a', 'b'], [])).toEqual({
+      encerrar: true,
+    });
+    expect(removerVariosDoCombate(COMBATE, ['z'], [])).toBeNull();
   });
 });

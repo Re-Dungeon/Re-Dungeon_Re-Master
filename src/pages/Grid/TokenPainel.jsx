@@ -36,6 +36,7 @@ const TokenPainel = ({
   onSalvar,
   onAlterar,
   onRemover,
+  onDuplicar,
   onFechar,
   onRolar,
   abaixoDaFaixa = false,
@@ -193,9 +194,16 @@ const TokenPainel = ({
       )}
 
       <Box sx={{ display: 'flex', gap: 1, justifyContent: 'space-between' }}>
-        <Button color="error" onClick={onRemover}>
-          Remover
-        </Button>
+        <Box sx={{ display: 'flex', gap: 0.5 }}>
+          <Button color="error" onClick={onRemover}>
+            Remover
+          </Button>
+          {onDuplicar && (
+            <Button onClick={onDuplicar} aria-label={`Duplicar ${token.nome}`}>
+              Duplicar
+            </Button>
+          )}
+        </Box>
         <Button
           variant="contained"
           onClick={handleSalvar}
@@ -249,6 +257,7 @@ TokenPainel.propTypes = {
   onSalvar: PropTypes.func.isRequired,
   onAlterar: PropTypes.func.isRequired,
   onRemover: PropTypes.func.isRequired,
+  onDuplicar: PropTypes.func,
   onFechar: PropTypes.func.isRequired,
   onRolar: PropTypes.func,
   // Combate em andamento: a faixa de iniciativa ocupa o topo do mapa.

@@ -14,11 +14,7 @@ import Typography from '@mui/material/Typography';
 
 import { MACRO_NOME_MAX } from 'common/utils/chat';
 import { resumoRolagem, detalheRolagem } from 'common/utils/dados';
-import {
-  MACRO_DESCRICAO_MAX,
-  MACRO_VAZIA,
-  validarMacro,
-} from 'common/utils/macros';
+import { MACRO_DESCRICAO_MAX, MACRO_VAZIA, validarMacro } from 'common/utils/macros';
 
 import { PreviaMacro } from './styles';
 
@@ -45,10 +41,7 @@ const FormularioMacro = ({ macro, onClose, onSalvar, onTestar }) => {
     setTestando(true);
     setPrevia(null);
     try {
-      const saidas = await onTestar({
-        nome: valores.nome.trim() || 'teste',
-        codigo: valores.codigo,
-      });
+      const saidas = await onTestar({ nome: valores.nome.trim() || 'teste', codigo: valores.codigo });
       if (saidas) setPrevia({ saidas });
     } catch (error) {
       setPrevia({ erro: error.message });
@@ -74,25 +67,9 @@ const FormularioMacro = ({ macro, onClose, onSalvar, onTestar }) => {
 
   return (
     <form onSubmit={salvar} noValidate>
-      <DialogTitle>
-        {macro?.id ? `Editar macro — ${macro.nome}` : 'Nova macro'}
-      </DialogTitle>
-      <DialogContent
-        sx={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 2,
-          pt: '8px !important',
-        }}
-      >
-        <Box
-          sx={{
-            display: 'flex',
-            gap: 2,
-            flexWrap: 'wrap',
-            alignItems: 'center',
-          }}
-        >
+      <DialogTitle>{macro?.id ? `Editar macro — ${macro.nome}` : 'Nova macro'}</DialogTitle>
+      <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '8px !important' }}>
+        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
           <TextField
             size="small"
             label="Nome (usado em /m nome)"
@@ -105,9 +82,7 @@ const FormularioMacro = ({ macro, onClose, onSalvar, onTestar }) => {
             control={
               <Switch
                 checked={valores.somenteMestre}
-                onChange={event =>
-                  atualizar({ somenteMestre: event.target.checked })
-                }
+                onChange={event => atualizar({ somenteMestre: event.target.checked })}
               />
             }
             label="Só o mestre vê e usa"
@@ -124,27 +99,13 @@ const FormularioMacro = ({ macro, onClose, onSalvar, onTestar }) => {
           {AJUDA_API}
         </Typography>
         <Box sx={{ height: '45vh', minHeight: 320 }}>
-          <Suspense
-            fallback={
-              <CircularProgress
-                size={24}
-                sx={{ color: 'var(--color-primary)' }}
-              />
-            }
-          >
-            <LuaEditor
-              valorInicial={valores.codigo}
-              onChange={codigo => atualizar({ codigo })}
-            />
+          <Suspense fallback={<CircularProgress size={24} sx={{ color: 'var(--color-primary)' }} />}>
+            <LuaEditor valorInicial={valores.codigo} onChange={codigo => atualizar({ codigo })} />
           </Suspense>
         </Box>
 
         {previa && (
-          <PreviaMacro
-            $erro={Boolean(previa.erro)}
-            role="status"
-            aria-label="Prévia da macro"
-          >
+          <PreviaMacro $erro={Boolean(previa.erro)} role="status" aria-label="Prévia da macro">
             {previa.erro && `Erro: ${previa.erro}`}
             {previa.saidas?.length === 0 && 'A macro terminou sem enviar nada.'}
             {previa.saidas?.map((saida, indice) => (

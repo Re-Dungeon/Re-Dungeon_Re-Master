@@ -642,12 +642,14 @@ const normalizarTexto = valor =>
 
 const normalizarTags = tags => {
   if (!Array.isArray(tags)) return [];
-  return [...new Set(
-    tags
-      .map(tag => normalizarTexto(tag))
-      .filter(Boolean)
-      .map(tag => tag.replace(/\s+/g, ' ')),
-  )];
+  return [
+    ...new Set(
+      tags
+        .map(tag => normalizarTexto(tag))
+        .filter(Boolean)
+        .map(tag => tag.replace(/\s+/g, ' ')),
+    ),
+  ];
 };
 
 const normalizarDadosMusica = musica => {
@@ -674,7 +676,8 @@ const normalizarDadosMusica = musica => {
     mestreId: dados.mestreId ?? null,
     descricao: normalizarTexto(dados.descricao),
     duracaoSegundos:
-      Number.isFinite(Number(dados.duracaoSegundos)) && Number(dados.duracaoSegundos) >= 0
+      Number.isFinite(Number(dados.duracaoSegundos)) &&
+      Number(dados.duracaoSegundos) >= 0
         ? Number(dados.duracaoSegundos)
         : null,
     thumbnailUrl: normalizarTexto(dados.thumbnailUrl),
@@ -689,7 +692,9 @@ const normalizarDadosPasta = pasta => {
     mestreId: dados.mestreId ?? null,
     descricao: normalizarTexto(dados.descricao),
     cor: normalizarTexto(dados.cor) || '#6f2da8',
-    ordenacao: Number.isInteger(Number(dados.ordenacao)) ? Number(dados.ordenacao) : 0,
+    ordenacao: Number.isInteger(Number(dados.ordenacao))
+      ? Number(dados.ordenacao)
+      : 0,
   };
 };
 
@@ -763,7 +768,10 @@ export const removeRmMusicaBiblioteca = async (id, mestreId) => {
 export const updateRmMusicaBiblioteca = (id, updates) => {
   const payload = { ...updates };
   if (Object.hasOwn(payload, 'url')) {
-    const dados = normalizarDadosMusica({ ...payload, mestreId: payload.mestreId ?? updates.mestreId });
+    const dados = normalizarDadosMusica({
+      ...payload,
+      mestreId: payload.mestreId ?? updates.mestreId,
+    });
     Object.assign(payload, dados);
   }
   if (Object.hasOwn(payload, 'nome')) {
@@ -800,7 +808,9 @@ export const updateRmMusicaPasta = (id, updates) =>
   );
 
 export const getRmPlaylistsPastasPorMestre = mestreId =>
-  getFirestoreItemsWhereAll(RM_PLAYLISTS_PASTAS_COLLECTION, [['mestreId', mestreId]]);
+  getFirestoreItemsWhereAll(RM_PLAYLISTS_PASTAS_COLLECTION, [
+    ['mestreId', mestreId],
+  ]);
 export const addRmPlaylistPasta = pasta =>
   addFirestoreItem(RM_PLAYLISTS_PASTAS_COLLECTION, normalizarDadosPasta(pasta));
 export const removeRmPlaylistPasta = id =>
@@ -1565,6 +1575,76 @@ export const removeGridCena = async (campanhaId, cenaId) => {
   await deleteDoc(gridCenaRef(campanhaId, cenaId));
 };
 
+// Apaga em lotes (o limite do writeBatch é 500 operações).
+const apagarEmLotes = async refs => {
+  for (let i = 0; i < refs.length; i += 450) {
+    const batch = writeBatch(db);
+    refs.slice(i, i + 450).forEach(ref => batch.delete(ref));
+    await batch.commit();
+  }
+};
+
+const refsDaColecao = async caminho =>
+  (await getDocs(collection(db, ...caminho))).docs.map(item => item.ref);
+
+// Exclui a campanha com o que mora dentro dela: cenas do grid (e tudo de cada
+// uma), chat (mensagens, rolagens secretas de cada membro, macros), música,
+// clones de NPC/criatura, jogadores e participantes da Luta. As subcoleções
+// vão antes do documento: as regras delas consultam o `mestreId` da campanha.
+// `chatMembros` é o último passo e só funciona com a regra que deixa o mestre
+// apagar o ponteiro (firestore.rules); se ela ainda não foi publicada, esses
+// ponteiros (sem conteúdo) ficam para trás sem impedir a exclusão.
+// Coleções `rm*` top-level ligadas por `campanhaId` (cenas narrativas,
+// missões, notas…) não são tocadas.
+export const removeRmCampanhaCompleta = async (campanhaId, mestreId) => {
+  const cenas = await getDocs(gridCenasRef(campanhaId));
+  for (const cena of cenas.docs) {
+    await removeGridCena(campanhaId, cena.id);
+  }
+
+  const membros = await getDocs(
+    collection(db, RM_CAMPANHAS_COLLECTION, campanhaId, 'chatMembros'),
+  );
+  const donosDeSecretas = new Set([
+    ...membros.docs.map(item => item.id),
+    ...(mestreId ? [mestreId] : []),
+  ]);
+  const secretas = await Promise.all(
+    [...donosDeSecretas].map(async uid =>
+      (await getDocs(rolagensSecretasRef(campanhaId, uid))).docs.map(
+        item => item.ref,
+      ),
+    ),
+  );
+
+  const subcolecoes = await Promise.all(
+    ['chatMensagens', 'macros', 'grid', 'audio'].map(nome =>
+      refsDaColecao([RM_CAMPANHAS_COLLECTION, campanhaId, nome]),
+    ),
+  );
+  const clones = await Promise.all(
+    [
+      npcsSubcollectionPath,
+      jogadoresSubcollectionPath,
+      criaturasSubcollectionPath,
+      lutaParticipantesSubcollectionPath,
+    ].map(caminho => refsDaColecao(caminho(campanhaId))),
+  );
+  await apagarEmLotes([
+    ...secretas.flat(),
+    ...subcolecoes.flat(),
+    ...clones.flat(),
+  ]);
+
+  try {
+    await apagarEmLotes(membros.docs.map(item => item.ref));
+  } catch {
+    // Regra do mestre apagar chatMembros ainda não publicada: segue.
+  }
+
+  await removeFirestoreItem(RM_CAMPANHAS_COLLECTION, campanhaId);
+};
+
 export const addGridTokens = async (campanhaId, cenaId, tokens) => {
   const batch = writeBatch(db);
   tokens.forEach(token =>
@@ -1581,6 +1661,35 @@ export const updateGridToken = (campanhaId, cenaId, tokenId, patch) =>
 
 export const removeGridToken = (campanhaId, cenaId, tokenId) =>
   deleteDoc(doc(gridTokensRef(campanhaId, cenaId), tokenId));
+
+// Ações em lote do mestre (seleção múltipla do Grid): um único writeBatch
+// (a cena comporta até 200 tokens, bem abaixo do limite de 500 do Firestore).
+// `alteracoes` = [{ id, patch }]; cada update ganha `updatedAt`, como em
+// `updateGridToken`.
+export const updateGridTokensEmLote = async (
+  campanhaId,
+  cenaId,
+  alteracoes,
+) => {
+  if (!alteracoes?.length) return;
+  const batch = writeBatch(db);
+  alteracoes.forEach(({ id, patch }) =>
+    batch.update(doc(gridTokensRef(campanhaId, cenaId), id), {
+      ...patch,
+      updatedAt: serverTimestamp(),
+    }),
+  );
+  await batch.commit();
+};
+
+export const removeGridTokensEmLote = async (campanhaId, cenaId, tokenIds) => {
+  if (!tokenIds?.length) return;
+  const batch = writeBatch(db);
+  tokenIds.forEach(id =>
+    batch.delete(doc(gridTokensRef(campanhaId, cenaId), id)),
+  );
+  await batch.commit();
+};
 
 // ── Música da mesa — rmCampanhas/{id}/audio/atual ──────────────────────────
 // Estado da faixa do YouTube que toca para todos com a mesa aberta (modelo em
