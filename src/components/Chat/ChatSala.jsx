@@ -13,6 +13,12 @@ import VolumeOffIcon from '@mui/icons-material/VolumeOff';
 import SendIcon from '@mui/icons-material/Send';
 
 import { CHAT_TEXTO_MAX, isTextoMensagemValido } from 'common/utils/chat';
+import {
+  lerHistorico,
+  navegarHistorico,
+  registrarNoHistorico,
+  salvarHistorico,
+} from 'common/utils/chatHistorico';
 import { interpretarComandoRolagem } from 'common/utils/dados';
 import {
   encontrarMacroPorNome,
@@ -56,6 +62,7 @@ const ChatSala = ({
   macros = null,
   audio = null,
   cabecalho = null,
+  chaveHistorico,
 }) => {
   // Celular (abaixo do `sm`): placeholder curto, que caiba no campo.
   const celular = useMediaQuery('(max-width: 599.95px)');
@@ -68,6 +75,21 @@ const ChatSala = ({
   const [erroComando, setErroComando] = useState(null);
   const listaRef = useRef(null);
   const acompanhandoRef = useRef(true);
+  // Histórico do campo (↑/↓): o texto bruto enviado, guardado por chave (a
+  // página passa uma por campanha). Trocou a chave, relê o da nova.
+  const [historicoEstado, setHistoricoEstado] = useState(() => ({
+    chave: chaveHistorico,
+    lista: lerHistorico(chaveHistorico),
+  }));
+  if (historicoEstado.chave !== chaveHistorico) {
+    setHistoricoEstado({
+      chave: chaveHistorico,
+      lista: lerHistorico(chaveHistorico),
+    });
+  }
+  const historico = historicoEstado.lista;
+  const [indiceHistorico, setIndiceHistorico] = useState(null);
+  const entradaRef = useRef(null);
 
   useEffect(() => {
     const lista = listaRef.current;
@@ -81,6 +103,15 @@ const ChatSala = ({
     acompanhandoRef.current =
       lista.scrollHeight - lista.scrollTop - lista.clientHeight <
       MARGEM_AUTOSCROLL;
+  };
+
+  const registrarEnvio = enviado => {
+    const novo = registrarNoHistorico(historico, enviado);
+    if (novo !== historico) {
+      setHistoricoEstado({ chave: chaveHistorico, lista: novo });
+      salvarHistorico(chaveHistorico, novo);
+    }
+    setIndiceHistorico(null);
   };
 
   // "/m nome" roda uma macro da campanha (sem bloquear o campo: as perguntas
@@ -97,6 +128,7 @@ const ChatSala = ({
       return;
     }
     acompanhandoRef.current = true;
+    registrarEnvio(texto);
     setTexto('');
     macros.executar(macro);
   };
@@ -119,6 +151,7 @@ const ChatSala = ({
     acompanhandoRef.current = true;
     try {
       await (comando ? onRolar(comando) : onEnviarTexto(texto));
+      registrarEnvio(texto);
       setTexto('');
     } catch {
       // Quem envia já exibiu o erro; o texto fica no campo para tentar de novo.
@@ -138,16 +171,50 @@ const ChatSala = ({
     enviarTexto();
   };
 
+  // ↑/↓ percorrem o histórico só com o campo vazio ou ainda mostrando um item
+  // dele sem edição — no meio de um texto (várias linhas) movem o cursor.
+  const navegarComSetas = event => {
+    const direcao = { ArrowUp: 'cima', ArrowDown: 'baixo' }[event.key];
+    if (
+      !direcao ||
+      event.shiftKey ||
+      event.altKey ||
+      event.ctrlKey ||
+      event.metaKey
+    ) {
+      return;
+    }
+    const mostrandoItem =
+      indiceHistorico !== null && texto === historico[indiceHistorico];
+    if (texto !== '' && !mostrandoItem) return;
+    const destino = navegarHistorico({
+      historico,
+      indice: mostrandoItem ? indiceHistorico : null,
+      direcao,
+    });
+    if (destino.texto === null) return;
+    event.preventDefault();
+    setTexto(destino.texto);
+    setIndiceHistorico(destino.indice);
+    setErroComando(null);
+    // Cursor no fim (trocar o valor com ↑ deixaria o cursor no início).
+    requestAnimationFrame(() => {
+      const campo = entradaRef.current;
+      if (campo) {
+        campo.setSelectionRange(campo.value.length, campo.value.length);
+      }
+    });
+  };
+
   // Enter envia, Shift+Enter quebra linha (padrão de chat).
   const handleKeyDown = event => {
-    if (
-      event.key === 'Enter' &&
-      !event.shiftKey &&
-      !event.nativeEvent.isComposing
-    ) {
+    if (event.nativeEvent.isComposing) return;
+    if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
       enviarTexto();
+      return;
     }
+    navegarComSetas(event);
   };
 
   const handleEnviarImagem = async url => {
@@ -285,9 +352,11 @@ const ChatSala = ({
             value={texto}
             onChange={event => {
               setTexto(event.target.value);
+              setIndiceHistorico(null);
               setErroComando(null);
             }}
             onKeyDown={handleKeyDown}
+            inputRef={entradaRef}
             error={Boolean(erroComando)}
             helperText={erroComando}
             slotProps={{
@@ -375,6 +444,8 @@ ChatSala.propTypes = {
   // (PlayerAudioMesa), para seguir tocando com o chat fechado.
   audio: audioPropType,
   cabecalho: PropTypes.node,
+  // Chave do sessionStorage do histórico do campo (↑/↓). Ausente = só memória.
+  chaveHistorico: PropTypes.string,
 };
 
 export default ChatSala;
