@@ -6,12 +6,18 @@ export const TIPO_EVENTO_SESSAO = {
   CENA_ATUAL: 'cena_atual',
   CARTA_SORTEADA: 'carta_sorteada',
   PARTICIPANTE_LUTA: 'participante_luta',
+  CENA_GRID_ATIVADA: 'cena_grid_ativada',
+  COMBATE_INICIADO: 'combate_iniciado',
+  COMBATE_ENCERRADO: 'combate_encerrado',
 };
 
 export const ICONE_EVENTO_SESSAO = {
   [TIPO_EVENTO_SESSAO.CENA_ATUAL]: '🎬',
   [TIPO_EVENTO_SESSAO.CARTA_SORTEADA]: '🃏',
   [TIPO_EVENTO_SESSAO.PARTICIPANTE_LUTA]: '⚔️',
+  [TIPO_EVENTO_SESSAO.CENA_GRID_ATIVADA]: '🗺️',
+  [TIPO_EVENTO_SESSAO.COMBATE_INICIADO]: '🛡️',
+  [TIPO_EVENTO_SESSAO.COMBATE_ENCERRADO]: '🏁',
 };
 
 // Escreve um evento no histórico automático da sessão em modo best-effort —

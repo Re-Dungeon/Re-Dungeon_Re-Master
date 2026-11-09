@@ -52,6 +52,16 @@ const updateGridArea = vi.fn(() => Promise.resolve());
 const removeGridArea = vi.fn(() => Promise.resolve());
 const removeGridAreas = vi.fn(() => Promise.resolve());
 const addChatMensagem = vi.fn(() => Promise.resolve());
+const addRmSessaoLog = vi.fn(() => Promise.resolve());
+const getRmMapasPorCampanha = vi.fn(() =>
+  Promise.resolve([
+    {
+      id: 'mapa1',
+      nome: 'Taverna do Porto',
+      linkImagem: 'https://ex.com/taverna.png',
+    },
+  ]),
+);
 vi.mock('service/storage', () => ({
   subscribeGridCenaAtiva: (...args) => subscribeGridCenaAtiva(...args),
   subscribeGridCenas: (...args) => subscribeGridCenas(...args),
@@ -93,15 +103,8 @@ vi.mock('service/storage', () => ({
   removeGridArea: (...args) => removeGridArea(...args),
   removeGridAreas: (...args) => removeGridAreas(...args),
   getCondicoes: (...args) => getCondicoes(...args),
-  getRmMapasPorCampanha: vi.fn(() =>
-    Promise.resolve([
-      {
-        id: 'mapa1',
-        nome: 'Taverna do Porto',
-        linkImagem: 'https://ex.com/taverna.png',
-      },
-    ]),
-  ),
+  getRmMapasPorCampanha: (...args) => getRmMapasPorCampanha(...args),
+  addRmSessaoLog: (...args) => addRmSessaoLog(...args),
   getPersonagens: (...args) => getPersonagens(...args),
   getPersonagensJogaveis: (...args) => getPersonagensJogaveis(...args),
   getRmCampanhaNpcs: vi.fn(() => Promise.resolve([])),
@@ -2424,6 +2427,141 @@ describe('Grid (Re:Master)', () => {
       // Raio inválido desliga o botão.
       await user.clear(raio);
       expect(revelarBotao()).toBeDisabled();
+    });
+  });
+  describe('avisos de falha e registro da sessão', () => {
+    it('falha ao carregar os Mapas avisa uma vez', async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      getRmMapasPorCampanha.mockRejectedValueOnce(new Error('rede'));
+      renderGrid();
+      await screen.findByRole('button', { name: /Aldric, coluna/ });
+
+      await waitFor(() =>
+        expect(notifyError).toHaveBeenCalledWith(
+          'Não foi possível carregar os Mapas da campanha.',
+        ),
+      );
+      expect(
+        notifyError.mock.calls.filter(([m]) => /Mapas/.test(m)),
+      ).toHaveLength(1);
+    });
+
+    it('falha ao carregar as Condições avisa, mas o grid continua', async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      getCondicoes.mockRejectedValueOnce(new Error('rede'));
+      renderGrid();
+
+      await waitFor(() =>
+        expect(notifyError).toHaveBeenCalledWith(
+          'Não foi possível carregar as Condições do universo.',
+        ),
+      );
+      expect(
+        await screen.findByRole('button', { name: /Aldric, coluna/ }),
+      ).toBeInTheDocument();
+    });
+
+    it('"Mostrar aos jogadores" registra a cena ativada no log da sessão', async () => {
+      const user = userEvent.setup();
+      renderGrid();
+      await user.click(
+        await screen.findByRole('button', { name: /^Masmorra/ }),
+      );
+      await user.click(
+        screen.getByRole('button', { name: 'Mostrar aos jogadores' }),
+      );
+
+      await waitFor(() =>
+        expect(addRmSessaoLog).toHaveBeenCalledWith(
+          expect.objectContaining({
+            campanhaId: 'c1',
+            universoId: 'u1',
+            mestreId: 'm1',
+            tipo: 'cena_grid_ativada',
+            mensagem: 'Cena do grid ativada: "Masmorra".',
+          }),
+        ),
+      );
+    });
+
+    it('iniciar e encerrar o combate entram no log', async () => {
+      const user = userEvent.setup();
+      renderGrid();
+      await user.click(
+        await screen.findByRole('button', { name: 'Iniciar combate' }),
+      );
+      const dialogo = await screen.findByRole('dialog');
+      await user.click(
+        within(dialogo).getByRole('button', {
+          name: 'Rolar iniciativa e iniciar',
+        }),
+      );
+      await waitFor(() =>
+        expect(addRmSessaoLog).toHaveBeenCalledWith(
+          expect.objectContaining({
+            tipo: 'combate_iniciado',
+            mensagem: 'Combate iniciado em "Taverna" com 2 participantes.',
+          }),
+        ),
+      );
+    });
+
+    it('encerrar o combate registra a rodada', async () => {
+      const user = userEvent.setup();
+      vi.spyOn(window, 'confirm').mockReturnValue(true);
+      subscribeGridCombate.mockImplementation((_id, _cenaId, onChange) => {
+        onChange({
+          ordem: [{ tokenId: 't1', iniciativa: 12, d20: 6, reacao: 6 }],
+          indice: 0,
+          rodada: 3,
+          inicioTurno: { col: 1, lin: 1 },
+          turnoEm: { seconds: 10, nanoseconds: 0 },
+        });
+        return vi.fn();
+      });
+      renderGrid();
+      await user.click(
+        await screen.findByRole('button', { name: 'Encerrar combate' }),
+      );
+      await waitFor(() =>
+        expect(addRmSessaoLog).toHaveBeenCalledWith(
+          expect.objectContaining({
+            tipo: 'combate_encerrado',
+            mensagem: 'Combate encerrado em "Taverna" na rodada 3.',
+          }),
+        ),
+      );
+    });
+
+    it('um log que falha não atrapalha a ação', async () => {
+      const user = userEvent.setup();
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      addRmSessaoLog.mockRejectedValueOnce(new Error('negado'));
+      renderGrid();
+      await user.click(
+        await screen.findByRole('button', { name: /^Masmorra/ }),
+      );
+      await user.click(
+        screen.getByRole('button', { name: 'Mostrar aos jogadores' }),
+      );
+      await waitFor(() =>
+        expect(notifySuccess).toHaveBeenCalledWith(
+          'Os jogadores agora veem "Masmorra".',
+        ),
+      );
+    });
+
+    it('"Recarregar fontes" só aparece quando as fontes sabem recarregar', async () => {
+      const user = userEvent.setup();
+      renderGrid();
+      await user.click(
+        await screen.findByRole('button', { name: 'Adicionar token' }),
+      );
+      const dialogo = await screen.findByRole('dialog');
+      // useFontesDaMesa ainda não expõe `recarregar` neste worktree.
+      expect(
+        within(dialogo).queryByRole('button', { name: 'Recarregar fontes' }),
+      ).not.toBeInTheDocument();
     });
   });
 });

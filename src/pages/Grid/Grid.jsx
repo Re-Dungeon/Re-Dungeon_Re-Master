@@ -55,6 +55,10 @@ import {
   normalizarTravamento,
   validarToken,
 } from 'common/utils/grid';
+import {
+  TIPO_EVENTO_SESSAO,
+  registrarEventoSessao,
+} from 'common/utils/sessaoLog';
 import useAvisarAcoesChat from 'hooks/useAvisarAcoesChat';
 import useFichasDoGrid from 'hooks/useFichasDoGrid';
 import useGridCampanha from 'hooks/useGridCampanha';
@@ -230,13 +234,15 @@ const Grid = () => {
       .catch(error => {
         // eslint-disable-next-line no-console
         console.error('Falha ao carregar os mapas da campanha:', error);
+        if (active)
+          notifyError('Não foi possível carregar os Mapas da campanha.');
       });
     return () => {
       active = false;
     };
-  }, [campanhaAtiva]);
+  }, [campanhaAtiva, notifyError]);
 
-  // Falha não é erro para o mestre: os tokens só ficam sem as condições.
+  // Falha não trava o mestre (os tokens só ficam sem as condições), mas avisa.
   useEffect(() => {
     if (!universoId) return undefined;
     let active = true;
@@ -248,11 +254,14 @@ const Grid = () => {
       .catch(error => {
         // eslint-disable-next-line no-console
         console.error('Falha ao carregar o catálogo de condições:', error);
+        if (active) {
+          notifyError('Não foi possível carregar as Condições do universo.');
+        }
       });
     return () => {
       active = false;
     };
-  }, [universoId]);
+  }, [universoId, notifyError]);
 
   // Erros das escutas vão para o Snackbar global.
   useEffect(() => {
@@ -389,6 +398,8 @@ const Grid = () => {
     autor: autorMestre,
     tentar,
     notifySuccess,
+    campanha: campanhaAtiva,
+    cenaNome: cenaAberta ? nomeDaCena(cenaAberta) : '',
   });
   // Condições com duração (NPCs): quando a rodada do combate passa do fim
   // delas, saem do token — num lote só. Roda aqui, no Grid do mestre, a cada
@@ -521,6 +532,13 @@ const Grid = () => {
     );
     if (!ok) return;
     const cena = cenas.find(c => c.id === cenaId);
+    if (cena) {
+      registrarEventoSessao(
+        campanhaAtiva,
+        TIPO_EVENTO_SESSAO.CENA_GRID_ATIVADA,
+        `Cena do grid ativada: "${nomeDaCena(cena)}".`,
+      );
+    }
     notifySuccess(
       cena
         ? `Os jogadores agora veem "${nomeDaCena(cena)}".`
@@ -1245,6 +1263,9 @@ const Grid = () => {
             npcs={fontes.npcs}
             criaturas={fontes.criaturas}
             titulo="Chat"
+            onRecarregarFontes={
+              fontes.recarregar ? () => fontes.recarregar() : undefined
+            }
           />
         </Box>
       </Box>
@@ -1271,6 +1292,9 @@ const Grid = () => {
         onAdicionar={handleAdicionar}
         jogadoresFaltando={jogadoresFaltando}
         onAdicionarJogadores={handleAdicionarJogadores}
+        onRecarregarFontes={
+          fontes.recarregar ? () => fontes.recarregar() : undefined
+        }
       />
 
       {iniciarAberto && (

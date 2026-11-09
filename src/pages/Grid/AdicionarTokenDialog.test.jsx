@@ -31,6 +31,28 @@ const renderDialog = onAdicionar =>
   );
 
 describe('AdicionarTokenDialog', () => {
+  it('"Recarregar fontes" só aparece com onRecarregarFontes e o chama', () => {
+    const { rerender } = renderDialog(vi.fn());
+    expect(
+      screen.queryByRole('button', { name: 'Recarregar fontes' }),
+    ).not.toBeInTheDocument();
+
+    const onRecarregarFontes = vi.fn();
+    rerender(
+      <AdicionarTokenDialog
+        open
+        onClose={vi.fn()}
+        fontes={fontes}
+        onAdicionar={vi.fn()}
+        jogadoresFaltando={0}
+        onAdicionarJogadores={vi.fn()}
+        onRecarregarFontes={onRecarregarFontes}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Recarregar fontes' }));
+    expect(onRecarregarFontes).toHaveBeenCalledTimes(1);
+  });
+
   it('NPC: adiciona várias cópias com a quantidade escolhida', () => {
     const onAdicionar = vi.fn().mockResolvedValue(true);
     renderDialog(onAdicionar);

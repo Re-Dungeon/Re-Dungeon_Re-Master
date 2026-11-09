@@ -49,6 +49,7 @@ const AdicionarTokenDialog = ({
   onAdicionar,
   jogadoresFaltando,
   onAdicionarJogadores,
+  onRecarregarFontes,
 }) => {
   const [aba, setAba] = useState(TIPOS_TOKEN.JOGADOR);
   const [tamanho, setTamanho] = useState(1);
@@ -269,6 +270,15 @@ const AdicionarTokenDialog = ({
         )}
       </DialogContent>
       <DialogActions>
+        {onRecarregarFontes && (
+          <Button
+            onClick={onRecarregarFontes}
+            title="Buscar de novo os jogadores, NPCs e Criaturas da campanha"
+            sx={{ mr: 'auto' }}
+          >
+            Recarregar fontes
+          </Button>
+        )}
         <Button onClick={onClose}>Fechar</Button>
       </DialogActions>
     </Dialog>
@@ -295,6 +305,8 @@ AdicionarTokenDialog.propTypes = {
   onAdicionar: PropTypes.func.isRequired,
   jogadoresFaltando: PropTypes.number.isRequired,
   onAdicionarJogadores: PropTypes.func.isRequired,
+  // Busca de novo as fontes da mesa (sem ele, o botão não aparece).
+  onRecarregarFontes: PropTypes.func,
 };
 
 export default AdicionarTokenDialog;
