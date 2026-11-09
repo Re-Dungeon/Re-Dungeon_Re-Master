@@ -10,6 +10,7 @@ import {
   TRAVAMENTOS,
   montarToken,
   normalizarAura,
+  valorDigitadoDoRecurso,
   normalizarRecurso,
   primeiraCelulaLivre,
 } from 'common/utils/grid';
@@ -87,6 +88,7 @@ export const ajustarRecurso = (recurso, delta) =>
 
 // Campo `atual` ou `max` digitado → recurso novo. `max` vazio ou 0 remove a
 // barra (null); `atual` vazio = cheio. `max` menor que `atual` puxa o atual.
+// No `atual`, "+5"/"-7" soma ao valor atual (dano/cura rápidos).
 export const recursoDigitado = (recurso, campo, texto) => {
   const valor = String(texto ?? '').trim();
   // Texto que não é número não muda nada.
@@ -96,7 +98,11 @@ export const recursoDigitado = (recurso, campo, texto) => {
     return normalizarRecurso({ atual: recurso?.atual ?? valor, max: valor });
   }
   if (!recurso) return null;
-  return normalizarRecurso({ ...recurso, atual: valor });
+  if (valor === '') return normalizarRecurso({ ...recurso, atual: valor });
+  const novo = valorDigitadoDoRecurso(recurso.atual, valor);
+  return novo === null
+    ? recurso
+    : normalizarRecurso({ ...recurso, atual: novo });
 };
 
 export const OPCOES_MOSTRAR_RECURSOS = [

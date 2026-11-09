@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   ajustarRecursoAtual,
   recursoDigitadoAtual,
+  valorDigitadoDoRecurso,
   GRID_CONFIG_PADRAO,
   GRID_SEM_IMAGEM,
   RASTRO_VERTICES_MAX,
@@ -1000,11 +1001,28 @@ describe('edição do valor atual de recursos', () => {
   it('recursoDigitadoAtual limita, arredonda e rejeita texto inválido', () => {
     expect(recursoDigitadoAtual(pv, '7')).toBe(7);
     expect(recursoDigitadoAtual(pv, ' 99 ')).toBe(10);
-    expect(recursoDigitadoAtual(pv, '-3')).toBe(0);
+    expect(recursoDigitadoAtual(pv, '-3')).toBe(2);
+    expect(recursoDigitadoAtual(pv, '-30')).toBe(0);
+    expect(recursoDigitadoAtual(pv, '+3')).toBe(8);
+    expect(recursoDigitadoAtual(pv, '+30')).toBe(10);
     expect(recursoDigitadoAtual(pv, '2,6')).toBe(3);
     expect(recursoDigitadoAtual(pv, '')).toBeNull();
     expect(recursoDigitadoAtual(pv, '  ')).toBeNull();
     expect(recursoDigitadoAtual(pv, 'abc')).toBeNull();
     expect(recursoDigitadoAtual(null, '3')).toBeNull();
+  });
+
+  it('valorDigitadoDoRecurso: com sinal soma ao atual, sem sinal é o valor novo', () => {
+    expect(valorDigitadoDoRecurso(12, '-7')).toBe(5);
+    expect(valorDigitadoDoRecurso(12, '+ 5')).toBe(17);
+    expect(valorDigitadoDoRecurso(12, '-20')).toBe(-8);
+    expect(valorDigitadoDoRecurso(12, '4')).toBe(4);
+    expect(valorDigitadoDoRecurso(12, '-2,6')).toBe(9);
+    expect(valorDigitadoDoRecurso(12, '-')).toBeNull();
+    expect(valorDigitadoDoRecurso(12, '+')).toBeNull();
+    expect(valorDigitadoDoRecurso(12, '')).toBeNull();
+    expect(valorDigitadoDoRecurso(12, null)).toBeNull();
+    expect(valorDigitadoDoRecurso(12, 'x')).toBeNull();
+    expect(valorDigitadoDoRecurso(undefined, '-3')).toBeNull();
   });
 });

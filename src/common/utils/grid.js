@@ -678,10 +678,27 @@ export const ajustarRecursoAtual = (recurso, delta) => {
   return limitar(recurso.atual + Math.round(Number(delta)), 0, recurso.max);
 };
 
+// Texto digitado num campo de recurso → novo valor (sem limite). "+5"/"-7"
+// (com sinal) é relativo — soma ao `atual` (dano/cura rápidos); número sem
+// sinal é o valor novo. Vírgula decimal vale; arredonda. Vazio/inválido →
+// null. Usado pelo cartão do token, pelos campos do mestre e pela ficha.
+export const valorDigitadoDoRecurso = (atual, texto) => {
+  if (vazio(texto)) return null;
+  const limpo = String(texto).trim().replace(',', '.').replace(/\s+/g, '');
+  if (limpo === '' || limpo === '+' || limpo === '-') return null;
+  const numero = Math.round(Number(limpo));
+  if (!Number.isFinite(numero)) return null;
+  if (/^[+-]/.test(limpo)) {
+    const base = Number(atual);
+    return Number.isFinite(base) ? base + numero : null;
+  }
+  return numero;
+};
+
 export const recursoDigitadoAtual = (recurso, texto) => {
-  if (!recurso || vazio(texto) || String(texto).trim() === '') return null;
-  const numero = Math.round(Number(String(texto).trim().replace(',', '.')));
-  return Number.isFinite(numero) ? limitar(numero, 0, recurso.max) : null;
+  if (!recurso) return null;
+  const numero = valorDigitadoDoRecurso(recurso.atual, texto);
+  return numero === null ? null : limitar(numero, 0, recurso.max);
 };
 
 // Quanto da barra está cheio (0–1). A Fadiga enche com o cansaço: descansado

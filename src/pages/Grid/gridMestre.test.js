@@ -118,6 +118,19 @@ describe('combate do token', () => {
     expect(recursoDigitado(pv, 'atual', '7')).toEqual({ atual: 7, max: 20 });
     expect(recursoDigitado(pv, 'atual', '99')).toEqual({ atual: 20, max: 20 });
     expect(recursoDigitado(pv, 'atual', 'abc')).toBe(pv);
+    // Com sinal é relativo ao atual (dano/cura), limitado a 0..max.
+    expect(recursoDigitado({ atual: 12, max: 20 }, 'atual', '-7')).toEqual({
+      atual: 5,
+      max: 20,
+    });
+    expect(recursoDigitado({ atual: 12, max: 20 }, 'atual', '+5')).toEqual({
+      atual: 17,
+      max: 20,
+    });
+    expect(recursoDigitado({ atual: 12, max: 20 }, 'atual', '-99')).toEqual({
+      atual: 0,
+      max: 20,
+    });
     expect(recursoDigitado(null, 'atual', '3')).toBeNull();
   });
 

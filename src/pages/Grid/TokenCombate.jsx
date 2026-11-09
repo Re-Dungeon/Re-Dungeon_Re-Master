@@ -44,6 +44,7 @@ const CampoNumero = ({
   onConfirmar,
   disabled,
   inputMode = 'numeric',
+  dica,
 }) => {
   const [texto, setTexto] = useState(null);
   const confirmar = () => {
@@ -56,13 +57,16 @@ const CampoNumero = ({
       label={label}
       value={texto ?? String(valor ?? '')}
       disabled={disabled}
-      onFocus={() => setTexto(String(valor ?? ''))}
+      onFocus={event => {
+        setTexto(String(valor ?? ''));
+        event.target.select();
+      }}
       onChange={event => setTexto(event.target.value)}
       onBlur={confirmar}
       onKeyDown={event => {
         if (event.key === 'Enter') event.target.blur();
       }}
-      slotProps={{ htmlInput: { inputMode } }}
+      slotProps={{ htmlInput: { inputMode, title: dica } }}
       sx={{ flex: 1, minWidth: 0 }}
     />
   );
@@ -74,6 +78,7 @@ CampoNumero.propTypes = {
   onConfirmar: PropTypes.func.isRequired,
   disabled: PropTypes.bool,
   inputMode: PropTypes.string,
+  dica: PropTypes.string,
 };
 
 // `[−] [atual] / [max] [+]` de um recurso; sem recurso, "Definir PV".
@@ -121,6 +126,8 @@ const RecursoLinha = ({ id, recurso, onAlterar }) => {
       <CampoNumero
         label={`${rotulo} atual`}
         valor={recurso.atual}
+        inputMode="text"
+        dica="Digite o valor ou -N/+N para tirar/somar (ex.: -7)"
         onConfirmar={texto => gravar(recursoDigitado(recurso, 'atual', texto))}
       />
       <Typography sx={{ color: 'var(--text-muted)' }} aria-hidden="true">
