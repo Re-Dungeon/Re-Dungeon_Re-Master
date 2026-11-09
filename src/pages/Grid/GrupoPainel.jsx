@@ -14,7 +14,7 @@ import {
   corDaBarra,
   fracaoDaBarra,
 } from 'common/utils/grid';
-import { painelAbaixoDaFaixaSx, painelCabecalhoSx, painelSx } from './styles';
+import { painelCabecalhoSx, painelLadoSx } from './styles';
 
 const barraSx = cor => ({
   flex: 1,
@@ -93,11 +93,7 @@ const GrupoPainel = ({
   abaixoDaFaixa = false,
 }) => (
   <Box
-    sx={{
-      ...painelSx,
-      right: 12,
-      ...(abaixoDaFaixa ? painelAbaixoDaFaixaSx : {}),
-    }}
+    sx={painelLadoSx('right', abaixoDaFaixa)}
     role="region"
     aria-label="Grupo"
   >

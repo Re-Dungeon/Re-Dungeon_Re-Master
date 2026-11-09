@@ -8,6 +8,7 @@ import React, {
 import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
+import useMediaQuery from '@mui/material/useMediaQuery';
 import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
@@ -77,6 +78,7 @@ import CenasBarra from './CenasBarra';
 import FerramentasMapa from './FerramentasMapa';
 import GridConfigPainel from './GridConfigPainel';
 import GrupoPainel from './GrupoPainel';
+import MaisAcoesMenu from './MaisAcoesMenu';
 import IniciarCombateDialog from './IniciarCombateDialog';
 import MarcadorDialog from './MarcadorDialog';
 import ParticipantesCombateDialog from './ParticipantesCombateDialog';
@@ -104,6 +106,7 @@ import {
   reacaoDoToken,
   tokensDeJogadoresFaltantes,
 } from './gridMestre';
+import { MOBILE_MEDIA, MOBILE_QUERY } from './styles';
 import useCombateMestre from './useCombateMestre';
 import useCenasDoGrid from './useCenasDoGrid';
 import useDesfazerCamadas from './useDesfazerCamadas';
@@ -137,6 +140,8 @@ const Grid = () => {
   const { campanhaAtiva, loadingCampanhas } = useCampanha();
   const { notifyError, notifySuccess } = useSnackbar();
   const navigate = useNavigate();
+  // Celular (< 600px): ações secundárias da barra vão para o menu "Mais".
+  const celular = useMediaQuery(MOBILE_MEDIA);
   const campanhaId = campanhaAtiva?.id ?? null;
 
   const fontes = useFontesDaMesa(campanhaAtiva, { incluirJogadores: true });
@@ -460,6 +465,12 @@ const Grid = () => {
   const fecharConfig = () => {
     setConfigAberta(false);
     setPrevia(null);
+  };
+
+  const abrirConfig = () => {
+    setPrevia(null);
+    setGrupoAberto(false);
+    setConfigAberta(true);
   };
 
   const abrirCena = cenaId => {
@@ -942,6 +953,48 @@ const Grid = () => {
 
   if (!campanhaAtiva) return null;
 
+  // Ações secundárias da barra no celular (as mesmas dos botões do desktop).
+  const itensMenuMais = [
+    {
+      chave: 'config',
+      rotulo: 'Configurar grid',
+      onClick: abrirConfig,
+      disabled: !cenaAberta || configAberta,
+    },
+    ...OPCOES_TRAVAMENTO.map((opcao, indice) => ({
+      chave: `movimento-${opcao.value}`,
+      rotulo: `Movimento: ${opcao.label}`,
+      onClick: () => handleTravamento({ target: { value: opcao.value } }),
+      disabled: !cenaAberta,
+      selecionado: normalizarTravamento(grid.travamento) === opcao.value,
+      separador: indice === 0,
+    })),
+    ...(grid.combate
+      ? [
+          {
+            chave: 'participantes',
+            rotulo: 'Participantes do combate',
+            onClick: () => setParticipantesAberto(true),
+            separador: true,
+          },
+        ]
+      : []),
+    {
+      chave: 'acoes-chat',
+      rotulo: avisarAcoesChat
+        ? 'Ações no chat: ligado'
+        : 'Ações no chat: desligado',
+      onClick: handleAvisarAcoesChat,
+      disabled: !campanhaId,
+      separador: true,
+    },
+    {
+      chave: 'atalhos',
+      rotulo: 'Atalhos do teclado',
+      onClick: () => setAtalhosAberto(true),
+    },
+  ];
+
   let aviso = null;
   if (carregandoCenas || (cenaAbertaId && grid.carregando)) {
     aviso = 'Carregando o grid…';
@@ -999,17 +1052,15 @@ const Grid = () => {
         >
           Grupo
         </Button>
-        <Button
-          startIcon={<SettingsIcon />}
-          onClick={() => {
-            setPrevia(null);
-            setGrupoAberto(false);
-            setConfigAberta(true);
-          }}
-          disabled={!cenaAberta || configAberta}
-        >
-          Configurar grid
-        </Button>
+        {!celular && (
+          <Button
+            startIcon={<SettingsIcon />}
+            onClick={abrirConfig}
+            disabled={!cenaAberta || configAberta}
+          >
+            Configurar grid
+          </Button>
+        )}
         <Button
           variant="contained"
           startIcon={<AddIcon />}
@@ -1018,29 +1069,33 @@ const Grid = () => {
         >
           Adicionar token
         </Button>
-        <TextField
-          select
-          size="small"
-          label="Movimento"
-          value={normalizarTravamento(grid.travamento)}
-          onChange={handleTravamento}
-          disabled={!cenaAberta}
-          sx={{ minWidth: 150 }}
-        >
-          {OPCOES_TRAVAMENTO.map(opcao => (
-            <MenuItem key={opcao.value} value={opcao.value}>
-              {opcao.label}
-            </MenuItem>
-          ))}
-        </TextField>
+        {!celular && (
+          <TextField
+            select
+            size="small"
+            label="Movimento"
+            value={normalizarTravamento(grid.travamento)}
+            onChange={handleTravamento}
+            disabled={!cenaAberta}
+            sx={{ minWidth: 150 }}
+          >
+            {OPCOES_TRAVAMENTO.map(opcao => (
+              <MenuItem key={opcao.value} value={opcao.value}>
+                {opcao.label}
+              </MenuItem>
+            ))}
+          </TextField>
+        )}
         {grid.combate ? (
           <>
-            <Button
-              startIcon={<GroupsIcon />}
-              onClick={() => setParticipantesAberto(true)}
-            >
-              Participantes
-            </Button>
+            {!celular && (
+              <Button
+                startIcon={<GroupsIcon />}
+                onClick={() => setParticipantesAberto(true)}
+              >
+                Participantes
+              </Button>
+            )}
             <Button
               color="error"
               startIcon={<StopIcon />}
@@ -1058,24 +1113,28 @@ const Grid = () => {
             Iniciar combate
           </Button>
         )}
-        <Button
-          startIcon={<BoltIcon />}
-          aria-pressed={avisarAcoesChat}
-          onClick={handleAvisarAcoesChat}
-          disabled={!campanhaId}
-          title="Mostrar no chat as ações que os jogadores fazem pela Central de Ações durante o combate"
-        >
-          {avisarAcoesChat
-            ? 'Ações no chat: ligado'
-            : 'Ações no chat: desligado'}
-        </Button>
-        <Button
-          startIcon={<KeyboardIcon />}
-          onClick={() => setAtalhosAberto(true)}
-          title="Atalhos do teclado (?)"
-        >
-          Atalhos
-        </Button>
+        {!celular && (
+          <Button
+            startIcon={<BoltIcon />}
+            aria-pressed={avisarAcoesChat}
+            onClick={handleAvisarAcoesChat}
+            disabled={!campanhaId}
+            title="Mostrar no chat as ações que os jogadores fazem pela Central de Ações durante o combate"
+          >
+            {avisarAcoesChat
+              ? 'Ações no chat: ligado'
+              : 'Ações no chat: desligado'}
+          </Button>
+        )}
+        {!celular && (
+          <Button
+            startIcon={<KeyboardIcon />}
+            onClick={() => setAtalhosAberto(true)}
+            title="Atalhos do teclado (?)"
+          >
+            Atalhos
+          </Button>
+        )}
         <Button
           startIcon={<ChatOutlinedIcon />}
           aria-pressed={chatAberto}
@@ -1083,6 +1142,7 @@ const Grid = () => {
         >
           {chatAberto ? 'Ocultar chat' : 'Mostrar chat'}
         </Button>
+        {celular && <MaisAcoesMenu itens={itensMenuMais} />}
       </Box>
 
       <CenasBarra
@@ -1251,6 +1311,8 @@ const Grid = () => {
           sx={{
             width: { xs: '100%', md: 380 },
             height: { xs: '45%', md: 'auto' },
+            // Celular: o mapa ganha mais espaço.
+            [MOBILE_QUERY]: { height: '35%' },
             flexShrink: 0,
             minHeight: 0,
             display: chatAberto ? 'flex' : 'none',

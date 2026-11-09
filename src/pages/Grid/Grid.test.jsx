@@ -1,5 +1,5 @@
 import React from 'react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
@@ -2562,6 +2562,140 @@ describe('Grid (Re:Master)', () => {
       expect(
         within(dialogo).queryByRole('button', { name: 'Recarregar fontes' }),
       ).not.toBeInTheDocument();
+    });
+  });
+  describe('celular (< 600px)', () => {
+    const MOBILE = '(max-width: 599.95px)';
+    const original = window.matchMedia;
+
+    const simularCelular = () => {
+      window.matchMedia = query => ({
+        matches: query === MOBILE,
+        media: query,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        addListener: () => {},
+        removeListener: () => {},
+      });
+    };
+
+    afterEach(() => {
+      window.matchMedia = original;
+    });
+
+    it('no desktop a barra fica como sempre, sem o menu "Mais"', async () => {
+      renderGrid();
+      await screen.findByRole('button', { name: /Aldric, coluna/ });
+      expect(
+        screen.getByRole('button', { name: 'Configurar grid' }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole('combobox', { name: 'Movimento' }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: 'Atalhos' }),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole('button', { name: 'Mais ações' }),
+      ).not.toBeInTheDocument();
+    });
+
+    it('as ações secundárias vão para o menu "Mais" e funcionam de lá', async () => {
+      const user = userEvent.setup();
+      simularCelular();
+      renderGrid();
+      await screen.findByRole('button', { name: /Aldric, coluna/ });
+
+      // Ficam na barra: o essencial.
+      ['Adicionar token', 'Grupo', 'Iniciar combate', 'Ocultar chat'].forEach(
+        nome =>
+          expect(
+            screen.getByRole('button', { name: nome }),
+          ).toBeInTheDocument(),
+      );
+      ['Configurar grid', 'Atalhos'].forEach(nome =>
+        expect(
+          screen.queryByRole('button', { name: nome }),
+        ).not.toBeInTheDocument(),
+      );
+      expect(
+        screen.queryByRole('combobox', { name: 'Movimento' }),
+      ).not.toBeInTheDocument();
+
+      await user.click(screen.getByRole('button', { name: 'Mais ações' }));
+      let menu = await screen.findByRole('menu');
+      // Sem combate: sem "Participantes".
+      expect(
+        within(menu).queryByRole('menuitem', {
+          name: 'Participantes do combate',
+        }),
+      ).not.toBeInTheDocument();
+      expect(
+        within(menu).getByRole('menuitem', { name: 'Movimento: Livre' }),
+      ).toHaveClass('Mui-selected');
+
+      await user.click(
+        within(menu).getByRole('menuitem', { name: 'Movimento: Congelado' }),
+      );
+      await waitFor(() =>
+        expect(updateGridCena).toHaveBeenCalledWith('c1', 'cena-1', {
+          travamento: 'congelado',
+        }),
+      );
+
+      await user.click(screen.getByRole('button', { name: 'Mais ações' }));
+      menu = await screen.findByRole('menu');
+      await user.click(
+        within(menu).getByRole('menuitem', {
+          name: 'Ações no chat: desligado',
+        }),
+      );
+      await waitFor(() =>
+        expect(setGridAvisarAcoesChat).toHaveBeenCalledWith('c1', true),
+      );
+
+      await user.click(screen.getByRole('button', { name: 'Mais ações' }));
+      menu = await screen.findByRole('menu');
+      await user.click(
+        within(menu).getByRole('menuitem', { name: 'Configurar grid' }),
+      );
+      expect(
+        await screen.findByRole('region', { name: 'Configurar grid' }),
+      ).toBeInTheDocument();
+    });
+
+    it('com combate, "Participantes do combate" entra no menu', async () => {
+      const user = userEvent.setup();
+      simularCelular();
+      subscribeGridCombate.mockImplementation((_id, _cenaId, onChange) => {
+        onChange({
+          ordem: [{ tokenId: 't1', iniciativa: 12, d20: 6, reacao: 6 }],
+          indice: 0,
+          rodada: 1,
+          inicioTurno: { col: 1, lin: 1 },
+          turnoEm: { seconds: 10, nanoseconds: 0 },
+        });
+        return vi.fn();
+      });
+      renderGrid();
+      await screen.findByRole('button', { name: /Aldric, coluna/ });
+      expect(
+        screen.queryByRole('button', { name: 'Participantes' }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: 'Encerrar combate' }),
+      ).toBeInTheDocument();
+
+      await user.click(screen.getByRole('button', { name: 'Mais ações' }));
+      const menu = await screen.findByRole('menu');
+      await user.click(
+        within(menu).getByRole('menuitem', {
+          name: 'Participantes do combate',
+        }),
+      );
+      expect(await screen.findByRole('dialog')).toHaveTextContent(
+        'Participantes',
+      );
     });
   });
 });

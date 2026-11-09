@@ -20,7 +20,7 @@ import {
 } from 'common/utils/grid';
 import { OPCOES_TAMANHO_TOKEN, opcoesDeDonos } from './gridMestre';
 import TokenCombate from './TokenCombate';
-import { painelAbaixoDaFaixaSx, painelCabecalhoSx, painelSx } from './styles';
+import { painelCabecalhoSx, painelLadoSx } from './styles';
 
 /**
  * Edição do token selecionado no Grid: nome/imagem (cópias feitas na
@@ -102,11 +102,7 @@ const TokenPainel = ({
 
   return (
     <Box
-      sx={{
-        ...painelSx,
-        left: 12,
-        ...(abaixoDaFaixa ? painelAbaixoDaFaixaSx : {}),
-      }}
+      sx={painelLadoSx('left', abaixoDaFaixa)}
       role="region"
       aria-label="Token selecionado"
     >
