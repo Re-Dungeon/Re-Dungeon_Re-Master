@@ -30,7 +30,8 @@
         "src/hooks/useGrid*.js",
         "src/hooks/useMembroDoChat.js",
         "src/hooks/useRolarDoToken*.js",
-        "scripts/check-shared.mjs"
+        "scripts/check-shared.mjs",
+        "src/components/ConfirmDialog/**"
       ],
       "options": {
         "printWidth": 90

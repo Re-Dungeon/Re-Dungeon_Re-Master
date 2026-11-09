@@ -632,7 +632,9 @@ service cloud.firestore {
         request.resource.data.keys().hasOnly(['uid', 'personagemId', 'updatedAt']) &&
         request.resource.data.uid == request.auth.uid &&
         personagemDoUsuarioNaCampanha(campanhaId, request.resource.data.personagemId);
-      allow delete: if isAuth() && membroUid == request.auth.uid;
+      // O mestre também apaga (exclusão da campanha — removeRmCampanhaCompleta).
+      allow delete: if isAuth() &&
+        (membroUid == request.auth.uid || isMestreDaCampanha(campanhaId));
     }
 
     // Sem update: mensagens não são editáveis (v1). Apagar: autor ou mestre.

@@ -18,6 +18,7 @@ vi.mock('firebase/firestore', () => ({
   serverTimestamp: vi.fn(() => '__serverTimestamp__'),
   query: vi.fn((coll, ...constraints) => ({ __query: coll, constraints })),
   where: vi.fn((field, op, value) => ({ __where: [field, op, value] })),
+  writeBatch: vi.fn(),
 }));
 
 import {
@@ -29,11 +30,13 @@ import {
   doc,
   updateDoc,
   where,
+  writeBatch,
 } from 'firebase/firestore';
 import {
   getRmCampanhas,
   addRmCampanha,
   removeRmCampanha,
+  removeRmCampanhaCompleta,
   updateRmCampanha,
   getUserPermissions,
   getPersonagens,
@@ -133,6 +136,73 @@ describe('storage.js — CRUD de rmCampanhas (padrão Firestore repetido em toda
     expect(deleteDoc).toHaveBeenCalledWith({
       __doc: 'rmCampanhas',
       id: 'id-123',
+    });
+  });
+
+  it('removeRmCampanhaCompleta apaga as subcoleções antes da campanha', async () => {
+    const ordem = [];
+    const apagados = [];
+    writeBatch.mockImplementation(() => ({
+      delete: ref => apagados.push(ref),
+      commit: vi.fn(async () => ordem.push('lote')),
+    }));
+    deleteDoc.mockImplementation(async ref => ordem.push(ref));
+    const docs = {
+      'rmCampanhas/c1/chatMembros': [{ id: 'u2', ref: 'membro-u2' }],
+      'rmCampanhas/c1/chatSecretas/u2/rolagens': [{ ref: 'secreta-u2' }],
+      'rmCampanhas/c1/chatSecretas/m1/rolagens': [{ ref: 'secreta-m1' }],
+      'rmCampanhas/c1/chatMensagens': [{ ref: 'msg-1' }],
+      'rmCampanhas/c1/macros': [{ ref: 'macro-1' }],
+      'rmCampanhas/c1/npcs': [{ ref: 'npc-1' }],
+    };
+    getDocs.mockImplementation(async ref => ({
+      docs: docs[ref.__collection] ?? [],
+    }));
+
+    await removeRmCampanhaCompleta('c1', 'm1');
+
+    expect(apagados).toEqual(
+      expect.arrayContaining([
+        'secreta-u2',
+        'secreta-m1',
+        'msg-1',
+        'macro-1',
+        'npc-1',
+        'membro-u2',
+      ]),
+    );
+    // O documento da campanha é o último a sair.
+    expect(ordem[ordem.length - 1]).toEqual({ __doc: 'rmCampanhas', id: 'c1' });
+  });
+
+  it('removeRmCampanhaCompleta segue mesmo se não puder apagar os ponteiros chatMembros', async () => {
+    let tentouMembros = false;
+    writeBatch.mockImplementation(() => {
+      const refs = [];
+      return {
+        delete: ref => refs.push(ref),
+        // Lote dos ponteiros chatMembros: regra ainda não publicada.
+        commit: vi.fn(async () => {
+          if (refs.includes('membro-u2')) {
+            tentouMembros = true;
+            throw new Error('permission-denied');
+          }
+        }),
+      };
+    });
+    deleteDoc.mockResolvedValue(undefined);
+    getDocs.mockImplementation(async ref => ({
+      docs:
+        ref.__collection === 'rmCampanhas/c1/chatMembros'
+          ? [{ id: 'u2', ref: 'membro-u2' }]
+          : [],
+    }));
+
+    await expect(removeRmCampanhaCompleta('c1', 'm1')).resolves.toBeUndefined();
+    expect(tentouMembros).toBe(true);
+    expect(deleteDoc).toHaveBeenLastCalledWith({
+      __doc: 'rmCampanhas',
+      id: 'c1',
     });
   });
 
@@ -240,7 +310,11 @@ describe('storage.js — Biblioteca Global de Músicas', () => {
       nome: 'Campanha do Castelo',
       linkImagem: 'https://exemplo.com/capa-playlist.jpg',
       mestreId: 'mestre-1',
-      musicas: [{ musicaId: 'm1', ordem: 0 }, { musicaId: 'm2', ordem: 1 }, { musicaId: '' }],
+      musicas: [
+        { musicaId: 'm1', ordem: 0 },
+        { musicaId: 'm2', ordem: 1 },
+        { musicaId: '' },
+      ],
     });
 
     expect(addDoc).toHaveBeenCalledWith(
@@ -249,7 +323,10 @@ describe('storage.js — Biblioteca Global de Músicas', () => {
         nome: 'Campanha do Castelo',
         linkImagem: 'https://exemplo.com/capa-playlist.jpg',
         mestreId: 'mestre-1',
-        musicas: [{ musicaId: 'm1', ordem: 0 }, { musicaId: 'm2', ordem: 1 }],
+        musicas: [
+          { musicaId: 'm1', ordem: 0 },
+          { musicaId: 'm2', ordem: 1 },
+        ],
         createdAt: '__serverTimestamp__',
         updatedAt: '__serverTimestamp__',
       }),
@@ -279,16 +356,18 @@ describe('storage.js — Biblioteca Global de Músicas', () => {
         updatedAt: '__serverTimestamp__',
       }),
     );
-    expect(Object.keys(addDoc.mock.calls[0][1]).sort()).toEqual([
-      'createdAt',
-      'descricao',
-      'linkImagem',
-      'mestreId',
-      'musicas',
-      'nome',
-      'pastaId',
-      'updatedAt',
-    ].sort());
+    expect(Object.keys(addDoc.mock.calls[0][1]).sort()).toEqual(
+      [
+        'createdAt',
+        'descricao',
+        'linkImagem',
+        'mestreId',
+        'musicas',
+        'nome',
+        'pastaId',
+        'updatedAt',
+      ].sort(),
+    );
   });
 
   it('addRmPlaylist preserva pastaId quando a playlist pertence a uma pasta', async () => {
@@ -701,7 +780,12 @@ describe('storage.js — cardflux (somente leitura) e CRUD de rmCardfluxEstados'
   it('rmCardfluxExploracoes: mantém a identidade do documento Firestore em create, load e update', async () => {
     addDoc.mockResolvedValue({ id: 'firestore-doc-id-123' });
     getDocs.mockResolvedValue({
-      docs: [{ id: 'firestore-doc-id-123', data: () => ({ nome: 'Floresta', status: 'ativa' }) }],
+      docs: [
+        {
+          id: 'firestore-doc-id-123',
+          data: () => ({ nome: 'Floresta', status: 'ativa' }),
+        },
+      ],
     });
 
     const salvo = await addRmCardfluxExploracao({
@@ -718,7 +802,11 @@ describe('storage.js — cardflux (somente leitura) e CRUD de rmCardfluxEstados'
       quadrantes: [[{ estado: 'oculto' }]],
     });
 
-    const carregadas = await getRmCardfluxExploracoesPorCampanha('c1', 'u1', 'mestre-1');
+    const carregadas = await getRmCardfluxExploracoesPorCampanha(
+      'c1',
+      'u1',
+      'mestre-1',
+    );
 
     await updateRmCardfluxExploracao(salvo.id, { status: 'encerrada' });
 
@@ -748,7 +836,11 @@ describe('storage.js — cardflux (somente leitura) e CRUD de rmCardfluxEstados'
       ],
     });
 
-    const itens = await getRmCardfluxExploracoesPorCampanha('c1', 'u1', 'mestre-1');
+    const itens = await getRmCardfluxExploracoesPorCampanha(
+      'c1',
+      'u1',
+      'mestre-1',
+    );
 
     expect(itens[0].id).toBe('doc-real-456');
     expect(itens[0].id).not.toBe('id-velho-da-colecao');

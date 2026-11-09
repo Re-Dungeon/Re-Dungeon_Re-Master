@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
@@ -9,7 +9,9 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import { useAuth } from 'context/AuthContext';
 import { useCampanha } from 'context/CampanhaContext';
-import { removeRmCampanha } from 'service/storage';
+import { removeRmCampanhaCompleta } from 'service/storage';
+import { useSnackbar } from 'context/SnackbarContext';
+import ConfirmDialog from 'components/ConfirmDialog/ConfirmDialog';
 import useUniversos from 'hooks/useUniversos';
 import ListLoadError from 'components/ListLoadError/ListLoadError';
 import { ROUTE_PATHS } from 'common/constants/routes';
@@ -29,9 +31,24 @@ const Campanha = () => {
   const { universos, loadingUniversos } = useUniversos();
   const loading = loadingCampanhas || loadingUniversos;
 
-  const handleRemove = async id => {
-    await removeRmCampanha(id);
-    if (id === campanhaAtivaId) setCampanhaAtiva(null);
+  const { notifyError, notifySuccess } = useSnackbar();
+  // Campanha a excluir (abre a confirmação que pede o nome digitado).
+  const [campanhaExcluindo, setCampanhaExcluindo] = useState(null);
+
+  const handleRemove = async () => {
+    const campanha = campanhaExcluindo;
+    if (!campanha) return;
+    try {
+      await removeRmCampanhaCompleta(campanha.id, campanha.mestreId);
+    } catch (error) {
+      notifyError(
+        'Não foi possível excluir a campanha. Nada foi perdido além do que já tinha sido apagado; tente de novo.',
+      );
+      throw error;
+    }
+    setCampanhaExcluindo(null);
+    if (campanha.id === campanhaAtivaId) setCampanhaAtiva(null);
+    notifySuccess(`Campanha "${campanha.nome}" excluída.`);
     await recarregarCampanhas();
   };
 
@@ -61,10 +78,13 @@ const Campanha = () => {
           variant="contained"
           onClick={() => navigate(ROUTE_PATHS.NOVA_CAMPANHA)}
           sx={{
-            background: 'linear-gradient(135deg, #7f1d1d, var(--color-primary))',
+            background:
+              'linear-gradient(135deg, #7f1d1d, var(--color-primary))',
             border: '1px solid rgba(255,255,255,0.08)',
             boxShadow: '0 10px 26px rgba(117, 28, 28, 0.28)',
-            '&:hover': { background: 'linear-gradient(135deg, #9b2c2c, #6c2d9d)' },
+            '&:hover': {
+              background: 'linear-gradient(135deg, #9b2c2c, #6c2d9d)',
+            },
           }}
           aria-label="+ Nova Campanha"
         >
@@ -120,7 +140,8 @@ const Campanha = () => {
                     borderRadius: '18px 18px 0 0',
                     minHeight: 154,
                     maxHeight: 154,
-                    background: 'linear-gradient(180deg, rgba(17,22,29,0.12), rgba(6,9,13,0.7))',
+                    background:
+                      'linear-gradient(180deg, rgba(17,22,29,0.12), rgba(6,9,13,0.7))',
                   }}
                 >
                   {campanha.linkImagem ? (
@@ -236,7 +257,7 @@ const Campanha = () => {
                       </IconButton>
                       <IconButton
                         size="small"
-                        onClick={() => handleRemove(campanha.id)}
+                        onClick={() => setCampanhaExcluindo(campanha)}
                         sx={{
                           color: '#ff9a9a',
                           background: 'rgba(69, 17, 17, 0.52)',
@@ -356,7 +377,9 @@ const Campanha = () => {
                         fontSize: '0.78rem',
                         fontWeight: 700,
                         textTransform: 'none',
-                        boxShadow: ativa ? 'none' : '0 10px 18px rgba(140, 39, 39, 0.18)',
+                        boxShadow: ativa
+                          ? 'none'
+                          : '0 10px 18px rgba(140, 39, 39, 0.18)',
                         '&:hover': {
                           background: ativa
                             ? 'rgba(196, 58, 47, 0.22)'
@@ -372,7 +395,8 @@ const Campanha = () => {
                         variant="contained"
                         onClick={() => navigate(ROUTE_PATHS.CENAS)}
                         sx={{
-                          background: 'linear-gradient(135deg, #e7b36b, #d95b45)',
+                          background:
+                            'linear-gradient(135deg, #e7b36b, #d95b45)',
                           color: '#15181f',
                           fontWeight: 800,
                           textTransform: 'none',
@@ -380,7 +404,10 @@ const Campanha = () => {
                           fontSize: '0.78rem',
                           border: '1px solid rgba(255,255,255,0.14)',
                           boxShadow: '0 10px 18px rgba(193, 92, 58, 0.14)',
-                          '&:hover': { background: 'linear-gradient(135deg, #f7cb80, #e36d4e)' },
+                          '&:hover': {
+                            background:
+                              'linear-gradient(135deg, #f7cb80, #e36d4e)',
+                          },
                         }}
                       >
                         Ver Cenas →
@@ -393,6 +420,22 @@ const Campanha = () => {
           })}
         </Box>
       )}
+
+      <ConfirmDialog
+        open={Boolean(campanhaExcluindo)}
+        titulo={`Excluir a campanha "${campanhaExcluindo?.nome ?? ''}"?`}
+        mensagem="Não tem volta. A campanha some para você e para os jogadores."
+        consequencias={[
+          'Cenas do grid (tokens, névoa, paredes, marcadores, desenhos, combate)',
+          'Chat: mensagens, rolagens secretas e macros',
+          'Música da mesa',
+          'Clones de NPCs e criaturas, jogadores vinculados e participantes da Luta',
+        ]}
+        exigirDigitar={campanhaExcluindo?.nome || 'excluir'}
+        confirmarTexto="Excluir campanha"
+        onConfirmar={handleRemove}
+        onCancelar={() => setCampanhaExcluindo(null)}
+      />
     </Box>
   );
 };

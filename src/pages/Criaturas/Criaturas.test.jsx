@@ -183,6 +183,8 @@ describe('Criaturas (personagens do Universo vinculados à campanha ativa)', () 
     await user.click(
       screen.getByLabelText('Remover clone de Fera das Sombras'),
     );
+    // Confirmação antes de apagar.
+    await user.click(await screen.findByRole('button', { name: 'Excluir' }));
 
     await waitFor(() =>
       expect(removeRmCampanhaCriatura).toHaveBeenCalledWith('c1', 'clone1'),
