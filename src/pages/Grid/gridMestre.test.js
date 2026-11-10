@@ -1,7 +1,25 @@
 import { describe, it, expect } from 'vitest';
 import { ACOES_CAMADA } from 'common/utils/gridCamadas';
 import {
+  ACOES_ATALHO,
   FERRAMENTAS,
+  acaoDoAtalho,
+  DESFAZER_CAMADAS_MAX,
+  DURACAO_CONDICAO_MAX,
+  celulasParaRevelarEmVolta,
+  dadosDoSnapshot,
+  edicaoMudaCamada,
+  empilharDesfazer,
+  snapshotDaCamada,
+  alvoEhDigitacao,
+  duracaoComCondicao,
+  patchDeCondicoesDoToken,
+  patchesDeExpiracaoDeCondicoes,
+  rodadaFimDaDuracao,
+  chaveDasFichasDoGrupo,
+  linhasDoGrupo,
+  haDialogoAberto,
+  ocultoAlvoDosTokens,
   OPCOES_ACAO,
   OPCOES_FERRAMENTA,
   OPCOES_FORMA,
@@ -518,5 +536,351 @@ describe('inserirVariosNoCombate / removerVariosDoCombate', () => {
       encerrar: true,
     });
     expect(removerVariosDoCombate(COMBATE, ['z'], [])).toBeNull();
+  });
+});
+
+describe('acaoDoAtalho', () => {
+  const tecla = (key, extra = {}) => acaoDoAtalho({ key, ...extra });
+
+  it('N avança e Shift+N volta o turno', () => {
+    expect(tecla('n')).toEqual({ acao: ACOES_ATALHO.PROXIMO_TURNO });
+    expect(tecla('N', { shiftKey: true })).toEqual({
+      acao: ACOES_ATALHO.TURNO_ANTERIOR,
+    });
+  });
+
+  it('H, Delete e as ferramentas V/W/F/M', () => {
+    expect(tecla('h')).toEqual({ acao: ACOES_ATALHO.OCULTAR });
+    expect(tecla('Delete')).toEqual({ acao: ACOES_ATALHO.EXCLUIR });
+    expect(tecla('v')).toEqual({
+      acao: ACOES_ATALHO.FERRAMENTA,
+      ferramenta: FERRAMENTAS.MOVER,
+    });
+    expect(tecla('W').ferramenta).toBe(FERRAMENTAS.PAREDES);
+    expect(tecla('f').ferramenta).toBe(FERRAMENTAS.NEVOA);
+    expect(tecla('m').ferramenta).toBe(FERRAMENTAS.MARCADORES);
+  });
+
+  it('Ctrl+Z (ou ⌘+Z) desfaz; Ctrl+Shift+Z não', () => {
+    expect(tecla('z', { ctrlKey: true })).toEqual({
+      acao: ACOES_ATALHO.DESFAZER,
+    });
+    expect(tecla('z', { metaKey: true })).toEqual({
+      acao: ACOES_ATALHO.DESFAZER,
+    });
+    expect(tecla('z', { ctrlKey: true, shiftKey: true })).toBeNull();
+    expect(tecla('z')).toBeNull();
+  });
+
+  it('"?" abre a ajuda', () => {
+    expect(tecla('?', { shiftKey: true })).toEqual({
+      acao: ACOES_ATALHO.AJUDA,
+    });
+  });
+
+  it('ignora modificadores nas demais teclas, repetição e teclas soltas', () => {
+    expect(tecla('n', { ctrlKey: true })).toBeNull();
+    expect(tecla('h', { altKey: true })).toBeNull();
+    expect(tecla('h', { shiftKey: true })).toBeNull();
+    expect(tecla('w', { metaKey: true })).toBeNull();
+    expect(tecla('n', { repeat: true })).toBeNull();
+    expect(tecla('x')).toBeNull();
+    expect(tecla('Enter')).toBeNull();
+    expect(acaoDoAtalho()).toBeNull();
+  });
+});
+
+describe('alvoEhDigitacao e haDialogoAberto', () => {
+  it('campos de texto, select e contentEditable são digitação', () => {
+    expect(alvoEhDigitacao(document.createElement('input'))).toBe(true);
+    expect(alvoEhDigitacao(document.createElement('textarea'))).toBe(true);
+    expect(alvoEhDigitacao(document.createElement('select'))).toBe(true);
+    const combo = document.createElement('div');
+    combo.setAttribute('role', 'combobox');
+    expect(alvoEhDigitacao(combo)).toBe(true);
+    expect(alvoEhDigitacao(document.createElement('button'))).toBe(false);
+    expect(alvoEhDigitacao(null)).toBe(false);
+    expect(alvoEhDigitacao(window)).toBe(false);
+  });
+
+  it('role="dialog" bloqueia, mas o cartão do marcador não', () => {
+    const cartao = document.createElement('div');
+    cartao.setAttribute('role', 'dialog');
+    cartao.setAttribute('data-marcador-cartao', '');
+    document.body.appendChild(cartao);
+    expect(haDialogoAberto()).toBe(false);
+    const dialogo = document.createElement('div');
+    dialogo.setAttribute('role', 'dialog');
+    document.body.appendChild(dialogo);
+    expect(haDialogoAberto()).toBe(true);
+    cartao.remove();
+    dialogo.remove();
+    expect(haDialogoAberto()).toBe(false);
+  });
+});
+
+describe('ocultoAlvoDosTokens', () => {
+  it('oculta, a menos que todos já estejam ocultos', () => {
+    expect(ocultoAlvoDosTokens([{ oculto: false }])).toBe(true);
+    expect(ocultoAlvoDosTokens([{ oculto: true }, { oculto: false }])).toBe(
+      true,
+    );
+    expect(ocultoAlvoDosTokens([{ oculto: true }, { oculto: true }])).toBe(
+      false,
+    );
+    expect(ocultoAlvoDosTokens([])).toBe(true);
+  });
+});
+
+describe('linhasDoGrupo', () => {
+  const JOGADORES = [
+    { refId: 'p2', uid: 'u2', label: 'Brina', avatar: 'https://ex.com/b.png' },
+    { refId: 'p1', uid: 'u1', label: 'Aldric', avatar: null },
+  ];
+  const FICHA = {
+    status: { hp: { atual: 4, maximo: 10 } },
+    condicoesAtivas: [
+      { condicaoId: 'c1', stack: 3 },
+      { condicaoId: 'fora-do-catalogo', stack: 1 },
+    ],
+    prontidaoAtual: 2,
+    prontidaoMaximaEfetiva: 5,
+  };
+  const CATALOGO = new Map([['c1', { id: 'c1', nome: 'Sangrando' }]]);
+
+  it('uma linha por jogável, em ordem alfabética, com o token da cena', () => {
+    const token = { id: 't9', tipo: 'jogador', refId: 'p1' };
+    const linhas = linhasDoGrupo(JOGADORES, {
+      fichas: { p1: FICHA },
+      tokens: [{ id: 'x', tipo: 'npc', refId: 'p1' }, token],
+      catalogoPorId: CATALOGO,
+    });
+    expect(linhas.map(l => l.nome)).toEqual(['Aldric', 'Brina']);
+    const [aldric, brina] = linhas;
+    expect(aldric.token).toBe(token);
+    expect(aldric.recursos.pv).toEqual({ atual: 4, max: 10 });
+    expect(aldric.pp).toEqual({ atual: 2, max: 5 });
+    expect(aldric.condicoes).toEqual([
+      { id: 'c1', nome: 'Sangrando', icone: null, stack: 3 },
+    ]);
+    expect(aldric.semFicha).toBe(false);
+    // Sem ficha ao vivo e sem token na cena: linha vazia.
+    expect(brina).toMatchObject({
+      semFicha: true,
+      recursos: null,
+      pp: null,
+      condicoes: [],
+      token: null,
+      avatar: 'https://ex.com/b.png',
+    });
+  });
+});
+
+describe('chaveDasFichasDoGrupo', () => {
+  it('ids únicos e ordenados, sem vazios', () => {
+    expect(
+      chaveDasFichasDoGrupo([
+        { refId: 'b' },
+        { refId: 'a' },
+        { refId: 'b' },
+        { refId: null },
+      ]),
+    ).toBe('a|b');
+    expect(chaveDasFichasDoGrupo([])).toBe('');
+  });
+});
+
+describe('duração das condições (condicoesDuracao)', () => {
+  const NPC = {
+    id: 'n1',
+    nome: 'Goblin',
+    tipo: 'npc',
+    condicoes: ['a', 'b', 'c'],
+    condicoesDuracao: { a: 2, b: 5 },
+  };
+
+  it('rodadaFimDaDuracao: R + N − 1, sem combate a partir da rodada 1', () => {
+    expect(rodadaFimDaDuracao('3', 4)).toBe(6);
+    expect(rodadaFimDaDuracao(1, 4)).toBe(4);
+    expect(rodadaFimDaDuracao('3')).toBe(3);
+    expect(rodadaFimDaDuracao('3', null)).toBe(3);
+    expect(rodadaFimDaDuracao('', 2)).toBeNull();
+    expect(rodadaFimDaDuracao('0', 2)).toBeNull();
+    expect(rodadaFimDaDuracao('abc', 2)).toBeNull();
+    expect(rodadaFimDaDuracao('500', 1)).toBe(DURACAO_CONDICAO_MAX);
+  });
+
+  it('duracaoComCondicao põe, troca e tira a chave (vazio = sem prazo)', () => {
+    expect(duracaoComCondicao(NPC, 'c', '2', 3)).toEqual({ a: 2, b: 5, c: 4 });
+    expect(duracaoComCondicao(NPC, 'a', '1', 3)).toEqual({ a: 3, b: 5 });
+    expect(duracaoComCondicao(NPC, 'a', '', 3)).toEqual({ b: 5 });
+    // Não muda o token.
+    expect(NPC.condicoesDuracao).toEqual({ a: 2, b: 5 });
+  });
+
+  it('patchDeCondicoesDoToken tira a duração de quem saiu', () => {
+    expect(patchDeCondicoesDoToken(NPC, ['a', 'c'])).toEqual({
+      condicoes: ['a', 'c'],
+      condicoesDuracao: { a: 2 },
+    });
+    // Sem duração afetada, o campo nem entra no patch.
+    expect(patchDeCondicoesDoToken(NPC, ['a', 'b'])).toEqual({
+      condicoes: ['a', 'b'],
+    });
+    expect(
+      patchDeCondicoesDoToken({ ...NPC, condicoesDuracao: undefined }, ['x']),
+    ).toEqual({ condicoes: ['x'] });
+  });
+
+  it('patchesDeExpiracaoDeCondicoes: vence quando a rodada passa do fim', () => {
+    const jogador = { id: 'j', tipo: 'jogador', condicoesDuracao: { a: 1 } };
+    // Rodada 2: "a" (fim 2) ainda vale.
+    expect(patchesDeExpiracaoDeCondicoes([NPC, jogador], 2)).toEqual({
+      patches: [],
+      expiradas: [],
+    });
+    // Rodada 3: "a" venceu; "b" (fim 5) e "c" (sem prazo) ficam.
+    expect(patchesDeExpiracaoDeCondicoes([NPC, jogador], 3)).toEqual({
+      patches: [
+        {
+          id: 'n1',
+          patch: { condicoes: ['b', 'c'], condicoesDuracao: { b: 5 } },
+        },
+      ],
+      expiradas: [{ tokenId: 'n1', nome: 'Goblin', ids: ['a'] }],
+    });
+    // Rodada 6: as duas com prazo venceram.
+    const { patches } = patchesDeExpiracaoDeCondicoes([NPC], 6);
+    expect(patches[0].patch).toEqual({
+      condicoes: ['c'],
+      condicoesDuracao: {},
+    });
+    // Sem combate (rodada nula) nada vence; idempotente depois de gravar.
+    expect(patchesDeExpiracaoDeCondicoes([NPC], null).patches).toEqual([]);
+    expect(
+      patchesDeExpiracaoDeCondicoes([{ ...NPC, ...patches[0].patch }], 6)
+        .patches,
+    ).toEqual([]);
+  });
+
+  it('remover uma condição em lote leva a duração junto', () => {
+    const { patches } = patchesDeCondicaoEmLote([NPC], 'a', false);
+    expect(patches).toEqual([
+      {
+        id: 'n1',
+        patch: { condicoes: ['b', 'c'], condicoesDuracao: { b: 5 } },
+      },
+    ]);
+  });
+});
+
+describe('desfazer das camadas e revelar em volta (puro)', () => {
+  const camadas = {
+    bloqueadas: new Set(['1,1', '2,1']),
+    nevoa: { ativa: true, reveladas: new Set(['0,0']) },
+  };
+
+  it('snapshotDaCamada copia o conjunto da camada pedida', () => {
+    const paredes = snapshotDaCamada('paredes', camadas);
+    expect(paredes).toEqual({ camada: 'paredes', celulas: camadas.bloqueadas });
+    expect(paredes.celulas).not.toBe(camadas.bloqueadas);
+    expect([...snapshotDaCamada('nevoa', camadas).celulas]).toEqual(['0,0']);
+    expect(snapshotDaCamada('nevoa', null).celulas.size).toBe(0);
+  });
+
+  it('empilharDesfazer guarda só as últimas 20', () => {
+    let pilha = [];
+    for (let i = 1; i <= 25; i += 1) {
+      pilha = empilharDesfazer(pilha, { id: i });
+    }
+    expect(pilha).toHaveLength(DESFAZER_CAMADAS_MAX);
+    expect(pilha[0].id).toBe(6);
+    expect(pilha[19].id).toBe(25);
+    expect(empilharDesfazer([{ id: 1 }, { id: 2 }], { id: 3 }, 2)).toEqual([
+      { id: 2 },
+      { id: 3 },
+    ]);
+  });
+
+  it('dadosDoSnapshot: paredes só com trechos; névoa mantém o "ativa" de agora', () => {
+    const entrada = snapshotDaCamada('paredes', camadas);
+    expect(dadosDoSnapshot(entrada, camadas)).toEqual({ trechos: '1:1-2' });
+    const nevoa = { camada: 'nevoa', celulas: new Set(['3,2']) };
+    expect(dadosDoSnapshot(nevoa, camadas)).toEqual({
+      ativa: true,
+      trechos: '2:3',
+    });
+    expect(
+      dadosDoSnapshot(nevoa, { nevoa: { ativa: false, reveladas: new Set() } }),
+    ).toEqual({ ativa: false, trechos: '2:3' });
+  });
+
+  it('edicaoMudaCamada ignora o que já está assim e o que cai fora do mundo', () => {
+    const atuais = new Set(['0,0', '1,0']);
+    const limites = { colunas: 5, linhas: 5 };
+    expect(
+      edicaoMudaCamada(atuais, 'adicionar', [{ col: 0, lin: 0 }], limites),
+    ).toBe(false);
+    expect(
+      edicaoMudaCamada(atuais, 'remover', [{ col: 4, lin: 4 }], limites),
+    ).toBe(false);
+    expect(
+      edicaoMudaCamada(atuais, 'adicionar', [{ col: 9, lin: 9 }], limites),
+    ).toBe(false);
+    expect(
+      edicaoMudaCamada(atuais, 'adicionar', [{ col: 2, lin: 0 }], limites),
+    ).toBe(true);
+    expect(
+      edicaoMudaCamada(atuais, 'remover', [{ col: 1, lin: 0 }], limites),
+    ).toBe(true);
+  });
+
+  it('celulasParaRevelarEmVolta: quadrados do raio em metros, recortado pelo mapa', () => {
+    const limites = { colunas: 30, linhas: 20 };
+    // 3 m ÷ 1,5 m = 2 quadrados: 5×5 em volta de (5,5).
+    const celulas = celulasParaRevelarEmVolta(
+      [{ col: 5, lin: 5, tamanho: 1 }],
+      3,
+      1.5,
+      limites,
+    );
+    expect(celulas).toHaveLength(25);
+    expect(celulas[0]).toEqual({ col: 3, lin: 3 });
+    expect(celulas[24]).toEqual({ col: 7, lin: 7 });
+    // No canto do mapa o raio é recortado.
+    expect(
+      celulasParaRevelarEmVolta([{ col: 0, lin: 0 }], 1.5, 1.5, limites),
+    ).toEqual([
+      { col: 0, lin: 0 },
+      { col: 1, lin: 0 },
+      { col: 0, lin: 1 },
+      { col: 1, lin: 1 },
+    ]);
+  });
+
+  it('celulasParaRevelarEmVolta: token grande conta a partir da borda; vários se unem', () => {
+    const limites = { colunas: 30, linhas: 20 };
+    // 2×2 em (5,5), 1 quadrado de raio: de 4 a 7 nas duas direções.
+    expect(
+      celulasParaRevelarEmVolta(
+        [{ col: 5, lin: 5, tamanho: 2 }],
+        1.5,
+        1.5,
+        limites,
+      ),
+    ).toHaveLength(16);
+    // Dois tokens vizinhos não repetem células.
+    expect(
+      celulasParaRevelarEmVolta(
+        [
+          { col: 5, lin: 5 },
+          { col: 6, lin: 5 },
+        ],
+        1.5,
+        1.5,
+        limites,
+      ),
+    ).toHaveLength(12);
+    expect(celulasParaRevelarEmVolta([], 6, 1.5, limites)).toEqual([]);
   });
 });

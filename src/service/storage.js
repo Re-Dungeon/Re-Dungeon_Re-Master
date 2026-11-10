@@ -23,6 +23,10 @@ import {
 } from '../pages/CardFlux/exploracaoGrid';
 import { normalizeEntityTypeName } from '../pages/Notas/notaUtils';
 import { extrairVideoYoutube } from 'common/utils/audioMesa';
+import {
+  CHAT_JANELA_MENSAGENS,
+  CHAT_PAGINA_ANTERIORES,
+} from 'common/utils/chat';
 import { db } from './firebase';
 
 // ── Helpers genéricos de CRUD Firestore ─────────────────────────────────────
@@ -862,7 +866,7 @@ export const addRmSessaoLog = log =>
 // docs NÃO denormalizam universoId/mestreId: a regra lê `mestreId` do doc pai
 // (e o personagem do jogador) via get() — ver o bloco do chat em
 // firestore.rules. O mestre não precisa de doc em `chatMembros` (só jogadores).
-export const CHAT_LIMITE_MENSAGENS = 100;
+export const CHAT_LIMITE_MENSAGENS = CHAT_JANELA_MENSAGENS;
 
 // Primeiro listener em tempo real do projeto: devolve o `unsubscribe` do
 // `onSnapshot` — chame-o no cleanup do `useEffect`. Mensagens em ordem
@@ -884,6 +888,33 @@ export const subscribeChatMensagens = (campanhaId, onChange, onError) => {
     },
     onError,
   );
+};
+
+// Página de mensagens ANTERIORES à janela ao vivo ("Carregar anteriores"):
+// leitura única (getDocs) das até `limite` mensagens com `createdAt` anterior a
+// `antesDe` (o `createdAt` da mensagem mais antiga que a tela já tem), devolvidas
+// em ordem cronológica (mais antiga primeiro). A regra de leitura é por
+// documento, então a consulta não precisa de regra nova. Mensagens com o mesmo
+// `createdAt` exato da referência ficam de fora (empate raro; a tela deduplica
+// por id).
+export const getChatMensagensAntes = async (
+  campanhaId,
+  antesDe,
+  limite = CHAT_PAGINA_ANTERIORES,
+) => {
+  const anterioresQuery = query(
+    collection(db, RM_CAMPANHAS_COLLECTION, campanhaId, 'chatMensagens'),
+    where('createdAt', '<', antesDe),
+    orderBy('createdAt', 'desc'),
+    limit(limite),
+  );
+  const snapshot = await getDocs(anterioresQuery);
+  return snapshot.docs
+    .map(docSnapshot => ({
+      id: docSnapshot.id,
+      ...docSnapshot.data({ serverTimestamps: 'estimate' }),
+    }))
+    .reverse();
 };
 
 export const addChatMensagem = (campanhaId, mensagem) =>
@@ -1597,11 +1628,9 @@ const refsDaColecao = async caminho =>
 // Coleções `rm*` top-level ligadas por `campanhaId` (cenas narrativas,
 // missões, notas…) não são tocadas.
 export const removeRmCampanhaCompleta = async (campanhaId, mestreId) => {
+  // 1) Lê tudo antes de apagar qualquer coisa: se uma leitura for recusada,
+  //    a campanha fica intacta (antes, as cenas já tinham sumido).
   const cenas = await getDocs(gridCenasRef(campanhaId));
-  for (const cena of cenas.docs) {
-    await removeGridCena(campanhaId, cena.id);
-  }
-
   const membros = await getDocs(
     collection(db, RM_CAMPANHAS_COLLECTION, campanhaId, 'chatMembros'),
   );
@@ -1616,20 +1645,37 @@ export const removeRmCampanhaCompleta = async (campanhaId, mestreId) => {
       ),
     ),
   );
-
   const subcolecoes = await Promise.all(
     ['chatMensagens', 'macros', 'grid', 'audio'].map(nome =>
       refsDaColecao([RM_CAMPANHAS_COLLECTION, campanhaId, nome]),
     ),
   );
+  // Clones/jogadores/participantes: as regras só deixam o mestre LISTAR com
+  // o filtro `mestreId` (resource.data.mestreId == uid) — sem ele a consulta
+  // inteira é recusada, mesmo vazia.
   const clones = await Promise.all(
     [
       npcsSubcollectionPath,
       jogadoresSubcollectionPath,
       criaturasSubcollectionPath,
       lutaParticipantesSubcollectionPath,
-    ].map(caminho => refsDaColecao(caminho(campanhaId))),
+    ].map(async caminho =>
+      (
+        await getDocs(
+          query(
+            collection(db, ...caminho(campanhaId)),
+            where('mestreId', '==', mestreId),
+          ),
+        )
+      ).docs.map(item => item.ref),
+    ),
   );
+
+  // 2) Apaga: cenas do grid (com tudo dentro), o resto em lotes, ponteiros
+  //    do chat (best-effort) e por fim o documento da campanha.
+  for (const cena of cenas.docs) {
+    await removeGridCena(campanhaId, cena.id);
+  }
   await apagarEmLotes([
     ...secretas.flat(),
     ...subcolecoes.flat(),

@@ -121,6 +121,27 @@ describe('Npcs (personagens do Universo vinculados à campanha ativa)', () => {
     expect(screen.queryByText('De outro universo')).not.toBeInTheDocument();
   });
 
+  it('busca por nome ignorando acento e caixa, com aviso quando nada casa', async () => {
+    const user = userEvent.setup();
+    renderNpcs();
+    await screen.findByText('Grumnak, o Orc');
+
+    const campo = screen.getByLabelText('Buscar por nome');
+    await user.type(campo, 'SACERDOTISA');
+    expect(screen.queryByText('Grumnak, o Orc')).not.toBeInTheDocument();
+    expect(screen.getByText('Sacerdotisa Lyra')).toBeInTheDocument();
+
+    await user.clear(campo);
+    await user.type(campo, 'zzz');
+    expect(
+      screen.getByText('Nenhum NPC encontrado para a busca'),
+    ).toBeInTheDocument();
+
+    await user.clear(campo);
+    expect(screen.getByText('Grumnak, o Orc')).toBeInTheDocument();
+    expect(screen.getByText('Sacerdotisa Lyra')).toBeInTheDocument();
+  });
+
   it('mostra o estado vazio quando não há NPCs vinculados', async () => {
     getPersonagens.mockResolvedValue([]);
     renderNpcs();

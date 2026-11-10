@@ -4,6 +4,7 @@ import { useAudioDoChat } from 'context/AudioMesaContext';
 import {
   addChatMensagem,
   addChatRolagemSecreta,
+  getChatMensagensAntes,
   removeChatMensagem,
   removeChatRolagemSecreta,
   subscribeChatMensagens,
@@ -11,6 +12,9 @@ import {
   subscribeChatSecretasDoUsuario,
 } from 'service/storage';
 import {
+  CHAT_JANELA_MENSAGENS,
+  CHAT_PAGINA_ANTERIORES,
+  mesclarComAntigas,
   mesclarMensagens,
   montarMensagemImagem,
   montarMensagemMacro,
@@ -34,8 +38,15 @@ import useMembroDoChat from 'hooks/useMembroDoChat';
 // usando é o mestre (mesmo falando como personagem) — vê/gerencia todas as
 // macros. Também executa macros Lua (common/lua/) e publica o que geraram,
 // e liga a música da mesa (`audio`, hooks/useAudioMesa.js — quem usa monta
-// <PlayerAudioMesa {...audio.player} />).
+// <PlayerAudioMesa {...audio.player} />). A janela ao vivo guarda só as últimas
+// CHAT_JANELA_MENSAGENS; `carregarAnteriores()` busca páginas mais antigas
+// (getChatMensagensAntes), que ficam guardadas por campanha e são mescladas à
+// janela por id — uma mensagem que sai da janela ao vivo continua na tela se já
+// tinha sido carregada. `temMaisAntigas`/`carregandoAntigas` guiam o botão.
+// `carregarAnteriores()` resolve `true` se buscou (com ou sem erro) e `false`
+// se não havia o que buscar.
 const SEM_MENSAGENS = [];
+const SEM_ANTIGAS = { mensagens: SEM_MENSAGENS, acabou: false, carregando: false };
 
 // Id de cada pergunta de macro (key do diálogo — duas perguntas iguais
 // seguidas ainda recomeçam do padrão).
@@ -52,6 +63,10 @@ const useChatCampanha = (campanhaId, autor, { ehMestreDaCampanha = false } = {})
   const [secretasRecebidas, setSecretasRecebidas] = useState({
     campanhaId: null,
     mensagens: [],
+  });
+  const [antigasEstado, setAntigasEstado] = useState({
+    campanhaId: null,
+    ...SEM_ANTIGAS,
   });
   const [erro, setErro] = useState(null);
   // Pergunta pendente da macro em execução (inputQuery/choose):
@@ -109,6 +124,47 @@ const useChatCampanha = (campanhaId, autor, { ehMestreDaCampanha = false } = {})
       ? subscribeChatSecretasDoMestre(campanhaId, uid, aoMudar, aoErrar)
       : subscribeChatSecretasDoUsuario(campanhaId, uid, aoMudar, aoErrar);
   }, [campanhaId, podeOuvir, isMestre, uid]);
+
+  const antigas = antigasEstado.campanhaId === campanhaId ? antigasEstado : SEM_ANTIGAS;
+  const publicasAoVivo =
+    recebido.campanhaId === campanhaId ? recebido.mensagens : SEM_MENSAGENS;
+
+  const carregarAnteriores = useCallback(async () => {
+    if (!podeOuvir || antigas.carregando || antigas.acabou) return false;
+    // Referência = a mensagem pública mais antiga que a tela já tem (as sem
+    // horário ainda são pendentes de envio).
+    const referencia = mesclarComAntigas(publicasAoVivo, antigas.mensagens).find(
+      mensagem => mensagem.createdAt,
+    )?.createdAt;
+    if (!referencia) return false;
+    setAntigasEstado({ campanhaId, ...antigas, carregando: true });
+    try {
+      const lote = await getChatMensagensAntes(
+        campanhaId,
+        referencia,
+        CHAT_PAGINA_ANTERIORES,
+      );
+      setAntigasEstado(atual => {
+        // Trocou de campanha no meio da busca: descarta.
+        if (atual.campanhaId !== campanhaId) return atual;
+        const ids = new Set(atual.mensagens.map(mensagem => mensagem.id));
+        return {
+          campanhaId,
+          mensagens: [...lote.filter(mensagem => !ids.has(mensagem.id)), ...atual.mensagens],
+          acabou: lote.length < CHAT_PAGINA_ANTERIORES,
+          carregando: false,
+        };
+      });
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('Falha ao carregar mensagens anteriores:', error);
+      setErro('Não foi possível carregar as mensagens anteriores.');
+      setAntigasEstado(atual =>
+        atual.campanhaId === campanhaId ? { ...atual, carregando: false } : atual,
+      );
+    }
+    return true;
+  }, [campanhaId, podeOuvir, antigas, publicasAoVivo]);
 
   const enviar = useCallback(
     async mensagem => {
@@ -278,9 +334,18 @@ const useChatCampanha = (campanhaId, autor, { ehMestreDaCampanha = false } = {})
       ? secretasRecebidas.mensagens
       : SEM_MENSAGENS;
   const mensagens = useMemo(
-    () => (carregando ? [] : mesclarMensagens(recebido.mensagens, secretas)),
-    [carregando, recebido.mensagens, secretas],
+    () =>
+      carregando
+        ? []
+        : mesclarMensagens(mesclarComAntigas(recebido.mensagens, antigas.mensagens), secretas),
+    [carregando, recebido.mensagens, antigas.mensagens, secretas],
   );
+  // Só há o que carregar se a janela ao vivo está cheia (ou se já veio uma
+  // página antiga) e a última busca não voltou incompleta.
+  const temMaisAntigas =
+    !carregando &&
+    !antigas.acabou &&
+    (publicasAoVivo.length >= CHAT_JANELA_MENSAGENS || antigas.mensagens.length > 0);
 
   return {
     mensagens,
@@ -293,6 +358,9 @@ const useChatCampanha = (campanhaId, autor, { ehMestreDaCampanha = false } = {})
     enviarImagem,
     rolar,
     apagar,
+    carregarAnteriores,
+    temMaisAntigas,
+    carregandoAntigas: antigas.carregando,
   };
 };
 

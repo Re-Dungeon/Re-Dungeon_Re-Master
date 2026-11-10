@@ -9,6 +9,8 @@ import Switch from '@mui/material/Switch';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import CloseIcon from '@mui/icons-material/Close';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import { isUrlImagemValida } from 'common/utils/chat';
 import {
   ROTULOS_TIPO_TOKEN,
@@ -18,7 +20,7 @@ import {
 } from 'common/utils/grid';
 import { OPCOES_TAMANHO_TOKEN, opcoesDeDonos } from './gridMestre';
 import TokenCombate from './TokenCombate';
-import { painelAbaixoDaFaixaSx, painelCabecalhoSx, painelSx } from './styles';
+import { painelCabecalhoSx, painelLadoSx } from './styles';
 
 /**
  * Edição do token selecionado no Grid: nome/imagem (cópias feitas na
@@ -39,6 +41,7 @@ const TokenPainel = ({
   onDuplicar,
   onFechar,
   onRolar,
+  rodada = null,
   abaixoDaFaixa = false,
 }) => {
   const [valores, setValores] = useState({
@@ -46,9 +49,17 @@ const TokenPainel = ({
     imagemUrl: token.imagemUrl ?? '',
     tamanho: token.tamanho ?? 1,
     donos: token.donos ?? [],
-    oculto: Boolean(token.oculto),
   });
+  // "Oculto" do interruptor, ainda não salvo: { valor, base } vale enquanto o
+  // token continua como estava (`base`) — se ele muda por fora (olho, tecla
+  // H, ação em lote), vale o do token.
+  const [ocultoEditado, setOcultoEditado] = useState(null);
   const [salvando, setSalvando] = useState(false);
+  const ocultoDoToken = Boolean(token.oculto);
+  const oculto =
+    ocultoEditado && ocultoEditado.base === ocultoDoToken
+      ? ocultoEditado.valor
+      : ocultoDoToken;
 
   const opcoesDonos = useMemo(
     () => opcoesDeDonos(jogadores, token.donos ?? []),
@@ -58,7 +69,7 @@ const TokenPainel = ({
     opcoesDonos.find(opcao => opcao.uid === uid)?.label ?? uid;
 
   const imagemDigitada = valores.imagemUrl.trim();
-  const normalizado = montarToken({ ...token, ...valores });
+  const normalizado = montarToken({ ...token, ...valores, oculto });
   const erro =
     imagemDigitada && !isUrlImagemValida(imagemDigitada)
       ? 'Informe um link https:// de imagem válido (ou deixe em branco).'
@@ -83,13 +94,15 @@ const TokenPainel = ({
     }
   };
 
+  // Olho: oculta/revela na hora (sem passar por "Salvar token").
+  const handleAlternarOculto = () => {
+    setOcultoEditado(null);
+    onAlterar({ oculto: !oculto });
+  };
+
   return (
     <Box
-      sx={{
-        ...painelSx,
-        left: 12,
-        ...(abaixoDaFaixa ? painelAbaixoDaFaixaSx : {}),
-      }}
+      sx={painelLadoSx('left', abaixoDaFaixa)}
       role="region"
       aria-label="Token selecionado"
     >
@@ -108,6 +121,25 @@ const TokenPainel = ({
             Rolar…
           </Button>
         )}
+        <IconButton
+          size="small"
+          aria-label={
+            oculto ? 'Revelar aos jogadores' : 'Ocultar dos jogadores'
+          }
+          aria-pressed={oculto}
+          title={
+            oculto
+              ? 'Oculto para os jogadores (H) — clique para revelar'
+              : 'Visível para os jogadores (H) — clique para ocultar'
+          }
+          onClick={handleAlternarOculto}
+        >
+          {oculto ? (
+            <VisibilityOffIcon fontSize="small" />
+          ) : (
+            <VisibilityIcon fontSize="small" />
+          )}
+        </IconButton>
         <IconButton size="small" aria-label="Fechar token" onClick={onFechar}>
           <CloseIcon fontSize="small" />
         </IconButton>
@@ -118,6 +150,7 @@ const TokenPainel = ({
         condicoes={condicoes}
         detalhe={detalhe}
         onAlterar={onAlterar}
+        rodada={rodada}
       />
 
       <TextField
@@ -178,9 +211,12 @@ const TokenPainel = ({
       <FormControlLabel
         control={
           <Switch
-            checked={valores.oculto}
+            checked={oculto}
             onChange={event =>
-              setValores(atual => ({ ...atual, oculto: event.target.checked }))
+              setOcultoEditado({
+                valor: event.target.checked,
+                base: ocultoDoToken,
+              })
             }
           />
         }
@@ -238,6 +274,7 @@ TokenPainel.propTypes = {
     }),
     mostrarRecursos: PropTypes.string,
     condicoes: PropTypes.arrayOf(PropTypes.string),
+    condicoesDuracao: PropTypes.object,
     aura: PropTypes.shape({ raio: PropTypes.number, cor: PropTypes.string }),
     deslocamento: PropTypes.number,
   }).isRequired,
@@ -260,6 +297,8 @@ TokenPainel.propTypes = {
   onDuplicar: PropTypes.func,
   onFechar: PropTypes.func.isRequired,
   onRolar: PropTypes.func,
+  // Rodada atual do combate da cena (null = sem combate): duração das condições.
+  rodada: PropTypes.number,
   // Combate em andamento: a faixa de iniciativa ocupa o topo do mapa.
   abaixoDaFaixa: PropTypes.bool,
 };

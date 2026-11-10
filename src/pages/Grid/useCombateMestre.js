@@ -9,6 +9,10 @@ import {
   rolarIniciativa,
 } from 'common/utils/gridCombate';
 import {
+  TIPO_EVENTO_SESSAO,
+  registrarEventoSessao,
+} from 'common/utils/sessaoLog';
+import {
   alterarGridCombate,
   encerrarGridCombate,
   iniciarGridCombate,
@@ -30,7 +34,17 @@ const useCombateMestre = ({
   autor,
   tentar,
   notifySuccess,
+  campanha = null,
+  cenaNome = '',
 }) => {
+  // Registro automático da sessão (best-effort: nunca interrompe a ação).
+  const registrar = useCallback(
+    (tipo, mensagem) => {
+      if (campanha) registrarEventoSessao(campanha, tipo, mensagem);
+    },
+    [campanha],
+  );
+
   const iniciar = useCallback(
     async participantes => {
       if (!cenaId || participantes.length === 0) return false;
@@ -46,9 +60,15 @@ const useCombateMestre = ({
           ).then(() => true),
         'Não foi possível iniciar o combate.',
       );
+      if (ok) {
+        registrar(
+          TIPO_EVENTO_SESSAO.COMBATE_INICIADO,
+          `Combate iniciado em "${cenaNome}" com ${participantes.length} participantes.`,
+        );
+      }
       return Boolean(ok);
     },
-    [autor, campanhaId, cenaId, tentar, tokens],
+    [autor, campanhaId, cenaId, cenaNome, registrar, tentar, tokens],
   );
 
   const encerrar = useCallback(
@@ -66,9 +86,15 @@ const useCombateMestre = ({
           ).then(() => true),
         'Não foi possível encerrar o combate.',
       );
+      if (ok) {
+        registrar(
+          TIPO_EVENTO_SESSAO.COMBATE_ENCERRADO,
+          `Combate encerrado em "${cenaNome}" na rodada ${combate.rodada}.`,
+        );
+      }
       return Boolean(ok);
     },
-    [autor, campanhaId, cenaId, combate, tentar],
+    [autor, campanhaId, cenaId, cenaNome, combate, registrar, tentar],
   );
 
   // Escreve o patch calculado sobre o estado do SERVIDOR (transação).

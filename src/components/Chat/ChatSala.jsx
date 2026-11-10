@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import PropTypes from 'prop-types';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -53,8 +53,10 @@ import {
   ComposerAcoes,
   ComposerEntrada,
   ComposerWrapper,
+  ListaArea,
   ListaMensagens,
   ListaVazia,
+  NovasMensagensPilula,
 } from './styles';
 
 // Distância (px) do fim da lista dentro da qual consideramos que o usuário
@@ -79,6 +81,9 @@ const ChatSala = ({
   compactHeader = false,
   opcoesCombate = [],
   chaveHistorico,
+  onCarregarAnteriores = null,
+  temMaisAnteriores = false,
+  carregandoAnteriores = false,
 }) => {
   // Celular (abaixo do `sm`): placeholder curto, que caiba no campo.
   const celular = useMediaQuery('(max-width: 599.95px)');
@@ -94,6 +99,16 @@ const ChatSala = ({
   const [erroComando, setErroComando] = useState(null);
   const listaRef = useRef(null);
   const acompanhandoRef = useRef(true);
+  // Mensagens que chegaram no fim da lista enquanto o usuário estava lendo mais
+  // acima (pílula "Novas mensagens"). `ultimoIdRef` = última mensagem já vista
+  // da lista: só o que vem DEPOIS dela conta (mensagens antigas carregadas no
+  // topo, ou a troca de campanha, não contam).
+  const [naoLidas, setNaoLidas] = useState(0);
+  const ultimoIdRef = useRef(null);
+  // Posição da lista antes de "Carregar anteriores": as mensagens entram no
+  // topo e, ao chegarem, o scroll é corrigido para o usuário continuar lendo
+  // do mesmo ponto.
+  const preservarScrollRef = useRef(null);
   // Histórico do campo (↑/↓): o texto bruto enviado, guardado por chave (a
   // página passa uma por campanha). Trocou a chave, relê o da nova.
   const [historicoEstado, setHistoricoEstado] = useState(() => ({
@@ -120,10 +135,33 @@ const ChatSala = ({
     () => filtrarMensagensHistorico(mensagens, mostrarHistorico),
     [mensagens, mostrarHistorico],
   );
+  useLayoutEffect(() => {
+    const lista = listaRef.current;
+    const preservar = preservarScrollRef.current;
+    if (!lista || !preservar) return;
+    if (carregandoAnteriores) {
+      preservar.iniciou = true;
+    } else if (preservar.iniciou) {
+      lista.scrollTop = preservar.topo + (lista.scrollHeight - preservar.altura);
+      preservarScrollRef.current = null;
+    }
+  }, [mensagensVisiveis, carregandoAnteriores]);
+
   useEffect(() => {
     const lista = listaRef.current;
+    const ultimoId = mensagensVisiveis[mensagensVisiveis.length - 1]?.id ?? null;
+    const anteriorId = ultimoIdRef.current;
+    ultimoIdRef.current = ultimoId;
     if (lista && acompanhandoRef.current) {
       lista.scrollTop = lista.scrollHeight;
+      setNaoLidas(0);
+      return;
+    }
+    if (anteriorId && ultimoId !== anteriorId) {
+      const indice = mensagensVisiveis.findIndex(mensagem => mensagem.id === anteriorId);
+      if (indice >= 0) {
+        setNaoLidas(atual => atual + (mensagensVisiveis.length - 1 - indice));
+      }
     }
   }, [mensagensVisiveis]);
 
@@ -131,6 +169,33 @@ const ChatSala = ({
     const lista = listaRef.current;
     acompanhandoRef.current =
       lista.scrollHeight - lista.scrollTop - lista.clientHeight < MARGEM_AUTOSCROLL;
+    if (acompanhandoRef.current) setNaoLidas(0);
+  };
+
+  // O histórico (dias anteriores) é filtrado por padrão: carregar mensagens
+  // antigas liga a exibição dele, senão elas chegariam e ficariam ocultas.
+  const handleCarregarAnteriores = () => {
+    const lista = listaRef.current;
+    if (lista) {
+      preservarScrollRef.current = {
+        altura: lista.scrollHeight,
+        topo: lista.scrollTop,
+        iniciou: false,
+      };
+      acompanhandoRef.current = false;
+    }
+    setMostrarHistorico(true);
+    // `false` = nada foi buscado: não há mensagens chegando para corrigir o scroll.
+    Promise.resolve(onCarregarAnteriores()).then(iniciou => {
+      if (iniciou === false) preservarScrollRef.current = null;
+    });
+  };
+
+  const irParaNovas = () => {
+    const lista = listaRef.current;
+    acompanhandoRef.current = true;
+    if (lista) lista.scrollTop = lista.scrollHeight;
+    setNaoLidas(0);
   };
 
   const registrarEnvio = enviado => {
@@ -257,35 +322,60 @@ const ChatSala = ({
         {cabecalho && <div style={{ flex: '1 1 auto', minWidth: 0 }}>{cabecalho}</div>}
       </ChatHeader>
 
-      <ListaMensagens
-        ref={listaRef}
-        onScroll={handleScroll}
-        aria-label="Mensagens"
-        role="log"
-        data-chat-scroll-area="true"
-      >
-        {carregando && (
-          <ListaVazia>
-            <CircularProgress size={24} sx={{ color: 'var(--color-primary)' }} />
-          </ListaVazia>
+      <ListaArea>
+        <ListaMensagens
+          ref={listaRef}
+          onScroll={handleScroll}
+          aria-label="Mensagens"
+          role="log"
+          data-chat-scroll-area="true"
+        >
+          {carregando && (
+            <ListaVazia>
+              <CircularProgress size={24} sx={{ color: 'var(--color-primary)' }} />
+            </ListaVazia>
+          )}
+          {!carregando && onCarregarAnteriores && (temMaisAnteriores || carregandoAnteriores) && (
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={handleCarregarAnteriores}
+              disabled={carregandoAnteriores}
+              startIcon={
+                carregandoAnteriores ? (
+                  <CircularProgress size={14} sx={{ color: 'var(--color-primary)' }} />
+                ) : (
+                  <HistoryOutlinedIcon fontSize="small" />
+                )
+              }
+              sx={{ alignSelf: 'center', flexShrink: 0, textTransform: 'none' }}
+            >
+              Carregar anteriores
+            </Button>
+          )}
+          {!carregando && mensagensVisiveis.length === 0 && (
+            <ListaVazia>Nenhuma mensagem ainda. Comece a conversa!</ListaVazia>
+          )}
+          {!carregando &&
+            mensagensVisiveis.map(mensagem => {
+              const minha = mensagem.uid === currentUid;
+              return (
+                <ChatMensagem
+                  key={mensagem.id}
+                  mensagem={mensagem}
+                  minha={minha}
+                  podeApagar={minha || podeApagarTodas}
+                  onApagar={onApagar}
+                />
+              );
+            })}
+        </ListaMensagens>
+        {naoLidas > 0 && (
+          <NovasMensagensPilula type="button" onClick={irParaNovas}>
+            Novas mensagens ({naoLidas}) ↓
+          </NovasMensagensPilula>
         )}
-        {!carregando && mensagensVisiveis.length === 0 && (
-          <ListaVazia>Nenhuma mensagem ainda. Comece a conversa!</ListaVazia>
-        )}
-        {!carregando &&
-          mensagensVisiveis.map(mensagem => {
-            const minha = mensagem.uid === currentUid;
-            return (
-              <ChatMensagem
-                key={mensagem.id}
-                mensagem={mensagem}
-                minha={minha}
-                podeApagar={minha || podeApagarTodas}
-                onApagar={onApagar}
-              />
-            );
-          })}
-      </ListaMensagens>
+      </ListaArea>
 
       <ComposerWrapper onSubmit={handleSubmit}>
         {audio?.bloqueado && (
@@ -866,6 +956,11 @@ ChatSala.propTypes = {
   compactHeader: PropTypes.bool,
   // Chave do sessionStorage do histórico do campo (↑/↓). Ausente = só memória.
   chaveHistorico: PropTypes.string,
+  // "Carregar anteriores" (useChatCampanha.carregarAnteriores): sem a função não
+  // há botão. `temMaisAnteriores`/`carregandoAnteriores` vêm do mesmo hook.
+  onCarregarAnteriores: PropTypes.func,
+  temMaisAnteriores: PropTypes.bool,
+  carregandoAnteriores: PropTypes.bool,
   opcoesCombate: PropTypes.arrayOf(
     PropTypes.shape({
       id: PropTypes.string.isRequired,

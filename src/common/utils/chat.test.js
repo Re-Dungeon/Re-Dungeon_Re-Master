@@ -10,6 +10,7 @@ import {
   formatarHorarioMensagem,
   isTextoMensagemValido,
   isUrlImagemValida,
+  mesclarComAntigas,
   mesclarMensagens,
   montarMensagemCombate,
   montarMensagemImagem,
@@ -225,6 +226,38 @@ describe('mesclarMensagens', () => {
       'p3',
       'p-pendente',
     ]);
+  });
+});
+
+describe('mesclarComAntigas', () => {
+  const em = minuto => ({ toMillis: () => minuto * 60000 });
+
+  it('sem antigas devolve a própria janela', () => {
+    const recentes = [{ id: 'c', createdAt: em(3) }];
+    expect(mesclarComAntigas(recentes, [])).toBe(recentes);
+  });
+
+  it('põe as antigas antes das recentes, em ordem cronológica', () => {
+    const recentes = [
+      { id: 'c', createdAt: em(3) },
+      { id: 'd', createdAt: em(4) },
+    ];
+    const antigas = [
+      { id: 'a', createdAt: em(1) },
+      { id: 'b', createdAt: em(2) },
+    ];
+    expect(mesclarComAntigas(recentes, antigas).map(m => m.id)).toEqual(['a', 'b', 'c', 'd']);
+  });
+
+  it('não repete mensagens que já estão na janela ao vivo (a janela vence)', () => {
+    const recentes = [{ id: 'b', createdAt: em(2), texto: 'ao vivo' }];
+    const antigas = [
+      { id: 'a', createdAt: em(1) },
+      { id: 'b', createdAt: em(2), texto: 'antiga' },
+    ];
+    const mescladas = mesclarComAntigas(recentes, antigas);
+    expect(mescladas.map(m => m.id)).toEqual(['a', 'b']);
+    expect(mescladas[1].texto).toBe('ao vivo');
   });
 });
 

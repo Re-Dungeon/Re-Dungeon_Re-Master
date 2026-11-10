@@ -24,6 +24,7 @@ vi.mock('service/storage', () => ({
   addChatMensagem: (...args) => addChatMensagem(...args),
   removeChatMensagem: (...args) => removeChatMensagem(...args),
   subscribeChatMensagens: (...args) => subscribeChatMensagens(...args),
+  getChatMensagensAntes: vi.fn(() => Promise.resolve([])),
   getPersonagens: (...args) => getPersonagens(...args),
   getRmCampanhaNpcs: (...args) => getRmCampanhaNpcs(...args),
   getRmCampanhaCriaturas: (...args) => getRmCampanhaCriaturas(...args),
@@ -185,6 +186,32 @@ describe('Chat (Re:Master)', () => {
         url: null,
       }),
     );
+  });
+
+  it('"Recarregar fontes" busca NPCs e Criaturas de novo e mostra os novos', async () => {
+    const user = userEvent.setup();
+    renderChat();
+    await screen.findByText('Abro a porta devagar.');
+    await waitFor(() => expect(getRmCampanhaNpcs).toHaveBeenCalledTimes(1));
+
+    getPersonagens.mockResolvedValue([
+      {
+        id: 'n2',
+        tipo: 'NPC',
+        nome: 'Seraphine',
+        universo: 'u1',
+        campanhas: ['c1'],
+      },
+    ]);
+    await user.click(screen.getByLabelText(/falando como/i));
+    await user.click(
+      await screen.findByRole('button', { name: /recarregar fontes/i }),
+    );
+
+    await waitFor(() => expect(getRmCampanhaNpcs).toHaveBeenCalledTimes(2));
+    expect(
+      await screen.findByRole('option', { name: /seraphine/i }),
+    ).toBeInTheDocument();
   });
 
   it('mestre fala como um NPC da mesa', async () => {

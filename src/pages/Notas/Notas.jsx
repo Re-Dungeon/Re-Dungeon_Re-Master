@@ -25,6 +25,7 @@ import SearchOutlinedIcon from '@mui/icons-material/SearchOutlined';
 import CloseIcon from '@mui/icons-material/Close';
 import { useAuth } from 'context/AuthContext';
 import { useCampanha } from 'context/CampanhaContext';
+import { useSnackbar } from 'context/SnackbarContext';
 import {
   getRmNotasPorCampanha,
   removeRmNota,
@@ -91,6 +92,7 @@ const Notas = () => {
   const navigate = useNavigate();
   const { currentUser, isAdmin } = useAuth();
   const { campanhaAtiva, loadingCampanhas } = useCampanha();
+  const { notifyError } = useSnackbar();
 
   const getNotasDaCampanha = useCallback(() => {
     if (!campanhaAtiva) return Promise.resolve([]);
@@ -125,9 +127,12 @@ const Notas = () => {
         campanhaAtiva.mestreId,
       )
         .then(setCenas)
-        .catch(() => {}),
+        .catch(() => {
+          setCenas([]);
+          notifyError('Não foi possível carregar as cenas da campanha.');
+        }),
     );
-  }, [campanhaAtiva]);
+  }, [campanhaAtiva, notifyError]);
 
   useEffect(() => {
     if (!campanhaAtiva?.universoId || !campanhaAtiva?.mestreId) return;

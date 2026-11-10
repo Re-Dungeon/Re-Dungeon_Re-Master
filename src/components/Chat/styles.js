@@ -36,6 +36,40 @@ export const ChatHeader = styled.div`
   }
 `;
 
+// Envolve a lista para ancorar a pílula "Novas mensagens" sobre ela.
+export const ListaArea = styled.div`
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+`;
+
+export const NovasMensagensPilula = styled.button`
+  position: absolute;
+  left: 50%;
+  bottom: 12px;
+  transform: translateX(-50%);
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border-hover);
+  background: var(--bg-secondary);
+  color: var(--color-primary);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: var(--shadow-md);
+
+  &:hover {
+    background: rgba(232, 203, 133, 0.14);
+  }
+`;
+
 export const ListaMensagens = styled.div`
   flex: 1 1 auto;
   min-height: 0;

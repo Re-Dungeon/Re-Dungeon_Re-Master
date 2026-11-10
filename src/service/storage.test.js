@@ -18,11 +18,15 @@ vi.mock('firebase/firestore', () => ({
   serverTimestamp: vi.fn(() => '__serverTimestamp__'),
   query: vi.fn((coll, ...constraints) => ({ __query: coll, constraints })),
   where: vi.fn((field, op, value) => ({ __where: [field, op, value] })),
+  orderBy: vi.fn((field, direcao) => ({ __orderBy: [field, direcao] })),
+  limit: vi.fn(valor => ({ __limit: valor })),
   writeBatch: vi.fn(),
 }));
 
 import {
   collection,
+  limit,
+  orderBy,
   getDocs,
   getDoc,
   addDoc,
@@ -33,6 +37,7 @@ import {
   writeBatch,
 } from 'firebase/firestore';
 import {
+  getChatMensagensAntes,
   getRmCampanhas,
   addRmCampanha,
   removeRmCampanha,
@@ -155,11 +160,15 @@ describe('storage.js — CRUD de rmCampanhas (padrão Firestore repetido em toda
       'rmCampanhas/c1/macros': [{ ref: 'macro-1' }],
       'rmCampanhas/c1/npcs': [{ ref: 'npc-1' }],
     };
+    // Consultas filtradas chegam como { __query: coleção, constraints }.
     getDocs.mockImplementation(async ref => ({
-      docs: docs[ref.__collection] ?? [],
+      docs: docs[ref.__collection ?? ref.__query?.__collection] ?? [],
     }));
 
     await removeRmCampanhaCompleta('c1', 'm1');
+
+    // Clones/jogadores/Luta são listados com o filtro do mestre (regra).
+    expect(where).toHaveBeenCalledWith('mestreId', '==', 'm1');
 
     expect(apagados).toEqual(
       expect.arrayContaining([
@@ -204,6 +213,32 @@ describe('storage.js — CRUD de rmCampanhas (padrão Firestore repetido em toda
       __doc: 'rmCampanhas',
       id: 'c1',
     });
+  });
+
+  it('removeRmCampanhaCompleta não apaga nada se uma leitura for recusada', async () => {
+    const apagados = [];
+    writeBatch.mockImplementation(() => ({
+      delete: ref => apagados.push(ref),
+      commit: vi.fn(async () => {}),
+    }));
+    deleteDoc.mockResolvedValue(undefined);
+    getDocs.mockImplementation(async ref => {
+      if (ref.__query?.__collection === 'rmCampanhas/c1/npcs') {
+        throw new Error('permission-denied');
+      }
+      return {
+        docs:
+          ref.__collection === 'rmCampanhas/c1/gridCenas'
+            ? [{ id: 'cena-1', ref: 'cena-1' }]
+            : [],
+      };
+    });
+
+    await expect(removeRmCampanhaCompleta('c1', 'm1')).rejects.toThrow(
+      'permission-denied',
+    );
+    expect(apagados).toEqual([]);
+    expect(deleteDoc).not.toHaveBeenCalled();
   });
 
   it('updateRmCampanha atualiza com updatedAt', async () => {
@@ -997,5 +1032,41 @@ describe('storage.js — rmSessaoLogs (registro cronológico automático, append
         updatedAt: '__serverTimestamp__',
       },
     );
+  });
+});
+
+describe('storage.js — getChatMensagensAntes (Carregar anteriores)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('lê a página anterior à referência (desc, com limite) e devolve em ordem cronológica', async () => {
+    const referencia = { seconds: 1700000000 };
+    getDocs.mockResolvedValue({
+      docs: [
+        { id: 'm3', data: () => ({ texto: 'terceira' }) },
+        { id: 'm2', data: () => ({ texto: 'segunda' }) },
+        { id: 'm1', data: () => ({ texto: 'primeira' }) },
+      ],
+    });
+
+    const mensagens = await getChatMensagensAntes('camp-1', referencia, 3);
+
+    expect(collection).toHaveBeenCalledWith(
+      {},
+      'rmCampanhas',
+      'camp-1',
+      'chatMensagens',
+    );
+    expect(where).toHaveBeenCalledWith('createdAt', '<', referencia);
+    expect(orderBy).toHaveBeenCalledWith('createdAt', 'desc');
+    expect(limit).toHaveBeenCalledWith(3);
+    expect(mensagens.map(m => m.id)).toEqual(['m1', 'm2', 'm3']);
+    expect(mensagens[0]).toMatchObject({ id: 'm1', texto: 'primeira' });
+  });
+
+  it('devolve lista vazia quando não há mensagens anteriores', async () => {
+    getDocs.mockResolvedValue({ docs: [] });
+    expect(await getChatMensagensAntes('camp-1', { seconds: 1 })).toEqual([]);
   });
 });

@@ -12,6 +12,10 @@ import {
   montarToken,
   normalizarAura,
   normalizarCondicoesDoToken,
+  condicoesDoToken,
+  normalizarCondicoesDuracao,
+  prontidaoDaFicha,
+  recursosDaFicha,
   valorDigitadoDoRecurso,
   normalizarRecurso,
   primeiraCelulaLivre,
@@ -22,7 +26,14 @@ import {
   reacaoDaFicha,
   removerDoCombate,
 } from 'common/utils/gridCombate';
-import { ACOES_CAMADA } from 'common/utils/gridCamadas';
+import { AREA_FORMAS, celulasDaArea } from 'common/utils/gridAreas';
+import {
+  ACOES_CAMADA,
+  CAMADAS,
+  aplicarCelulas,
+  chaveDaCelula,
+  codificarTrechos,
+} from 'common/utils/gridCamadas';
 
 // Jogadores que podem receber tokens: um por uid (dono da ficha), com os
 // nomes dos personagens dele na campanha. `donosAtuais` garante que um uid já
@@ -340,6 +351,78 @@ export const patchesDeDanoEmLote = (tokens, texto) => {
   return resultado;
 };
 
+// ── Duração das condições de NPC (`condicoesDuracao`) ──────────────────────
+export const DURACAO_CONDICAO_MAX = 99;
+
+// "Dura N rodadas" a partir da rodada `rodadaAtual` (sem combate, a 1): última
+// rodada em que a condição vale (R + N − 1). null = texto vazio/inválido, ou
+// seja, duração indefinida.
+export const rodadaFimDaDuracao = (rodadas, rodadaAtual = null) => {
+  const texto = String(rodadas ?? '').trim();
+  if (texto === '') return null;
+  const n = Math.round(Number(texto.replace(',', '.')));
+  if (!Number.isFinite(n) || n < 1) return null;
+  const rodada = Number.isInteger(rodadaAtual) ? rodadaAtual : 1;
+  return rodada + Math.min(n, DURACAO_CONDICAO_MAX) - 1;
+};
+
+// Novo `condicoesDuracao` do token com a duração digitada de uma condição
+// (texto vazio = indefinida: tira a chave).
+export const duracaoComCondicao = (token, condicaoId, texto, rodadaAtual) => {
+  const duracao = { ...normalizarCondicoesDuracao(token.condicoesDuracao) };
+  const fim = rodadaFimDaDuracao(texto, rodadaAtual);
+  if (fim === null) delete duracao[condicaoId];
+  else duracao[condicaoId] = fim;
+  return duracao;
+};
+
+// Patch de uma nova lista de condições do token: tira de `condicoesDuracao` as
+// chaves das condições que saíram (só inclui o campo se algo mudou).
+export const patchDeCondicoesDoToken = (token, novosIds) => {
+  const duracao = normalizarCondicoesDuracao(token.condicoesDuracao);
+  const mantidas = Object.fromEntries(
+    Object.entries(duracao).filter(([id]) => novosIds.includes(id)),
+  );
+  const mudou = Object.keys(mantidas).length !== Object.keys(duracao).length;
+  return {
+    condicoes: novosIds,
+    ...(mudou ? { condicoesDuracao: mantidas } : {}),
+  };
+};
+
+// Condições vencidas quando o combate chega à `rodada`: as com rodadaFim <
+// rodada saem de `condicoes` e de `condicoesDuracao` (npc/criatura/avulso;
+// a do jogador vive na ficha). Idempotente: depois de gravar, nada mais vence.
+// Resultado: { patches: [{ id, patch }], expiradas: [{ tokenId, nome, ids }] }.
+export const patchesDeExpiracaoDeCondicoes = (tokens, rodada) => {
+  const resultado = { patches: [], expiradas: [] };
+  if (!Number.isInteger(rodada)) return resultado;
+  tokens.forEach(token => {
+    if (ehJogador(token)) return;
+    const duracao = normalizarCondicoesDuracao(token.condicoesDuracao);
+    const vencidas = Object.keys(duracao).filter(id => duracao[id] < rodada);
+    if (vencidas.length === 0) return;
+    const restantes = Object.fromEntries(
+      Object.entries(duracao).filter(([id]) => !vencidas.includes(id)),
+    );
+    resultado.patches.push({
+      id: token.id,
+      patch: {
+        condicoes: normalizarCondicoesDoToken(token.condicoes).filter(
+          id => !vencidas.includes(id),
+        ),
+        condicoesDuracao: restantes,
+      },
+    });
+    resultado.expiradas.push({
+      tokenId: token.id,
+      nome: token.nome,
+      ids: vencidas,
+    });
+  });
+  return resultado;
+};
+
 // Adicionar/remover uma condição do catálogo em vários tokens. Só npc/
 // criatura/avulso (a do jogador está na ficha). Quem já está no estado
 // pedido (ou, ao adicionar, já tem o máximo de condições) não gera patch.
@@ -367,7 +450,10 @@ export const patchesDeCondicaoEmLote = (tokens, condicaoId, adicionar) => {
     } else if (tem) {
       resultado.patches.push({
         id: token.id,
-        patch: { condicoes: ids.filter(id => id !== condicaoId) },
+        patch: patchDeCondicoesDoToken(
+          token,
+          ids.filter(id => id !== condicaoId),
+        ),
       });
     }
   });
@@ -416,4 +502,218 @@ export const removerVariosDoCombate = (combate, tokenIds, tokens) => {
     }
   }
   return patch ? { patch, mudouTurno } : null;
+};
+
+// ── Atalhos de teclado do Grid ───────────────────────────────────────────
+export const ACOES_ATALHO = {
+  PROXIMO_TURNO: 'proximoTurno',
+  TURNO_ANTERIOR: 'turnoAnterior',
+  OCULTAR: 'ocultar',
+  EXCLUIR: 'excluir',
+  FERRAMENTA: 'ferramenta',
+  DESFAZER: 'desfazer',
+  AJUDA: 'ajuda',
+};
+
+const ATALHO_DE_FERRAMENTA = {
+  v: FERRAMENTAS.MOVER,
+  w: FERRAMENTAS.PAREDES,
+  f: FERRAMENTAS.NEVOA,
+  m: FERRAMENTAS.MARCADORES,
+};
+
+// Lista mostrada no diálogo "Atalhos do teclado".
+export const ATALHOS_GRID = [
+  { teclas: 'N', descricao: 'Próximo turno (em combate)' },
+  { teclas: 'Shift + N', descricao: 'Turno anterior (em combate)' },
+  { teclas: 'H', descricao: 'Ocultar ou revelar o(s) token(s) selecionado(s)' },
+  { teclas: 'Delete', descricao: 'Excluir o(s) token(s) selecionado(s)' },
+  { teclas: 'V', descricao: 'Ferramenta Mover' },
+  { teclas: 'W', descricao: 'Ferramenta Paredes' },
+  { teclas: 'F', descricao: 'Ferramenta Névoa' },
+  { teclas: 'M', descricao: 'Ferramenta Marcadores' },
+  {
+    teclas: 'Ctrl + Z',
+    descricao: 'Desfazer a última edição de paredes/névoa',
+  },
+  { teclas: 'Esc', descricao: 'Limpar a seleção' },
+  { teclas: '?', descricao: 'Mostrar esta lista' },
+];
+
+// Tecla pressionada → { acao, ferramenta? } ou null (sem atalho). Só `Ctrl/⌘+Z`
+// aceita modificador; `Shift` só vale em N (turno anterior) e em "?". Teclas
+// repetidas (segurar) não disparam de novo.
+export const acaoDoAtalho = ({
+  key,
+  ctrlKey = false,
+  metaKey = false,
+  altKey = false,
+  shiftKey = false,
+  repeat = false,
+} = {}) => {
+  if (repeat || typeof key !== 'string') return null;
+  const tecla = key.length === 1 ? key.toLowerCase() : key;
+  const comando = ctrlKey || metaKey;
+  if (comando) {
+    if (tecla === 'z' && !altKey && !shiftKey) {
+      return { acao: ACOES_ATALHO.DESFAZER };
+    }
+    return null;
+  }
+  if (altKey) return null;
+  if (tecla === '?') return { acao: ACOES_ATALHO.AJUDA };
+  if (tecla === 'n') {
+    return {
+      acao: shiftKey ? ACOES_ATALHO.TURNO_ANTERIOR : ACOES_ATALHO.PROXIMO_TURNO,
+    };
+  }
+  if (shiftKey) return null;
+  if (tecla === 'h') return { acao: ACOES_ATALHO.OCULTAR };
+  if (tecla === 'Delete') return { acao: ACOES_ATALHO.EXCLUIR };
+  if (ATALHO_DE_FERRAMENTA[tecla]) {
+    return {
+      acao: ACOES_ATALHO.FERRAMENTA,
+      ferramenta: ATALHO_DE_FERRAMENTA[tecla],
+    };
+  }
+  return null;
+};
+
+const TAGS_DE_DIGITACAO = ['INPUT', 'TEXTAREA', 'SELECT'];
+
+// O foco está num campo de digitação? (os atalhos ficam desligados)
+export const alvoEhDigitacao = alvo =>
+  Boolean(alvo) &&
+  (TAGS_DE_DIGITACAO.includes(alvo.tagName) ||
+    alvo.isContentEditable === true ||
+    alvo.getAttribute?.('role') === 'textbox' ||
+    alvo.getAttribute?.('role') === 'combobox');
+
+// Há diálogo ou menu aberto por cima da página? (o cartão do marcador no mapa
+// também usa role="dialog", mas não bloqueia os atalhos).
+export const haDialogoAberto = (doc = document) =>
+  Boolean(
+    doc.querySelector(
+      '[role="dialog"]:not([data-marcador-cartao]), [role="menu"], [role="listbox"]',
+    ),
+  );
+
+// "H": se todos os tokens já estão ocultos, revela; senão oculta todos.
+export const ocultoAlvoDosTokens = tokens =>
+  !(tokens.length > 0 && tokens.every(token => token.oculto));
+
+// ── Painel do grupo ──────────────────────────────────────────────────────
+// Uma linha por personagem jogável da campanha (`jogadores` de
+// useFontesDaMesa), com os dados ao vivo da ficha (`fichas[refId]`, de
+// useFichasDoGrid): PV/Energia/Fadiga, PP e condições ativas (nomes do
+// catálogo do universo), e o token dele na cena aberta (ou null).
+// `ficha` null = ainda carregando ou indisponível: a linha vem sem dados.
+export const linhasDoGrupo = (
+  jogadores,
+  { fichas = {}, tokens = [], catalogoPorId = null } = {},
+) =>
+  jogadores
+    .map(jogador => {
+      const ficha = fichas[jogador.refId] ?? null;
+      return {
+        refId: jogador.refId,
+        uid: jogador.uid ?? null,
+        nome: jogador.label,
+        avatar: jogador.avatar ?? null,
+        semFicha: !ficha,
+        recursos: ficha ? recursosDaFicha(ficha) : null,
+        pp: ficha ? prontidaoDaFicha(ficha) : null,
+        condicoes: ficha
+          ? condicoesDoToken(
+              { tipo: TIPOS_TOKEN.JOGADOR },
+              ficha,
+              catalogoPorId,
+            )
+          : [],
+        token:
+          tokens.find(
+            token =>
+              token.tipo === TIPOS_TOKEN.JOGADOR &&
+              token.refId === jogador.refId,
+          ) ?? null,
+      };
+    })
+    .sort((a, b) => String(a.nome).localeCompare(String(b.nome), 'pt-BR'));
+
+// Ids das fichas do grupo numa string estável (a chave de useFichasDoGrid).
+export const chaveDasFichasDoGrupo = jogadores =>
+  [...new Set(jogadores.map(jogador => jogador.refId).filter(Boolean))]
+    .sort()
+    .join('|');
+
+// ── Desfazer paredes/névoa e "Revelar em volta" ──────────────────────────
+// A pilha de desfazer (no Grid, só local) guarda o conjunto de células que a
+// camada tinha ANTES de cada edição: { id, camada, celulas: Set<'col,lin'> }.
+export const DESFAZER_CAMADAS_MAX = 20;
+export const REVELAR_METROS_PADRAO = 6;
+
+// Estado atual da camada (`camadas` de useGridCampanha) → cópia das células.
+export const snapshotDaCamada = (camada, camadas) => ({
+  camada,
+  celulas: new Set(
+    camada === CAMADAS.NEVOA ? camadas?.nevoa?.reveladas : camadas?.bloqueadas,
+  ),
+});
+
+// Empilha e mantém só as últimas `max` entradas.
+export const empilharDesfazer = (pilha, entrada, max = DESFAZER_CAMADAS_MAX) =>
+  [...pilha, entrada].slice(-max);
+
+// Doc a gravar para voltar ao snapshot: paredes = { trechos }; névoa =
+// { ativa (a de agora — ligar/desligar a névoa não entra no desfazer),
+// trechos }.
+export const dadosDoSnapshot = (entrada, camadas) => {
+  const trechos = codificarTrechos(entrada.celulas);
+  return entrada.camada === CAMADAS.NEVOA
+    ? { ativa: Boolean(camadas?.nevoa?.ativa), trechos }
+    : { trechos };
+};
+
+const dentroDosLimites = (limites, { col, lin }) =>
+  !limites ||
+  (col >= 0 && lin >= 0 && col < limites.colunas && lin < limites.linhas);
+
+// A edição (acao + celulas, dentro do mundo) muda mesmo o conjunto atual?
+// Pincel passando por cima do que já está pintado não vira passo de desfazer.
+export const edicaoMudaCamada = (celulasAtuais, acao, celulas, limites) => {
+  const dentro = celulas.filter(celula => dentroDosLimites(limites, celula));
+  const depois = aplicarCelulas(celulasAtuais, dentro, acao);
+  if (depois.size !== celulasAtuais.size) return true;
+  return [...depois].some(chave => !celulasAtuais.has(chave));
+};
+
+// "Revelar em volta": células da névoa a revelar num raio de `metros` a
+// partir da borda de cada token (um token N×N cobre N×N células). Recortado
+// pelo mundo (`limites`). [{ col, lin }] ordenadas; [] se nada a fazer.
+export const celulasParaRevelarEmVolta = (
+  tokens,
+  metros,
+  metrosPorQuadrado,
+  limites,
+) => {
+  const unicas = new Map();
+  tokens.forEach(token => {
+    const tamanho = token.tamanho ?? 1;
+    for (let dl = 0; dl < tamanho; dl += 1) {
+      for (let dc = 0; dc < tamanho; dc += 1) {
+        celulasDaArea(
+          {
+            forma: AREA_FORMAS.RAIO,
+            origem: { col: token.col + dc, lin: token.lin + dl },
+            metros,
+          },
+          metrosPorQuadrado,
+          limites,
+        ).forEach(celula =>
+          unicas.set(chaveDaCelula(celula.col, celula.lin), celula),
+        );
+      }
+    }
+  });
+  return [...unicas.values()].sort((a, b) => a.lin - b.lin || a.col - b.col);
 };

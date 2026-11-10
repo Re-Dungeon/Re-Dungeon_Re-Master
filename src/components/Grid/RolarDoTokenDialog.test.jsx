@@ -80,6 +80,31 @@ describe('RolarDoTokenDialog', () => {
     expect(onClose).not.toHaveBeenCalled();
   });
 
+  it('sem permitirSecreta não há opção secreta', () => {
+    montar(vi.fn());
+    expect(screen.queryByLabelText('Secreta (só o mestre vê)')).toBeNull();
+  });
+
+  it('com permitirSecreta, o item rola com { secreta: false } por padrão', async () => {
+    const onRolar = vi.fn().mockResolvedValue(true);
+    montar(onRolar, { permitirSecreta: true });
+    fireEvent.click(screen.getByText('Golpe Duplo'));
+    await waitFor(() =>
+      expect(onRolar).toHaveBeenCalledWith('3d8+12', 'Golpe Duplo', { secreta: false }),
+    );
+  });
+
+  it('marcar "Secreta" faz a rolagem livre sair secreta', async () => {
+    const onRolar = vi.fn().mockResolvedValue(true);
+    montar(onRolar, { permitirSecreta: true });
+    fireEvent.click(screen.getByLabelText('Secreta (só o mestre vê)'));
+    fireEvent.change(screen.getByLabelText('Expressão'), { target: { value: '2d6+3' } });
+    fireEvent.click(screen.getByText('Rolar'));
+    await waitFor(() =>
+      expect(onRolar).toHaveBeenCalledWith('2d6+3', undefined, { secreta: true }),
+    );
+  });
+
   it('tem botão Fechar e limita o rótulo a 100', () => {
     const onClose = montar(vi.fn());
     expect(screen.getByLabelText('Rótulo (opcional)').getAttribute('maxlength')).toBe(

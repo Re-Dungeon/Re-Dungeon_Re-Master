@@ -11,9 +11,11 @@ import {
   removeRmCampanhaCriatura,
 } from 'service/storage';
 import ListLoadError from 'components/ListLoadError/ListLoadError';
+import BuscaPorNome from 'components/BuscaPorNome/BuscaPorNome';
 import PersonagemFichaDialog from 'components/PersonagemFichaDialog/PersonagemFichaDialog';
 import PersonagemCard from 'components/PersonagemCard/PersonagemCard';
 import { ROUTE_PATHS } from 'common/constants/routes';
+import { filtrarPorNome } from 'common/utils/busca';
 import {
   ATRIBUTOS_PRIMARIOS_PERSONAGEM,
   ATRIBUTOS_SECUNDARIOS_PERSONAGEM,
@@ -40,6 +42,7 @@ const Criaturas = () => {
   const [errorCriaturas, setErrorCriaturas] = useState(null);
   const [reloadToken, setReloadToken] = useState(0);
   const [personagemVisualizado, setPersonagemVisualizado] = useState(null);
+  const [busca, setBusca] = useState('');
 
   const reload = useCallback(() => setReloadToken(token => token + 1), []);
 
@@ -92,6 +95,13 @@ const Criaturas = () => {
 
   const cloneDe = personagemId =>
     clones.find(clone => clone.origemPersonagemId === personagemId) ?? null;
+
+  // A busca casa com o nome da ficha ou do clone da campanha.
+  const criaturasDoUniversoFiltrados = filtrarPorNome(
+    criaturasDoUniverso,
+    busca,
+    personagem => [personagem.nome, cloneDe(personagem.id)?.nome],
+  );
 
   const handleClonar = personagem => {
     navigate(ROUTE_PATHS.CRIATURA_CLONE, { state: { personagem } });
@@ -152,34 +162,43 @@ const Criaturas = () => {
           </small>
         </Box>
       ) : (
-        <Box
-          sx={{
-            display: 'grid',
-            gridTemplateColumns: {
-              xs: '1fr',
-              sm: 'repeat(auto-fill, minmax(340px, 1fr))',
-            },
-            gap: 2,
-          }}
-        >
-          {criaturasDoUniverso.map(personagem => (
-            <PersonagemCard
-              key={personagem.id}
-              personagem={personagem}
-              clone={cloneDe(personagem.id)}
-              podeEscrever={podeEscrever}
-              atributosPrimarios={ATRIBUTOS_PRIMARIOS_PERSONAGEM}
-              atributosSecundarios={ATRIBUTOS_SECUNDARIOS_PERSONAGEM}
-              onVisualizar={setPersonagemVisualizado}
-              onClonar={handleClonar}
-              onEditarClone={handleEditarClone}
-              onRemoverClone={handleRemoverClone}
-              exibirDescricao
-              seloCloneBadge
-              visualVariant="criaturas"
-            />
-          ))}
-        </Box>
+        <>
+          <BuscaPorNome value={busca} onChange={setBusca} />
+          {criaturasDoUniversoFiltrados.length === 0 ? (
+            <Box className="empty-state">
+              <p>Nenhuma criatura encontrada para a busca</p>
+            </Box>
+          ) : (
+            <Box
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: {
+                  xs: '1fr',
+                  sm: 'repeat(auto-fill, minmax(340px, 1fr))',
+                },
+                gap: 2,
+              }}
+            >
+              {criaturasDoUniversoFiltrados.map(personagem => (
+                <PersonagemCard
+                  key={personagem.id}
+                  personagem={personagem}
+                  clone={cloneDe(personagem.id)}
+                  podeEscrever={podeEscrever}
+                  atributosPrimarios={ATRIBUTOS_PRIMARIOS_PERSONAGEM}
+                  atributosSecundarios={ATRIBUTOS_SECUNDARIOS_PERSONAGEM}
+                  onVisualizar={setPersonagemVisualizado}
+                  onClonar={handleClonar}
+                  onEditarClone={handleEditarClone}
+                  onRemoverClone={handleRemoverClone}
+                  exibirDescricao
+                  seloCloneBadge
+                  visualVariant="criaturas"
+                />
+              ))}
+            </Box>
+          )}
+        </>
       )}
 
       <PersonagemFichaDialog

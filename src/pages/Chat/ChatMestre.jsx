@@ -13,6 +13,7 @@ import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import ExpandLessOutlined from '@mui/icons-material/ExpandLessOutlined';
 import ExpandMoreOutlined from '@mui/icons-material/ExpandMoreOutlined';
+import RefreshOutlined from '@mui/icons-material/RefreshOutlined';
 import SearchOutlined from '@mui/icons-material/SearchOutlined';
 import { useAuth } from 'context/AuthContext';
 import { useSnackbar } from 'context/SnackbarContext';
@@ -115,7 +116,7 @@ const renderOpcaoPersona = (persona, isSelected = false, onSelect) => (
  * pelo painel de chat do Grid — quem a monta carrega as personas
  * (useFontesDaMesa) e define a altura.
  */
-const ChatMestre = ({ campanha, npcs, criaturas, titulo }) => {
+const ChatMestre = ({ campanha, npcs, criaturas, titulo, onRecarregarFontes = null }) => {
   const { currentUser } = useAuth();
   const { notifyError } = useSnackbar();
   const [personaId, setPersonaId] = useState(PERSONA_MESTRE.id);
@@ -181,6 +182,9 @@ const ChatMestre = ({ campanha, npcs, criaturas, titulo }) => {
     apagar,
     macros,
     audio,
+    carregarAnteriores,
+    temMaisAntigas,
+    carregandoAntigas,
   } = useChatCampanha(campanha.id, autor, { ehMestreDaCampanha: true });
 
   useEffect(() => {
@@ -203,6 +207,9 @@ const ChatMestre = ({ campanha, npcs, criaturas, titulo }) => {
         macros={macros}
         audio={audio}
         chaveHistorico={`reDungeonChatHistorico_${campanha.id}`}
+        onCarregarAnteriores={carregarAnteriores}
+        temMaisAnteriores={temMaisAntigas}
+        carregandoAnteriores={carregandoAntigas}
         cabecalho={
           <>
             <Typography sx={{ color: 'var(--text-primary)', fontWeight: 700 }}>
@@ -283,6 +290,16 @@ const ChatMestre = ({ campanha, npcs, criaturas, titulo }) => {
                     },
                   }}
                 />
+                {onRecarregarFontes && (
+                  <Button
+                    size="small"
+                    startIcon={<RefreshOutlined fontSize="small" />}
+                    onClick={onRecarregarFontes}
+                    sx={{ mt: 1, textTransform: 'none', color: 'var(--text-secondary)' }}
+                  >
+                    Recarregar fontes
+                  </Button>
+                )}
               </Box>
               {gruposFiltrados.map(grupo => {
                 const aberto = Boolean(gruposExpandidos[grupo.key]);
@@ -353,6 +370,8 @@ ChatMestre.propTypes = {
   npcs: PropTypes.arrayOf(personaShape).isRequired,
   criaturas: PropTypes.arrayOf(personaShape).isRequired,
   titulo: PropTypes.node.isRequired,
+  // Recarrega NPCs/Criaturas (`recarregar` do useFontesDaMesa); sem ele, sem botão.
+  onRecarregarFontes: PropTypes.func,
 };
 
 export default ChatMestre;

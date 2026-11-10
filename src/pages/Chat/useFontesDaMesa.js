@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSnackbar } from 'context/SnackbarContext';
 import {
   getPersonagens,
@@ -22,10 +22,17 @@ const FONTES_VAZIAS = {
  * do Universo + clones da campanha). Usado pelo "Falando como" do Chat e pelo
  * "Adicionar token" do Grid. Falha aqui só avisa: o chat continua funcionando
  * com o mestre falando como "Mestre".
+ *
+ * Devolve `{ npcs, criaturas, jogadores, campanhaId, recarregar }`:
+ * `recarregar()` busca tudo de novo (para quando o mestre criou/vinculou
+ * personagens com a tela já aberta) mantendo a lista atual até a resposta.
  */
 const useFontesDaMesa = (campanha, { incluirJogadores = false } = {}) => {
   const { notifyError } = useSnackbar();
   const [carregadas, setCarregadas] = useState(FONTES_VAZIAS);
+  const [versao, setVersao] = useState(0);
+
+  const recarregar = useCallback(() => setVersao(atual => atual + 1), []);
 
   useEffect(() => {
     if (!campanha) return undefined;
@@ -70,9 +77,11 @@ const useFontesDaMesa = (campanha, { incluirJogadores = false } = {}) => {
     return () => {
       active = false;
     };
-  }, [campanha, incluirJogadores, notifyError]);
+  }, [campanha, incluirJogadores, notifyError, versao]);
 
-  return carregadas.campanhaId === campanha?.id ? carregadas : FONTES_VAZIAS;
+  const fontes =
+    carregadas.campanhaId === campanha?.id ? carregadas : FONTES_VAZIAS;
+  return useMemo(() => ({ ...fontes, recarregar }), [fontes, recarregar]);
 };
 
 export default useFontesDaMesa;

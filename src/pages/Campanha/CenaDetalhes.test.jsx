@@ -10,6 +10,17 @@ const updateRmCampanha = vi.fn();
 const recarregarCampanhas = vi.fn();
 const removeRmCena = vi.fn();
 const updateRmCena = vi.fn();
+const registrarEventoSessao = vi.fn();
+const notifyError = vi.fn();
+
+vi.mock('common/utils/sessaoLog', () => ({
+  TIPO_EVENTO_SESSAO: { CENA_ATUAL: 'cena_atual' },
+  registrarEventoSessao: (...args) => registrarEventoSessao(...args),
+}));
+
+vi.mock('context/SnackbarContext', () => ({
+  useSnackbar: () => ({ notifyError, notifySuccess: vi.fn() }),
+}));
 
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual('react-router-dom');
@@ -88,5 +99,37 @@ describe('CenaDetalhes', () => {
     expect(navigate).toHaveBeenCalledWith('/campanha/cenas/nova', {
       state: { cena: expect.objectContaining({ id: 'cena1', titulo: 'A Chegada' }) },
     });
+  });
+
+  it('marcar como cena atual atualiza a campanha e registra no log da sessão', async () => {
+    updateRmCampanha.mockResolvedValue(undefined);
+    recarregarCampanhas.mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    renderCenaDetalhes();
+
+    await user.click(await screen.findByRole('button', { name: 'Marcar como Cena Atual' }));
+
+    await waitFor(() =>
+      expect(registrarEventoSessao).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'campanha-1' }),
+        'cena_atual',
+        'Cena atual: "A Chegada"',
+        { cenaId: 'cena1' },
+      ),
+    );
+    expect(updateRmCampanha).toHaveBeenCalledWith('campanha-1', { cenaAtualId: 'cena1' });
+  });
+
+  it('não registra no log quando marcar a cena atual falha', async () => {
+    updateRmCampanha.mockRejectedValue(new Error('falha'));
+    const user = userEvent.setup();
+    renderCenaDetalhes();
+
+    await user.click(await screen.findByRole('button', { name: 'Marcar como Cena Atual' }));
+
+    await waitFor(() =>
+      expect(notifyError).toHaveBeenCalledWith('Não foi possível marcar a cena atual.'),
+    );
+    expect(registrarEventoSessao).not.toHaveBeenCalled();
   });
 });

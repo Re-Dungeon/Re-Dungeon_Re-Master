@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import PropTypes from 'prop-types';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Switch from '@mui/material/Switch';
+import TextField from '@mui/material/TextField';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Typography from '@mui/material/Typography';
@@ -11,12 +12,15 @@ import CloudIcon from '@mui/icons-material/Cloud';
 import FenceIcon from '@mui/icons-material/Fence';
 import OpenWithIcon from '@mui/icons-material/OpenWith';
 import PushPinIcon from '@mui/icons-material/PushPin';
+import UndoIcon from '@mui/icons-material/Undo';
+import { normalizarMetrosDaArea } from 'common/utils/gridAreas';
 import { ACOES_CAMADA, PINCEL_TAMANHOS } from 'common/utils/gridCamadas';
 import {
   FERRAMENTAS,
   FORMAS_PINCEL,
   OPCOES_ACAO,
   OPCOES_FORMA,
+  REVELAR_METROS_PADRAO,
 } from './gridMestre';
 
 const ICONES = {
@@ -86,8 +90,15 @@ const FerramentasMapa = ({
   onNevoaAtiva,
   onPreencherNevoa,
   onLimparParedes,
+  onDesfazer,
+  podeDesfazer = false,
+  podeRevelarEmVolta = false,
+  onRevelarEmVolta,
   desabilitado = false,
 }) => {
+  // Raio do "Revelar em volta", em metros (digitado; vírgula decimal vale).
+  const [raioTexto, setRaioTexto] = useState(String(REVELAR_METROS_PADRAO));
+  const raioMetros = normalizarMetrosDaArea(raioTexto);
   const camada =
     ferramenta === FERRAMENTAS.PAREDES || ferramenta === FERRAMENTAS.NEVOA;
   const muda = campo => valor => onOpcoes({ ...opcoes, [campo]: valor });
@@ -166,6 +177,18 @@ const FerramentasMapa = ({
         </>
       )}
 
+      {camada && onDesfazer && (
+        <Button
+          size="small"
+          startIcon={<UndoIcon fontSize="small" />}
+          onClick={onDesfazer}
+          disabled={!podeDesfazer}
+          title="Desfazer a última edição de paredes/névoa (Ctrl+Z)"
+        >
+          Desfazer
+        </Button>
+      )}
+
       {ferramenta === FERRAMENTAS.PAREDES && (
         <Button size="small" color="error" onClick={onLimparParedes}>
           Limpar todas as paredes
@@ -186,6 +209,31 @@ const FerramentasMapa = ({
           >
             Revelar tudo
           </Button>
+          {onRevelarEmVolta && (
+            <>
+              <TextField
+                size="small"
+                label="Raio (m)"
+                value={raioTexto}
+                onChange={event => setRaioTexto(event.target.value)}
+                error={raioMetros === null}
+                slotProps={{ htmlInput: { inputMode: 'decimal' } }}
+                sx={{ width: 90 }}
+              />
+              <Button
+                size="small"
+                onClick={() => onRevelarEmVolta(raioMetros)}
+                disabled={!podeRevelarEmVolta || raioMetros === null}
+                title={
+                  podeRevelarEmVolta
+                    ? 'Revela a névoa num raio em volta do token selecionado'
+                    : 'Selecione um token (ferramenta Mover) para revelar em volta dele'
+                }
+              >
+                Revelar em volta
+              </Button>
+            </>
+          )}
           {!nevoaAtiva && (
             <Typography variant="caption" sx={{ color: 'var(--text-muted)' }}>
               Névoa desligada: os jogadores veem tudo.
@@ -216,6 +264,13 @@ FerramentasMapa.propTypes = {
   onNevoaAtiva: PropTypes.func.isRequired,
   onPreencherNevoa: PropTypes.func.isRequired,
   onLimparParedes: PropTypes.func.isRequired,
+  // Desfazer paredes/névoa (Ctrl+Z); sem `onDesfazer` o botão não aparece.
+  onDesfazer: PropTypes.func,
+  podeDesfazer: PropTypes.bool,
+  // "Revelar em volta" (névoa): `onRevelarEmVolta(metros)` com um token
+  // selecionado (`podeRevelarEmVolta`).
+  podeRevelarEmVolta: PropTypes.bool,
+  onRevelarEmVolta: PropTypes.func,
   desabilitado: PropTypes.bool,
 };
 

@@ -14,6 +14,10 @@ import { useCampanha } from 'context/CampanhaContext';
 import { ROUTE_PATHS } from 'common/constants/routes';
 import { getRmCenas, removeRmCena, updateRmCampanha } from 'service/storage';
 import { useSnackbar } from 'context/SnackbarContext';
+import {
+  TIPO_EVENTO_SESSAO,
+  registrarEventoSessao,
+} from 'common/utils/sessaoLog';
 import useConfirmacao from 'components/ConfirmDialog/useConfirmacao';
 
 const ESTADO_DE_TEXTO = {
@@ -103,6 +107,13 @@ const CenaDetalhes = () => {
     try {
       await updateRmCampanha(campanhaAtiva.id, { cenaAtualId: cena.id });
       await recarregarCampanhas();
+      // Registro complementar da sessão (best-effort: não bloqueia nem avisa).
+      registrarEventoSessao(
+        campanhaAtiva,
+        TIPO_EVENTO_SESSAO.CENA_ATUAL,
+        `Cena atual: "${cena.titulo || 'sem título'}"`,
+        { cenaId: cena.id },
+      );
     } catch {
       notifyError('Não foi possível marcar a cena atual.');
     }

@@ -53,6 +53,7 @@ const COMPARTILHADOS = [
   'hooks/useAvisarAcoesChat.js',
   'hooks/useAvisarAcoesChat.test.js',
   'hooks/useChatCampanha.js',
+  'hooks/useChatCampanha.test.jsx',
   'hooks/useFichasDoGrid.js',
   'hooks/useFichasDoGrid.test.js',
   'hooks/useGridAreas.js',
