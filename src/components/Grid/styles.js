@@ -596,7 +596,9 @@ export const FaixaRetrato = styled.button`
     background: #2a2638;
     color: var(--text-primary);
     font-weight: 700;
-    opacity: ${({ $oculto }) => ($oculto ? 0.6 : 1)};
+    opacity: ${({ $oculto, $derrotado }) =>
+      $derrotado ? 0.35 : $oculto ? 0.6 : 1};
+    filter: ${({ $derrotado }) => ($derrotado ? 'grayscale(1)' : 'none')};
     box-shadow: ${({ $atual }) =>
       $atual ? '0 0 0 2px #e8cb85, 0 0 10px rgba(232, 203, 133, 0.8)' : 'none'};
   }

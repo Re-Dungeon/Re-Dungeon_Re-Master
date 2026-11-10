@@ -1900,6 +1900,127 @@ describe('Grid (Re:Master)', () => {
       );
     });
 
+    it('N pula NPC/Criatura com PV 0 (jogador com PV 0 continua)', async () => {
+      const user = userEvent.setup();
+      const tokens = [
+        { ...TOKENS_POR_CENA['cena-1'][0], pv: { atual: 0, max: 10 } },
+        {
+          id: 'g1',
+          nome: 'Goblin',
+          tipo: 'criatura',
+          col: 3,
+          lin: 3,
+          tamanho: 1,
+          donos: [],
+          oculto: false,
+          pv: { atual: 0, max: 12 },
+        },
+        {
+          id: 'g2',
+          nome: 'Chefe',
+          tipo: 'npc',
+          col: 5,
+          lin: 5,
+          tamanho: 1,
+          donos: [],
+          oculto: false,
+          pv: { atual: 0, max: 12 },
+        },
+        {
+          id: 'g3',
+          nome: 'Arqueiro',
+          tipo: 'npc',
+          col: 6,
+          lin: 6,
+          tamanho: 1,
+          donos: [],
+          oculto: false,
+          pv: { atual: 4, max: 12 },
+        },
+      ];
+      subscribeGridTokens.mockImplementation(
+        (_id, _cenaId, _opcoes, onChange) => {
+          onChange(tokens);
+          return vi.fn();
+        },
+      );
+      const combate = {
+        ordem: [
+          { tokenId: 't1', iniciativa: 20, d20: 14, reacao: 6 },
+          { tokenId: 'g1', iniciativa: 15, d20: 9, reacao: 6 },
+          { tokenId: 'g2', iniciativa: 12, d20: 6, reacao: 6 },
+          { tokenId: 'g3', iniciativa: 9, d20: 3, reacao: 6 },
+        ],
+        indice: 0,
+        rodada: 1,
+        inicioTurno: { col: 1, lin: 1 },
+        turnoEm: { seconds: 10, nanoseconds: 0 },
+      };
+      emitirCombate(combate);
+      renderGrid();
+      await screen.findByText('Rodada 1');
+
+      await user.keyboard('n');
+      await waitFor(() => expect(alterarGridCombate).toHaveBeenCalledTimes(1));
+      // g1 e g2 estão derrotados: pula direto para o Arqueiro.
+      expect(alterarGridCombate.mock.calls[0][2](combate).patch.indice).toBe(3);
+    });
+
+    it('N do último passa a rodada e cai no jogador com PV 0; Shift+N volta pulando os derrotados', async () => {
+      const user = userEvent.setup();
+      const tokens = [
+        { ...TOKENS_POR_CENA['cena-1'][0], pv: { atual: 0, max: 10 } },
+        { ...TOKENS_POR_CENA['cena-1'][1], oculto: false, pv: { atual: 0, max: 12 } },
+        {
+          id: 'g3',
+          nome: 'Arqueiro',
+          tipo: 'npc',
+          col: 6,
+          lin: 6,
+          tamanho: 1,
+          donos: [],
+          oculto: false,
+          pv: { atual: 4, max: 12 },
+        },
+      ];
+      subscribeGridTokens.mockImplementation(
+        (_id, _cenaId, _opcoes, onChange) => {
+          onChange(tokens);
+          return vi.fn();
+        },
+      );
+      const combate = {
+        ordem: [
+          { tokenId: 't1', iniciativa: 20, d20: 14, reacao: 6 },
+          { tokenId: 't2', iniciativa: 15, d20: 9, reacao: 6 },
+          { tokenId: 'g3', iniciativa: 9, d20: 3, reacao: 6 },
+        ],
+        indice: 2,
+        rodada: 3,
+        inicioTurno: { col: 1, lin: 1 },
+        turnoEm: { seconds: 10, nanoseconds: 0 },
+      };
+      emitirCombate(combate);
+      renderGrid();
+      await screen.findByText('Rodada 3');
+
+      await user.keyboard('n');
+      await waitFor(() => expect(alterarGridCombate).toHaveBeenCalledTimes(1));
+      expect(alterarGridCombate.mock.calls[0][2](combate).patch).toMatchObject({
+        indice: 0,
+        rodada: 4,
+      });
+
+      alterarGridCombate.mockClear();
+      await user.keyboard('{Shift>}n{/Shift}');
+      await waitFor(() => expect(alterarGridCombate).toHaveBeenCalledTimes(1));
+      // De g3 para trás: t2 (criatura, PV 0) é pulada e cai em t1 (jogador).
+      expect(alterarGridCombate.mock.calls[0][2](combate).patch).toMatchObject({
+        indice: 0,
+        rodada: 3,
+      });
+    });
+
     it('N não faz nada sem combate', async () => {
       const user = userEvent.setup();
       renderGrid();

@@ -5,6 +5,7 @@ import {
   COMBATE_PARTICIPANTES_MAX,
   avancarTurno,
   compararIniciativa,
+  derrotadosDosTokens,
   distanciasDeMovimento,
   faixaDaDistancia,
   faixaDoCombate,
@@ -18,6 +19,7 @@ import {
   reacaoDaFicha,
   removerDoCombate,
   rolarIniciativa,
+  tokenDerrotado,
   trocarTurno,
 } from './gridCombate';
 
@@ -103,6 +105,11 @@ describe('rolarIniciativa', () => {
     expect(rolarIniciativa([{ tokenId: 'x' }], sequencia([0, 0]))).toEqual([
       { tokenId: 'x', iniciativa: 1, d20: 1, reacao: 0 },
     ]);
+  });
+
+  it('empate no total: a maior Reação vem primeiro e a ordem de entrada é estável', () => {
+    const lista = [entrada('a', 15, 2), entrada('b', 15, 6), entrada('c', 15, 6)];
+    expect([...lista].sort(compararIniciativa).map(item => item.tokenId)).toEqual(['b', 'c', 'a']);
   });
 
   it('compararIniciativa: maior total, depois maior Reação', () => {
@@ -212,6 +219,102 @@ describe('avancarTurno / trocarTurno', () => {
       rodada: 5,
       nome: 'Aldric',
       oculto: false,
+    });
+  });
+
+  describe('NPC/Criatura derrotado (PV 0) perde a vez', () => {
+    const quatro = [
+      entrada('a', 20),
+      entrada('n1', 15),
+      entrada('n2', 12),
+      entrada('b', 10),
+    ];
+    const mortos = ids => new Set(ids);
+
+    it('tokenDerrotado: só NPC/Criatura com PV atual 0; jogador, avulso e sem PV não', () => {
+      const pv0 = { atual: 0, max: 10 };
+      expect(tokenDerrotado({ tipo: 'npc', pv: pv0 })).toBe(true);
+      expect(tokenDerrotado({ tipo: 'criatura', pv: pv0 })).toBe(true);
+      expect(tokenDerrotado({ tipo: 'criatura', pv: { atual: 1, max: 10 } })).toBe(false);
+      expect(tokenDerrotado({ tipo: 'jogador', pv: pv0 })).toBe(false);
+      expect(tokenDerrotado({ tipo: 'avulso', pv: pv0 })).toBe(false);
+      expect(tokenDerrotado({ tipo: 'npc' })).toBe(false);
+      expect(tokenDerrotado(undefined)).toBe(false);
+      expect(
+        [...derrotadosDosTokens([{ id: 'x', tipo: 'npc', pv: pv0 }, { id: 'y', tipo: 'jogador', pv: pv0 }])],
+      ).toEqual(['x']);
+    });
+
+    it('+1 pula os derrotados', () => {
+      expect(avancarTurno(combate(quatro, 0), 1, { derrotados: mortos(['n1', 'n2']) })).toEqual({
+        indice: 3,
+        rodada: 1,
+        novaRodada: false,
+      });
+    });
+
+    it('+1 pula e passa a rodada ao dar a volta', () => {
+      expect(avancarTurno(combate(quatro, 2, 4), 1, { derrotados: mortos(['b', 'a']) })).toEqual({
+        indice: 1,
+        rodada: 5,
+        novaRodada: true,
+      });
+    });
+
+    it('−1 pula os derrotados; na rodada 1 sem ninguém antes de pé, null', () => {
+      expect(avancarTurno(combate(quatro, 3), -1, { derrotados: mortos(['n1', 'n2']) })).toEqual({
+        indice: 0,
+        rodada: 1,
+        novaRodada: false,
+      });
+      expect(avancarTurno(combate(quatro, 2, 1), -1, { derrotados: mortos(['n1', 'a']) })).toBeNull();
+      expect(avancarTurno(combate(quatro, 2, 2), -1, { derrotados: mortos(['n1', 'a']) })).toEqual({
+        indice: 3,
+        rodada: 1,
+        novaRodada: false,
+      });
+    });
+
+    it('o único de pé volta a si mesmo na rodada seguinte', () => {
+      expect(
+        avancarTurno(combate(quatro, 3, 2), 1, { derrotados: mortos(['a', 'n1', 'n2']) }),
+      ).toEqual({ indice: 3, rodada: 3, novaRodada: true });
+    });
+
+    it('todos derrotados: vale o passo simples, sem laço infinito', () => {
+      const todos = mortos(['a', 'n1', 'n2', 'b']);
+      expect(avancarTurno(combate(quatro, 0), 1, { derrotados: todos })).toEqual({
+        indice: 1,
+        rodada: 1,
+        novaRodada: false,
+      });
+      expect(avancarTurno(combate(quatro, 0, 1), -1, { derrotados: todos })).toBeNull();
+    });
+
+    it('trocarTurno calcula os derrotados dos tokens e a mensagem é do próximo de pé', () => {
+      const tokens = [
+        { id: 'a', nome: 'Aldric', tipo: 'jogador', col: 0, lin: 0, pv: { atual: 0, max: 9 } },
+        { id: 'n1', nome: 'Orc', tipo: 'npc', col: 1, lin: 1, pv: { atual: 0, max: 9 } },
+        { id: 'n2', nome: 'Lobo', tipo: 'criatura', col: 2, lin: 2, pv: { atual: 0, max: 9 } },
+        { id: 'b', nome: 'Brina', tipo: 'jogador', col: 3, lin: 3 },
+      ];
+      expect(trocarTurno(combate(quatro, 0), 1, tokens)).toEqual({
+        patch: { indice: 3, rodada: 1, inicioTurno: { col: 3, lin: 3 } },
+        mensagem: { evento: 'turno', rodada: 1, nome: 'Brina', oculto: false },
+      });
+      // Jogador com PV 0 continua na vez dele.
+      expect(trocarTurno(combate(quatro, 3), 1, tokens).patch.indice).toBe(0);
+    });
+
+    it('faixaDoCombate marca o derrotado', () => {
+      const tokens = [
+        { id: 'a', nome: 'A', tipo: 'jogador', pv: { atual: 0, max: 9 } },
+        { id: 'n1', nome: 'Orc', tipo: 'npc', pv: { atual: 0, max: 9 } },
+      ];
+      const faixa = faixaDoCombate(combate([entrada('a', 9), entrada('n1', 5)]), tokens, {
+        veTudo: true,
+      });
+      expect(faixa.itens.map(item => item.derrotado)).toEqual([false, true]);
     });
   });
 });
