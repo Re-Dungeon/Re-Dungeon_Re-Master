@@ -41,6 +41,7 @@ const TokenPainel = ({
   onDuplicar,
   onFechar,
   onRolar,
+  onVerFicha,
   rodada = null,
   abaixoDaFaixa = false,
 }) => {
@@ -116,6 +117,11 @@ const TokenPainel = ({
             {token.col + 1}, linha {token.lin + 1}
           </Typography>
         </Box>
+        {onVerFicha && (
+          <Button size="small" aria-label="Ver ficha" onClick={onVerFicha}>
+            Ver ficha
+          </Button>
+        )}
         {onRolar && (
           <Button size="small" aria-label="Rolar pelo token" onClick={onRolar}>
             Rolar…
@@ -297,6 +303,8 @@ TokenPainel.propTypes = {
   onDuplicar: PropTypes.func,
   onFechar: PropTypes.func.isRequired,
   onRolar: PropTypes.func,
+  // Abre a ficha (PersonagemFichaDialog) de token com refId; sem ele, sem botão.
+  onVerFicha: PropTypes.func,
   // Rodada atual do combate da cena (null = sem combate): duração das condições.
   rodada: PropTypes.number,
   // Combate em andamento: a faixa de iniciativa ocupa o topo do mapa.

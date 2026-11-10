@@ -136,6 +136,19 @@ vi.mock('context/AuthContext', () => ({
   useAuth: () => ({ currentUser: { uid: 'm1' } }),
 }));
 
+// A ficha em si é testada no componente; aqui só importa o que a página passa.
+vi.mock('components/PersonagemFichaDialog/PersonagemFichaDialog', () => ({
+  default: ({ open, personagem, onClose }) =>
+    open ? (
+      <div role="dialog" aria-label="Ficha do personagem">
+        Ficha de {personagem.nome} ({personagem.id})
+        <button type="button" onClick={onClose}>
+          Fechar ficha
+        </button>
+      </div>
+    ) : null,
+}));
+
 const notifyError = vi.fn();
 const notifySuccess = vi.fn();
 vi.mock('context/SnackbarContext', () => ({
@@ -2055,6 +2068,51 @@ describe('Grid (Re:Master)', () => {
           oculto: false,
         }),
       );
+    });
+
+    it('"Ver ficha" abre a ficha do personagem de origem do token', async () => {
+      const user = userEvent.setup();
+      renderGrid();
+      const painel = await selecionarOgro(user);
+      await user.click(within(painel).getByRole('button', { name: 'Ver ficha' }));
+      const dialogo = await screen.findByRole('dialog', {
+        name: 'Ficha do personagem',
+      });
+      expect(dialogo).toHaveTextContent('Ficha de Ogro (cr1)');
+      await user.click(within(dialogo).getByRole('button', { name: 'Fechar ficha' }));
+      await waitFor(() =>
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument(),
+      );
+    });
+
+    it('token sem refId (avulso) não tem "Ver ficha"', async () => {
+      const user = userEvent.setup();
+      subscribeGridTokens.mockImplementation(
+        (_id, _cenaId, _opcoes, onChange) => {
+          onChange([
+            {
+              id: 'a1',
+              nome: 'Baú',
+              tipo: 'avulso',
+              col: 2,
+              lin: 2,
+              tamanho: 1,
+              donos: [],
+              oculto: false,
+            },
+          ]);
+          return vi.fn();
+        },
+      );
+      renderGrid();
+      (await screen.findByRole('button', { name: /Baú/ })).focus();
+      await user.keyboard('{Enter}');
+      const painel = await screen.findByRole('region', {
+        name: 'Token selecionado',
+      });
+      expect(
+        within(painel).queryByRole('button', { name: 'Ver ficha' }),
+      ).not.toBeInTheDocument();
     });
 
     it('H em seleção múltipla oculta todos de uma vez', async () => {

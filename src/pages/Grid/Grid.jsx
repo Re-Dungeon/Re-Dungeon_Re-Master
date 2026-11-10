@@ -26,6 +26,7 @@ import { useAuth } from 'context/AuthContext';
 import { useCampanha } from 'context/CampanhaContext';
 import { useSnackbar } from 'context/SnackbarContext';
 import useConfirmacao from 'components/ConfirmDialog/useConfirmacao';
+import PersonagemFichaDialog from 'components/PersonagemFichaDialog/PersonagemFichaDialog';
 import {
   addGridCena,
   addGridTokens,
@@ -207,6 +208,8 @@ const Grid = () => {
   const [participantesAberto, setParticipantesAberto] = useState(false);
   const [chatAberto, setChatAberto] = useState(true);
   const [tokenRolando, setTokenRolando] = useState(null);
+  // Ficha aberta por "Ver ficha" no painel do token ({ id, nome, linkImagem }).
+  const [fichaAberta, setFichaAberta] = useState(null);
   const [atalhosAberto, setAtalhosAberto] = useState(false);
   // Painel "Grupo" e o último pedido de centralizar num token ({ tokenId, chave }).
   const [grupoAberto, setGrupoAberto] = useState(false);
@@ -1304,6 +1307,16 @@ const Grid = () => {
                     ? () => setTokenRolando(selecionado)
                     : undefined
                 }
+                onVerFicha={
+                  selecionado.refId
+                    ? () =>
+                        setFichaAberta({
+                          id: selecionado.refId,
+                          nome: selecionado.nome,
+                          linkImagem: selecionado.imagemUrl ?? null,
+                        })
+                    : undefined
+                }
                 rodada={rodadaAtual}
                 abaixoDaFaixa={Boolean(grid.combate)}
               />
@@ -1373,6 +1386,12 @@ const Grid = () => {
       </Box>
 
       {dialogoConfirmacao}
+
+      <PersonagemFichaDialog
+        open={Boolean(fichaAberta)}
+        onClose={() => setFichaAberta(null)}
+        personagem={fichaAberta}
+      />
 
       <AtalhosDialog
         open={atalhosAberto}
