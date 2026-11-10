@@ -1,4 +1,15 @@
 {
-  "indexes": [],
+  "indexes": [
+    {
+      "collectionGroup": "rmSessaoLogs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "campanhaId", "order": "ASCENDING" },
+        { "fieldPath": "universoId", "order": "ASCENDING" },
+        { "fieldPath": "mestreId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    }
+  ],
   "fieldOverrides": []
 }

@@ -20,6 +20,7 @@ import {
 } from 'common/utils/grid';
 import { OPCOES_TAMANHO_TOKEN, opcoesDeDonos } from './gridMestre';
 import TokenCombate from './TokenCombate';
+import { ControlesDoPainel, PainelMinimizado } from './ControlesDoPainel';
 import { painelCabecalhoSx, painelLadoSx } from './styles';
 
 /**
@@ -41,8 +42,13 @@ const TokenPainel = ({
   onDuplicar,
   onFechar,
   onRolar,
+  onVerFicha,
   rodada = null,
   abaixoDaFaixa = false,
+  lado = 'left',
+  minimizado = false,
+  onTrocarLado,
+  onMinimizar,
 }) => {
   const [valores, setValores] = useState({
     nome: token.nome ?? '',
@@ -100,14 +106,28 @@ const TokenPainel = ({
     onAlterar({ oculto: !oculto });
   };
 
+  // Recolhido numa barrinha: os hooks acima mantêm o formulário em edição.
+  if (minimizado) {
+    return (
+      <PainelMinimizado
+        lado={lado}
+        abaixoDaFaixa={abaixoDaFaixa}
+        titulo={token.nome || 'Token'}
+        rotulo="painel do token"
+        onExpandir={() => onMinimizar(false)}
+      />
+    );
+  }
+
   return (
     <Box
-      sx={painelLadoSx('left', abaixoDaFaixa)}
+      sx={painelLadoSx(lado, abaixoDaFaixa)}
       role="region"
       aria-label="Token selecionado"
+      data-painel-lateral=""
     >
-      <Box sx={painelCabecalhoSx}>
-        <Box>
+      <Box sx={{ ...painelCabecalhoSx, alignItems: 'flex-start' }}>
+        <Box sx={{ flex: '1 1 110px', minWidth: 0 }}>
           <Typography sx={{ color: 'var(--text-primary)', fontWeight: 700 }}>
             Token
           </Typography>
@@ -116,33 +136,56 @@ const TokenPainel = ({
             {token.col + 1}, linha {token.lin + 1}
           </Typography>
         </Box>
-        {onRolar && (
-          <Button size="small" aria-label="Rolar pelo token" onClick={onRolar}>
-            Rolar…
-          </Button>
-        )}
-        <IconButton
-          size="small"
-          aria-label={
-            oculto ? 'Revelar aos jogadores' : 'Ocultar dos jogadores'
-          }
-          aria-pressed={oculto}
-          title={
-            oculto
-              ? 'Oculto para os jogadores (H) — clique para revelar'
-              : 'Visível para os jogadores (H) — clique para ocultar'
-          }
-          onClick={handleAlternarOculto}
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            justifyContent: 'flex-end',
+          }}
         >
-          {oculto ? (
-            <VisibilityOffIcon fontSize="small" />
-          ) : (
-            <VisibilityIcon fontSize="small" />
+          {onVerFicha && (
+            <Button size="small" aria-label="Ver ficha" onClick={onVerFicha}>
+              Ver ficha
+            </Button>
           )}
-        </IconButton>
-        <IconButton size="small" aria-label="Fechar token" onClick={onFechar}>
-          <CloseIcon fontSize="small" />
-        </IconButton>
+          {onRolar && (
+            <Button
+              size="small"
+              aria-label="Rolar pelo token"
+              onClick={onRolar}
+            >
+              Rolar…
+            </Button>
+          )}
+          <IconButton
+            size="small"
+            aria-label={
+              oculto ? 'Revelar aos jogadores' : 'Ocultar dos jogadores'
+            }
+            aria-pressed={oculto}
+            title={
+              oculto
+                ? 'Oculto para os jogadores (H) — clique para revelar'
+                : 'Visível para os jogadores (H) — clique para ocultar'
+            }
+            onClick={handleAlternarOculto}
+          >
+            {oculto ? (
+              <VisibilityOffIcon fontSize="small" />
+            ) : (
+              <VisibilityIcon fontSize="small" />
+            )}
+          </IconButton>
+          <ControlesDoPainel
+            lado={lado}
+            onTrocarLado={onTrocarLado}
+            onMinimizar={() => onMinimizar(true)}
+          />
+          <IconButton size="small" aria-label="Fechar token" onClick={onFechar}>
+            <CloseIcon fontSize="small" />
+          </IconButton>
+        </Box>
       </Box>
 
       <TokenCombate
@@ -297,10 +340,17 @@ TokenPainel.propTypes = {
   onDuplicar: PropTypes.func,
   onFechar: PropTypes.func.isRequired,
   onRolar: PropTypes.func,
+  // Abre a ficha (PersonagemFichaDialog) de token com refId; sem ele, sem botão.
+  onVerFicha: PropTypes.func,
   // Rodada atual do combate da cena (null = sem combate): duração das condições.
   rodada: PropTypes.number,
   // Combate em andamento: a faixa de iniciativa ocupa o topo do mapa.
   abaixoDaFaixa: PropTypes.bool,
+  // Lado do mapa ('left' | 'right'), minimizado e seus controles.
+  lado: PropTypes.oneOf(['left', 'right']),
+  minimizado: PropTypes.bool,
+  onTrocarLado: PropTypes.func.isRequired,
+  onMinimizar: PropTypes.func.isRequired,
 };
 
 export default TokenPainel;

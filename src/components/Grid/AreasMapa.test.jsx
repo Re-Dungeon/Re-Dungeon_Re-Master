@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 
 import AreasGrid from './AreasGrid';
 import AreaRotulos from './AreaRotulos';
@@ -133,17 +133,18 @@ describe('AreaPopover', () => {
     expect(screen.queryByText('Remover todos')).toBeNull();
   });
 
-  it('remover todos confirma antes', () => {
+  it('remover todos confirma antes (diálogo, sem window.confirm)', async () => {
     const onRemoverTodas = vi.fn();
+    const confirmar = vi.spyOn(window, 'confirm');
     montar({ onRemoverTodas });
-    const confirmar = vi
-      .spyOn(window, 'confirm')
-      .mockReturnValueOnce(false)
-      .mockReturnValueOnce(true);
     fireEvent.click(screen.getByText('Remover todos'));
+    fireEvent.click(await screen.findByRole('button', { name: 'Cancelar' }));
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: /Remover todas/ })).toBeNull());
     expect(onRemoverTodas).not.toHaveBeenCalled();
     fireEvent.click(screen.getByText('Remover todos'));
-    expect(onRemoverTodas).toHaveBeenCalledTimes(1);
+    fireEvent.click(await screen.findByRole('button', { name: 'Remover' }));
+    await waitFor(() => expect(onRemoverTodas).toHaveBeenCalledTimes(1));
+    expect(confirmar).not.toHaveBeenCalled();
     confirmar.mockRestore();
   });
 });

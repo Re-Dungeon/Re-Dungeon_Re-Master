@@ -1,8 +1,10 @@
 import {
   GRID_POSICAO_MAX,
   METROS_POR_QUADRADO_PADRAO,
+  TIPOS_TOKEN,
   chaveDoMovimento,
   normalizarMultiplicadorCorrida,
+  normalizarRecurso,
 } from 'common/utils/grid';
 import { randomUint32, rolarFace } from 'common/utils/dados';
 
@@ -159,24 +161,57 @@ export const normalizarCombate = doc => {
   };
 };
 
+// NPC ou Criatura com PV atual 0 está derrotado e perde a vez na iniciativa
+// (só o mestre revive: PV > 0). Jogador com PV 0 continua na vez dele (a ficha
+// é quem manda) e token sem PV (ou avulso) nunca é derrotado.
+export const tokenDerrotado = token => {
+  if (!token) return false;
+  if (token.tipo !== TIPOS_TOKEN.NPC && token.tipo !== TIPOS_TOKEN.CRIATURA) return false;
+  const pv = normalizarRecurso(token.pv);
+  return Boolean(pv) && pv.atual <= 0;
+};
+
+// tokens → Set dos ids derrotados (o "mapa de derrotados" de avancarTurno).
+export const derrotadosDosTokens = tokens =>
+  new Set((tokens ?? []).filter(tokenDerrotado).map(token => token.id));
+
+// Um passo cru: próximo (+1) / anterior (−1) → { indice, rodada, novaRodada }
+// ou null. +1 no último volta ao primeiro com rodada +1; −1 no primeiro vai
+// ao último da rodada anterior (null na rodada 1).
+const passoDoTurno = (indice, rodada, total, passo) => {
+  if (passo > 0) {
+    if (indice + 1 < total) return { indice: indice + 1, rodada, novaRodada: false };
+    if (rodada >= COMBATE_RODADA_MAX) return null;
+    return { indice: 0, rodada: rodada + 1, novaRodada: true };
+  }
+  if (indice > 0) return { indice: indice - 1, rodada, novaRodada: false };
+  if (rodada <= 1) return null;
+  return { indice: total - 1, rodada: rodada - 1, novaRodada: false };
+};
+
 // Próximo (+1) / anterior (−1) → { indice, rodada, novaRodada } ou null. +1
 // no último volta ao primeiro com rodada +1; −1 no primeiro vai ao último da
-// rodada anterior (null na rodada 1).
-export const avancarTurno = (combate, passo) => {
+// rodada anterior (null na rodada 1). `derrotados` (Set de tokenId, opcional)
+// são pulados — andando até uma volta inteira, que pode cair de novo no token
+// da vez (e passar a rodada) se ele é o único de pé. Se todos estão derrotados
+// não há onde parar: vale o passo simples, sem laço.
+export const avancarTurno = (combate, passo, { derrotados = null } = {}) => {
   if (!combate?.ordem?.length) return null;
   const total = combate.ordem.length;
-  if (passo > 0) {
-    if (combate.indice + 1 < total) {
-      return { indice: combate.indice + 1, rodada: combate.rodada, novaRodada: false };
+  const primeiro = passoDoTurno(combate.indice, combate.rodada, total, passo);
+  if (!primeiro || !derrotados?.size) return primeiro;
+  let atual = primeiro;
+  let novaRodada = false;
+  for (let tentativa = 0; tentativa < total; tentativa += 1) {
+    novaRodada = novaRodada || atual.novaRodada;
+    if (!derrotados.has(combate.ordem[atual.indice].tokenId)) {
+      return { indice: atual.indice, rodada: atual.rodada, novaRodada };
     }
-    if (combate.rodada >= COMBATE_RODADA_MAX) return null;
-    return { indice: 0, rodada: combate.rodada + 1, novaRodada: true };
+    const seguinte = passoDoTurno(atual.indice, atual.rodada, total, passo);
+    if (!seguinte) return null;
+    atual = seguinte;
   }
-  if (combate.indice > 0) {
-    return { indice: combate.indice - 1, rodada: combate.rodada, novaRodada: false };
-  }
-  if (combate.rodada <= 1) return null;
-  return { indice: total - 1, rodada: combate.rodada - 1, novaRodada: false };
+  return primeiro;
 };
 
 const tokenVisivel = token => Boolean(token && !token.oculto);
@@ -184,9 +219,12 @@ const tokenVisivel = token => Boolean(token && !token.oculto);
 // Troca de turno → { patch: { indice, rodada, inicioTurno }, mensagem: {
 // evento, rodada, nome, oculto } } ou null. `tokens` = os que quem troca vê:
 // o próximo fora deles (oculto para o jogador) ou oculto vira "oponente
-// oculto" na mensagem, e sem ele não há origem do alcance.
+// oculto" na mensagem, e sem ele não há origem do alcance. NPC/Criatura
+// derrotados (PV 0, ver tokenDerrotado) entre `tokens` perdem a vez.
 export const trocarTurno = (combate, passo, tokens) => {
-  const proximo = avancarTurno(combate, passo);
+  const proximo = avancarTurno(combate, passo, {
+    derrotados: derrotadosDosTokens(tokens),
+  });
   if (!proximo) return null;
   const tokenId = combate.ordem[proximo.indice].tokenId;
   const token = (tokens ?? []).find(item => item.id === tokenId) ?? null;
@@ -309,7 +347,7 @@ export const moverNoCombate = (combate, tokenId, passo) => {
 };
 
 // View model da faixa de iniciativa → { rodada, itens: [{ tokenId, nome,
-// imagemUrl, tipo, oculto, atual, iniciativa }], vezDoMestre } ou null. Quem
+// imagemUrl, tipo, oculto, derrotado, atual, iniciativa }], vezDoMestre } ou null. Quem
 // não vê tudo não vê os ocultos (nem os que não estão em `tokens`); se a vez é
 // de um deles, `vezDoMestre`.
 export const faixaDoCombate = (combate, tokens, { veTudo = false } = {}) => {
@@ -325,6 +363,7 @@ export const faixaDoCombate = (combate, tokens, { veTudo = false } = {}) => {
       imagemUrl: token.imagemUrl ?? null,
       tipo: token.tipo,
       oculto: Boolean(token.oculto),
+      derrotado: tokenDerrotado(token),
       atual: indice === combate.indice,
       iniciativa: entrada.iniciativa,
     });

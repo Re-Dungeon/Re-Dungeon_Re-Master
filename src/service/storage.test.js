@@ -37,6 +37,8 @@ import {
   writeBatch,
 } from 'firebase/firestore';
 import {
+  addChatSussurro,
+  removeChatSussurro,
   getChatMensagensAntes,
   getRmCampanhas,
   addRmCampanha,
@@ -46,6 +48,7 @@ import {
   getUserPermissions,
   getPersonagens,
   getPersonagensJogaveis,
+  limparCachePersonagens,
   getPersonagemSubcolecao,
   getAptidao,
   getRaca,
@@ -86,6 +89,7 @@ import {
   removeRmNota,
   updateRmNota,
   getRmSessaoLogsPorCampanha,
+  getRmSessaoLogsRecentes,
   addRmSessaoLog,
   getRmMusicasBibliotecaPorMestre,
   addRmMusicaBiblioteca,
@@ -144,6 +148,26 @@ describe('storage.js — CRUD de rmCampanhas (padrão Firestore repetido em toda
     });
   });
 
+  it('addChatSussurro grava na pasta de sussurros do jogador com createdAt', async () => {
+    addDoc.mockResolvedValue({ id: 's1' });
+
+    await addChatSussurro('c1', 'u2', { texto: 'psiu', sussurro: true });
+
+    expect(addDoc).toHaveBeenCalledWith(
+      { __collection: 'rmCampanhas/c1/chatSecretas/u2/sussurros' },
+      { texto: 'psiu', sussurro: true, createdAt: '__serverTimestamp__' },
+    );
+  });
+
+  it('removeChatSussurro apaga o doc na pasta do jogador', async () => {
+    await removeChatSussurro('c1', 'u2', 's1');
+
+    expect(deleteDoc).toHaveBeenCalledWith({
+      __doc: 'rmCampanhas/c1/chatSecretas/u2/sussurros',
+      id: 's1',
+    });
+  });
+
   it('removeRmCampanhaCompleta apaga as subcoleções antes da campanha', async () => {
     const ordem = [];
     const apagados = [];
@@ -156,6 +180,7 @@ describe('storage.js — CRUD de rmCampanhas (padrão Firestore repetido em toda
       'rmCampanhas/c1/chatMembros': [{ id: 'u2', ref: 'membro-u2' }],
       'rmCampanhas/c1/chatSecretas/u2/rolagens': [{ ref: 'secreta-u2' }],
       'rmCampanhas/c1/chatSecretas/m1/rolagens': [{ ref: 'secreta-m1' }],
+      'rmCampanhas/c1/chatSecretas/u2/sussurros': [{ ref: 'sussurro-u2' }],
       'rmCampanhas/c1/chatMensagens': [{ ref: 'msg-1' }],
       'rmCampanhas/c1/macros': [{ ref: 'macro-1' }],
       'rmCampanhas/c1/npcs': [{ ref: 'npc-1' }],
@@ -167,13 +192,14 @@ describe('storage.js — CRUD de rmCampanhas (padrão Firestore repetido em toda
 
     await removeRmCampanhaCompleta('c1', 'm1');
 
-    // Clones/jogadores/Luta são listados com o filtro do mestre (regra).
+    // Clones/jogadores/participantes da antiga Luta são listados com o filtro do mestre (regra).
     expect(where).toHaveBeenCalledWith('mestreId', '==', 'm1');
 
     expect(apagados).toEqual(
       expect.arrayContaining([
         'secreta-u2',
         'secreta-m1',
+        'sussurro-u2',
         'msg-1',
         'macro-1',
         'npc-1',
@@ -432,6 +458,86 @@ describe('storage.js — Biblioteca Global de Músicas', () => {
 describe('storage.js — personagens (somente leitura) e CRUD de rmCampanhaNpcs/rmCampanhaJogadores/rmCampanhaCriaturas', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    limparCachePersonagens();
+  });
+
+  it('getPersonagens(universoId) filtra também por universo no servidor', async () => {
+    getDocs.mockResolvedValue({ docs: [] });
+
+    await getPersonagens('u1');
+
+    expect(where).toHaveBeenCalledWith('tipo', 'in', ['NPC', 'Criatura']);
+    expect(where).toHaveBeenCalledWith('universo', '==', 'u1');
+  });
+
+  it('guarda a leitura em cache (mesma chave não relê; outro universo relê) e devolve cópia', async () => {
+    getDocs.mockResolvedValue({
+      docs: [{ id: 'p1', data: () => ({ nome: 'Goblin' }) }],
+    });
+
+    const primeira = await getPersonagens('u1');
+    primeira[0].nome = 'Alterado';
+    primeira.push({ id: 'x' });
+    const segunda = await getPersonagens('u1');
+    await getPersonagens('u2');
+
+    expect(getDocs).toHaveBeenCalledTimes(2);
+    expect(segunda).toEqual([{ id: 'p1', nome: 'Goblin' }]);
+  });
+
+  it('chamadas simultâneas dividem a mesma leitura', async () => {
+    getDocs.mockResolvedValue({ docs: [] });
+
+    await Promise.all([getPersonagens('u1'), getPersonagens('u1')]);
+
+    expect(getDocs).toHaveBeenCalledTimes(1);
+  });
+
+  it('descarta a entrada do cache quando a leitura falha', async () => {
+    const consoleErro = vi.spyOn(console, 'error').mockImplementation(() => {});
+    getDocs.mockRejectedValueOnce(new Error('offline'));
+    getDocs.mockResolvedValueOnce({ docs: [] });
+
+    await expect(getPersonagens('u1')).rejects.toThrow('offline');
+    await expect(getPersonagens('u1')).resolves.toEqual([]);
+
+    expect(getDocs).toHaveBeenCalledTimes(2);
+    consoleErro.mockRestore();
+  });
+
+  it('{ forcar: true } ignora o cache', async () => {
+    getDocs.mockResolvedValue({ docs: [] });
+
+    await getPersonagens('u1');
+    await getPersonagens('u1', { forcar: true });
+
+    expect(getDocs).toHaveBeenCalledTimes(2);
+  });
+
+  it('o cache expira depois de alguns minutos', async () => {
+    vi.useFakeTimers();
+    try {
+      getDocs.mockResolvedValue({ docs: [] });
+
+      await getPersonagens('u1');
+      vi.advanceTimersByTime(10 * 60 * 1000);
+      await getPersonagens('u1');
+
+      expect(getDocs).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('escrever um clone de NPC da campanha limpa o cache de personagens', async () => {
+    getDocs.mockResolvedValue({ docs: [] });
+    addDoc.mockResolvedValue({ id: 'n1' });
+
+    await getPersonagens('u1');
+    await addRmCampanhaNpc('c1', { nome: 'Clone' });
+    await getPersonagens('u1');
+
+    expect(getDocs).toHaveBeenCalledTimes(2);
   });
 
   it('getPersonagens busca só tipo NPC/Criatura (list falha inteira se a query puder incluir uma ficha privada de outro usuário)', async () => {
@@ -1011,6 +1117,41 @@ describe('storage.js — rmSessaoLogs (registro cronológico automático, append
     expect(where).toHaveBeenCalledWith('campanhaId', '==', 'c1');
     expect(where).toHaveBeenCalledWith('universoId', '==', 'u1');
     expect(where).toHaveBeenCalledWith('mestreId', '==', 'mestre-1');
+  });
+
+  it('getRmSessaoLogsRecentes ordena por createdAt desc com limite', async () => {
+    getDocs.mockResolvedValue({
+      docs: [{ id: 'l1', data: () => ({ tipo: 'cena_atual' }) }],
+    });
+
+    const logs = await getRmSessaoLogsRecentes('c1', 'u1', 'mestre-1', 10);
+
+    expect(where).toHaveBeenCalledWith('campanhaId', '==', 'c1');
+    expect(orderBy).toHaveBeenCalledWith('createdAt', 'desc');
+    expect(limit).toHaveBeenCalledWith(10);
+    expect(logs).toEqual([{ id: 'l1', tipo: 'cena_atual' }]);
+  });
+
+  it('getRmSessaoLogsRecentes cai na leitura completa se o índice composto ainda não existe', async () => {
+    getDocs.mockRejectedValueOnce({ code: 'failed-precondition' });
+    getDocs.mockResolvedValueOnce({
+      docs: [{ id: 'l2', data: () => ({ tipo: 'carta_sorteada' }) }],
+    });
+
+    const logs = await getRmSessaoLogsRecentes('c1', 'u1', 'mestre-1');
+
+    expect(logs).toEqual([{ id: 'l2', tipo: 'carta_sorteada' }]);
+    expect(getDocs).toHaveBeenCalledTimes(2);
+  });
+
+  it('getRmSessaoLogsRecentes propaga outros erros', async () => {
+    const consoleErro = vi.spyOn(console, 'error').mockImplementation(() => {});
+    getDocs.mockRejectedValueOnce({ code: 'permission-denied' });
+
+    await expect(
+      getRmSessaoLogsRecentes('c1', 'u1', 'mestre-1'),
+    ).rejects.toEqual({ code: 'permission-denied' });
+    consoleErro.mockRestore();
   });
 
   it('addRmSessaoLog grava na coleção "rmSessaoLogs" com createdAt', async () => {

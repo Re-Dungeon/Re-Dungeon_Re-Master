@@ -9,7 +9,7 @@ import MapOutlined from '@mui/icons-material/MapOutlined';
 import { useCampanha } from 'context/CampanhaContext';
 import {
   getRmNotasPorCampanha,
-  getRmSessaoLogsPorCampanha,
+  getRmSessaoLogsRecentes,
 } from 'service/storage';
 import { ROUTE_PATHS } from 'common/constants/routes';
 import useAsyncEffect from 'hooks/useAsyncEffect';
@@ -125,7 +125,7 @@ const Dashboard = () => {
       return Promise.resolve();
     }
     setLoadingLogs(true);
-    return getRmSessaoLogsPorCampanha(
+    return getRmSessaoLogsRecentes(
       campanhaAtiva.id,
       campanhaAtiva.universoId,
       campanhaAtiva.mestreId,

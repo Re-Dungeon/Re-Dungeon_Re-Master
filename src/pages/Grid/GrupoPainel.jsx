@@ -91,9 +91,10 @@ const GrupoPainel = ({
   onFocar,
   onFechar,
   abaixoDaFaixa = false,
+  lado = 'right',
 }) => (
   <Box
-    sx={painelLadoSx('right', abaixoDaFaixa)}
+    sx={painelLadoSx(lado, abaixoDaFaixa)}
     role="region"
     aria-label="Grupo"
   >
@@ -210,6 +211,8 @@ GrupoPainel.propTypes = {
   onFechar: PropTypes.func.isRequired,
   // Combate em andamento: a faixa de iniciativa ocupa o topo do mapa.
   abaixoDaFaixa: PropTypes.bool,
+  // Lado do mapa; vai para a esquerda quando o painel do token ocupa a direita.
+  lado: PropTypes.oneOf(['left', 'right']),
 };
 
 export default GrupoPainel;

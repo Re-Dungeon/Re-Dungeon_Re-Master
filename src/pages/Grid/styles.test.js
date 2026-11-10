@@ -3,8 +3,26 @@ import {
   MOBILE_QUERY,
   painelAbaixoDaFaixaSx,
   painelLadoSx,
+  painelMinimizadoSx,
   painelSx,
 } from './styles';
+
+describe('painelMinimizadoSx', () => {
+  it('barrinha no lado e na altura do painel; celular: base de ponta a ponta', () => {
+    expect(painelMinimizadoSx('right')).toMatchObject({ right: 12, top: 12 });
+    expect(painelMinimizadoSx('left', true)).toMatchObject({
+      left: 12,
+      top: painelAbaixoDaFaixaSx.top,
+    });
+    const chaves = Object.keys(painelMinimizadoSx('left'));
+    expect(chaves[chaves.length - 1]).toBe(MOBILE_QUERY);
+    expect(painelMinimizadoSx('left')[MOBILE_QUERY]).toMatchObject({
+      bottom: 0,
+      left: 0,
+      right: 0,
+    });
+  });
+});
 
 describe('painelLadoSx', () => {
   it('desktop: cartão de 300px colado no lado pedido, como sempre', () => {

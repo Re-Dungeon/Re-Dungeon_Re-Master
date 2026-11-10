@@ -262,31 +262,3 @@
 .sidebar-nav::-webkit-scrollbar-thumb:hover {
   background: rgba(196, 58, 47, 0.5);
 }
-
-/* Responsivo */
-@media (max-width: 1024px) {
-  .remaster-sidebar {
-    width: 240px;
-  }
-
-  .nav-label {
-    display: none;
-  }
-
-  .nav-btn {
-    justify-content: center;
-  }
-}
-
-@media (max-width: 768px) {
-  .remaster-sidebar {
-    position: fixed;
-    left: -100%;
-    transition: left var(--transition-normal);
-    z-index: 1000;
-  }
-
-  .remaster-sidebar.active {
-    left: 0;
-  }
-}

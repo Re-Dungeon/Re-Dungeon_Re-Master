@@ -1,4 +1,5 @@
 import styled from 'styled-components';
+import { MOBILE_QUERY } from 'common/styles/breakpoints';
 
 export const AppContainer = styled.div`
   display: flex;
@@ -18,4 +19,8 @@ export const ContentWrapper = styled.div`
   flex: 1;
   overflow-y: auto;
   padding: 32px;
+
+  ${MOBILE_QUERY} {
+    padding: 16px 12px;
+  }
 `;

@@ -38,11 +38,13 @@ const useFontesDaMesa = (campanha, { incluirJogadores = false } = {}) => {
     if (!campanha) return undefined;
     let active = true;
     const { id, universoId, mestreId } = campanha;
+    // "Recarregar fontes" (versão > 0) ignora o cache de personagens.
+    const forcar = versao > 0;
     Promise.all([
-      getPersonagens(),
+      getPersonagens(universoId, { forcar }),
       getRmCampanhaNpcs(id, universoId, mestreId),
       getRmCampanhaCriaturas(id, universoId, mestreId),
-      incluirJogadores ? getPersonagensJogaveis() : [],
+      incluirJogadores ? getPersonagensJogaveis(universoId, { forcar }) : [],
       incluirJogadores ? getRmCampanhaJogadores(id, universoId, mestreId) : [],
     ])
       .then(

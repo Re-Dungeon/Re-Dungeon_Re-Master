@@ -119,6 +119,10 @@ vi.mock('service/storage', () => ({
   getChatMensagensAntes: vi.fn(() => Promise.resolve([])),
   subscribeChatSecretasDoMestre: vi.fn(() => vi.fn()),
   subscribeChatSecretasDoUsuario: vi.fn(() => vi.fn()),
+  addChatSussurro: vi.fn(),
+  removeChatSussurro: vi.fn(),
+  subscribeChatSussurros: vi.fn(() => vi.fn()),
+  subscribeChatSussurrosDoMestre: vi.fn(() => vi.fn()),
   subscribeAudioMesa: (...args) => subscribeAudioMesa(...args),
   setAudioMesa: (...args) => setAudioMesa(...args),
   addChatMensagem: (...args) => addChatMensagem(...args),
@@ -134,6 +138,19 @@ vi.mock('service/storage', () => ({
 
 vi.mock('context/AuthContext', () => ({
   useAuth: () => ({ currentUser: { uid: 'm1' } }),
+}));
+
+// A ficha em si é testada no componente; aqui só importa o que a página passa.
+vi.mock('components/PersonagemFichaDialog/PersonagemFichaDialog', () => ({
+  default: ({ open, personagem, onClose }) =>
+    open ? (
+      <div role="dialog" aria-label="Ficha do personagem">
+        Ficha de {personagem.nome} ({personagem.id})
+        <button type="button" onClick={onClose}>
+          Fechar ficha
+        </button>
+      </div>
+    ) : null,
 }));
 
 const notifyError = vi.fn();
@@ -218,6 +235,15 @@ const renderGrid = () =>
       <Grid />
     </MemoryRouter>,
   );
+
+// Diálogo de confirmação (ConfirmDialog) aberto pela tela: clica num botão dele.
+const responderConfirmacao = async (user, botao) => {
+  const dialogo = await screen.findByRole('dialog');
+  await user.click(within(dialogo).getByRole('button', { name: botao }));
+  // O atalho de teclado só volta depois que o diálogo sai de cena.
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  return dialogo;
+};
 
 const abrirMenuDaCena = async (user, nome) => {
   await user.click(
@@ -444,7 +470,6 @@ describe('Grid (Re:Master)', () => {
 
   it('renomeia, duplica e apaga pelo menu da cena (a ativa não pode ser apagada)', async () => {
     const user = userEvent.setup();
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
     renderGrid();
 
     let menu = await abrirMenuDaCena(user, 'Taverna');
@@ -479,6 +504,8 @@ describe('Grid (Re:Master)', () => {
 
     menu = await abrirMenuDaCena(user, 'Masmorra');
     await user.click(within(menu).getByRole('menuitem', { name: /Apagar/ }));
+    expect(removeGridCena).not.toHaveBeenCalled();
+    await responderConfirmacao(user, 'Apagar');
     await waitFor(() =>
       expect(removeGridCena).toHaveBeenCalledWith('c1', 'cena-2'),
     );
@@ -591,7 +618,6 @@ describe('Grid (Re:Master)', () => {
 
   it('seleciona um token, edita e remove', async () => {
     const user = userEvent.setup();
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
     renderGrid();
 
     (await screen.findByRole('button', { name: /Ogro/ })).focus();
@@ -621,6 +647,7 @@ describe('Grid (Re:Master)', () => {
     );
 
     await user.click(within(painel).getByRole('button', { name: 'Remover' }));
+    await responderConfirmacao(user, 'Remover');
     await waitFor(() =>
       expect(removeGridToken).toHaveBeenCalledWith('c1', 'cena-1', 't2'),
     );
@@ -1159,10 +1186,10 @@ describe('Grid (Re:Master)', () => {
       await user.click(screen.getByRole('button', { name: 'Anterior' }));
       await waitFor(() => expect(alterarGridCombate).toHaveBeenCalledTimes(2));
 
-      vi.spyOn(window, 'confirm').mockReturnValue(true);
       await user.click(
         screen.getByRole('button', { name: 'Encerrar combate' }),
       );
+      await responderConfirmacao(user, 'Encerrar');
       await waitFor(() =>
         expect(encerrarGridCombate).toHaveBeenCalledWith(
           'c1',
@@ -1245,7 +1272,6 @@ describe('Grid (Re:Master)', () => {
     it('remover o token da cena também o tira do combate', async () => {
       const user = userEvent.setup();
       emitirCombate(COMBATE);
-      vi.spyOn(window, 'confirm').mockReturnValue(true);
       renderGrid();
 
       (await screen.findByRole('button', { name: /Ogro, coluna/ })).focus();
@@ -1254,6 +1280,7 @@ describe('Grid (Re:Master)', () => {
         name: 'Token selecionado',
       });
       await user.click(within(painel).getByRole('button', { name: 'Remover' }));
+      await responderConfirmacao(user, 'Remover');
       await waitFor(() =>
         expect(removeGridToken).toHaveBeenCalledWith('c1', 'cena-1', 't2'),
       );
@@ -1875,6 +1902,67 @@ describe('Grid (Re:Master)', () => {
       return screen.findByRole('region', { name: 'Token selecionado' });
     };
 
+    it('minimiza o painel numa barrinha com o nome e expande de volta, sem perder o formulário', async () => {
+      const user = userEvent.setup();
+      renderGrid();
+      const painel = await selecionarOgro(user);
+      const nome = within(painel).getByLabelText('Nome');
+      await user.clear(nome);
+      await user.type(nome, 'Ogro Rei');
+
+      await user.click(
+        within(painel).getByRole('button', { name: 'Minimizar painel' }),
+      );
+      expect(
+        screen.queryByRole('region', { name: 'Token selecionado' }),
+      ).not.toBeInTheDocument();
+      const barra = screen.getByRole('button', {
+        name: 'Expandir painel do token',
+      });
+      expect(barra).toHaveTextContent('Ogro');
+
+      await user.click(barra);
+      const expandido = await screen.findByRole('region', {
+        name: 'Token selecionado',
+      });
+      expect(within(expandido).getByLabelText('Nome')).toHaveValue('Ogro Rei');
+    });
+
+    it('troca o painel de lado, lembra a escolha e leva o Grupo para o lado oposto', async () => {
+      const user = userEvent.setup();
+      window.localStorage.removeItem('remaster_grid_lado_painel_token');
+      renderGrid();
+      await screen.findByRole('button', { name: /Aldric, coluna/ });
+      await user.click(screen.getByRole('button', { name: 'Grupo' }));
+      const grupo = await screen.findByRole('region', { name: 'Grupo' });
+      expect(getComputedStyle(grupo).right).toBe('12px');
+
+      const painel = await selecionarOgro(user);
+      expect(getComputedStyle(painel).left).toBe('12px');
+      await user.click(
+        within(painel).getByRole('button', {
+          name: 'Mover painel para a direita',
+        }),
+      );
+      expect(window.localStorage.getItem('remaster_grid_lado_painel_token')).toBe(
+        'right',
+      );
+      const aDireita = await screen.findByRole('region', {
+        name: 'Token selecionado',
+      });
+      expect(getComputedStyle(aDireita).right).toBe('12px');
+      // O Grupo cedeu a direita ao painel do token.
+      expect(
+        getComputedStyle(screen.getByRole('region', { name: 'Grupo' })).left,
+      ).toBe('12px');
+      expect(
+        within(aDireita).getByRole('button', {
+          name: 'Mover painel para a esquerda',
+        }),
+      ).toBeInTheDocument();
+      window.localStorage.removeItem('remaster_grid_lado_painel_token');
+    });
+
     it('o olho do painel revela/oculta na hora, sem "Salvar token"', async () => {
       const user = userEvent.setup();
       renderGrid();
@@ -1888,6 +1976,127 @@ describe('Grid (Re:Master)', () => {
           oculto: false,
         }),
       );
+    });
+
+    it('N pula NPC/Criatura com PV 0 (jogador com PV 0 continua)', async () => {
+      const user = userEvent.setup();
+      const tokens = [
+        { ...TOKENS_POR_CENA['cena-1'][0], pv: { atual: 0, max: 10 } },
+        {
+          id: 'g1',
+          nome: 'Goblin',
+          tipo: 'criatura',
+          col: 3,
+          lin: 3,
+          tamanho: 1,
+          donos: [],
+          oculto: false,
+          pv: { atual: 0, max: 12 },
+        },
+        {
+          id: 'g2',
+          nome: 'Chefe',
+          tipo: 'npc',
+          col: 5,
+          lin: 5,
+          tamanho: 1,
+          donos: [],
+          oculto: false,
+          pv: { atual: 0, max: 12 },
+        },
+        {
+          id: 'g3',
+          nome: 'Arqueiro',
+          tipo: 'npc',
+          col: 6,
+          lin: 6,
+          tamanho: 1,
+          donos: [],
+          oculto: false,
+          pv: { atual: 4, max: 12 },
+        },
+      ];
+      subscribeGridTokens.mockImplementation(
+        (_id, _cenaId, _opcoes, onChange) => {
+          onChange(tokens);
+          return vi.fn();
+        },
+      );
+      const combate = {
+        ordem: [
+          { tokenId: 't1', iniciativa: 20, d20: 14, reacao: 6 },
+          { tokenId: 'g1', iniciativa: 15, d20: 9, reacao: 6 },
+          { tokenId: 'g2', iniciativa: 12, d20: 6, reacao: 6 },
+          { tokenId: 'g3', iniciativa: 9, d20: 3, reacao: 6 },
+        ],
+        indice: 0,
+        rodada: 1,
+        inicioTurno: { col: 1, lin: 1 },
+        turnoEm: { seconds: 10, nanoseconds: 0 },
+      };
+      emitirCombate(combate);
+      renderGrid();
+      await screen.findByText('Rodada 1');
+
+      await user.keyboard('n');
+      await waitFor(() => expect(alterarGridCombate).toHaveBeenCalledTimes(1));
+      // g1 e g2 estão derrotados: pula direto para o Arqueiro.
+      expect(alterarGridCombate.mock.calls[0][2](combate).patch.indice).toBe(3);
+    });
+
+    it('N do último passa a rodada e cai no jogador com PV 0; Shift+N volta pulando os derrotados', async () => {
+      const user = userEvent.setup();
+      const tokens = [
+        { ...TOKENS_POR_CENA['cena-1'][0], pv: { atual: 0, max: 10 } },
+        { ...TOKENS_POR_CENA['cena-1'][1], oculto: false, pv: { atual: 0, max: 12 } },
+        {
+          id: 'g3',
+          nome: 'Arqueiro',
+          tipo: 'npc',
+          col: 6,
+          lin: 6,
+          tamanho: 1,
+          donos: [],
+          oculto: false,
+          pv: { atual: 4, max: 12 },
+        },
+      ];
+      subscribeGridTokens.mockImplementation(
+        (_id, _cenaId, _opcoes, onChange) => {
+          onChange(tokens);
+          return vi.fn();
+        },
+      );
+      const combate = {
+        ordem: [
+          { tokenId: 't1', iniciativa: 20, d20: 14, reacao: 6 },
+          { tokenId: 't2', iniciativa: 15, d20: 9, reacao: 6 },
+          { tokenId: 'g3', iniciativa: 9, d20: 3, reacao: 6 },
+        ],
+        indice: 2,
+        rodada: 3,
+        inicioTurno: { col: 1, lin: 1 },
+        turnoEm: { seconds: 10, nanoseconds: 0 },
+      };
+      emitirCombate(combate);
+      renderGrid();
+      await screen.findByText('Rodada 3');
+
+      await user.keyboard('n');
+      await waitFor(() => expect(alterarGridCombate).toHaveBeenCalledTimes(1));
+      expect(alterarGridCombate.mock.calls[0][2](combate).patch).toMatchObject({
+        indice: 0,
+        rodada: 4,
+      });
+
+      alterarGridCombate.mockClear();
+      await user.keyboard('{Shift>}n{/Shift}');
+      await waitFor(() => expect(alterarGridCombate).toHaveBeenCalledTimes(1));
+      // De g3 para trás: t2 (criatura, PV 0) é pulada e cai em t1 (jogador).
+      expect(alterarGridCombate.mock.calls[0][2](combate).patch).toMatchObject({
+        indice: 0,
+        rodada: 3,
+      });
     });
 
     it('N não faz nada sem combate', async () => {
@@ -1926,6 +2135,51 @@ describe('Grid (Re:Master)', () => {
       );
     });
 
+    it('"Ver ficha" abre a ficha do personagem de origem do token', async () => {
+      const user = userEvent.setup();
+      renderGrid();
+      const painel = await selecionarOgro(user);
+      await user.click(within(painel).getByRole('button', { name: 'Ver ficha' }));
+      const dialogo = await screen.findByRole('dialog', {
+        name: 'Ficha do personagem',
+      });
+      expect(dialogo).toHaveTextContent('Ficha de Ogro (cr1)');
+      await user.click(within(dialogo).getByRole('button', { name: 'Fechar ficha' }));
+      await waitFor(() =>
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument(),
+      );
+    });
+
+    it('token sem refId (avulso) não tem "Ver ficha"', async () => {
+      const user = userEvent.setup();
+      subscribeGridTokens.mockImplementation(
+        (_id, _cenaId, _opcoes, onChange) => {
+          onChange([
+            {
+              id: 'a1',
+              nome: 'Baú',
+              tipo: 'avulso',
+              col: 2,
+              lin: 2,
+              tamanho: 1,
+              donos: [],
+              oculto: false,
+            },
+          ]);
+          return vi.fn();
+        },
+      );
+      renderGrid();
+      (await screen.findByRole('button', { name: /Baú/ })).focus();
+      await user.keyboard('{Enter}');
+      const painel = await screen.findByRole('region', {
+        name: 'Token selecionado',
+      });
+      expect(
+        within(painel).queryByRole('button', { name: 'Ver ficha' }),
+      ).not.toBeInTheDocument();
+    });
+
     it('H em seleção múltipla oculta todos de uma vez', async () => {
       const user = userEvent.setup();
       subscribeGridTokens.mockImplementation(
@@ -1952,16 +2206,20 @@ describe('Grid (Re:Master)', () => {
 
     it('Delete exclui o token selecionado depois de confirmar', async () => {
       const user = userEvent.setup();
-      const confirmar = vi.spyOn(window, 'confirm').mockReturnValue(false);
       renderGrid();
       await selecionarOgro(user);
 
       await user.keyboard('{Delete}');
-      expect(confirmar).toHaveBeenCalledWith('Remover "Ogro" da cena?');
+      const dialogo = await responderConfirmacao(user, 'Cancelar');
+      expect(dialogo).toBeDefined();
+      await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
       expect(removeGridToken).not.toHaveBeenCalled();
 
-      confirmar.mockReturnValue(true);
       await user.keyboard('{Delete}');
+      expect(await screen.findByRole('dialog')).toHaveTextContent(
+        'Remover "Ogro" da cena?',
+      );
+      await responderConfirmacao(user, 'Remover');
       await waitFor(() =>
         expect(removeGridToken).toHaveBeenCalledWith('c1', 'cena-1', 't2'),
       );
@@ -2339,6 +2597,62 @@ describe('Grid (Re:Master)', () => {
       await waitFor(() => expect(desfazer).toBeDisabled());
     });
 
+    it('forma "Sala": um clique revela a sala até as paredes e o Ctrl+Z desfaz tudo', async () => {
+      const user = userEvent.setup();
+      subscribeGridCamadas.mockImplementation((_id, _cenaId, onChange) => {
+        // Sala 3×3 (colunas e linhas 1..3) cercada por paredes de 0..4.
+        onChange({
+          paredes: { trechos: '0:0-4;1:0,4;2:0,4;3:0,4;4:0-4' },
+          nevoa: { ativa: true, trechos: '' },
+        });
+        return vi.fn();
+      });
+      renderGrid();
+      await escolher(user, 'Paredes');
+      expect(
+        screen.queryByRole('button', { name: 'Sala' }),
+      ).not.toBeInTheDocument();
+      await escolher(user, 'Névoa');
+      await user.click(screen.getByRole('button', { name: 'Sala' }));
+      await waitFor(() => expect(propsDoMapa.opcoesFerramenta.forma).toBe('sala'));
+
+      await editar('nevoa', 'adicionar', [{ col: 2, lin: 2 }]);
+      expect(setGridCamada).toHaveBeenCalledWith('c1', 'cena-1', 'nevoa', {
+        ativa: true,
+        trechos: '1:1-3;2:1-3;3:1-3',
+      });
+
+      setGridCamada.mockClear();
+      await user.keyboard('{Control>}z{/Control}');
+      await waitFor(() =>
+        expect(setGridCamada).toHaveBeenCalledWith('c1', 'cena-1', 'nevoa', {
+          ativa: true,
+          trechos: '',
+        }),
+      );
+    });
+
+    it('forma "Sala" numa célula de parede não faz nada; trocar para Paredes volta ao pincel', async () => {
+      const user = userEvent.setup();
+      subscribeGridCamadas.mockImplementation((_id, _cenaId, onChange) => {
+        onChange({
+          paredes: { trechos: '0:0-4;1:0,4;2:0,4;3:0,4;4:0-4' },
+          nevoa: { ativa: true, trechos: '' },
+        });
+        return vi.fn();
+      });
+      renderGrid();
+      await escolher(user, 'Névoa');
+      await user.click(screen.getByRole('button', { name: 'Sala' }));
+      await editar('nevoa', 'adicionar', [{ col: 0, lin: 0 }]);
+      expect(setGridCamada).not.toHaveBeenCalled();
+
+      await escolher(user, 'Paredes');
+      await waitFor(() =>
+        expect(propsDoMapa.opcoesFerramenta.forma).toBe('pincel'),
+      );
+    });
+
     it('o botão Desfazer volta as paredes, uma edição por vez', async () => {
       const user = userEvent.setup();
       renderGrid();
@@ -2382,11 +2696,11 @@ describe('Grid (Re:Master)', () => {
 
     it('"Cobrir tudo" também pode ser desfeito', async () => {
       const user = userEvent.setup();
-      vi.spyOn(window, 'confirm').mockReturnValue(true);
       renderGrid();
       await escolher(user, 'Névoa');
 
       await user.click(screen.getByRole('button', { name: 'Cobrir tudo' }));
+      await responderConfirmacao(user, 'Cobrir');
       await waitFor(() =>
         expect(setGridCamada).toHaveBeenCalledWith('c1', 'cena-1', 'nevoa', {
           ativa: true,
@@ -2537,7 +2851,6 @@ describe('Grid (Re:Master)', () => {
 
     it('encerrar o combate registra a rodada', async () => {
       const user = userEvent.setup();
-      vi.spyOn(window, 'confirm').mockReturnValue(true);
       subscribeGridCombate.mockImplementation((_id, _cenaId, onChange) => {
         onChange({
           ordem: [{ tokenId: 't1', iniciativa: 12, d20: 6, reacao: 6 }],
@@ -2552,6 +2865,7 @@ describe('Grid (Re:Master)', () => {
       await user.click(
         await screen.findByRole('button', { name: 'Encerrar combate' }),
       );
+      await responderConfirmacao(user, 'Encerrar');
       await waitFor(() =>
         expect(addRmSessaoLog).toHaveBeenCalledWith(
           expect.objectContaining({

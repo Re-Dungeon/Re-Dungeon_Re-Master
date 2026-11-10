@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 
@@ -7,6 +7,9 @@ const addChatMensagem = vi.fn();
 const removeChatMensagem = vi.fn();
 const subscribeChatMensagens = vi.fn();
 const getPersonagens = vi.fn();
+const getPersonagensJogaveis = vi.fn();
+const addChatSussurro = vi.fn();
+const subscribeChatSussurrosDoMestre = vi.fn();
 const getRmCampanhaNpcs = vi.fn();
 const getRmCampanhaCriaturas = vi.fn();
 const addChatRolagemSecreta = vi.fn();
@@ -26,6 +29,12 @@ vi.mock('service/storage', () => ({
   subscribeChatMensagens: (...args) => subscribeChatMensagens(...args),
   getChatMensagensAntes: vi.fn(() => Promise.resolve([])),
   getPersonagens: (...args) => getPersonagens(...args),
+  getPersonagensJogaveis: (...args) => getPersonagensJogaveis(...args),
+  getRmCampanhaJogadores: vi.fn(() => Promise.resolve([])),
+  addChatSussurro: (...args) => addChatSussurro(...args),
+  removeChatSussurro: vi.fn(),
+  subscribeChatSussurros: vi.fn(() => vi.fn()),
+  subscribeChatSussurrosDoMestre: (...args) => subscribeChatSussurrosDoMestre(...args),
   getRmCampanhaNpcs: (...args) => getRmCampanhaNpcs(...args),
   getRmCampanhaCriaturas: (...args) => getRmCampanhaCriaturas(...args),
   addChatRolagemSecreta: (...args) => addChatRolagemSecreta(...args),
@@ -127,6 +136,9 @@ describe('Chat (Re:Master)', () => {
         campanhas: ['c1'],
       },
     ]);
+    getPersonagensJogaveis.mockResolvedValue([]);
+    addChatSussurro.mockResolvedValue();
+    subscribeChatSussurrosDoMestre.mockImplementation(() => vi.fn());
     getRmCampanhaNpcs.mockResolvedValue([]);
     getRmCampanhaCriaturas.mockResolvedValue([]);
     addChatMensagem.mockResolvedValue();
@@ -267,6 +279,84 @@ describe('Chat (Re:Master)', () => {
       ),
     );
     expect(addChatMensagem).not.toHaveBeenCalled();
+  });
+
+  it('/w Nome sussurra ao jogador pelo nome, na pasta dele, sem ir ao chat público', async () => {
+    const user = userEvent.setup();
+    getPersonagensJogaveis.mockResolvedValue([
+      {
+        id: 'p1',
+        tipo: 'Personagem Jogável',
+        nome: 'Aldric',
+        universo: 'u1',
+        campanhas: ['c1'],
+        uid: 'jogador-1',
+      },
+    ]);
+    renderChat();
+    await screen.findByText('Abro a porta devagar.');
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 0));
+    });
+
+    await user.type(screen.getByLabelText('Mensagem'), '/w ald cuidado com a armadilha');
+    await user.click(screen.getByRole('button', { name: /enviar mensagem/i }));
+
+    await waitFor(() =>
+      expect(addChatSussurro).toHaveBeenCalledWith(
+        'c1',
+        'jogador-1',
+        expect.objectContaining({
+          uid: 'm1',
+          isMestre: true,
+          tipo: 'texto',
+          texto: 'cuidado com a armadilha',
+          sussurro: true,
+          paraNome: 'Aldric',
+        }),
+      ),
+    );
+    expect(addChatMensagem).not.toHaveBeenCalled();
+  });
+
+  it('/w com nome que não existe mostra o erro e não grava nada', async () => {
+    const user = userEvent.setup();
+    renderChat();
+    await screen.findByText('Abro a porta devagar.');
+
+    await user.type(screen.getByLabelText('Mensagem'), '/w zeca psiu');
+    await user.click(screen.getByRole('button', { name: /enviar mensagem/i }));
+
+    expect(await screen.findByText(/Não há jogadores|Não encontrei "zeca"/)).toBeInTheDocument();
+    expect(addChatSussurro).not.toHaveBeenCalled();
+    expect(addChatMensagem).not.toHaveBeenCalled();
+  });
+
+  it('mestre vê os sussurros que os jogadores mandam, com a etiqueta', async () => {
+    subscribeChatSussurrosDoMestre.mockImplementation((_id, onChange) => {
+      onChange([
+        {
+          id: 'w1',
+          uid: 'jogador-1',
+          donoUid: 'jogador-1',
+          autorNome: 'Aldric',
+          isMestre: false,
+          persona: 'jogador',
+          tipo: 'texto',
+          texto: 'Posso roubar a chave sem ninguém ver?',
+          sussurro: true,
+          paraNome: 'Mestre',
+          createdAt: new Date(),
+        },
+      ]);
+      return vi.fn();
+    });
+    renderChat();
+
+    expect(
+      await screen.findByText('Posso roubar a chave sem ninguém ver?'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('🤫 Aldric sussurrou')).toBeInTheDocument();
   });
 
   it('mestre vê as rolagens secretas dos jogadores', async () => {

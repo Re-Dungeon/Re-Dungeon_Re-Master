@@ -173,6 +173,127 @@ export const montarMensagemMacro = (autor, macroNome, texto) => ({
   macroNome: String(macroNome ?? '').slice(0, MACRO_NOME_MAX) || 'macro',
 });
 
+// ── Sussurros (/w) — rmCampanhas/{id}/chatSecretas/{jogadorUid}/sussurros ──
+// Mensagem privada entre o mestre e UM jogador. Fica na pasta do jogador
+// (como as rolagens secretas): o dono e o mestre leem; os outros jogadores não
+// ficam sabendo. É um `tipo: 'texto'` com `sussurro: true` e `paraNome` (para
+// quem foi — só para exibir; o destinatário real é a pasta). A regra
+// (`chatSussurroValido` em firestore.rules) exige exatamente estes campos.
+export const SUSSURRO_NOME_MAX = 200;
+
+const COMANDO_SUSSURRO = /^\/(?:w|whisper|sussurro)(?:\s+([\s\S]*))?$/i;
+const PALAVRAS_NOME_MAX = 5;
+const NOME_DO_MESTRE = 'Mestre';
+const AJUDA_SUSSURRO_MESTRE = 'Use /w Nome mensagem.';
+const AJUDA_SUSSURRO_JOGADOR = 'Use /w mestre mensagem.';
+
+const normalizarBusca = valor =>
+  String(valor ?? '')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .trim();
+
+// Destinatários (sem repetir o jogador) cujo nome casa com `candidato`: o nome
+// exato vence; senão vale o prefixo. Normalizado (sem acento/caixa).
+const destinatariosQueCasam = (destinatarios, candidato) => {
+  const normalizados = destinatarios
+    .filter(item => item?.uid && item?.nome)
+    .map(item => ({ item, chave: normalizarBusca(item.nome) }));
+  const exatos = normalizados.filter(({ chave }) => chave === candidato);
+  const achados = exatos.length
+    ? exatos
+    : normalizados.filter(({ chave }) => chave.startsWith(candidato));
+  const porUid = new Map();
+  achados.forEach(({ item }) => {
+    if (!porUid.has(item.uid)) porUid.set(item.uid, item);
+  });
+  return [...porUid.values()];
+};
+
+const listarNomes = itens => {
+  const nomes = itens.map(item => item.nome);
+  return nomes.length > 1
+    ? `${nomes.slice(0, -1).join(', ')} e ${nomes[nomes.length - 1]}`
+    : nomes[0];
+};
+
+// "/w ..." (também /whisper e /sussurro). Devolve null se o texto não é um
+// sussurro; `{ erro }` se o comando está incompleto/ambíguo; ou
+// `{ jogadorUid, paraNome, texto }`.
+// - Jogador (`destinatarios` ausente/null): "/w mestre <texto>" ou só
+//   "/w <texto>" — sempre vai para o mestre (`jogadorUid` null: a pasta é a do
+//   próprio jogador).
+// - Mestre (`destinatarios` = [{ uid, nome }], um item por nome — o mesmo jogador
+//   pode aparecer com mais de um nome): "/w <Nome> <texto>"; o Nome casa sem
+//   acento/caixa pelo começo do nome (ou o nome inteiro, que pode ter espaços)
+//   e precisa apontar para um único jogador.
+export const interpretarComandoSussurro = (texto, destinatarios = null) => {
+  const casou = COMANDO_SUSSURRO.exec(String(texto ?? '').trim());
+  if (!casou) return null;
+  const resto = (casou[1] ?? '').trim();
+
+  if (!Array.isArray(destinatarios)) {
+    const primeira = /^\S+/.exec(resto)?.[0] ?? '';
+    const mensagem =
+      normalizarBusca(primeira) === 'mestre' ? resto.slice(primeira.length).trim() : resto;
+    if (!mensagem) return { erro: `Escreva a mensagem do sussurro. ${AJUDA_SUSSURRO_JOGADOR}` };
+    return { jogadorUid: null, paraNome: NOME_DO_MESTRE, texto: mensagem };
+  }
+
+  const palavras = [...resto.matchAll(/\S+/g)].map(palavra => ({
+    texto: palavra[0],
+    fim: palavra.index + palavra[0].length,
+  }));
+  if (palavras.length === 0) return { erro: AJUDA_SUSSURRO_MESTRE };
+  if (destinatarios.length === 0) {
+    return { erro: 'Não há jogadores para sussurrar nesta campanha.' };
+  }
+
+  // Do nome mais longo para o mais curto: "Ana Clara" vence "Ana".
+  const maximo = Math.min(palavras.length, PALAVRAS_NOME_MAX);
+  for (let quantidade = maximo; quantidade >= 1; quantidade -= 1) {
+    const nomeDigitado = palavras
+      .slice(0, quantidade)
+      .map(palavra => palavra.texto)
+      .join(' ');
+    const candidato = normalizarBusca(nomeDigitado.replace(/[,:;]+$/, ''));
+    const achados = candidato ? destinatariosQueCasam(destinatarios, candidato) : [];
+    if (achados.length === 0) continue;
+    if (achados.length > 1) {
+      return {
+        erro: `"${nomeDigitado}" combina com ${listarNomes(achados)}. Digite mais letras do nome.`,
+      };
+    }
+    const mensagem = resto.slice(palavras[quantidade - 1].fim).trim();
+    if (!mensagem) {
+      return { erro: `Escreva a mensagem do sussurro para ${achados[0].nome}.` };
+    }
+    return { jogadorUid: achados[0].uid, paraNome: achados[0].nome, texto: mensagem };
+  }
+  return {
+    erro: `Não encontrei "${palavras[0].texto}" entre os jogadores. ${AJUDA_SUSSURRO_MESTRE}`,
+  };
+};
+
+export const montarMensagemSussurro = (autor, texto, paraNome) => ({
+  ...montarMensagemTexto(autor, texto),
+  sussurro: true,
+  paraNome: String(paraNome ?? '').slice(0, SUSSURRO_NOME_MAX) || NOME_DO_MESTRE,
+});
+
+// Destinatários possíveis do /w do mestre deduzidos de quem já falou no chat
+// (jogadores, não mestre) — para telas que não conhecem a lista de jogadores.
+export const destinatariosDasMensagens = mensagens => {
+  const vistos = new Map();
+  (mensagens ?? []).forEach(mensagem => {
+    if (!mensagem?.uid || mensagem.isMestre || !mensagem.autorNome) return;
+    const chave = `${mensagem.uid}|${normalizarBusca(mensagem.autorNome)}`;
+    if (!vistos.has(chave)) vistos.set(chave, { uid: mensagem.uid, nome: mensagem.autorNome });
+  });
+  return [...vistos.values()];
+};
+
 // ── Mensagens de combate do grid (common/utils/gridCombate.js) ───────────
 // Cartão estreito no centro do chat: início (com a iniciativa), "Rodada N",
 // "Turno de X" e "Combate encerrado". `combate.cenaId` deixa a regra conferir

@@ -10,10 +10,10 @@ vi.mock('react-router-dom', async () => {
 });
 
 const getRmNotasPorCampanha = vi.fn();
-const getRmSessaoLogsPorCampanha = vi.fn();
+const getRmSessaoLogsRecentes = vi.fn();
 vi.mock('service/storage', () => ({
   getRmNotasPorCampanha: (...args) => getRmNotasPorCampanha(...args),
-  getRmSessaoLogsPorCampanha: (...args) => getRmSessaoLogsPorCampanha(...args),
+  getRmSessaoLogsRecentes: (...args) => getRmSessaoLogsRecentes(...args),
 }));
 
 let campanhaAtiva = null;
@@ -79,7 +79,7 @@ describe('Dashboard', () => {
       loading: false,
     };
     getRmNotasPorCampanha.mockResolvedValue([]);
-    getRmSessaoLogsPorCampanha.mockResolvedValue([]);
+    getRmSessaoLogsRecentes.mockResolvedValue([]);
   });
 
   it('mostra o estado vazio e navega para Campanha quando não há campanha ativa', async () => {
@@ -189,7 +189,7 @@ describe('Dashboard', () => {
   });
 
   it('mostra o Registro da Sessão ordenado do mais recente, com ícone e hora', async () => {
-    getRmSessaoLogsPorCampanha.mockResolvedValue([
+    getRmSessaoLogsRecentes.mockResolvedValue([
       {
         id: 'log1',
         tipo: 'cena_atual',

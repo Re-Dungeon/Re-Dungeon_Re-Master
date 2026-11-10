@@ -21,6 +21,9 @@ import useChatCampanha from 'hooks/useChatCampanha';
 import ChatSala from 'components/Chat/ChatSala';
 import { PERSONA_MESTRE, autorDaPersona } from './chatPersonas';
 
+// Referência estável para o padrão da prop `jogadores`.
+const SEM_JOGADORES = [];
+
 const avatarSx = {
   width: 30,
   height: 30,
@@ -116,7 +119,14 @@ const renderOpcaoPersona = (persona, isSelected = false, onSelect) => (
  * pelo painel de chat do Grid — quem a monta carrega as personas
  * (useFontesDaMesa) e define a altura.
  */
-const ChatMestre = ({ campanha, npcs, criaturas, titulo, onRecarregarFontes = null }) => {
+const ChatMestre = ({
+  campanha,
+  npcs,
+  criaturas,
+  titulo,
+  jogadores = SEM_JOGADORES,
+  onRecarregarFontes = null,
+}) => {
   const { currentUser } = useAuth();
   const { notifyError } = useSnackbar();
   const [personaId, setPersonaId] = useState(PERSONA_MESTRE.id);
@@ -179,6 +189,7 @@ const ChatMestre = ({ campanha, npcs, criaturas, titulo, onRecarregarFontes = nu
     enviarTexto,
     enviarImagem,
     rolar,
+    sussurrar,
     apagar,
     macros,
     audio,
@@ -186,6 +197,17 @@ const ChatMestre = ({ campanha, npcs, criaturas, titulo, onRecarregarFontes = nu
     temMaisAntigas,
     carregandoAntigas,
   } = useChatCampanha(campanha.id, autor, { ehMestreDaCampanha: true });
+
+  // /w Nome mensagem: os jogadores da mesa (personagem jogável vinculado à
+  // campanha), pelo nome que aparece na tela de Jogadores; o uid é o dono da
+  // ficha, que é quem tem a pasta de sussurros.
+  const destinatariosSussurro = useMemo(
+    () =>
+      jogadores
+        .filter(jogador => jogador.uid && jogador.label)
+        .map(jogador => ({ uid: jogador.uid, nome: jogador.label })),
+    [jogadores],
+  );
 
   useEffect(() => {
     if (!erroChat) return;
@@ -203,6 +225,8 @@ const ChatMestre = ({ campanha, npcs, criaturas, titulo, onRecarregarFontes = nu
         onEnviarTexto={enviarTexto}
         onEnviarImagem={enviarImagem}
         onRolar={rolar}
+        onSussurrar={sussurrar}
+        destinatariosSussurro={destinatariosSussurro}
         onApagar={apagar}
         macros={macros}
         audio={audio}
@@ -370,6 +394,11 @@ ChatMestre.propTypes = {
   npcs: PropTypes.arrayOf(personaShape).isRequired,
   criaturas: PropTypes.arrayOf(personaShape).isRequired,
   titulo: PropTypes.node.isRequired,
+  // Jogadores da mesa (montarJogadoresDaMesa) — destinatários do /w. Sem eles o
+  // mestre ainda lê os sussurros, mas não consegue chamar ninguém pelo nome.
+  jogadores: PropTypes.arrayOf(
+    PropTypes.shape({ uid: PropTypes.string, label: PropTypes.string }),
+  ),
   // Recarrega NPCs/Criaturas (`recarregar` do useFontesDaMesa); sem ele, sem botão.
   onRecarregarFontes: PropTypes.func,
 };

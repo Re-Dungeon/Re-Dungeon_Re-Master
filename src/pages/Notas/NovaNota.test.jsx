@@ -58,6 +58,28 @@ describe('NovaNota', () => {
     getRmCenas.mockResolvedValue([]);
   });
 
+  it('avisa o erro e volta para a lista quando a nota em edição não carrega', async () => {
+    getRmNotasPorCampanha.mockRejectedValue(new Error('offline'));
+    render(
+      <SnackbarProvider>
+        <MemoryRouter initialEntries={['/notas/n1/editar']}>
+          <Routes>
+            <Route path="/notas/:notaId/editar" element={<NovaNota />} />
+            <Route path="/notas" element={<p>lista de notas</p>} />
+          </Routes>
+        </MemoryRouter>
+      </SnackbarProvider>,
+    );
+
+    expect(
+      await screen.findByText('lista de notas', {}, { timeout: 10000 }),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByText('Não foi possível carregar a nota.', {}, { timeout: 10000 }),
+    ).toBeInTheDocument();
+    getRmNotasPorCampanha.mockResolvedValue([]);
+  });
+
   it('mostra "Nova Nota" com o nome da campanha ativa', async () => {
     renderNova(undefined);
 

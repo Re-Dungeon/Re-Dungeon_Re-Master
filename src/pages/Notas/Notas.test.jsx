@@ -6,6 +6,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 const getRmNotasPorCampanha = vi.fn();
 const removeRmNota = vi.fn();
 const getRmCenas = vi.fn();
+const getRmTiposEntidadePorUniverso = vi.fn();
 const notifyError = vi.fn();
 vi.mock('context/SnackbarContext', () => ({
   useSnackbar: () => ({ notifyError, notifySuccess: vi.fn() }),
@@ -14,6 +15,8 @@ vi.mock('service/storage', () => ({
   getRmNotasPorCampanha: (...args) => getRmNotasPorCampanha(...args),
   removeRmNota: (...args) => removeRmNota(...args),
   getRmCenas: (...args) => getRmCenas(...args),
+  getRmTiposEntidadePorUniverso: (...args) =>
+    getRmTiposEntidadePorUniverso(...args),
 }));
 
 const CURRENT_USER_UID = 'm1';
@@ -72,6 +75,7 @@ describe('Notas (lista da campanha ativa)', () => {
     campanhaAtiva = CAMPANHA_ATIVA;
     getRmNotasPorCampanha.mockResolvedValue(NOTAS_MOCK);
     getRmCenas.mockResolvedValue(CENAS_MOCK);
+    getRmTiposEntidadePorUniverso.mockResolvedValue([]);
   });
 
   it('lista as notas da campanha ativa e mostra a identidade Universo', async () => {
@@ -93,6 +97,17 @@ describe('Notas (lista da campanha ativa)', () => {
     await waitFor(() =>
       expect(notifyError).toHaveBeenCalledWith(
         'Não foi possível carregar as cenas da campanha.',
+      ),
+    );
+  });
+
+  it('avisa quando os tipos de entidade não carregam', async () => {
+    getRmTiposEntidadePorUniverso.mockRejectedValue(new Error('falha'));
+    renderNotas();
+
+    await waitFor(() =>
+      expect(notifyError).toHaveBeenCalledWith(
+        'Não foi possível carregar os tipos de entidade.',
       ),
     );
   });

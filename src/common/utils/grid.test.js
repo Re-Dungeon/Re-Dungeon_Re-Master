@@ -21,6 +21,7 @@ import {
   formatarDistancia,
   formatarMetros,
   limitarRastro,
+  miniaturaImagem,
   linhaChebyshev,
   mesmaCelula,
   montarRastro,
@@ -1091,5 +1092,44 @@ describe('duração das condições do token', () => {
       rodada: 2,
     });
     expect(detalhes.t.condicoes[0].restam).toBe(2);
+  });
+});
+
+describe('miniaturaImagem', () => {
+  it('acrescenta o sufixo de tamanho a imagens do imgur', () => {
+    expect(miniaturaImagem('https://i.imgur.com/abc1234.png')).toBe(
+      'https://i.imgur.com/abc1234t.png',
+    );
+    expect(miniaturaImagem('https://i.imgur.com/abc12.jpg', 'm')).toBe(
+      'https://i.imgur.com/abc12m.jpg',
+    );
+    expect(miniaturaImagem('https://i.imgur.com/abc1234.webp?x=1')).toBe(
+      'https://i.imgur.com/abc1234t.webp?x=1',
+    );
+  });
+
+  it('deixa passar GIF, outros hosts, ids com sufixo e valores vazios', () => {
+    expect(miniaturaImagem('https://i.imgur.com/abc1234.gif')).toBe(
+      'https://i.imgur.com/abc1234.gif',
+    );
+    expect(miniaturaImagem('https://exemplo.com/abc1234.png')).toBe(
+      'https://exemplo.com/abc1234.png',
+    );
+    expect(miniaturaImagem('https://i.imgur.com/abc1234t.png')).toBe(
+      'https://i.imgur.com/abc1234t.png',
+    );
+    expect(miniaturaImagem('https://i.imgur.com/abc1234.png', 'x')).toBe(
+      'https://i.imgur.com/abc1234.png',
+    );
+    expect(miniaturaImagem(null)).toBeNull();
+    expect(miniaturaImagem(undefined)).toBeNull();
+  });
+
+  it('condicoesDoToken devolve o ícone em miniatura', () => {
+    const catalogo = new Map([
+      ['c1', { id: 'c1', nome: 'Veneno', linkImagem: 'https://i.imgur.com/abc1234.png' }],
+    ]);
+    const [condicao] = condicoesDoToken({ tipo: 'npc', condicoes: ['c1'] }, null, catalogo);
+    expect(condicao.icone).toBe('https://i.imgur.com/abc1234t.png');
   });
 });

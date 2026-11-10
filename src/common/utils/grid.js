@@ -767,6 +767,22 @@ const condicoesAtivasDaFicha = ficha =>
       stack: Number.isFinite(Number(item.stack)) ? Number(item.stack) : null,
     }));
 
+// Versão reduzida de uma imagem do imgur (i.imgur.com/<id>.<ext>): acrescenta o
+// sufixo de tamanho ao id ('t' = 160px, 'm' = 320px, também s/b/l/h). Os ids do
+// imgur têm 5 ou 7 caracteres; com 6 ou 8 já levam sufixo e passam como estão.
+// GIF (animado), URL fora do imgur, tamanho desconhecido e null voltam iguais.
+const IMGUR_URL =
+  /^(https?:\/\/i\.imgur\.com\/)([A-Za-z0-9]{5}|[A-Za-z0-9]{7})(\.(?:png|jpe?g|webp))(\?.*)?$/i;
+const TAMANHOS_IMGUR = ['s', 'b', 't', 'm', 'l', 'h'];
+
+export const miniaturaImagem = (url, tamanho = 't') => {
+  if (typeof url !== 'string' || !TAMANHOS_IMGUR.includes(tamanho)) return url ?? null;
+  const partes = IMGUR_URL.exec(url.trim());
+  if (!partes) return url;
+  const [, base, id, extensao, consulta = ''] = partes;
+  return `${base}${id}${tamanho}${extensao}${consulta}`;
+};
+
 // Condições do token → [{ id, nome, icone, stack, restam? }] (ids fora do
 // catálogo são pulados). Jogador: `condicoesAtivas` da ficha (com stack);
 // demais: as do token (o mestre escolhe), com `restam` (rodadas que faltam, de
@@ -789,7 +805,9 @@ export const condicoesDoToken = (token, ficha, catalogoPorId, { rodada = null } 
       return {
         id,
         nome: nomeDaCondicao(condicao),
-        icone: isUrlImagemValida(condicao?.linkImagem) ? condicao.linkImagem : null,
+        icone: isUrlImagemValida(condicao?.linkImagem)
+          ? miniaturaImagem(condicao.linkImagem)
+          : null,
         stack,
         ...(restam ? { restam } : {}),
       };

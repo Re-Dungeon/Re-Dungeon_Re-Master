@@ -9,6 +9,7 @@ import Typography from '@mui/material/Typography';
 import CloseIcon from '@mui/icons-material/Close';
 import { nomeDaCondicao } from 'common/utils/grid';
 import { patchesDeDanoEmLote } from './gridMestre';
+import { ControlesDoPainel, PainelMinimizado } from './ControlesDoPainel';
 import { painelCabecalhoSx, painelLadoSx } from './styles';
 
 const legendaSx = { color: 'var(--text-muted)' };
@@ -32,6 +33,10 @@ const AcoesEmLote = ({
   onExcluir,
   onFechar,
   abaixoDaFaixa = false,
+  lado = 'left',
+  minimizado = false,
+  onTrocarLado,
+  onMinimizar,
 }) => {
   const [dano, setDano] = useState('');
   const [condicaoId, setCondicaoId] = useState('');
@@ -55,11 +60,24 @@ const AcoesEmLote = ({
     if (aplicado) setDano('');
   };
 
+  if (minimizado) {
+    return (
+      <PainelMinimizado
+        lado={lado}
+        abaixoDaFaixa={abaixoDaFaixa}
+        titulo={`${tokens.length} tokens selecionados`}
+        rotulo="ações em lote"
+        onExpandir={() => onMinimizar(false)}
+      />
+    );
+  }
+
   return (
     <Box
-      sx={painelLadoSx('left', abaixoDaFaixa)}
+      sx={painelLadoSx(lado, abaixoDaFaixa)}
       role="region"
       aria-label="Ações em lote"
+      data-painel-lateral=""
     >
       <Box sx={painelCabecalhoSx}>
         <Box>
@@ -70,6 +88,11 @@ const AcoesEmLote = ({
             Shift/Ctrl-clique alterna · Esc limpa
           </Typography>
         </Box>
+        <ControlesDoPainel
+          lado={lado}
+          onTrocarLado={onTrocarLado}
+          onMinimizar={() => onMinimizar(true)}
+        />
         <IconButton size="small" aria-label="Limpar seleção" onClick={onFechar}>
           <CloseIcon fontSize="small" />
         </IconButton>
@@ -213,6 +236,11 @@ AcoesEmLote.propTypes = {
   onFechar: PropTypes.func.isRequired,
   // Combate em andamento: a faixa de iniciativa ocupa o topo do mapa.
   abaixoDaFaixa: PropTypes.bool,
+  // Lado do mapa ('left' | 'right'), minimizado e seus controles.
+  lado: PropTypes.oneOf(['left', 'right']),
+  minimizado: PropTypes.bool,
+  onTrocarLado: PropTypes.func.isRequired,
+  onMinimizar: PropTypes.func.isRequired,
 };
 
 export default AcoesEmLote;

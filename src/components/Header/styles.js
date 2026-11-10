@@ -1,4 +1,5 @@
 import styled from 'styled-components';
+import { MOBILE_QUERY } from 'common/styles/breakpoints';
 import AppBar from '@mui/material/AppBar';
 import Typography from '@mui/material/Typography';
 
@@ -26,5 +27,13 @@ export const PageTitle = styled(Typography)`
     height: 26px;
     background: linear-gradient(180deg, var(--color-primary), var(--color-accent));
     border-radius: 6px;
+  }
+
+  ${MOBILE_QUERY} {
+    padding-left: 12px !important;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 `;
