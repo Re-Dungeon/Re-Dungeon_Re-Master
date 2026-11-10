@@ -23,6 +23,8 @@ import {
   OPCOES_ACAO,
   OPCOES_FERRAMENTA,
   OPCOES_FORMA,
+  celulasDoGesto,
+  formasDaFerramenta,
   OPCOES_CORRIDA,
   OPCOES_TAMANHO_TOKEN,
   OPCOES_TRAVAMENTO,
@@ -225,7 +227,38 @@ describe('ferramentas do mapa', () => {
     expect(OPCOES_FORMA.map(opcao => opcao.value)).toEqual([
       'pincel',
       'retangulo',
+      'sala',
     ]);
+    expect(
+      formasDaFerramenta(FERRAMENTAS.NEVOA).map(opcao => opcao.value),
+    ).toContain('sala');
+    expect(
+      formasDaFerramenta(FERRAMENTAS.PAREDES).map(opcao => opcao.value),
+    ).toEqual(['pincel', 'retangulo']);
+  });
+
+  it('celulasDoGesto: sala expande pelas paredes, demais formas ficam como estão', () => {
+    const paredes = new Set(['2,0', '2,1', '2,2']);
+    const limites = { colunas: 3, linhas: 3 };
+    const sala = celulasDoGesto({
+      forma: 'sala',
+      celulas: [{ col: 0, lin: 0 }],
+      bloqueadas: paredes,
+      limites,
+    });
+    expect(sala.estourou).toBe(false);
+    expect(sala.celulas).toHaveLength(6);
+    const pincel = [{ col: 0, lin: 0 }];
+    expect(
+      celulasDoGesto({ forma: 'pincel', celulas: pincel, bloqueadas: paredes, limites }),
+    ).toEqual({ celulas: pincel, estourou: false });
+    const grande = celulasDoGesto({
+      forma: 'sala',
+      celulas: [{ col: 0, lin: 0 }],
+      bloqueadas: new Set(),
+      limites: { colunas: 100, linhas: 100 },
+    });
+    expect(grande).toEqual({ celulas: [], estourou: true });
   });
 
   it('ações: névoa revela (adicionar) e cobre (remover); paredes adicionam e apagam', () => {

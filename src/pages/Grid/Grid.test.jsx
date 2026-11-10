@@ -2474,6 +2474,62 @@ describe('Grid (Re:Master)', () => {
       await waitFor(() => expect(desfazer).toBeDisabled());
     });
 
+    it('forma "Sala": um clique revela a sala até as paredes e o Ctrl+Z desfaz tudo', async () => {
+      const user = userEvent.setup();
+      subscribeGridCamadas.mockImplementation((_id, _cenaId, onChange) => {
+        // Sala 3×3 (colunas e linhas 1..3) cercada por paredes de 0..4.
+        onChange({
+          paredes: { trechos: '0:0-4;1:0,4;2:0,4;3:0,4;4:0-4' },
+          nevoa: { ativa: true, trechos: '' },
+        });
+        return vi.fn();
+      });
+      renderGrid();
+      await escolher(user, 'Paredes');
+      expect(
+        screen.queryByRole('button', { name: 'Sala' }),
+      ).not.toBeInTheDocument();
+      await escolher(user, 'Névoa');
+      await user.click(screen.getByRole('button', { name: 'Sala' }));
+      await waitFor(() => expect(propsDoMapa.opcoesFerramenta.forma).toBe('sala'));
+
+      await editar('nevoa', 'adicionar', [{ col: 2, lin: 2 }]);
+      expect(setGridCamada).toHaveBeenCalledWith('c1', 'cena-1', 'nevoa', {
+        ativa: true,
+        trechos: '1:1-3;2:1-3;3:1-3',
+      });
+
+      setGridCamada.mockClear();
+      await user.keyboard('{Control>}z{/Control}');
+      await waitFor(() =>
+        expect(setGridCamada).toHaveBeenCalledWith('c1', 'cena-1', 'nevoa', {
+          ativa: true,
+          trechos: '',
+        }),
+      );
+    });
+
+    it('forma "Sala" numa célula de parede não faz nada; trocar para Paredes volta ao pincel', async () => {
+      const user = userEvent.setup();
+      subscribeGridCamadas.mockImplementation((_id, _cenaId, onChange) => {
+        onChange({
+          paredes: { trechos: '0:0-4;1:0,4;2:0,4;3:0,4;4:0-4' },
+          nevoa: { ativa: true, trechos: '' },
+        });
+        return vi.fn();
+      });
+      renderGrid();
+      await escolher(user, 'Névoa');
+      await user.click(screen.getByRole('button', { name: 'Sala' }));
+      await editar('nevoa', 'adicionar', [{ col: 0, lin: 0 }]);
+      expect(setGridCamada).not.toHaveBeenCalled();
+
+      await escolher(user, 'Paredes');
+      await waitFor(() =>
+        expect(propsDoMapa.opcoesFerramenta.forma).toBe('pincel'),
+      );
+    });
+
     it('o botão Desfazer volta as paredes, uma edição por vez', async () => {
       const user = userEvent.setup();
       renderGrid();

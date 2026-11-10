@@ -19,7 +19,7 @@ import {
   FERRAMENTAS,
   FORMAS_PINCEL,
   OPCOES_ACAO,
-  OPCOES_FORMA,
+  formasDaFerramenta,
   REVELAR_METROS_PADRAO,
 } from './gridMestre';
 
@@ -157,7 +157,7 @@ const FerramentasMapa = ({
           <Escolha
             rotulo="Forma"
             valor={opcoes.forma}
-            opcoes={OPCOES_FORMA}
+            opcoes={formasDaFerramenta(ferramenta)}
             onChange={muda('forma')}
           />
           <Escolha
@@ -166,6 +166,11 @@ const FerramentasMapa = ({
             opcoes={OPCOES_ACAO[ferramenta]}
             onChange={muda('acao')}
           />
+          {opcoes.forma === FORMAS_PINCEL.SALA && (
+            <Typography variant="caption" sx={{ color: 'var(--text-muted)' }}>
+              Clique numa célula: a sala inteira (até as paredes)
+            </Typography>
+          )}
           {opcoes.forma === FORMAS_PINCEL.PINCEL && (
             <Escolha
               rotulo="Tamanho do pincel"

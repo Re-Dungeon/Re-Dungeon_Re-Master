@@ -165,7 +165,8 @@ import {
 // `acoesDesenho` = { apagarMeus, apagarTodos? } na paleta). `ferramenta`
 // ('mover' | 'paredes' | 'nevoa' | 'marcadores'; só o mestre muda) troca o
 // gesto: paredes/névoa pintam com `opcoesFerramenta` ({ forma, acao, tamanho
-// }) e chamam `onEditarCamada({ camada, acao, celulas })` uma vez ao soltar;
+// }) e chamam `onEditarCamada({ camada, acao, celulas })` uma vez ao soltar
+// (forma 'sala': só a célula clicada — quem monta expande a sala);
 // marcadores chamam `onCelulaMarcador(celula)` / `onMarcadorClique(marcador)`.
 // Fase 3C (ações): `areas` (useGridCampanha; templates Raio/Linha/Cone/Quadrado
 // de todos, sobre a névoa e sob os tokens) e `acoesAreas` ({ criar, atualizar,
@@ -838,7 +839,9 @@ const GridMapa = ({
       const { forma, acao, tamanho } = opcoesFerramenta;
       const inicio = celulaNoViewport(ponto);
       const celulasIniciais =
-        forma === 'retangulo' ? [inicio] : celulasDoPincel(inicio, tamanho, limites);
+        forma === 'retangulo' || forma === 'sala'
+          ? [inicio]
+          : celulasDoPincel(inicio, tamanho, limites);
       gesto.current = {
         tipo: 'pincel',
         camada: camadaDaFerramenta,
@@ -953,6 +956,9 @@ const GridMapa = ({
             ),
           ),
         });
+      } else if (atual.forma === 'sala') {
+        // Sala: um clique só; arrastar não pinta (a página expande a sala).
+        return;
       } else if (!mesmaCelula(celulaAtual, atual.ultima)) {
         // O ponteiro pode pular células: preenche o salto.
         linhaChebyshev(atual.ultima, celulaAtual).forEach(passo =>
@@ -2295,7 +2301,7 @@ GridMapa.propTypes = {
   ferramenta: PropTypes.oneOf(['mover', 'paredes', 'nevoa', 'marcadores']),
   // Pincel de paredes/névoa.
   opcoesFerramenta: PropTypes.shape({
-    forma: PropTypes.oneOf(['pincel', 'retangulo']),
+    forma: PropTypes.oneOf(['pincel', 'retangulo', 'sala']),
     acao: PropTypes.oneOf(Object.values(ACOES_CAMADA)),
     tamanho: PropTypes.number,
   }),

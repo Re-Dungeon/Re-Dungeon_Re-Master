@@ -86,11 +86,13 @@ import TokenPainel from './TokenPainel';
 import {
   ACOES_ATALHO,
   FERRAMENTAS,
+  FORMAS_PINCEL,
   OPCOES_FERRAMENTA_PADRAO,
   OPCOES_TRAVAMENTO,
   acaoDoAtalho,
   alternarSelecao,
   alvoEhDigitacao,
+  celulasDoGesto,
   celulasParaRevelarEmVolta,
   chaveDasFichasDoGrupo,
   copiaDoToken,
@@ -808,6 +810,34 @@ const Grid = () => {
   const handleFerramenta = nova => {
     setFerramenta(nova);
     if (nova !== FERRAMENTAS.NEVOA) limparSelecao();
+    // "Sala" só existe na Névoa.
+    if (nova !== FERRAMENTAS.NEVOA) {
+      setOpcoesFerramenta(atual =>
+        atual.forma === FORMAS_PINCEL.SALA
+          ? { ...atual, forma: FORMAS_PINCEL.PINCEL }
+          : atual,
+      );
+    }
+  };
+
+  // Pincel solto no mapa. Na forma Sala a célula clicada vira a sala inteira
+  // (até as paredes); aberta demais, avisa em vez de aplicar. Entra no
+  // Ctrl+Z como qualquer edição de camada.
+  const handleEditarCamada = async ({ camada, acao, celulas }) => {
+    const { celulas: alvo, estourou } = celulasDoGesto({
+      forma: opcoesFerramenta.forma,
+      celulas,
+      bloqueadas: grid.camadas.bloqueadas,
+      limites,
+    });
+    if (estourou) {
+      notifyError(
+        'Sala aberta demais: feche as paredes (ou use o retângulo) para cobrir ou revelar.',
+      );
+      return false;
+    }
+    if (alvo.length === 0) return false;
+    return camadasDesfazer.editar(camada, acao, alvo, limites);
   };
 
   // ── Atalhos de teclado ─────────────────────────────────────────────────
@@ -1241,9 +1271,7 @@ const Grid = () => {
               camadas={grid.camadas}
               marcadores={grid.marcadores}
               desenhos={grid.desenhos}
-              onEditarCamada={({ camada, acao, celulas }) =>
-                camadasDesfazer.editar(camada, acao, celulas, limites)
-              }
+              onEditarCamada={handleEditarCamada}
               onCelulaMarcador={celula => setMarcadorEditando({ celula })}
               onMarcadorClique={marcador => setMarcadorEditando({ marcador })}
               onDesenhar={grid.desenhar}
