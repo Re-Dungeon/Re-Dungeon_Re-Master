@@ -1,6 +1,6 @@
 import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 
 import { GRID_CONFIG_PADRAO, centroDaCelula } from 'common/utils/grid';
 import GridMapa from './GridMapa';
@@ -1401,10 +1401,9 @@ describe('GridMapa — mapa (Fase 3B)', () => {
       expect(botao).toHaveAttribute('aria-pressed', 'false');
     });
 
-    it('é exclusivo com a régua e a paleta chama as ações', () => {
+    it('é exclusivo com a régua e a paleta chama as ações', async () => {
       const apagarMeus = vi.fn();
       const apagarTodos = vi.fn();
-      vi.spyOn(window, 'confirm').mockReturnValue(true);
       render(mapa({ onDesenhar: vi.fn(), acoesDesenho: { apagarMeus, apagarTodos } }));
       const desenhar = screen.getByRole('button', { name: 'Desenhar' });
       const regua = screen.getByRole('button', { name: 'Régua' });
@@ -1416,8 +1415,9 @@ describe('GridMapa — mapa (Fase 3B)', () => {
       expect(regua).toHaveAttribute('aria-pressed', 'false');
       fireEvent.click(screen.getByRole('button', { name: 'Apagar meus desenhos' }));
       fireEvent.click(screen.getByRole('button', { name: 'Apagar todos' }));
+      fireEvent.click(await screen.findByRole('button', { name: 'Apagar' }));
       expect(apagarMeus).toHaveBeenCalled();
-      expect(apagarTodos).toHaveBeenCalled();
+      await waitFor(() => expect(apagarTodos).toHaveBeenCalled());
     });
 
     it('mostra os desenhos recebidos', () => {

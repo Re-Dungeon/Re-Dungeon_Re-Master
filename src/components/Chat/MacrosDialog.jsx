@@ -17,6 +17,8 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 
+import useConfirmacao from 'components/ConfirmDialog/useConfirmacao';
+
 import MacroEditorDialog from './MacroEditorDialog';
 import { MacroItem } from './styles';
 
@@ -26,6 +28,7 @@ import { MacroItem } from './styles';
 const MacrosDialog = ({ open, onClose, macros, onUsar }) => {
   // undefined = editor fechado; null = nova macro; objeto = editando.
   const [macroEditada, setMacroEditada] = useState(undefined);
+  const [confirmar, dialogo] = useConfirmacao();
   const { lista, carregando, podeGerenciar, rodando, salvar, apagar, mover, testar } = macros;
 
   const usar = macro => {
@@ -33,8 +36,12 @@ const MacrosDialog = ({ open, onClose, macros, onUsar }) => {
     onUsar(macro);
   };
 
-  const confirmarApagar = macro => {
-    if (window.confirm(`Apagar a macro "${macro.nome}"?`)) apagar(macro).catch(() => {});
+  const confirmarApagar = async macro => {
+    const confirmado = await confirmar({
+      titulo: `Apagar a macro "${macro.nome}"?`,
+      confirmarTexto: 'Apagar',
+    });
+    if (confirmado) apagar(macro).catch(() => {});
   };
 
   return (
@@ -142,6 +149,7 @@ const MacrosDialog = ({ open, onClose, macros, onUsar }) => {
           onTestar={testar}
         />
       )}
+      {dialogo}
     </>
   );
 };

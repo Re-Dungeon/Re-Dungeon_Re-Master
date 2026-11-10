@@ -129,7 +129,6 @@ describe('ChatSala — macros', () => {
   });
 
   it('mestre edita, apaga e reordena', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
     const macros = criarMacros({ podeGerenciar: true });
     renderSala(macros);
     abrirMacros();
@@ -139,9 +138,10 @@ describe('ChatSala — macros', () => {
     expect(screen.getByRole('button', { name: 'Subir dano_impacto' })).toBeDisabled();
 
     fireEvent.click(screen.getByRole('button', { name: 'Apagar encontros' }));
-    expect(macros.apagar).toHaveBeenCalledWith(MACROS[1]);
+    fireEvent.click(await screen.findByRole('button', { name: 'Apagar' }));
+    await waitFor(() => expect(macros.apagar).toHaveBeenCalledWith(MACROS[1]));
 
-    fireEvent.click(screen.getByRole('button', { name: 'Editar encontros' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Editar encontros' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Salvar' }));
     await waitFor(() =>
       expect(macros.salvar).toHaveBeenCalledWith(expect.objectContaining({ id: 'm2', nome: 'encontros', somenteMestre: true })),

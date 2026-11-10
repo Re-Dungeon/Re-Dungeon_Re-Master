@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 import { ICONES_MARCADOR } from 'common/utils/gridMarcadores';
 import MarcadorPino from './MarcadorPino';
@@ -22,9 +22,7 @@ const marcador = {
 describe('MarcadorPino', () => {
   it('centra na célula e chama onClick', () => {
     const onClick = vi.fn();
-    render(
-      <MarcadorPino marcador={marcador} config={config} onClick={onClick} />,
-    );
+    render(<MarcadorPino marcador={marcador} config={config} onClick={onClick} />);
     const pino = screen.getByRole('button', { name: 'Marcador: Armadilha' });
     expect(pino.getAttribute('data-marcador-id')).toBe('m1');
     expect(pino.style.width).toBe('30px');
@@ -41,9 +39,7 @@ describe('MarcadorPino', () => {
     expect(pino.style.width).toBe('80px'); // 50 * (2 - 0.4)
     expect(pino.style.left).toBe('120px'); // 10 + 2*50 + (100-80)/2
     expect(pino.style.top).toBe('80px'); // 20 + 1*50 + (100-80)/2
-    rerender(
-      <MarcadorPino marcador={{ ...marcador, tamanho: 3 }} config={config} />,
-    );
+    rerender(<MarcadorPino marcador={{ ...marcador, tamanho: 3 }} config={config} />);
     pino = screen.getByRole('button', { name: 'Marcador: Armadilha' });
     expect(pino.style.width).toBe('130px'); // 50 * 2.6
     expect(pino.style.left).toBe('120px'); // 10 + 2*50 + (150-130)/2
@@ -80,9 +76,7 @@ describe('MarcadorCartao', () => {
         onFechar={onFechar}
       />,
     );
-    expect(
-      screen.getByRole('dialog', { name: 'Marcador: Armadilha' }),
-    ).toBeTruthy();
+    expect(screen.getByRole('dialog', { name: 'Marcador: Armadilha' })).toBeTruthy();
     expect(screen.getByText('Só o mestre vê')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Fechar' }));
     fireEvent.keyDown(document, { key: 'Escape' });
@@ -105,16 +99,14 @@ describe('MarcadorCartao', () => {
 });
 
 describe('PaletaDesenho', () => {
-  it('escolhe cor e apaga os meus; "Apagar todos" só com onApagarTodos e confirma', () => {
+  it('escolhe cor e apaga os meus; "Apagar todos" só com onApagarTodos e confirma', async () => {
     const onCor = vi.fn();
     const onApagarMeus = vi.fn();
     const { rerender } = render(
       <PaletaDesenho cor="#ffffff" onCor={onCor} onApagarMeus={onApagarMeus} />,
     );
     expect(
-      screen
-        .getByRole('button', { name: 'Cor #ffffff' })
-        .getAttribute('aria-pressed'),
+      screen.getByRole('button', { name: 'Cor #ffffff' }).getAttribute('aria-pressed'),
     ).toBe('true');
     fireEvent.click(screen.getByRole('button', { name: 'Cor #e05555' }));
     expect(onCor).toHaveBeenCalledWith('#e05555');
@@ -132,11 +124,14 @@ describe('PaletaDesenho', () => {
       />,
     );
     const confirmar = vi.spyOn(window, 'confirm');
-    confirmar.mockReturnValueOnce(false).mockReturnValueOnce(true);
     fireEvent.click(screen.getByText('Apagar todos'));
+    fireEvent.click(await screen.findByRole('button', { name: 'Cancelar' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(onApagarTodos).not.toHaveBeenCalled();
     fireEvent.click(screen.getByText('Apagar todos'));
-    expect(onApagarTodos).toHaveBeenCalledTimes(1);
+    fireEvent.click(await screen.findByRole('button', { name: 'Apagar' }));
+    await waitFor(() => expect(onApagarTodos).toHaveBeenCalledTimes(1));
+    expect(confirmar).not.toHaveBeenCalled();
     confirmar.mockRestore();
   });
 });
