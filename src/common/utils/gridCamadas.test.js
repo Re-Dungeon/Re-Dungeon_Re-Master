@@ -6,6 +6,7 @@ import {
   areaBloqueada,
   caminhoBloqueado,
   caminhoSvgDeTrechos,
+  celulasDaSala,
   celulasDoPincel,
   celulasDoRetangulo,
   chaveDaCelula,
@@ -277,6 +278,90 @@ describe('névoa', () => {
     expect(
       filtrarTokensPelaNevoa(tokens, { ...nevoa, ativa: false }, ehMeu),
     ).toBe(tokens);
+  });
+});
+
+describe('celulasDaSala', () => {
+  // Sala 3×3 (colunas 1..3, linhas 1..3) cercada por paredes de 0..4.
+  const cercar = () => {
+    const paredes = new Set();
+    for (let i = 0; i <= 4; i += 1) {
+      paredes.add(chaveDaCelula(i, 0));
+      paredes.add(chaveDaCelula(i, 4));
+      paredes.add(chaveDaCelula(0, i));
+      paredes.add(chaveDaCelula(4, i));
+    }
+    return paredes;
+  };
+  const chaves = celulas => celulas.map(c => chaveDaCelula(c.col, c.lin)).sort();
+
+  it('sala fechada: cobre só o interior, de qualquer célula dele', () => {
+    const paredes = cercar();
+    const { celulas, estourou } = celulasDaSala({ col: 2, lin: 2 }, paredes, {
+      cols: 20,
+      lins: 20,
+    });
+    expect(estourou).toBe(false);
+    expect(celulas).toHaveLength(9);
+    expect(chaves(celulas)).toEqual(
+      chaves(celulasDoRetangulo({ col: 1, lin: 1 }, { col: 3, lin: 3 })),
+    );
+    expect(chaves(celulasDaSala({ col: 1, lin: 3 }, paredes, { cols: 20, lins: 20 }).celulas)).toEqual(
+      chaves(celulas),
+    );
+  });
+
+  it('a diagonal entre duas paredes não vaza (4 direções)', () => {
+    const paredes = new Set([chaveDaCelula(1, 0), chaveDaCelula(0, 1)]);
+    const { celulas } = celulasDaSala({ col: 0, lin: 0 }, paredes, { cols: 5, lins: 5 });
+    expect(chaves(celulas)).toEqual(['0,0']);
+  });
+
+  it('porta aberta: a sala vaza para o mapa e estoura o limite', () => {
+    const paredes = cercar();
+    paredes.delete(chaveDaCelula(4, 2));
+    const resultado = celulasDaSala({ col: 2, lin: 2 }, paredes, {
+      cols: 60,
+      lins: 60,
+      limite: 100,
+    });
+    expect(resultado).toEqual({ celulas: [], estourou: true });
+    // Com o limite folgado o mapa todo (menos as paredes) é a "sala".
+    const folgado = celulasDaSala({ col: 2, lin: 2 }, paredes, { cols: 12, lins: 12, limite: 2000 });
+    expect(folgado.estourou).toBe(false);
+    expect(folgado.celulas.length).toBeGreaterThan(9);
+  });
+
+  it('exatamente no limite ainda vale; um a mais estoura', () => {
+    const paredes = cercar();
+    expect(celulasDaSala({ col: 2, lin: 2 }, paredes, { cols: 20, lins: 20, limite: 9 }).estourou).toBe(false);
+    expect(celulasDaSala({ col: 2, lin: 2 }, paredes, { cols: 20, lins: 20, limite: 8 }).estourou).toBe(true);
+  });
+
+  it('para na borda do mapa', () => {
+    const { celulas, estourou } = celulasDaSala({ col: 0, lin: 0 }, new Set(), {
+      cols: 3,
+      lins: 2,
+    });
+    expect(estourou).toBe(false);
+    expect(chaves(celulas)).toEqual(['0,0', '0,1', '1,0', '1,1', '2,0', '2,1']);
+  });
+
+  it('célula inicial sobre parede ou fora do mapa: nada', () => {
+    const paredes = cercar();
+    expect(celulasDaSala({ col: 0, lin: 0 }, paredes, { cols: 20, lins: 20 })).toEqual({
+      celulas: [],
+      estourou: false,
+    });
+    expect(celulasDaSala({ col: 25, lin: 0 }, paredes, { cols: 20, lins: 20 }).celulas).toEqual([]);
+    expect(celulasDaSala(null, paredes).celulas).toEqual([]);
+  });
+
+  it('sem paredes e mapa grande demais: estoura em vez de cobrir tudo', () => {
+    expect(celulasDaSala({ col: 5, lin: 5 }, new Set(), { cols: 100, lins: 100 })).toEqual({
+      celulas: [],
+      estourou: true,
+    });
   });
 });
 

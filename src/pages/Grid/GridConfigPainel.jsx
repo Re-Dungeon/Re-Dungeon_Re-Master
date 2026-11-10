@@ -55,6 +55,7 @@ const GridConfigPainel = ({
   onSalvar,
   onFechar,
   abaixoDaFaixa = false,
+  lado = 'right',
 }) => {
   const [valores, setValores] = useState(() => paraValores(config));
   const [salvando, setSalvando] = useState(false);
@@ -96,7 +97,7 @@ const GridConfigPainel = ({
 
   return (
     <Box
-      sx={painelLadoSx('right', abaixoDaFaixa)}
+      sx={painelLadoSx(lado, abaixoDaFaixa)}
       role="region"
       aria-label="Configurar grid"
     >
@@ -256,6 +257,8 @@ GridConfigPainel.propTypes = {
   onSalvar: PropTypes.func.isRequired,
   onFechar: PropTypes.func.isRequired,
   abaixoDaFaixa: PropTypes.bool,
+  // Lado do mapa; vai para a esquerda quando o painel do token ocupa a direita.
+  lado: PropTypes.oneOf(['left', 'right']),
 };
 
 export default GridConfigPainel;

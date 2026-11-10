@@ -31,6 +31,7 @@ import {
   ACOES_CAMADA,
   CAMADAS,
   aplicarCelulas,
+  celulasDaSala,
   chaveDaCelula,
   codificarTrechos,
 } from 'common/utils/gridCamadas';
@@ -188,12 +189,36 @@ export const OPCOES_FERRAMENTA = [
   { value: FERRAMENTAS.MARCADORES, label: 'Marcadores' },
 ];
 
-export const FORMAS_PINCEL = { PINCEL: 'pincel', RETANGULO: 'retangulo' };
+// "Sala": um clique cobre/revela todas as células ligadas à clicada sem
+// atravessar parede (celulasDaSala, gridCamadas.js) — só faz sentido na Névoa.
+export const FORMAS_PINCEL = {
+  PINCEL: 'pincel',
+  RETANGULO: 'retangulo',
+  SALA: 'sala',
+};
 
 export const OPCOES_FORMA = [
   { value: FORMAS_PINCEL.PINCEL, label: 'Pincel' },
   { value: FORMAS_PINCEL.RETANGULO, label: 'Retângulo' },
+  { value: FORMAS_PINCEL.SALA, label: 'Sala' },
 ];
+
+// Formas que a ferramenta oferece (Paredes não tem "Sala").
+export const formasDaFerramenta = ferramenta =>
+  ferramenta === FERRAMENTAS.NEVOA
+    ? OPCOES_FORMA
+    : OPCOES_FORMA.filter(opcao => opcao.value !== FORMAS_PINCEL.SALA);
+
+// Células de um clique de pincel: na forma Sala, a sala inteira da célula
+// clicada (`bloqueadas` = paredes da cena); nas demais, as próprias células.
+// { celulas, estourou } — estourou = sala aberta demais (nada a aplicar).
+export const celulasDoGesto = ({ forma, celulas, bloqueadas, limites }) => {
+  if (forma !== FORMAS_PINCEL.SALA) return { celulas, estourou: false };
+  return celulasDaSala(celulas[0], bloqueadas, {
+    cols: limites.colunas,
+    lins: limites.linhas,
+  });
+};
 
 // Paredes: adicionar/apagar. Névoa: revelar = adicionar às células reveladas,
 // cobrir = remover delas (ACOES_CAMADA em common/utils/gridCamadas.js).
@@ -212,6 +237,18 @@ export const OPCOES_FERRAMENTA_PADRAO = {
   forma: FORMAS_PINCEL.PINCEL,
   acao: ACOES_CAMADA.ADICIONAR,
   tamanho: 1,
+};
+
+// ── Painéis laterais sobre o mapa ───────────────────────────────────────
+// Dois retângulos de tela ({ left, top, right, bottom }, como o
+// getBoundingClientRect) se sobrepõem? Vazio (largura ou altura 0, o que o
+// jsdom devolve) nunca sobrepõe. Usado para centralizar o token selecionado
+// quando o painel do token o cobre.
+export const retangulosSeCruzam = (a, b) => {
+  if (!a || !b) return false;
+  const vazio = r => r.right - r.left <= 0 || r.bottom - r.top <= 0;
+  if (vazio(a) || vazio(b)) return false;
+  return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
 };
 
 // ── Várias cópias de um token ────────────────────────────────────────────

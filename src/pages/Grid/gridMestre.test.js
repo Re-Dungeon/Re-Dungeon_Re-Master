@@ -23,6 +23,8 @@ import {
   OPCOES_ACAO,
   OPCOES_FERRAMENTA,
   OPCOES_FORMA,
+  celulasDoGesto,
+  formasDaFerramenta,
   OPCOES_CORRIDA,
   OPCOES_TAMANHO_TOKEN,
   OPCOES_TRAVAMENTO,
@@ -33,6 +35,7 @@ import {
   opcoesDeDonos,
   tokensDeJogadoresFaltantes,
   QUANTIDADE_TOKENS_MAX,
+  retangulosSeCruzam,
   copiaDoToken,
   montarTokensEmLote,
   nomesNumerados,
@@ -43,6 +46,31 @@ import {
   patchesDeOcultoEmLote,
   removerVariosDoCombate,
 } from './gridMestre';
+
+describe('retangulosSeCruzam', () => {
+  const painel = { left: 12, top: 12, right: 312, bottom: 500 };
+
+  it('token por baixo do painel cruza; ao lado não', () => {
+    expect(
+      retangulosSeCruzam({ left: 100, top: 100, right: 148, bottom: 148 }, painel),
+    ).toBe(true);
+    expect(
+      retangulosSeCruzam({ left: 300, top: 100, right: 348, bottom: 148 }, painel),
+    ).toBe(true);
+    expect(
+      retangulosSeCruzam({ left: 400, top: 100, right: 448, bottom: 148 }, painel),
+    ).toBe(false);
+    expect(
+      retangulosSeCruzam({ left: 312, top: 100, right: 360, bottom: 148 }, painel),
+    ).toBe(false);
+  });
+
+  it('retângulo vazio (jsdom) ou ausente nunca cruza', () => {
+    const zero = { left: 0, top: 0, right: 0, bottom: 0 };
+    expect(retangulosSeCruzam(zero, zero)).toBe(false);
+    expect(retangulosSeCruzam(null, painel)).toBe(false);
+  });
+});
 
 describe('opcoesDeDonos', () => {
   it('agrupa os personagens por dono e ignora quem não tem uid', () => {
@@ -221,11 +249,42 @@ describe('ferramentas do mapa', () => {
     ]);
   });
 
-  it('formas: pincel e retângulo', () => {
+  it('formas: pincel, retângulo e sala (a sala só na névoa)', () => {
     expect(OPCOES_FORMA.map(opcao => opcao.value)).toEqual([
       'pincel',
       'retangulo',
+      'sala',
     ]);
+    expect(
+      formasDaFerramenta(FERRAMENTAS.NEVOA).map(opcao => opcao.value),
+    ).toContain('sala');
+    expect(
+      formasDaFerramenta(FERRAMENTAS.PAREDES).map(opcao => opcao.value),
+    ).toEqual(['pincel', 'retangulo']);
+  });
+
+  it('celulasDoGesto: sala expande pelas paredes, demais formas ficam como estão', () => {
+    const paredes = new Set(['2,0', '2,1', '2,2']);
+    const limites = { colunas: 3, linhas: 3 };
+    const sala = celulasDoGesto({
+      forma: 'sala',
+      celulas: [{ col: 0, lin: 0 }],
+      bloqueadas: paredes,
+      limites,
+    });
+    expect(sala.estourou).toBe(false);
+    expect(sala.celulas).toHaveLength(6);
+    const pincel = [{ col: 0, lin: 0 }];
+    expect(
+      celulasDoGesto({ forma: 'pincel', celulas: pincel, bloqueadas: paredes, limites }),
+    ).toEqual({ celulas: pincel, estourou: false });
+    const grande = celulasDoGesto({
+      forma: 'sala',
+      celulas: [{ col: 0, lin: 0 }],
+      bloqueadas: new Set(),
+      limites: { colunas: 100, linhas: 100 },
+    });
+    expect(grande).toEqual({ celulas: [], estourou: true });
   });
 
   it('ações: névoa revela (adicionar) e cobre (remover); paredes adicionam e apagam', () => {

@@ -26,6 +26,7 @@ import { useAuth } from 'context/AuthContext';
 import { useCampanha } from 'context/CampanhaContext';
 import { useSnackbar } from 'context/SnackbarContext';
 import useConfirmacao from 'components/ConfirmDialog/useConfirmacao';
+import PersonagemFichaDialog from 'components/PersonagemFichaDialog/PersonagemFichaDialog';
 import {
   addGridCena,
   addGridTokens,
@@ -83,14 +84,17 @@ import IniciarCombateDialog from './IniciarCombateDialog';
 import MarcadorDialog from './MarcadorDialog';
 import ParticipantesCombateDialog from './ParticipantesCombateDialog';
 import TokenPainel from './TokenPainel';
+import usePainelLado from './usePainelLado';
 import {
   ACOES_ATALHO,
   FERRAMENTAS,
+  FORMAS_PINCEL,
   OPCOES_FERRAMENTA_PADRAO,
   OPCOES_TRAVAMENTO,
   acaoDoAtalho,
   alternarSelecao,
   alvoEhDigitacao,
+  celulasDoGesto,
   celulasParaRevelarEmVolta,
   chaveDasFichasDoGrupo,
   copiaDoToken,
@@ -99,6 +103,7 @@ import {
   linhasDoGrupo,
   montarTokensEmLote,
   ocultoAlvoDosTokens,
+  retangulosSeCruzam,
   patchesDeCondicaoEmLote,
   patchesDeDanoEmLote,
   patchesDeExpiracaoDeCondicoes,
@@ -205,10 +210,17 @@ const Grid = () => {
   const [participantesAberto, setParticipantesAberto] = useState(false);
   const [chatAberto, setChatAberto] = useState(true);
   const [tokenRolando, setTokenRolando] = useState(null);
+  // Ficha aberta por "Ver ficha" no painel do token ({ id, nome, linkImagem }).
+  const [fichaAberta, setFichaAberta] = useState(null);
   const [atalhosAberto, setAtalhosAberto] = useState(false);
   // Painel "Grupo" e o último pedido de centralizar num token ({ tokenId, chave }).
   const [grupoAberto, setGrupoAberto] = useState(false);
   const [focoToken, setFocoToken] = useState(null);
+  // Painel do token / ações em lote: lado do mapa (preferência salva neste
+  // navegador) e minimizado numa barrinha.
+  const [ladoPainel, trocarLadoPainel] = usePainelLado();
+  const [painelMinimizado, setPainelMinimizado] = useState(false);
+  const areaMapaRef = useRef(null);
   // Ferramenta do mapa (Fase 3B) e suas opções; marcador em criação/edição:
   // { marcador } | { celula } | null.
   const [ferramenta, setFerramenta] = useState(FERRAMENTAS.MOVER);
@@ -321,7 +333,8 @@ const Grid = () => {
   const limparSelecao = useCallback(() => {
     setSelecionadoId(null);
     setSelecionadosIds(SEM_SELECAO);
-  }, []);
+    setPainelMinimizado(false);
+  }, [setPainelMinimizado]);
 
   // Esc limpa a seleção (única ou múltipla).
   const temSelecao = Boolean(selecionadoId) || selecionadosIds.length > 0;
@@ -333,6 +346,40 @@ const Grid = () => {
     window.addEventListener('keydown', aoTeclar);
     return () => window.removeEventListener('keydown', aoTeclar);
   }, [temSelecao, limparSelecao]);
+
+  // Painel do token / ações em lote ficam no lado escolhido. Regra de colisão:
+  // Grupo e Configurar grid moram à direita; enquanto o painel do token está
+  // à direita (aberto ou minimizado) eles passam para a esquerda. O que está
+  // aberto agora nunca fica sobre o outro, e ninguém precisa "empurrar".
+  const painelDoTokenAberto =
+    ferramenta === FERRAMENTAS.MOVER && (Boolean(selecionado) || emLote);
+  const ladoDosOutrosPaineis =
+    painelDoTokenAberto && ladoPainel === 'right' ? 'left' : 'right';
+
+  // Selecionou um token que o painel do token cobre (ou trocou o painel de
+  // lado / expandiu): centraliza o mapa nele com o foco do GridMapa.
+  useEffect(() => {
+    if (!selecionadoId || painelMinimizado || ferramenta !== FERRAMENTAS.MOVER) {
+      return;
+    }
+    const area = areaMapaRef.current;
+    const painel = area?.querySelector('[data-painel-lateral]');
+    const alvo = Array.from(area?.querySelectorAll('[data-token-id]') ?? []).find(
+      elemento => elemento.dataset.tokenId === selecionadoId,
+    );
+    if (!painel || !alvo) return;
+    if (
+      retangulosSeCruzam(
+        alvo.getBoundingClientRect(),
+        painel.getBoundingClientRect(),
+      )
+    ) {
+      setFocoToken(atual => ({
+        tokenId: selecionadoId,
+        chave: (atual?.chave ?? 0) + 1,
+      }));
+    }
+  }, [selecionadoId, ladoPainel, painelMinimizado, ferramenta]);
 
   const handleSelecionar = token => {
     setSelecionadoId(token?.id ?? null);
@@ -405,6 +452,7 @@ const Grid = () => {
     notifySuccess,
     campanha: campanhaAtiva,
     cenaNome: cenaAberta ? nomeDaCena(cenaAberta) : '',
+    confirmar,
   });
   // Condições com duração (NPCs): quando a rodada do combate passa do fim
   // delas, saem do token — num lote só. Roda aqui, no Grid do mestre, a cada
@@ -522,13 +570,12 @@ const Grid = () => {
 
   const handleApagarCena = async cena => {
     if (cena.id === cenaAtivaId) return;
-    if (
-      !window.confirm(
-        `Apagar a cena "${nomeDaCena(cena)}" e todos os tokens dela?`,
-      )
-    ) {
-      return;
-    }
+    const confirmado = await confirmar({
+      titulo: 'Apagar cena?',
+      mensagem: `Apagar a cena "${nomeDaCena(cena)}" e todos os tokens dela?`,
+      confirmarTexto: 'Apagar',
+    });
+    if (!confirmado) return;
     const ok = await tentar(
       () => removeGridCena(campanhaId, cena.id).then(() => true),
       'Não foi possível apagar a cena.',
@@ -644,7 +691,12 @@ const Grid = () => {
     );
 
   const handleRemoverToken = async () => {
-    if (!window.confirm(`Remover "${selecionado.nome}" da cena?`)) return;
+    const confirmado = await confirmar({
+      titulo: 'Remover token?',
+      mensagem: `Remover "${selecionado.nome}" da cena?`,
+      confirmarTexto: 'Remover',
+    });
+    if (!confirmado) return;
     // Quem sai da cena sai também do combate (o último encerra o combate).
     if (grid.combate?.ordem.some(item => item.tokenId === selecionado.id)) {
       if (!(await combate.remover(selecionado.id))) return;
@@ -803,6 +855,34 @@ const Grid = () => {
   const handleFerramenta = nova => {
     setFerramenta(nova);
     if (nova !== FERRAMENTAS.NEVOA) limparSelecao();
+    // "Sala" só existe na Névoa.
+    if (nova !== FERRAMENTAS.NEVOA) {
+      setOpcoesFerramenta(atual =>
+        atual.forma === FORMAS_PINCEL.SALA
+          ? { ...atual, forma: FORMAS_PINCEL.PINCEL }
+          : atual,
+      );
+    }
+  };
+
+  // Pincel solto no mapa. Na forma Sala a célula clicada vira a sala inteira
+  // (até as paredes); aberta demais, avisa em vez de aplicar. Entra no
+  // Ctrl+Z como qualquer edição de camada.
+  const handleEditarCamada = async ({ camada, acao, celulas }) => {
+    const { celulas: alvo, estourou } = celulasDoGesto({
+      forma: opcoesFerramenta.forma,
+      celulas,
+      bloqueadas: grid.camadas.bloqueadas,
+      limites,
+    });
+    if (estourou) {
+      notifyError(
+        'Sala aberta demais: feche as paredes (ou use o retângulo) para cobrir ou revelar.',
+      );
+      return false;
+    }
+    if (alvo.length === 0) return false;
+    return camadasDesfazer.editar(camada, acao, alvo, limites);
   };
 
   // ── Atalhos de teclado ─────────────────────────────────────────────────
@@ -865,11 +945,13 @@ const Grid = () => {
   const handleNevoaAtiva = ativa => grid.definirNevoaAtiva(ativa);
 
   const handlePreencherNevoa = async acao => {
-    if (
-      acao === ACOES_CAMADA.REMOVER &&
-      !window.confirm('Cobrir todo o mapa com névoa?')
-    ) {
-      return;
+    if (acao === ACOES_CAMADA.REMOVER) {
+      const confirmado = await confirmar({
+        titulo: 'Cobrir o mapa com névoa?',
+        mensagem: 'Cobrir todo o mapa com névoa?',
+        confirmarTexto: 'Cobrir',
+      });
+      if (!confirmado) return;
     }
     await camadasDesfazer.preencher(CAMADAS.NEVOA, acao, limites);
   };
@@ -897,7 +979,12 @@ const Grid = () => {
   };
 
   const handleLimparParedes = async () => {
-    if (!window.confirm('Limpar todas as paredes desta cena?')) return;
+    const confirmado = await confirmar({
+      titulo: 'Limpar as paredes?',
+      mensagem: 'Limpar todas as paredes desta cena?',
+      confirmarTexto: 'Limpar',
+    });
+    if (!confirmado) return;
     await camadasDesfazer.preencher(
       CAMADAS.PAREDES,
       ACOES_CAMADA.REMOVER,
@@ -1192,6 +1279,7 @@ const Grid = () => {
             desabilitado={!cenaAberta}
           />
           <Box
+            ref={areaMapaRef}
             sx={{
               position: 'relative',
               flex: 1,
@@ -1229,9 +1317,7 @@ const Grid = () => {
               camadas={grid.camadas}
               marcadores={grid.marcadores}
               desenhos={grid.desenhos}
-              onEditarCamada={({ camada, acao, celulas }) =>
-                camadasDesfazer.editar(camada, acao, celulas, limites)
-              }
+              onEditarCamada={handleEditarCamada}
               onCelulaMarcador={celula => setMarcadorEditando({ celula })}
               onMarcadorClique={marcador => setMarcadorEditando({ marcador })}
               onDesenhar={grid.desenhar}
@@ -1264,8 +1350,22 @@ const Grid = () => {
                     ? () => setTokenRolando(selecionado)
                     : undefined
                 }
+                onVerFicha={
+                  selecionado.refId
+                    ? () =>
+                        setFichaAberta({
+                          id: selecionado.refId,
+                          nome: selecionado.nome,
+                          linkImagem: selecionado.imagemUrl ?? null,
+                        })
+                    : undefined
+                }
                 rodada={rodadaAtual}
                 abaixoDaFaixa={Boolean(grid.combate)}
+                lado={ladoPainel}
+                minimizado={painelMinimizado}
+                onTrocarLado={trocarLadoPainel}
+                onMinimizar={setPainelMinimizado}
               />
             )}
             {emLote && ferramenta === FERRAMENTAS.MOVER && (
@@ -1280,6 +1380,10 @@ const Grid = () => {
                 onExcluir={handleExcluirEmLote}
                 onFechar={limparSelecao}
                 abaixoDaFaixa={Boolean(grid.combate)}
+                lado={ladoPainel}
+                minimizado={painelMinimizado}
+                onTrocarLado={trocarLadoPainel}
+                onMinimizar={setPainelMinimizado}
               />
             )}
             {grupoAberto && !configAberta && (
@@ -1289,6 +1393,7 @@ const Grid = () => {
                 onFocar={handleFocarToken}
                 onFechar={() => setGrupoAberto(false)}
                 abaixoDaFaixa={Boolean(grid.combate)}
+                lado={ladoDosOutrosPaineis}
               />
             )}
             {configAberta && cenaAberta && (
@@ -1300,6 +1405,7 @@ const Grid = () => {
                 onSalvar={handleSalvarConfig}
                 onFechar={fecharConfig}
                 abaixoDaFaixa={Boolean(grid.combate)}
+                lado={ladoDosOutrosPaineis}
               />
             )}
           </Box>
@@ -1334,6 +1440,12 @@ const Grid = () => {
       </Box>
 
       {dialogoConfirmacao}
+
+      <PersonagemFichaDialog
+        open={Boolean(fichaAberta)}
+        onClose={() => setFichaAberta(null)}
+        personagem={fichaAberta}
+      />
 
       <AtalhosDialog
         open={atalhosAberto}

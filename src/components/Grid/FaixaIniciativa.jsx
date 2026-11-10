@@ -81,6 +81,7 @@ const FaixaIniciativa = ({ faixa, acoes, onCentralizar }) => {
               data-retrato={item.tokenId}
               $atual={item.atual}
               $oculto={item.oculto}
+              $derrotado={item.derrotado}
               $cor={COR_TIPO_TOKEN[item.tipo] ?? COR_TIPO_TOKEN.avulso}
               onClick={() => {
                 if (telaPequena) setNomeAberto(item.tokenId);
@@ -157,6 +158,7 @@ FaixaIniciativa.propTypes = {
         imagemUrl: PropTypes.string,
         tipo: PropTypes.string,
         oculto: PropTypes.bool,
+        derrotado: PropTypes.bool,
         atual: PropTypes.bool,
         iniciativa: PropTypes.number,
       }),
