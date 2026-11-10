@@ -36,6 +36,7 @@ const useCombateMestre = ({
   notifySuccess,
   campanha = null,
   cenaNome = '',
+  confirmar,
 }) => {
   // Registro automático da sessão (best-effort: nunca interrompe a ação).
   const registrar = useCallback(
@@ -72,9 +73,16 @@ const useCombateMestre = ({
   );
 
   const encerrar = useCallback(
-    async ({ confirmar = true } = {}) => {
+    async ({ confirmar: pedirConfirmacao = true } = {}) => {
       if (!cenaId || !combate) return false;
-      if (confirmar && !window.confirm('Encerrar o combate desta cena?')) {
+      if (
+        pedirConfirmacao &&
+        !(await confirmar({
+          titulo: 'Encerrar o combate?',
+          mensagem: 'Encerrar o combate desta cena?',
+          confirmarTexto: 'Encerrar',
+        }))
+      ) {
         return false;
       }
       const ok = await tentar(
@@ -94,7 +102,7 @@ const useCombateMestre = ({
       }
       return Boolean(ok);
     },
-    [autor, campanhaId, cenaId, cenaNome, combate, registrar, tentar],
+    [autor, campanhaId, cenaId, cenaNome, combate, confirmar, registrar, tentar],
   );
 
   // Escreve o patch calculado sobre o estado do SERVIDOR (transação).
@@ -137,13 +145,12 @@ const useCombateMestre = ({
     async tokenId => {
       if (!combate?.ordem.some(item => item.tokenId === tokenId)) return false;
       if (combate.ordem.length === 1) {
-        if (
-          !window.confirm(
-            'Era o último participante: encerrar o combate desta cena?',
-          )
-        ) {
-          return false;
-        }
+        const confirmado = await confirmar({
+          titulo: 'Encerrar o combate?',
+          mensagem: 'Era o último participante: encerrar o combate desta cena?',
+          confirmarTexto: 'Encerrar',
+        });
+        if (!confirmado) return false;
         return encerrar({ confirmar: false });
       }
       const ok = await alterar(servidor => {
@@ -152,7 +159,7 @@ const useCombateMestre = ({
       }, 'Não foi possível tirar do combate.');
       return Boolean(ok);
     },
-    [alterar, combate, encerrar, tokens],
+    [alterar, combate, confirmar, encerrar, tokens],
   );
 
   const mover = useCallback(

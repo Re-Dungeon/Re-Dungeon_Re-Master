@@ -219,6 +219,15 @@ const renderGrid = () =>
     </MemoryRouter>,
   );
 
+// Diálogo de confirmação (ConfirmDialog) aberto pela tela: clica num botão dele.
+const responderConfirmacao = async (user, botao) => {
+  const dialogo = await screen.findByRole('dialog');
+  await user.click(within(dialogo).getByRole('button', { name: botao }));
+  // O atalho de teclado só volta depois que o diálogo sai de cena.
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  return dialogo;
+};
+
 const abrirMenuDaCena = async (user, nome) => {
   await user.click(
     await screen.findByRole('button', { name: `Opções da cena ${nome}` }),
@@ -444,7 +453,6 @@ describe('Grid (Re:Master)', () => {
 
   it('renomeia, duplica e apaga pelo menu da cena (a ativa não pode ser apagada)', async () => {
     const user = userEvent.setup();
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
     renderGrid();
 
     let menu = await abrirMenuDaCena(user, 'Taverna');
@@ -479,6 +487,8 @@ describe('Grid (Re:Master)', () => {
 
     menu = await abrirMenuDaCena(user, 'Masmorra');
     await user.click(within(menu).getByRole('menuitem', { name: /Apagar/ }));
+    expect(removeGridCena).not.toHaveBeenCalled();
+    await responderConfirmacao(user, 'Apagar');
     await waitFor(() =>
       expect(removeGridCena).toHaveBeenCalledWith('c1', 'cena-2'),
     );
@@ -591,7 +601,6 @@ describe('Grid (Re:Master)', () => {
 
   it('seleciona um token, edita e remove', async () => {
     const user = userEvent.setup();
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
     renderGrid();
 
     (await screen.findByRole('button', { name: /Ogro/ })).focus();
@@ -621,6 +630,7 @@ describe('Grid (Re:Master)', () => {
     );
 
     await user.click(within(painel).getByRole('button', { name: 'Remover' }));
+    await responderConfirmacao(user, 'Remover');
     await waitFor(() =>
       expect(removeGridToken).toHaveBeenCalledWith('c1', 'cena-1', 't2'),
     );
@@ -1159,10 +1169,10 @@ describe('Grid (Re:Master)', () => {
       await user.click(screen.getByRole('button', { name: 'Anterior' }));
       await waitFor(() => expect(alterarGridCombate).toHaveBeenCalledTimes(2));
 
-      vi.spyOn(window, 'confirm').mockReturnValue(true);
       await user.click(
         screen.getByRole('button', { name: 'Encerrar combate' }),
       );
+      await responderConfirmacao(user, 'Encerrar');
       await waitFor(() =>
         expect(encerrarGridCombate).toHaveBeenCalledWith(
           'c1',
@@ -1245,7 +1255,6 @@ describe('Grid (Re:Master)', () => {
     it('remover o token da cena também o tira do combate', async () => {
       const user = userEvent.setup();
       emitirCombate(COMBATE);
-      vi.spyOn(window, 'confirm').mockReturnValue(true);
       renderGrid();
 
       (await screen.findByRole('button', { name: /Ogro, coluna/ })).focus();
@@ -1254,6 +1263,7 @@ describe('Grid (Re:Master)', () => {
         name: 'Token selecionado',
       });
       await user.click(within(painel).getByRole('button', { name: 'Remover' }));
+      await responderConfirmacao(user, 'Remover');
       await waitFor(() =>
         expect(removeGridToken).toHaveBeenCalledWith('c1', 'cena-1', 't2'),
       );
@@ -1952,16 +1962,20 @@ describe('Grid (Re:Master)', () => {
 
     it('Delete exclui o token selecionado depois de confirmar', async () => {
       const user = userEvent.setup();
-      const confirmar = vi.spyOn(window, 'confirm').mockReturnValue(false);
       renderGrid();
       await selecionarOgro(user);
 
       await user.keyboard('{Delete}');
-      expect(confirmar).toHaveBeenCalledWith('Remover "Ogro" da cena?');
+      const dialogo = await responderConfirmacao(user, 'Cancelar');
+      expect(dialogo).toBeDefined();
+      await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
       expect(removeGridToken).not.toHaveBeenCalled();
 
-      confirmar.mockReturnValue(true);
       await user.keyboard('{Delete}');
+      expect(await screen.findByRole('dialog')).toHaveTextContent(
+        'Remover "Ogro" da cena?',
+      );
+      await responderConfirmacao(user, 'Remover');
       await waitFor(() =>
         expect(removeGridToken).toHaveBeenCalledWith('c1', 'cena-1', 't2'),
       );
@@ -2382,11 +2396,11 @@ describe('Grid (Re:Master)', () => {
 
     it('"Cobrir tudo" também pode ser desfeito', async () => {
       const user = userEvent.setup();
-      vi.spyOn(window, 'confirm').mockReturnValue(true);
       renderGrid();
       await escolher(user, 'Névoa');
 
       await user.click(screen.getByRole('button', { name: 'Cobrir tudo' }));
+      await responderConfirmacao(user, 'Cobrir');
       await waitFor(() =>
         expect(setGridCamada).toHaveBeenCalledWith('c1', 'cena-1', 'nevoa', {
           ativa: true,
@@ -2537,7 +2551,6 @@ describe('Grid (Re:Master)', () => {
 
     it('encerrar o combate registra a rodada', async () => {
       const user = userEvent.setup();
-      vi.spyOn(window, 'confirm').mockReturnValue(true);
       subscribeGridCombate.mockImplementation((_id, _cenaId, onChange) => {
         onChange({
           ordem: [{ tokenId: 't1', iniciativa: 12, d20: 6, reacao: 6 }],
@@ -2552,6 +2565,7 @@ describe('Grid (Re:Master)', () => {
       await user.click(
         await screen.findByRole('button', { name: 'Encerrar combate' }),
       );
+      await responderConfirmacao(user, 'Encerrar');
       await waitFor(() =>
         expect(addRmSessaoLog).toHaveBeenCalledWith(
           expect.objectContaining({

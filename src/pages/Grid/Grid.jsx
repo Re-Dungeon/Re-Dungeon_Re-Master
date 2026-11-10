@@ -405,6 +405,7 @@ const Grid = () => {
     notifySuccess,
     campanha: campanhaAtiva,
     cenaNome: cenaAberta ? nomeDaCena(cenaAberta) : '',
+    confirmar,
   });
   // Condições com duração (NPCs): quando a rodada do combate passa do fim
   // delas, saem do token — num lote só. Roda aqui, no Grid do mestre, a cada
@@ -522,13 +523,12 @@ const Grid = () => {
 
   const handleApagarCena = async cena => {
     if (cena.id === cenaAtivaId) return;
-    if (
-      !window.confirm(
-        `Apagar a cena "${nomeDaCena(cena)}" e todos os tokens dela?`,
-      )
-    ) {
-      return;
-    }
+    const confirmado = await confirmar({
+      titulo: 'Apagar cena?',
+      mensagem: `Apagar a cena "${nomeDaCena(cena)}" e todos os tokens dela?`,
+      confirmarTexto: 'Apagar',
+    });
+    if (!confirmado) return;
     const ok = await tentar(
       () => removeGridCena(campanhaId, cena.id).then(() => true),
       'Não foi possível apagar a cena.',
@@ -644,7 +644,12 @@ const Grid = () => {
     );
 
   const handleRemoverToken = async () => {
-    if (!window.confirm(`Remover "${selecionado.nome}" da cena?`)) return;
+    const confirmado = await confirmar({
+      titulo: 'Remover token?',
+      mensagem: `Remover "${selecionado.nome}" da cena?`,
+      confirmarTexto: 'Remover',
+    });
+    if (!confirmado) return;
     // Quem sai da cena sai também do combate (o último encerra o combate).
     if (grid.combate?.ordem.some(item => item.tokenId === selecionado.id)) {
       if (!(await combate.remover(selecionado.id))) return;
@@ -865,11 +870,13 @@ const Grid = () => {
   const handleNevoaAtiva = ativa => grid.definirNevoaAtiva(ativa);
 
   const handlePreencherNevoa = async acao => {
-    if (
-      acao === ACOES_CAMADA.REMOVER &&
-      !window.confirm('Cobrir todo o mapa com névoa?')
-    ) {
-      return;
+    if (acao === ACOES_CAMADA.REMOVER) {
+      const confirmado = await confirmar({
+        titulo: 'Cobrir o mapa com névoa?',
+        mensagem: 'Cobrir todo o mapa com névoa?',
+        confirmarTexto: 'Cobrir',
+      });
+      if (!confirmado) return;
     }
     await camadasDesfazer.preencher(CAMADAS.NEVOA, acao, limites);
   };
@@ -897,7 +904,12 @@ const Grid = () => {
   };
 
   const handleLimparParedes = async () => {
-    if (!window.confirm('Limpar todas as paredes desta cena?')) return;
+    const confirmado = await confirmar({
+      titulo: 'Limpar as paredes?',
+      mensagem: 'Limpar todas as paredes desta cena?',
+      confirmarTexto: 'Limpar',
+    });
+    if (!confirmado) return;
     await camadasDesfazer.preencher(
       CAMADAS.PAREDES,
       ACOES_CAMADA.REMOVER,
