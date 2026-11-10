@@ -23,7 +23,10 @@ import {
 } from '../pages/CardFlux/exploracaoGrid';
 import { normalizeEntityTypeName } from '../pages/Notas/notaUtils';
 import { extrairVideoYoutube } from 'common/utils/audioMesa';
-import { CHAT_JANELA_MENSAGENS, CHAT_PAGINA_ANTERIORES } from 'common/utils/chat';
+import {
+  CHAT_JANELA_MENSAGENS,
+  CHAT_PAGINA_ANTERIORES,
+} from 'common/utils/chat';
 import { db } from './firebase';
 
 // ── Helpers genéricos de CRUD Firestore ─────────────────────────────────────
@@ -1625,11 +1628,9 @@ const refsDaColecao = async caminho =>
 // Coleções `rm*` top-level ligadas por `campanhaId` (cenas narrativas,
 // missões, notas…) não são tocadas.
 export const removeRmCampanhaCompleta = async (campanhaId, mestreId) => {
+  // 1) Lê tudo antes de apagar qualquer coisa: se uma leitura for recusada,
+  //    a campanha fica intacta (antes, as cenas já tinham sumido).
   const cenas = await getDocs(gridCenasRef(campanhaId));
-  for (const cena of cenas.docs) {
-    await removeGridCena(campanhaId, cena.id);
-  }
-
   const membros = await getDocs(
     collection(db, RM_CAMPANHAS_COLLECTION, campanhaId, 'chatMembros'),
   );
@@ -1644,20 +1645,37 @@ export const removeRmCampanhaCompleta = async (campanhaId, mestreId) => {
       ),
     ),
   );
-
   const subcolecoes = await Promise.all(
     ['chatMensagens', 'macros', 'grid', 'audio'].map(nome =>
       refsDaColecao([RM_CAMPANHAS_COLLECTION, campanhaId, nome]),
     ),
   );
+  // Clones/jogadores/participantes: as regras só deixam o mestre LISTAR com
+  // o filtro `mestreId` (resource.data.mestreId == uid) — sem ele a consulta
+  // inteira é recusada, mesmo vazia.
   const clones = await Promise.all(
     [
       npcsSubcollectionPath,
       jogadoresSubcollectionPath,
       criaturasSubcollectionPath,
       lutaParticipantesSubcollectionPath,
-    ].map(caminho => refsDaColecao(caminho(campanhaId))),
+    ].map(async caminho =>
+      (
+        await getDocs(
+          query(
+            collection(db, ...caminho(campanhaId)),
+            where('mestreId', '==', mestreId),
+          ),
+        )
+      ).docs.map(item => item.ref),
+    ),
   );
+
+  // 2) Apaga: cenas do grid (com tudo dentro), o resto em lotes, ponteiros
+  //    do chat (best-effort) e por fim o documento da campanha.
+  for (const cena of cenas.docs) {
+    await removeGridCena(campanhaId, cena.id);
+  }
   await apagarEmLotes([
     ...secretas.flat(),
     ...subcolecoes.flat(),

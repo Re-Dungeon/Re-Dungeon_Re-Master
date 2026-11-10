@@ -160,11 +160,15 @@ describe('storage.js — CRUD de rmCampanhas (padrão Firestore repetido em toda
       'rmCampanhas/c1/macros': [{ ref: 'macro-1' }],
       'rmCampanhas/c1/npcs': [{ ref: 'npc-1' }],
     };
+    // Consultas filtradas chegam como { __query: coleção, constraints }.
     getDocs.mockImplementation(async ref => ({
-      docs: docs[ref.__collection] ?? [],
+      docs: docs[ref.__collection ?? ref.__query?.__collection] ?? [],
     }));
 
     await removeRmCampanhaCompleta('c1', 'm1');
+
+    // Clones/jogadores/Luta são listados com o filtro do mestre (regra).
+    expect(where).toHaveBeenCalledWith('mestreId', '==', 'm1');
 
     expect(apagados).toEqual(
       expect.arrayContaining([
@@ -209,6 +213,32 @@ describe('storage.js — CRUD de rmCampanhas (padrão Firestore repetido em toda
       __doc: 'rmCampanhas',
       id: 'c1',
     });
+  });
+
+  it('removeRmCampanhaCompleta não apaga nada se uma leitura for recusada', async () => {
+    const apagados = [];
+    writeBatch.mockImplementation(() => ({
+      delete: ref => apagados.push(ref),
+      commit: vi.fn(async () => {}),
+    }));
+    deleteDoc.mockResolvedValue(undefined);
+    getDocs.mockImplementation(async ref => {
+      if (ref.__query?.__collection === 'rmCampanhas/c1/npcs') {
+        throw new Error('permission-denied');
+      }
+      return {
+        docs:
+          ref.__collection === 'rmCampanhas/c1/gridCenas'
+            ? [{ id: 'cena-1', ref: 'cena-1' }]
+            : [],
+      };
+    });
+
+    await expect(removeRmCampanhaCompleta('c1', 'm1')).rejects.toThrow(
+      'permission-denied',
+    );
+    expect(apagados).toEqual([]);
+    expect(deleteDoc).not.toHaveBeenCalled();
   });
 
   it('updateRmCampanha atualiza com updatedAt', async () => {
@@ -1022,7 +1052,12 @@ describe('storage.js — getChatMensagensAntes (Carregar anteriores)', () => {
 
     const mensagens = await getChatMensagensAntes('camp-1', referencia, 3);
 
-    expect(collection).toHaveBeenCalledWith({}, 'rmCampanhas', 'camp-1', 'chatMensagens');
+    expect(collection).toHaveBeenCalledWith(
+      {},
+      'rmCampanhas',
+      'camp-1',
+      'chatMensagens',
+    );
     expect(where).toHaveBeenCalledWith('createdAt', '<', referencia);
     expect(orderBy).toHaveBeenCalledWith('createdAt', 'desc');
     expect(limit).toHaveBeenCalledWith(3);
