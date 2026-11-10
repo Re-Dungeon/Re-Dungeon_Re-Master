@@ -46,6 +46,9 @@ const CenaDetalhes = () => {
   const { campanhaAtiva, recarregarCampanhas } = useCampanha();
   const [cena, setCena] = useState(null);
   const [loading, setLoading] = useState(true);
+  // Falha de rede/permissão ao buscar as cenas (diferente de "não encontrada").
+  const [erroCarregar, setErroCarregar] = useState(false);
+  const [tentativa, setTentativa] = useState(0);
   const [modoNarracao, setModoNarracao] = useState(false);
   useEffect(() => {
     if (!campanhaAtiva || !cenaId) {
@@ -53,19 +56,32 @@ const CenaDetalhes = () => {
       return;
     }
 
+    let ativo = true;
     setLoading(true);
+    setErroCarregar(false);
     getRmCenas(
       campanhaAtiva.id,
       campanhaAtiva.universoId,
       campanhaAtiva.mestreId,
     )
       .then(cenas => {
+        if (!ativo) return;
         const encontrada = cenas.find(item => item.id === cenaId) ?? null;
         setCena(encontrada);
       })
-      .catch(() => setCena(null))
-      .finally(() => setLoading(false));
-  }, [campanhaAtiva, cenaId]);
+      .catch(() => {
+        if (!ativo) return;
+        setCena(null);
+        setErroCarregar(true);
+        notifyError('Não foi possível carregar a cena.');
+      })
+      .finally(() => {
+        if (ativo) setLoading(false);
+      });
+    return () => {
+      ativo = false;
+    };
+  }, [campanhaAtiva, cenaId, tentativa, notifyError]);
 
   const podeEscrever = Boolean(
     campanhaAtiva && (isAdmin || campanhaAtiva.mestreId === currentUser?.uid),
@@ -129,6 +145,37 @@ const CenaDetalhes = () => {
         <Typography sx={{ color: 'var(--text-primary)' }}>
           Carregando cena...
         </Typography>
+      </Box>
+    );
+  }
+
+  if (erroCarregar) {
+    return (
+      <Box
+        className="page-container"
+        sx={{ minHeight: '100vh', display: 'grid', placeItems: 'center' }}
+      >
+        <Box sx={{ textAlign: 'center' }}>
+          <Typography
+            sx={{
+              color: 'var(--text-primary)',
+              mb: 1,
+              fontSize: '1.5rem',
+              fontWeight: 700,
+            }}
+          >
+            Não foi possível carregar a cena
+          </Typography>
+          <Button
+            onClick={() => setTentativa(atual => atual + 1)}
+            sx={{ color: 'var(--text-primary)' }}
+          >
+            Tentar de novo
+          </Button>
+          <Button onClick={handleVoltar} sx={{ color: 'var(--text-primary)' }}>
+            Voltar para o Fluxograma
+          </Button>
+        </Box>
       </Box>
     );
   }

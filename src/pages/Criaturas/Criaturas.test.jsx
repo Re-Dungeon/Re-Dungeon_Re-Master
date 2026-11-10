@@ -111,6 +111,7 @@ describe('Criaturas (personagens do Universo vinculados à campanha ativa)', () 
     expect(screen.queryByText('Grumnak, o Orc')).not.toBeInTheDocument();
     expect(screen.queryByText('De outra campanha')).not.toBeInTheDocument();
     expect(screen.queryByText('De outro universo')).not.toBeInTheDocument();
+    expect(getPersonagens).toHaveBeenCalledWith('u1');
   });
 
   it('busca por nome ignorando acento e caixa, com aviso quando nada casa', async () => {

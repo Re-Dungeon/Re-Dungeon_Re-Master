@@ -65,13 +65,14 @@ const NovaNota = () => {
         if (!isMounted) return;
         setNotaCarregada(null);
         setCarregandoNotaEdit(false);
+        notifyError('Não foi possível carregar a nota.');
         navigate(ROUTE_PATHS.NOTAS, { replace: true });
       });
 
     return () => {
       isMounted = false;
     };
-  }, [campanhaAtiva, location.state?.nota, navigate, notaId]);
+  }, [campanhaAtiva, location.state?.nota, navigate, notaId, notifyError]);
 
   const editInitialValues = notaParaEditar
     ? {
