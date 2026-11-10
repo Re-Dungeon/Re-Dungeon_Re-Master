@@ -1,5 +1,6 @@
 import { NavLink } from 'react-router-dom';
 import styled from 'styled-components';
+import { MOBILE_QUERY } from 'common/styles/breakpoints';
 import Box from '@mui/material/Box';
 import ListItemButton from '@mui/material/ListItemButton';
 
@@ -15,6 +16,12 @@ export const SidebarWrapper = styled.aside`
   z-index: 100;
   flex-shrink: 0;
   backdrop-filter: blur(12px);
+
+  /* Dentro da gaveta: a largura vem do papel da gaveta. */
+  ${MOBILE_QUERY} {
+    width: 100%;
+    height: 100%;
+  }
 `;
 
 export const LogoSection = styled(Box)`
