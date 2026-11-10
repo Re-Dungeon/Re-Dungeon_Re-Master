@@ -5,7 +5,6 @@ import { addRmSessaoLog } from 'service/storage';
 export const TIPO_EVENTO_SESSAO = {
   CENA_ATUAL: 'cena_atual',
   CARTA_SORTEADA: 'carta_sorteada',
-  PARTICIPANTE_LUTA: 'participante_luta',
   CENA_GRID_ATIVADA: 'cena_grid_ativada',
   COMBATE_INICIADO: 'combate_iniciado',
   COMBATE_ENCERRADO: 'combate_encerrado',
@@ -14,7 +13,9 @@ export const TIPO_EVENTO_SESSAO = {
 export const ICONE_EVENTO_SESSAO = {
   [TIPO_EVENTO_SESSAO.CENA_ATUAL]: '🎬',
   [TIPO_EVENTO_SESSAO.CARTA_SORTEADA]: '🃏',
-  [TIPO_EVENTO_SESSAO.PARTICIPANTE_LUTA]: '⚔️',
+  // Tipo legado: a tela de Luta foi aposentada, mas logs antigos ainda podem
+  // trazer `participante_luta` — mantém o ícone para exibi-los.
+  participante_luta: '⚔️',
   [TIPO_EVENTO_SESSAO.CENA_GRID_ATIVADA]: '🗺️',
   [TIPO_EVENTO_SESSAO.COMBATE_INICIADO]: '🛡️',
   [TIPO_EVENTO_SESSAO.COMBATE_ENCERRADO]: '🏁',
@@ -23,7 +24,7 @@ export const ICONE_EVENTO_SESSAO = {
 // Escreve um evento no histórico automático da sessão em modo best-effort —
 // uma falha aqui (regra de segurança, rede) não deve interromper nem avisar
 // sobre a ação principal que disparou o log (marcar cena atual, sortear
-// carta, adicionar participante à Luta): o log é um registro complementar,
+// carta, combate iniciado no Grid): o log é um registro complementar,
 // não a ação em si. Por isso não recebe nem repassa erro ao chamador.
 export const registrarEventoSessao = async (
   campanha,

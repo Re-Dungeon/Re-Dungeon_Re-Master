@@ -169,7 +169,7 @@ describe('storage.js — CRUD de rmCampanhas (padrão Firestore repetido em toda
 
     await removeRmCampanhaCompleta('c1', 'm1');
 
-    // Clones/jogadores/Luta são listados com o filtro do mestre (regra).
+    // Clones/jogadores/participantes da antiga Luta são listados com o filtro do mestre (regra).
     expect(where).toHaveBeenCalledWith('mestreId', '==', 'm1');
 
     expect(apagados).toEqual(

@@ -10,7 +10,6 @@ import {
   PeopleAltOutlined,
   PersonOutlineOutlined,
   ShieldOutlined,
-  SportsMmaOutlined,
   ViewAgendaOutlined,
 } from '@mui/icons-material';
 import { ROUTE_PATHS } from './routes';
@@ -25,7 +24,6 @@ export const NAV_ITEMS = [
   { path: ROUTE_PATHS.MAPAS, icon: MapOutlined, label: 'Mapas' },
   { path: ROUTE_PATHS.MISSOES, icon: AssignmentOutlined, label: 'Missões' },
   { path: ROUTE_PATHS.CARDFLUX, icon: LibraryBooksOutlined, label: 'CardFlux' },
-  { path: ROUTE_PATHS.LUTA, icon: SportsMmaOutlined, label: 'Luta' },
   { path: ROUTE_PATHS.MUSICAS, icon: MusicNoteOutlined, label: 'Músicas' },
   { path: ROUTE_PATHS.CHAT, icon: MessageOutlined, label: 'Chat' },
   { path: ROUTE_PATHS.GRID, icon: GridOnOutlined, label: 'Grid' },
@@ -56,7 +54,6 @@ export const NAV_GROUPS = [
     label: 'Ferramentas de Sessão',
     items: [
       { path: ROUTE_PATHS.CARDFLUX, icon: LibraryBooksOutlined, label: 'CardFlux' },
-      { path: ROUTE_PATHS.LUTA, icon: SportsMmaOutlined, label: 'Luta' },
       { path: ROUTE_PATHS.GRID, icon: GridOnOutlined, label: 'Grid' },
       { path: ROUTE_PATHS.CHAT, icon: MessageOutlined, label: 'Chat' },
       { path: ROUTE_PATHS.MUSICAS, icon: MusicNoteOutlined, label: 'Músicas' },

@@ -429,7 +429,7 @@ const Campanha = () => {
           'Cenas do grid (tokens, névoa, paredes, marcadores, desenhos, combate)',
           'Chat: mensagens, rolagens secretas e macros',
           'Música da mesa',
-          'Clones de NPCs e criaturas, jogadores vinculados e participantes da Luta',
+          'Clones de NPCs e criaturas, jogadores vinculados e participantes da antiga Luta',
         ]}
         exigirDigitar={campanhaExcluindo?.nome || 'excluir'}
         confirmarTexto="Excluir campanha"

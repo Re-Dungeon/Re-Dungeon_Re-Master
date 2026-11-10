@@ -272,8 +272,8 @@ export const getCorpoEspecial = id => getReferenciaPorId('corposEspeciais', id);
 export const getReinoCultivo = id => getReferenciaPorId('reinosCultivo', id);
 
 // ── condicoes (Firestore) — gerida pelo Re-Dungeon, somente leitura aqui.
-// Usada pela Luta para marcar status effects (atordoado, envenenado, etc.)
-// nos participantes. Assim como aptidoes/regras, uma condição pode pertencer
+// Usada para marcar status effects (atordoado, envenenado, etc.) em tokens e
+// personagens. Assim como aptidoes/regras, uma condição pode pertencer
 // a mais de um Universo (campo `universos`, lista de ids) — docs antigos
 // ainda podem ter só o campo singular `universo`, então busca os dois e
 // mescla por id (ver `canWriteMultiUniversoData` em firestore.rules, que já
@@ -488,40 +488,16 @@ export const updateRmCampanhaCriatura = (campanhaId, id, updates) =>
     updateFirestoreItem(criaturasSubcollectionPath(campanhaId), id, updates),
   );
 
-// ── rmCampanhas/{campanhaId}/lutaParticipantes (Firestore) ─────────────────
-// Participantes (NPCs/Criaturas) adicionados à tela de Luta de uma Campanha.
-// Cada doc é uma cópia independente do estado de combate (vida/fadiga/mana
-// atual e máxima) — permite ter várias cópias do mesmo personagem de origem
-// na mesma luta (ex.: 5 "Rato Gigante"). Mesmo padrão de subcoleção de
-// `npcs`/`jogadores`/`criaturas` acima.
+// ── rmCampanhas/{campanhaId}/lutaParticipantes ─────────────────────────────
+// Subcoleção da tela de Luta, já aposentada (o combate agora vive no Grid):
+// não há mais leitura nem escrita aqui. Só o caminho fica, para a exclusão da
+// campanha (`removeRmCampanhaCompleta`) ainda apagar os participantes que
+// campanhas antigas deixaram. A regra em firestore.rules continua valendo.
 const lutaParticipantesSubcollectionPath = campanhaId => [
   RM_CAMPANHAS_COLLECTION,
   campanhaId,
   'lutaParticipantes',
 ];
-
-export const getRmCampanhaLutaParticipantes = (
-  campanhaId,
-  universoId,
-  mestreId,
-) =>
-  getFirestoreItemsWhereAll(lutaParticipantesSubcollectionPath(campanhaId), [
-    ['universoId', universoId],
-    ['mestreId', mestreId],
-  ]);
-export const addRmCampanhaLutaParticipante = (campanhaId, participante) =>
-  addFirestoreItem(
-    lutaParticipantesSubcollectionPath(campanhaId),
-    participante,
-  );
-export const removeRmCampanhaLutaParticipante = (campanhaId, id) =>
-  removeFirestoreItem(lutaParticipantesSubcollectionPath(campanhaId), id);
-export const updateRmCampanhaLutaParticipante = (campanhaId, id, updates) =>
-  updateFirestoreItem(
-    lutaParticipantesSubcollectionPath(campanhaId),
-    id,
-    updates,
-  );
 
 // ── rmMapas (Firestore) ───────────────────────────────────────────────────────
 const RM_MAPAS_COLLECTION = 'rmMapas';
@@ -914,7 +890,7 @@ export const updateRmPlaylist = (id, updates) =>
 
 // ── rmSessaoLogs (Firestore) ──────────────────────────────────────────────
 // Registro cronológico automático de eventos da sessão (cena marcada como
-// atual, carta sorteada no CardFlux, participante adicionado à Luta) —
+// atual, carta sorteada no CardFlux, combate iniciado no Grid) —
 // complementar às `rmNotas` manuais, escrito pela própria tela que dispara o
 // evento em vez de o mestre precisar anotar durante o jogo. Append-only por
 // design (sem update/remove expostos aqui nem liberados em
@@ -1726,7 +1702,7 @@ const refsDaColecao = async caminho =>
 
 // Exclui a campanha com o que mora dentro dela: cenas do grid (e tudo de cada
 // uma), chat (mensagens, rolagens secretas de cada membro, macros), música,
-// clones de NPC/criatura, jogadores e participantes da Luta. As subcoleções
+// clones de NPC/criatura, jogadores e participantes da antiga Luta. As subcoleções
 // vão antes do documento: as regras delas consultam o `mestreId` da campanha.
 // `chatMembros` é o último passo e só funciona com a regra que deixa o mestre
 // apagar o ponteiro (firestore.rules); se ela ainda não foi publicada, esses
