@@ -8,6 +8,10 @@ import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
 import IconButton from '@mui/material/IconButton';
+import ListItemIcon from '@mui/material/ListItemIcon';
+import ListItemText from '@mui/material/ListItemText';
+import Menu from '@mui/material/Menu';
+import MenuItem from '@mui/material/MenuItem';
 import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
 import TextField from '@mui/material/TextField';
@@ -17,6 +21,7 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 import CodeIcon from '@mui/icons-material/Code';
 import HistoryOutlinedIcon from '@mui/icons-material/HistoryOutlined';
 import ImageOutlinedIcon from '@mui/icons-material/ImageOutlined';
+import MoreHorizIcon from '@mui/icons-material/MoreHoriz';
 import MusicNoteIcon from '@mui/icons-material/MusicNote';
 import SendIcon from '@mui/icons-material/Send';
 import ShieldOutlinedIcon from '@mui/icons-material/ShieldOutlined';
@@ -64,6 +69,12 @@ import {
 // lista sozinha (não arranca quem subiu para ler o histórico).
 const MARGEM_AUTOSCROLL = 80;
 
+// Celular: a fileira de ações tem alvos de 44 px (3 fixas: imagem, dados e
+// histórico). Passando de `ACOES_MOBILE_MAX` botões (macros + música + combate),
+// as secundárias vão para o menu "⋯" em vez de quebrar a fileira.
+const ACOES_MOBILE_MAX = 5;
+const ACOES_FIXAS = 3;
+
 // Sala de chat apresentacional: não fala com o Firestore — quem usa passa as
 // mensagens (já em ordem cronológica) e os callbacks de envio/remoção.
 const ChatSala = ({
@@ -96,6 +107,7 @@ const ChatSala = ({
   const [dialogCombateAberto, setDialogCombateAberto] = useState(false);
   const [abaCombate, setAbaCombate] = useState('ataque');
   const [mostrarHistorico, setMostrarHistorico] = useState(false);
+  const [menuAcoes, setMenuAcoes] = useState(null);
   const [erroComando, setErroComando] = useState(null);
   const listaRef = useRef(null);
   const acompanhandoRef = useRef(true);
@@ -130,6 +142,15 @@ const ChatSala = ({
   );
   const grupoCombateAtivo =
     gruposCombate.find(grupo => grupo.id === abaCombate) ?? gruposCombate[0] ?? null;
+  const recolherAcoes =
+    celular &&
+    ACOES_FIXAS + (macros ? 1 : 0) + (audio ? 1 : 0) + (gruposCombate.length > 0 ? 1 : 0) >
+      ACOES_MOBILE_MAX;
+  const fecharMenuAcoes = () => setMenuAcoes(null);
+  const abrirDaMenuAcoes = abrir => () => {
+    fecharMenuAcoes();
+    abrir(true);
+  };
   const listaCombateScrollavel = (grupoCombateAtivo?.itens.length ?? 0) > 6;
   const mensagensVisiveis = useMemo(
     () => filtrarMensagensHistorico(mensagens, mostrarHistorico),
@@ -410,7 +431,7 @@ const ChatSala = ({
               <DadoIcone faces={20} />
             </IconButton>
           </Tooltip>
-          {macros && (
+          {macros && !recolherAcoes && (
             <Tooltip
               title={
                 macros.rodando
@@ -432,7 +453,7 @@ const ChatSala = ({
               </IconButton>
             </Tooltip>
           )}
-          {audio && (
+          {audio && !recolherAcoes && (
             <Tooltip
               title={
                 audio.tocando
@@ -455,7 +476,7 @@ const ChatSala = ({
               </IconButton>
             </Tooltip>
           )}
-          {gruposCombate.length > 0 && (
+          {gruposCombate.length > 0 && !recolherAcoes && (
             <Tooltip title="Combate">
               <IconButton
                 size="small"
@@ -474,6 +495,57 @@ const ChatSala = ({
                 <SportsKabaddiIcon fontSize="small" />
               </IconButton>
             </Tooltip>
+          )}
+          {recolherAcoes && (
+            <>
+              <IconButton
+                size="small"
+                aria-label="Mais ações"
+                aria-haspopup="menu"
+                aria-expanded={menuAcoes ? 'true' : undefined}
+                onClick={event => setMenuAcoes(event.currentTarget)}
+                sx={{
+                  color:
+                    macros?.rodando || (audio?.tocando && !audio?.pausado)
+                      ? 'var(--color-primary)'
+                      : 'var(--text-secondary)',
+                }}
+              >
+                <MoreHorizIcon />
+              </IconButton>
+              <Menu anchorEl={menuAcoes} open={Boolean(menuAcoes)} onClose={fecharMenuAcoes}>
+                {macros && (
+                  <MenuItem onClick={abrirDaMenuAcoes(setDialogMacrosAberto)}>
+                    <ListItemIcon>
+                      <CodeIcon />
+                    </ListItemIcon>
+                    <ListItemText>
+                      {macros.rodando ? `Macros (rodando "${macros.rodando}")` : 'Macros'}
+                    </ListItemText>
+                  </MenuItem>
+                )}
+                {audio && (
+                  <MenuItem onClick={abrirDaMenuAcoes(setDialogAudioAberto)}>
+                    <ListItemIcon>
+                      <MusicNoteIcon />
+                    </ListItemIcon>
+                    <ListItemText>
+                      {audio.tocando
+                        ? `Música da mesa (${audio.titulo ?? 'tocando'})`
+                        : 'Música da mesa'}
+                    </ListItemText>
+                  </MenuItem>
+                )}
+                {gruposCombate.length > 0 && (
+                  <MenuItem onClick={abrirDaMenuAcoes(setDialogCombateAberto)}>
+                    <ListItemIcon>
+                      <SportsKabaddiIcon />
+                    </ListItemIcon>
+                    <ListItemText>Combate</ListItemText>
+                  </MenuItem>
+                )}
+              </Menu>
+            </>
           )}
           <Tooltip title={mostrarHistorico ? 'Ocultar histórico' : 'Mostrar histórico'}>
             <IconButton

@@ -235,6 +235,15 @@ export const ComposerAcoes = styled.div`
   &::-webkit-scrollbar {
     display: none;
   }
+
+  ${MOBILE} {
+    margin-left: -4px;
+
+    & .MuiIconButton-root {
+      width: 44px;
+      height: 44px;
+    }
+  }
 `;
 
 export const ComposerEntrada = styled.div`
@@ -245,6 +254,11 @@ export const ComposerEntrada = styled.div`
 
   ${MOBILE} {
     gap: 6px;
+
+    & .MuiIconButton-root {
+      width: 44px;
+      height: 44px;
+    }
   }
 `;
 

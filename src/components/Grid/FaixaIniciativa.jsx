@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import PropTypes from 'prop-types';
 import Button from '@mui/material/Button';
+import Tooltip from '@mui/material/Tooltip';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
@@ -46,6 +47,14 @@ const FaixaIniciativa = ({ faixa, acoes, onCentralizar }) => {
   const [ocupado, setOcupado] = useState(null);
   const theme = useTheme();
   const telaPequena = useMediaQuery(theme.breakpoints.down('sm'));
+  // Celular: o `title` não aparece com toque; tocar no retrato mostra o nome
+  // por 2 s (além de centralizar o mapa).
+  const [nomeAberto, setNomeAberto] = useState(null);
+  useEffect(() => {
+    if (!nomeAberto) return undefined;
+    const timer = setTimeout(() => setNomeAberto(null), 2000);
+    return () => clearTimeout(timer);
+  }, [nomeAberto]);
 
   const executar = async id => {
     setOcupado(id);
@@ -59,24 +68,24 @@ const FaixaIniciativa = ({ faixa, acoes, onCentralizar }) => {
   const botoes = ORDEM_BOTOES.filter(id => typeof acoes[id] === 'function');
 
   return (
-    <FaixaCaixa
-      data-faixa-iniciativa=""
-      onPointerDown={event => event.stopPropagation()}
-    >
+    <FaixaCaixa data-faixa-iniciativa="" onPointerDown={event => event.stopPropagation()}>
       <FaixaRodada>Rodada {faixa.rodada}</FaixaRodada>
       <FaixaLista aria-label="Ordem de iniciativa">
-        {faixa.itens.map(item => (
-          <li key={item.tokenId}>
+        {faixa.itens.map(item => {
+          const retrato = (
             <FaixaRetrato
               type="button"
               aria-label={`Centralizar em ${item.nome}`}
               aria-current={item.atual ? 'true' : undefined}
-              title={item.nome}
+              title={telaPequena ? undefined : item.nome}
               data-retrato={item.tokenId}
               $atual={item.atual}
               $oculto={item.oculto}
               $cor={COR_TIPO_TOKEN[item.tipo] ?? COR_TIPO_TOKEN.avulso}
-              onClick={() => onCentralizar(item.tokenId)}
+              onClick={() => {
+                if (telaPequena) setNomeAberto(item.tokenId);
+                onCentralizar(item.tokenId);
+              }}
             >
               <span>
                 {item.imagemUrl ? (
@@ -92,8 +101,27 @@ const FaixaIniciativa = ({ faixa, acoes, onCentralizar }) => {
                 </FaixaOcultoIcone>
               )}
             </FaixaRetrato>
-          </li>
-        ))}
+          );
+          return (
+            <li key={item.tokenId}>
+              {telaPequena ? (
+                <Tooltip
+                  title={item.nome ?? ''}
+                  open={nomeAberto === item.tokenId}
+                  placement="bottom"
+                  arrow
+                  disableHoverListener
+                  disableFocusListener
+                  disableTouchListener
+                >
+                  {retrato}
+                </Tooltip>
+              ) : (
+                retrato
+              )}
+            </li>
+          );
+        })}
       </FaixaLista>
       {faixa.vezDoMestre && <FaixaPilula>Vez do mestre</FaixaPilula>}
       {botoes.length > 0 && (
