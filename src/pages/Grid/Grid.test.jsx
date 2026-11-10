@@ -1898,6 +1898,67 @@ describe('Grid (Re:Master)', () => {
       return screen.findByRole('region', { name: 'Token selecionado' });
     };
 
+    it('minimiza o painel numa barrinha com o nome e expande de volta, sem perder o formulário', async () => {
+      const user = userEvent.setup();
+      renderGrid();
+      const painel = await selecionarOgro(user);
+      const nome = within(painel).getByLabelText('Nome');
+      await user.clear(nome);
+      await user.type(nome, 'Ogro Rei');
+
+      await user.click(
+        within(painel).getByRole('button', { name: 'Minimizar painel' }),
+      );
+      expect(
+        screen.queryByRole('region', { name: 'Token selecionado' }),
+      ).not.toBeInTheDocument();
+      const barra = screen.getByRole('button', {
+        name: 'Expandir painel do token',
+      });
+      expect(barra).toHaveTextContent('Ogro');
+
+      await user.click(barra);
+      const expandido = await screen.findByRole('region', {
+        name: 'Token selecionado',
+      });
+      expect(within(expandido).getByLabelText('Nome')).toHaveValue('Ogro Rei');
+    });
+
+    it('troca o painel de lado, lembra a escolha e leva o Grupo para o lado oposto', async () => {
+      const user = userEvent.setup();
+      window.localStorage.removeItem('remaster_grid_lado_painel_token');
+      renderGrid();
+      await screen.findByRole('button', { name: /Aldric, coluna/ });
+      await user.click(screen.getByRole('button', { name: 'Grupo' }));
+      const grupo = await screen.findByRole('region', { name: 'Grupo' });
+      expect(getComputedStyle(grupo).right).toBe('12px');
+
+      const painel = await selecionarOgro(user);
+      expect(getComputedStyle(painel).left).toBe('12px');
+      await user.click(
+        within(painel).getByRole('button', {
+          name: 'Mover painel para a direita',
+        }),
+      );
+      expect(window.localStorage.getItem('remaster_grid_lado_painel_token')).toBe(
+        'right',
+      );
+      const aDireita = await screen.findByRole('region', {
+        name: 'Token selecionado',
+      });
+      expect(getComputedStyle(aDireita).right).toBe('12px');
+      // O Grupo cedeu a direita ao painel do token.
+      expect(
+        getComputedStyle(screen.getByRole('region', { name: 'Grupo' })).left,
+      ).toBe('12px');
+      expect(
+        within(aDireita).getByRole('button', {
+          name: 'Mover painel para a esquerda',
+        }),
+      ).toBeInTheDocument();
+      window.localStorage.removeItem('remaster_grid_lado_painel_token');
+    });
+
     it('o olho do painel revela/oculta na hora, sem "Salvar token"', async () => {
       const user = userEvent.setup();
       renderGrid();

@@ -84,6 +84,7 @@ import IniciarCombateDialog from './IniciarCombateDialog';
 import MarcadorDialog from './MarcadorDialog';
 import ParticipantesCombateDialog from './ParticipantesCombateDialog';
 import TokenPainel from './TokenPainel';
+import usePainelLado from './usePainelLado';
 import {
   ACOES_ATALHO,
   FERRAMENTAS,
@@ -102,6 +103,7 @@ import {
   linhasDoGrupo,
   montarTokensEmLote,
   ocultoAlvoDosTokens,
+  retangulosSeCruzam,
   patchesDeCondicaoEmLote,
   patchesDeDanoEmLote,
   patchesDeExpiracaoDeCondicoes,
@@ -214,6 +216,11 @@ const Grid = () => {
   // Painel "Grupo" e o último pedido de centralizar num token ({ tokenId, chave }).
   const [grupoAberto, setGrupoAberto] = useState(false);
   const [focoToken, setFocoToken] = useState(null);
+  // Painel do token / ações em lote: lado do mapa (preferência salva neste
+  // navegador) e minimizado numa barrinha.
+  const [ladoPainel, trocarLadoPainel] = usePainelLado();
+  const [painelMinimizado, setPainelMinimizado] = useState(false);
+  const areaMapaRef = useRef(null);
   // Ferramenta do mapa (Fase 3B) e suas opções; marcador em criação/edição:
   // { marcador } | { celula } | null.
   const [ferramenta, setFerramenta] = useState(FERRAMENTAS.MOVER);
@@ -326,7 +333,8 @@ const Grid = () => {
   const limparSelecao = useCallback(() => {
     setSelecionadoId(null);
     setSelecionadosIds(SEM_SELECAO);
-  }, []);
+    setPainelMinimizado(false);
+  }, [setPainelMinimizado]);
 
   // Esc limpa a seleção (única ou múltipla).
   const temSelecao = Boolean(selecionadoId) || selecionadosIds.length > 0;
@@ -338,6 +346,40 @@ const Grid = () => {
     window.addEventListener('keydown', aoTeclar);
     return () => window.removeEventListener('keydown', aoTeclar);
   }, [temSelecao, limparSelecao]);
+
+  // Painel do token / ações em lote ficam no lado escolhido. Regra de colisão:
+  // Grupo e Configurar grid moram à direita; enquanto o painel do token está
+  // à direita (aberto ou minimizado) eles passam para a esquerda. O que está
+  // aberto agora nunca fica sobre o outro, e ninguém precisa "empurrar".
+  const painelDoTokenAberto =
+    ferramenta === FERRAMENTAS.MOVER && (Boolean(selecionado) || emLote);
+  const ladoDosOutrosPaineis =
+    painelDoTokenAberto && ladoPainel === 'right' ? 'left' : 'right';
+
+  // Selecionou um token que o painel do token cobre (ou trocou o painel de
+  // lado / expandiu): centraliza o mapa nele com o foco do GridMapa.
+  useEffect(() => {
+    if (!selecionadoId || painelMinimizado || ferramenta !== FERRAMENTAS.MOVER) {
+      return;
+    }
+    const area = areaMapaRef.current;
+    const painel = area?.querySelector('[data-painel-lateral]');
+    const alvo = Array.from(area?.querySelectorAll('[data-token-id]') ?? []).find(
+      elemento => elemento.dataset.tokenId === selecionadoId,
+    );
+    if (!painel || !alvo) return;
+    if (
+      retangulosSeCruzam(
+        alvo.getBoundingClientRect(),
+        painel.getBoundingClientRect(),
+      )
+    ) {
+      setFocoToken(atual => ({
+        tokenId: selecionadoId,
+        chave: (atual?.chave ?? 0) + 1,
+      }));
+    }
+  }, [selecionadoId, ladoPainel, painelMinimizado, ferramenta]);
 
   const handleSelecionar = token => {
     setSelecionadoId(token?.id ?? null);
@@ -1237,6 +1279,7 @@ const Grid = () => {
             desabilitado={!cenaAberta}
           />
           <Box
+            ref={areaMapaRef}
             sx={{
               position: 'relative',
               flex: 1,
@@ -1319,6 +1362,10 @@ const Grid = () => {
                 }
                 rodada={rodadaAtual}
                 abaixoDaFaixa={Boolean(grid.combate)}
+                lado={ladoPainel}
+                minimizado={painelMinimizado}
+                onTrocarLado={trocarLadoPainel}
+                onMinimizar={setPainelMinimizado}
               />
             )}
             {emLote && ferramenta === FERRAMENTAS.MOVER && (
@@ -1333,6 +1380,10 @@ const Grid = () => {
                 onExcluir={handleExcluirEmLote}
                 onFechar={limparSelecao}
                 abaixoDaFaixa={Boolean(grid.combate)}
+                lado={ladoPainel}
+                minimizado={painelMinimizado}
+                onTrocarLado={trocarLadoPainel}
+                onMinimizar={setPainelMinimizado}
               />
             )}
             {grupoAberto && !configAberta && (
@@ -1342,6 +1393,7 @@ const Grid = () => {
                 onFocar={handleFocarToken}
                 onFechar={() => setGrupoAberto(false)}
                 abaixoDaFaixa={Boolean(grid.combate)}
+                lado={ladoDosOutrosPaineis}
               />
             )}
             {configAberta && cenaAberta && (
@@ -1353,6 +1405,7 @@ const Grid = () => {
                 onSalvar={handleSalvarConfig}
                 onFechar={fecharConfig}
                 abaixoDaFaixa={Boolean(grid.combate)}
+                lado={ladoDosOutrosPaineis}
               />
             )}
           </Box>

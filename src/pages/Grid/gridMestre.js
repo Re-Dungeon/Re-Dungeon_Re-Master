@@ -239,6 +239,18 @@ export const OPCOES_FERRAMENTA_PADRAO = {
   tamanho: 1,
 };
 
+// ── Painéis laterais sobre o mapa ───────────────────────────────────────
+// Dois retângulos de tela ({ left, top, right, bottom }, como o
+// getBoundingClientRect) se sobrepõem? Vazio (largura ou altura 0, o que o
+// jsdom devolve) nunca sobrepõe. Usado para centralizar o token selecionado
+// quando o painel do token o cobre.
+export const retangulosSeCruzam = (a, b) => {
+  if (!a || !b) return false;
+  const vazio = r => r.right - r.left <= 0 || r.bottom - r.top <= 0;
+  if (vazio(a) || vazio(b)) return false;
+  return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+};
+
 // ── Várias cópias de um token ────────────────────────────────────────────
 export const QUANTIDADE_TOKENS_MAX = 20;
 

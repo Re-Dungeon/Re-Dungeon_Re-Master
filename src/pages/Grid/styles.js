@@ -52,6 +52,30 @@ export const painelLadoSx = (lado, abaixoDaFaixa = false) => {
   return sx;
 };
 
+// O mesmo painel recolhido numa barrinha (título + expandir), no mesmo lado e
+// na mesma altura. No celular fica de ponta a ponta na base do mapa.
+export const painelMinimizadoSx = (lado, abaixoDaFaixa = false) => ({
+  position: 'absolute',
+  top: abaixoDaFaixa ? painelAbaixoDaFaixaSx.top : painelSx.top,
+  [lado]: 12,
+  zIndex: painelSx.zIndex,
+  width: 220,
+  maxWidth: 'calc(100% - 24px)',
+  borderRadius: 2,
+  background: painelSx.background,
+  border: painelSx.border,
+  boxShadow: painelSx.boxShadow,
+  [MOBILE_QUERY]: {
+    top: 'auto',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    width: 'auto',
+    maxWidth: 'none',
+    borderRadius: '16px 16px 0 0',
+  },
+});
+
 export const painelCabecalhoSx = {
   display: 'flex',
   alignItems: 'center',

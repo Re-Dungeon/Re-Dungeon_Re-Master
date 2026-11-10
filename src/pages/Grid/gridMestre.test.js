@@ -35,6 +35,7 @@ import {
   opcoesDeDonos,
   tokensDeJogadoresFaltantes,
   QUANTIDADE_TOKENS_MAX,
+  retangulosSeCruzam,
   copiaDoToken,
   montarTokensEmLote,
   nomesNumerados,
@@ -45,6 +46,31 @@ import {
   patchesDeOcultoEmLote,
   removerVariosDoCombate,
 } from './gridMestre';
+
+describe('retangulosSeCruzam', () => {
+  const painel = { left: 12, top: 12, right: 312, bottom: 500 };
+
+  it('token por baixo do painel cruza; ao lado não', () => {
+    expect(
+      retangulosSeCruzam({ left: 100, top: 100, right: 148, bottom: 148 }, painel),
+    ).toBe(true);
+    expect(
+      retangulosSeCruzam({ left: 300, top: 100, right: 348, bottom: 148 }, painel),
+    ).toBe(true);
+    expect(
+      retangulosSeCruzam({ left: 400, top: 100, right: 448, bottom: 148 }, painel),
+    ).toBe(false);
+    expect(
+      retangulosSeCruzam({ left: 312, top: 100, right: 360, bottom: 148 }, painel),
+    ).toBe(false);
+  });
+
+  it('retângulo vazio (jsdom) ou ausente nunca cruza', () => {
+    const zero = { left: 0, top: 0, right: 0, bottom: 0 };
+    expect(retangulosSeCruzam(zero, zero)).toBe(false);
+    expect(retangulosSeCruzam(null, painel)).toBe(false);
+  });
+});
 
 describe('opcoesDeDonos', () => {
   it('agrupa os personagens por dono e ignora quem não tem uid', () => {
@@ -223,7 +249,7 @@ describe('ferramentas do mapa', () => {
     ]);
   });
 
-  it('formas: pincel e retângulo', () => {
+  it('formas: pincel, retângulo e sala (a sala só na névoa)', () => {
     expect(OPCOES_FORMA.map(opcao => opcao.value)).toEqual([
       'pincel',
       'retangulo',
