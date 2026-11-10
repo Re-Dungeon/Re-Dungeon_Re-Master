@@ -657,6 +657,43 @@ service cloud.firestore {
         (donoUid == request.auth.uid || isMestreDaCampanha(campanhaId));
     }
 
+    // ── supportTickets ───────────────────────────────────────────────────────
+    // Cada usuário só lê e cria os próprios tickets. O status/finalização é
+    // controlado pela equipe administrativa (admin), que também pode responder
+    // o ticket em nome do suporte.
+    match /supportTickets/{ticketId} {
+      allow read: if isAuth() && (
+        resource.data.userId == request.auth.uid ||
+        isAdmin()
+      );
+      allow create: if isAuth() &&
+        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.userEmail is string &&
+        request.resource.data.userDisplayName is string &&
+        request.resource.data.sourceApp is string &&
+        request.resource.data.sourceAppName is string &&
+        request.resource.data.sourceUrl is string &&
+        request.resource.data.category in ['Bug', 'Sugestão', 'Dúvida', 'Problema', 'Outro'] &&
+        request.resource.data.title is string &&
+        request.resource.data.title.size() > 0 &&
+        request.resource.data.title.size() <= 120 &&
+        request.resource.data.description is string &&
+        request.resource.data.description.size() > 0 &&
+        request.resource.data.description.size() <= 5000 &&
+        request.resource.data.attachments is list &&
+        request.resource.data.attachments.size() <= 10 &&
+        request.resource.data.status == 'open' &&
+        request.resource.data.adminResponse == '' &&
+        request.resource.data.respondedAt == null &&
+        request.resource.data.createdAt == request.time &&
+        request.resource.data.updatedAt == request.time;
+      allow update: if isAdmin() &&
+        request.resource.data.userId == resource.data.userId &&
+        request.resource.data.status in ['open', 'in_progress', 'in-progress', 'answered', 'resolved'] &&
+        request.resource.data.updatedAt == request.time;
+      allow delete: if isAdmin();
+    }
+
     // Sussurros (/w): mensagem privada entre o mestre e UM jogador, na pasta
     // do jogador (como as rolagens secretas). Só o dono da pasta e o mestre da
     // campanha leem; os outros jogadores não ficam sabendo. O jogador escreve
