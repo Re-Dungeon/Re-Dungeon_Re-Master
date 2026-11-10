@@ -8,12 +8,7 @@ import {
   fracaoDaBarra,
 } from 'common/utils/grid';
 
-import {
-  TokenBarra,
-  TokenBarras,
-  TokenCondicaoIcone,
-  TokenCondicoes,
-} from './styles';
+import { TokenBarra, TokenBarras, TokenCondicaoIcone, TokenCondicoes } from './styles';
 
 // Estado do token desenhado sobre ele (cópia nos dois sites — mudou um, mude
 // o outro): até três barras finas (PV, Energia, Fadiga) na base do círculo e
@@ -34,11 +29,7 @@ const TokenEstado = ({ recursos = null, condicoes = null, lado }) => {
           {barras.map(id => {
             const fracao = fracaoDaBarra(id, recursos[id]);
             return (
-              <TokenBarra
-                key={id}
-                data-barra={id}
-                style={{ height: espessura }}
-              >
+              <TokenBarra key={id} data-barra={id} style={{ height: espessura }}>
                 <span
                   style={{
                     width: `${fracao * 100}%`,
@@ -59,7 +50,13 @@ const TokenEstado = ({ recursos = null, condicoes = null, lado }) => {
               style={{ width: icone, height: icone, fontSize: icone * 0.6 }}
             >
               {condicao.icone ? (
-                <img src={condicao.icone} alt="" draggable={false} />
+                <img
+                  src={condicao.icone}
+                  alt=""
+                  draggable={false}
+                  loading="lazy"
+                  decoding="async"
+                />
               ) : (
                 (condicao.nome?.[0]?.toUpperCase() ?? '?')
               )}
