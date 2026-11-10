@@ -1324,6 +1324,7 @@ const Grid = () => {
             campanha={campanhaAtiva}
             npcs={fontes.npcs}
             criaturas={fontes.criaturas}
+            jogadores={fontes.jogadores}
             titulo="Chat"
             onRecarregarFontes={
               fontes.recarregar ? () => fontes.recarregar() : undefined

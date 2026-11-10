@@ -2,7 +2,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, renderHook, waitFor } from '@testing-library/react';
 
 import { CHAT_JANELA_MENSAGENS, CHAT_PAGINA_ANTERIORES } from 'common/utils/chat';
-import { getChatMensagensAntes, subscribeChatMensagens } from 'service/storage';
+import {
+  addChatSussurro,
+  getChatMensagensAntes,
+  removeChatSussurro,
+  subscribeChatMensagens,
+  subscribeChatSussurros,
+  subscribeChatSussurrosDoMestre,
+} from 'service/storage';
 import useChatCampanha from './useChatCampanha';
 
 // Só a paginação de "Carregar anteriores" é testada aqui; o resto do hook
@@ -10,12 +17,16 @@ import useChatCampanha from './useChatCampanha';
 vi.mock('service/storage', () => ({
   addChatMensagem: vi.fn(),
   addChatRolagemSecreta: vi.fn(),
+  addChatSussurro: vi.fn(),
   getChatMensagensAntes: vi.fn(),
   removeChatMensagem: vi.fn(),
   removeChatRolagemSecreta: vi.fn(),
+  removeChatSussurro: vi.fn(),
   subscribeChatMensagens: vi.fn(),
   subscribeChatSecretasDoMestre: vi.fn(() => vi.fn()),
   subscribeChatSecretasDoUsuario: vi.fn(() => vi.fn()),
+  subscribeChatSussurros: vi.fn(() => vi.fn()),
+  subscribeChatSussurrosDoMestre: vi.fn(() => vi.fn()),
 }));
 vi.mock('context/AudioMesaContext', () => ({
   useAudioDoChat: () => ({ erro: null, limparErro: vi.fn() }),
@@ -202,5 +213,143 @@ describe('useChatCampanha — carregar anteriores', () => {
     hook.rerender({ campanhaId: 'c2' });
     act(() => aoVivo([msg('x', 5)]));
     expect(ids(hook.result)).toEqual(['x']);
+  });
+});
+
+describe('useChatCampanha — sussurros (/w)', () => {
+  const MESTRE = { uid: 'm1', autorNome: 'Mestre', isMestre: true, persona: 'mestre' };
+  const sussurro = (id, minuto, extra = {}) => ({
+    id,
+    uid: 'u1',
+    tipo: 'texto',
+    texto: id,
+    sussurro: true,
+    paraNome: 'Mestre',
+    donoUid: 'u1',
+    createdAt: em(minuto),
+    ...extra,
+  });
+  let aoVivo;
+  let aoMudarSussurros;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    aoVivo = null;
+    aoMudarSussurros = null;
+    subscribeChatMensagens.mockImplementation((_campanhaId, onChange) => {
+      aoVivo = onChange;
+      return vi.fn();
+    });
+    const guardar = (...args) => {
+      aoMudarSussurros = args.find(arg => typeof arg === 'function');
+      return vi.fn();
+    };
+    subscribeChatSussurros.mockImplementation((_c, _uid, onChange) => guardar(onChange));
+    subscribeChatSussurrosDoMestre.mockImplementation((_c, onChange) => guardar(onChange));
+  });
+
+  it('o jogador ouve só a própria pasta e junta os sussurros à linha do tempo', () => {
+    const { result } = renderHook(() => useChatCampanha('c1', AUTOR));
+    expect(subscribeChatSussurros).toHaveBeenCalledWith(
+      'c1',
+      'u1',
+      expect.any(Function),
+      expect.any(Function),
+    );
+    expect(subscribeChatSussurrosDoMestre).not.toHaveBeenCalled();
+
+    act(() => aoVivo([msg('a', 1), msg('c', 3)]));
+    act(() => aoMudarSussurros([sussurro('s2', 2)]));
+    expect(ids(result)).toEqual(['a', 's2', 'c']);
+  });
+
+  it('o mestre ouve a pasta de cada membro', () => {
+    renderHook(() => useChatCampanha('c1', MESTRE, { ehMestreDaCampanha: true }));
+    expect(subscribeChatSussurrosDoMestre).toHaveBeenCalledWith(
+      'c1',
+      expect.any(Function),
+      expect.any(Function),
+    );
+    expect(subscribeChatSussurros).not.toHaveBeenCalled();
+  });
+
+  it('o jogador sussurra na própria pasta, sempre para o mestre', async () => {
+    addChatSussurro.mockResolvedValue({ id: 'novo' });
+    const { result } = renderHook(() => useChatCampanha('c1', AUTOR));
+    await act(async () => {
+      await result.current.sussurrar({ jogadorUid: null, paraNome: 'Mestre', texto: 'psiu' });
+    });
+    expect(addChatSussurro).toHaveBeenCalledWith(
+      'c1',
+      'u1',
+      expect.objectContaining({
+        uid: 'u1',
+        tipo: 'texto',
+        texto: 'psiu',
+        sussurro: true,
+        paraNome: 'Mestre',
+      }),
+    );
+  });
+
+  it('o mestre sussurra na pasta do jogador escolhido', async () => {
+    addChatSussurro.mockResolvedValue({ id: 'novo' });
+    const { result } = renderHook(() =>
+      useChatCampanha('c1', MESTRE, { ehMestreDaCampanha: true }),
+    );
+    await act(async () => {
+      await result.current.sussurrar({ jogadorUid: 'u7', paraNome: 'Wesley', texto: 'cuidado' });
+    });
+    expect(addChatSussurro).toHaveBeenCalledWith(
+      'c1',
+      'u7',
+      expect.objectContaining({ uid: 'm1', isMestre: true, sussurro: true, paraNome: 'Wesley' }),
+    );
+  });
+
+  it('falha ao enviar avisa e propaga o erro; sem destinatário o mestre não grava', async () => {
+    addChatSussurro.mockRejectedValue(new Error('permission-denied'));
+    const { result } = renderHook(() => useChatCampanha('c1', AUTOR));
+    await act(async () => {
+      await expect(
+        result.current.sussurrar({ jogadorUid: null, paraNome: 'Mestre', texto: 'x' }),
+      ).rejects.toThrow('permission-denied');
+    });
+    expect(result.current.erro).toBe('Não foi possível enviar o sussurro.');
+
+    const mestre = renderHook(() =>
+      useChatCampanha('c1', MESTRE, { ehMestreDaCampanha: true }),
+    );
+    addChatSussurro.mockClear();
+    await act(async () => {
+      await expect(
+        mestre.result.current.sussurrar({ jogadorUid: null, paraNome: 'X', texto: 'x' }),
+      ).rejects.toThrow();
+    });
+    expect(addChatSussurro).not.toHaveBeenCalled();
+  });
+
+  it('apagar um sussurro remove da pasta dele (não do chat público)', async () => {
+    const { result } = renderHook(() =>
+      useChatCampanha('c1', MESTRE, { ehMestreDaCampanha: true }),
+    );
+    await act(async () => {
+      await result.current.apagar(sussurro('s1', 1, { donoUid: 'u7' }));
+    });
+    expect(removeChatSussurro).toHaveBeenCalledWith('c1', 'u7', 's1');
+  });
+
+  it('falha ao ouvir os sussurros não derruba o chat nem mostra erro', () => {
+    let falhar;
+    subscribeChatSussurros.mockImplementation((_c, _uid, _onChange, onError) => {
+      falhar = onError;
+      return vi.fn();
+    });
+    const { result } = renderHook(() => useChatCampanha('c1', AUTOR));
+    act(() => aoVivo([msg('a', 1)]));
+    act(() => falhar(new Error('permission-denied')));
+    expect(ids(result)).toEqual(['a']);
+    expect(result.current.erro).toBeNull();
   });
 });

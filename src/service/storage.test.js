@@ -37,6 +37,8 @@ import {
   writeBatch,
 } from 'firebase/firestore';
 import {
+  addChatSussurro,
+  removeChatSussurro,
   getChatMensagensAntes,
   getRmCampanhas,
   addRmCampanha,
@@ -144,6 +146,26 @@ describe('storage.js — CRUD de rmCampanhas (padrão Firestore repetido em toda
     });
   });
 
+  it('addChatSussurro grava na pasta de sussurros do jogador com createdAt', async () => {
+    addDoc.mockResolvedValue({ id: 's1' });
+
+    await addChatSussurro('c1', 'u2', { texto: 'psiu', sussurro: true });
+
+    expect(addDoc).toHaveBeenCalledWith(
+      { __collection: 'rmCampanhas/c1/chatSecretas/u2/sussurros' },
+      { texto: 'psiu', sussurro: true, createdAt: '__serverTimestamp__' },
+    );
+  });
+
+  it('removeChatSussurro apaga o doc na pasta do jogador', async () => {
+    await removeChatSussurro('c1', 'u2', 's1');
+
+    expect(deleteDoc).toHaveBeenCalledWith({
+      __doc: 'rmCampanhas/c1/chatSecretas/u2/sussurros',
+      id: 's1',
+    });
+  });
+
   it('removeRmCampanhaCompleta apaga as subcoleções antes da campanha', async () => {
     const ordem = [];
     const apagados = [];
@@ -156,6 +178,7 @@ describe('storage.js — CRUD de rmCampanhas (padrão Firestore repetido em toda
       'rmCampanhas/c1/chatMembros': [{ id: 'u2', ref: 'membro-u2' }],
       'rmCampanhas/c1/chatSecretas/u2/rolagens': [{ ref: 'secreta-u2' }],
       'rmCampanhas/c1/chatSecretas/m1/rolagens': [{ ref: 'secreta-m1' }],
+      'rmCampanhas/c1/chatSecretas/u2/sussurros': [{ ref: 'sussurro-u2' }],
       'rmCampanhas/c1/chatMensagens': [{ ref: 'msg-1' }],
       'rmCampanhas/c1/macros': [{ ref: 'macro-1' }],
       'rmCampanhas/c1/npcs': [{ ref: 'npc-1' }],
@@ -174,6 +197,7 @@ describe('storage.js — CRUD de rmCampanhas (padrão Firestore repetido em toda
       expect.arrayContaining([
         'secreta-u2',
         'secreta-m1',
+        'sussurro-u2',
         'msg-1',
         'macro-1',
         'npc-1',

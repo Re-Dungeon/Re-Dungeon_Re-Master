@@ -32,6 +32,7 @@ import VolumeOffIcon from '@mui/icons-material/VolumeOff';
 import {
   CHAT_TEXTO_MAX,
   filtrarMensagensHistorico,
+  interpretarComandoSussurro,
   isTextoMensagemValido,
 } from 'common/utils/chat';
 import {
@@ -92,6 +93,8 @@ const ChatSala = ({
   compactHeader = false,
   opcoesCombate = [],
   chaveHistorico,
+  onSussurrar = null,
+  destinatariosSussurro = null,
   onCarregarAnteriores = null,
   temMaisAnteriores = false,
   carregandoAnteriores = false,
@@ -246,6 +249,31 @@ const ChatSala = ({
     macros.executar(macro);
   };
 
+  // "/w" (sussurro): nunca vai para o chat público — sem `onSussurrar` (tela que
+  // não liga o recurso) ou com o comando incompleto, mostra o erro e mantém o
+  // texto para corrigir.
+  const enviarSussurro = async comandoSussurro => {
+    if (comandoSussurro.erro) {
+      setErroComando(comandoSussurro.erro);
+      return;
+    }
+    if (!onSussurrar) {
+      setErroComando('Sussurros não estão disponíveis aqui.');
+      return;
+    }
+    setEnviando(true);
+    acompanhandoRef.current = true;
+    try {
+      await onSussurrar(comandoSussurro);
+      registrarEnvio(texto);
+      setTexto('');
+    } catch {
+      // Quem envia já exibiu o erro; o texto fica no campo para tentar de novo.
+    } finally {
+      setEnviando(false);
+    }
+  };
+
   // "/r 1d20+5" (e /roll, /rs, /gr) vira rolagem em vez de mensagem; comando
   // inválido não é enviado — mostra o erro e mantém o texto para corrigir.
   const enviarTexto = async () => {
@@ -253,6 +281,11 @@ const ChatSala = ({
     const comandoMacro = interpretarComandoMacro(texto);
     if (comandoMacro) {
       executarComandoMacro(comandoMacro);
+      return;
+    }
+    const comandoSussurro = interpretarComandoSussurro(texto, destinatariosSussurro);
+    if (comandoSussurro) {
+      await enviarSussurro(comandoSussurro);
       return;
     }
     const comando = interpretarComandoRolagem(texto);
@@ -515,7 +548,7 @@ const ChatSala = ({
               </IconButton>
               <Menu anchorEl={menuAcoes} open={Boolean(menuAcoes)} onClose={fecharMenuAcoes}>
                 {macros && (
-                  <MenuItem onClick={abrirDaMenuAcoes(setDialogMacrosAberto)}>
+                  <MenuItem sx={{ minHeight: 44 }} onClick={abrirDaMenuAcoes(setDialogMacrosAberto)}>
                     <ListItemIcon>
                       <CodeIcon />
                     </ListItemIcon>
@@ -525,7 +558,7 @@ const ChatSala = ({
                   </MenuItem>
                 )}
                 {audio && (
-                  <MenuItem onClick={abrirDaMenuAcoes(setDialogAudioAberto)}>
+                  <MenuItem sx={{ minHeight: 44 }} onClick={abrirDaMenuAcoes(setDialogAudioAberto)}>
                     <ListItemIcon>
                       <MusicNoteIcon />
                     </ListItemIcon>
@@ -537,7 +570,7 @@ const ChatSala = ({
                   </MenuItem>
                 )}
                 {gruposCombate.length > 0 && (
-                  <MenuItem onClick={abrirDaMenuAcoes(setDialogCombateAberto)}>
+                  <MenuItem sx={{ minHeight: 44 }} onClick={abrirDaMenuAcoes(setDialogCombateAberto)}>
                     <ListItemIcon>
                       <SportsKabaddiIcon />
                     </ListItemIcon>
@@ -1028,6 +1061,14 @@ ChatSala.propTypes = {
   compactHeader: PropTypes.bool,
   // Chave do sessionStorage do histórico do campo (↑/↓). Ausente = só memória.
   chaveHistorico: PropTypes.string,
+  // Sussurro "/w": `onSussurrar({ jogadorUid, paraNome, texto })`
+  // (useChatCampanha.sussurrar). `destinatariosSussurro` = [{ uid, nome }] só
+  // para o mestre (jogadores que ele pode chamar pelo nome); ausente = jogador,
+  // que sussurra sempre para o mestre.
+  onSussurrar: PropTypes.func,
+  destinatariosSussurro: PropTypes.arrayOf(
+    PropTypes.shape({ uid: PropTypes.string, nome: PropTypes.string }),
+  ),
   // "Carregar anteriores" (useChatCampanha.carregarAnteriores): sem a função não
   // há botão. `temMaisAnteriores`/`carregandoAnteriores` vêm do mesmo hook.
   onCarregarAnteriores: PropTypes.func,

@@ -15,7 +15,9 @@ import useFontesDaMesa from './useFontesDaMesa';
 const Chat = () => {
   const { campanhaAtiva, loadingCampanhas } = useCampanha();
   const navigate = useNavigate();
-  const { npcs, criaturas, recarregar } = useFontesDaMesa(campanhaAtiva);
+  const { npcs, criaturas, jogadores, recarregar } = useFontesDaMesa(campanhaAtiva, {
+    incluirJogadores: true,
+  });
 
   useEffect(() => {
     if (!loadingCampanhas && !campanhaAtiva) navigate(ROUTE_PATHS.CAMPANHA);
@@ -38,6 +40,7 @@ const Chat = () => {
         campanha={campanhaAtiva}
         npcs={npcs}
         criaturas={criaturas}
+        jogadores={jogadores}
         onRecarregarFontes={recarregar}
         titulo={`Chat — ${campanhaAtiva.nome}`}
       />

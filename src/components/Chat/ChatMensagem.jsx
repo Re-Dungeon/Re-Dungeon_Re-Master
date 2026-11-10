@@ -32,6 +32,7 @@ import {
   MensagemMacroTexto,
   MensagemMacroTitulo,
   MensagemPersona,
+  MensagemSussurro,
   MensagemTexto,
 } from './styles';
 
@@ -58,6 +59,7 @@ const ChatMensagem = ({ mensagem, minha, podeApagar, onApagar }) => {
 
   const { autorNome, autorAvatar, isMestre, tipo, texto, url, createdAt } = mensagem;
   const persona = rotuloPersona(mensagem);
+  const sussurro = Boolean(mensagem.sussurro);
 
   return (
     <MensagemLinha $minha={minha} data-testid="chat-mensagem">
@@ -76,12 +78,20 @@ const ChatMensagem = ({ mensagem, minha, podeApagar, onApagar }) => {
         {autorNome?.[0]?.toUpperCase()}
       </Avatar>
 
-      <MensagemBalao $minha={minha} $mestre={isMestre}>
+      <MensagemBalao $minha={minha} $mestre={isMestre} $sussurro={sussurro}>
         <MensagemCabecalho>
           <MensagemAutor $mestre={isMestre}>{autorNome}</MensagemAutor>
           {persona && <MensagemPersona>{persona}</MensagemPersona>}
           <MensagemHorario>{formatarHorarioMensagem(createdAt)}</MensagemHorario>
         </MensagemCabecalho>
+
+        {sussurro && (
+          <MensagemSussurro data-sussurro="">
+            {minha
+              ? `🤫 Sussurro para ${mensagem.paraNome || 'o Mestre'}`
+              : `🤫 ${autorNome} sussurrou`}
+          </MensagemSussurro>
+        )}
 
         {tipo === TIPOS_MENSAGEM.IMAGEM && !imagemFalhou && (
           <>
@@ -194,6 +204,8 @@ ChatMensagem.propTypes = {
     tipo: PropTypes.string,
     rolagem: PropTypes.object,
     macroNome: PropTypes.string,
+    sussurro: PropTypes.bool,
+    paraNome: PropTypes.string,
     rotulo: PropTypes.string,
     combate: PropTypes.object,
     texto: PropTypes.string,

@@ -1040,6 +1040,81 @@ export const removeChatRolagemSecreta = (campanhaId, donoUid, rolagemId) =>
     ),
   );
 
+// ── Sussurros (/w) — rmCampanhas/{id}/chatSecretas/{jogadorUid}/sussurros ──
+// Mensagem privada entre o mestre e UM jogador, na pasta do jogador (como as
+// rolagens secretas: só o dono e o mestre leem). São `tipo: 'texto'` com
+// `sussurro: true` (common/utils/chat.js — montarMensagemSussurro). O jogador
+// escreve só na própria pasta; o mestre, em qualquer uma.
+export const CHAT_LIMITE_SUSSURROS = 50;
+
+const sussurrosRef = (campanhaId, jogadorUid) =>
+  collection(db, RM_CAMPANHAS_COLLECTION, campanhaId, 'chatSecretas', jogadorUid, 'sussurros');
+
+// As mensagens chegam com `donoUid` (a pasta — necessário para apagar). Ordem:
+// mais recente primeiro (quem consome mescla com `mesclarMensagens`).
+export const subscribeChatSussurros = (campanhaId, jogadorUid, onChange, onError) =>
+  onSnapshot(
+    query(
+      sussurrosRef(campanhaId, jogadorUid),
+      orderBy('createdAt', 'desc'),
+      limit(CHAT_LIMITE_SUSSURROS),
+    ),
+    snapshot =>
+      onChange(
+        snapshot.docs.map(docSnapshot => ({
+          id: docSnapshot.id,
+          ...docSnapshot.data({ serverTimestamps: 'estimate' }),
+          donoUid: jogadorUid,
+        })),
+      ),
+    onError,
+  );
+
+// Mestre: ouve a pasta de cada jogador em `chatMembros` (acompanha membros
+// novos em tempo real). Devolve um único `unsubscribe`.
+export const subscribeChatSussurrosDoMestre = (campanhaId, onChange, onError) => {
+  const porJogador = new Map();
+  const emitir = () =>
+    onChange([...porJogador.values()].flatMap(entrada => entrada.mensagens));
+  const ouvir = jogadorUid => {
+    if (porJogador.has(jogadorUid)) return;
+    const entrada = { mensagens: [], unsubscribe: () => {} };
+    porJogador.set(jogadorUid, entrada);
+    entrada.unsubscribe = subscribeChatSussurros(
+      campanhaId,
+      jogadorUid,
+      mensagens => {
+        entrada.mensagens = mensagens;
+        emitir();
+      },
+      onError,
+    );
+  };
+
+  const pararMembros = onSnapshot(
+    collection(db, RM_CAMPANHAS_COLLECTION, campanhaId, 'chatMembros'),
+    snapshot => snapshot.docs.forEach(docSnapshot => ouvir(docSnapshot.id)),
+    onError,
+  );
+
+  return () => {
+    pararMembros();
+    porJogador.forEach(entrada => entrada.unsubscribe());
+    porJogador.clear();
+  };
+};
+
+export const addChatSussurro = (campanhaId, jogadorUid, mensagem) =>
+  addDoc(sussurrosRef(campanhaId, jogadorUid), {
+    ...mensagem,
+    createdAt: serverTimestamp(),
+  });
+
+export const removeChatSussurro = (campanhaId, jogadorUid, sussurroId) =>
+  deleteDoc(
+    doc(db, RM_CAMPANHAS_COLLECTION, campanhaId, 'chatSecretas', jogadorUid, 'sussurros', sussurroId),
+  );
+
 // ── Macros Lua — rmCampanhas/{id}/macros ───────────────────────────────────
 // Só o mestre da campanha cria/edita/apaga (as regras garantem); membros leem
 // as que não são `somenteMestre`. O jogador PRECISA filtrar por
@@ -1619,7 +1694,7 @@ const refsDaColecao = async caminho =>
   (await getDocs(collection(db, ...caminho))).docs.map(item => item.ref);
 
 // Exclui a campanha com o que mora dentro dela: cenas do grid (e tudo de cada
-// uma), chat (mensagens, rolagens secretas de cada membro, macros), música,
+// uma), chat (mensagens, rolagens secretas e sussurros de cada membro, macros), música,
 // clones de NPC/criatura, jogadores e participantes da Luta. As subcoleções
 // vão antes do documento: as regras delas consultam o `mestreId` da campanha.
 // `chatMembros` é o último passo e só funciona com a regra que deixa o mestre
@@ -1643,6 +1718,11 @@ export const removeRmCampanhaCompleta = async (campanhaId, mestreId) => {
       (await getDocs(rolagensSecretasRef(campanhaId, uid))).docs.map(
         item => item.ref,
       ),
+    ),
+  );
+  const sussurros = await Promise.all(
+    [...donosDeSecretas].map(async uid =>
+      (await getDocs(sussurrosRef(campanhaId, uid))).docs.map(item => item.ref),
     ),
   );
   const subcolecoes = await Promise.all(
@@ -1678,6 +1758,7 @@ export const removeRmCampanhaCompleta = async (campanhaId, mestreId) => {
   }
   await apagarEmLotes([
     ...secretas.flat(),
+    ...sussurros.flat(),
     ...subcolecoes.flat(),
     ...clones.flat(),
   ]);

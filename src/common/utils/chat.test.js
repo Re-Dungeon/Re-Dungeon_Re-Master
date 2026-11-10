@@ -3,6 +3,9 @@ import { describe, expect, it } from 'vitest';
 import {
   CHAT_TEXTO_MAX,
   ROTULO_ROLAGEM_MAX,
+  destinatariosDasMensagens,
+  interpretarComandoSussurro,
+  montarMensagemSussurro,
   normalizarRotulo,
   campanhaIdsDosPersonagens,
   descreverMensagemCombate,
@@ -430,5 +433,175 @@ describe('mensagens de combate', () => {
       iniciativa: null,
       linhas: [],
     });
+  });
+});
+
+describe('interpretarComandoSussurro', () => {
+  const jogadores = [
+    { uid: 'u-wesley', nome: 'Wesley Chase' },
+    { uid: 'u-ana', nome: 'Ana' },
+    { uid: 'u-clara', nome: 'Ana Clara' },
+    { uid: 'u-bia', nome: 'Beatriz Álvares' },
+    { uid: 'u-bia', nome: 'Bia' },
+    { uid: 'u-bruno', nome: 'Bruno' },
+  ];
+
+  it('ignora o que não é /w', () => {
+    expect(interpretarComandoSussurro('oi pessoal')).toBeNull();
+    expect(interpretarComandoSussurro('/r 1d20')).toBeNull();
+    expect(interpretarComandoSussurro('/wx abc', jogadores)).toBeNull();
+    expect(interpretarComandoSussurro('')).toBeNull();
+  });
+
+  describe('jogador (vai sempre para o mestre)', () => {
+    it('aceita "/w mestre texto" e "/w texto"', () => {
+      expect(interpretarComandoSussurro('/w mestre posso tentar?')).toEqual({
+        jogadorUid: null,
+        paraNome: 'Mestre',
+        texto: 'posso tentar?',
+      });
+      expect(interpretarComandoSussurro('/w  Mestre   oi ')).toEqual({
+        jogadorUid: null,
+        paraNome: 'Mestre',
+        texto: 'oi',
+      });
+      expect(interpretarComandoSussurro('/w vou olhar o baú')).toEqual({
+        jogadorUid: null,
+        paraNome: 'Mestre',
+        texto: 'vou olhar o baú',
+      });
+      expect(interpretarComandoSussurro('/sussurro psiu')).toMatchObject({ texto: 'psiu' });
+    });
+
+    it('"mestre," colado na pontuação faz parte da mensagem', () => {
+      expect(interpretarComandoSussurro('/w mestre, e agora?')).toMatchObject({
+        texto: 'mestre, e agora?',
+      });
+    });
+
+    it('sem mensagem devolve erro', () => {
+      expect(interpretarComandoSussurro('/w').erro).toMatch(/Escreva a mensagem/);
+      expect(interpretarComandoSussurro('/w mestre').erro).toMatch(/Escreva a mensagem/);
+    });
+  });
+
+  describe('mestre', () => {
+    it('casa por prefixo, sem acento nem caixa', () => {
+      expect(interpretarComandoSussurro('/w wes cuidado com o altar', jogadores)).toEqual({
+        jogadorUid: 'u-wesley',
+        paraNome: 'Wesley Chase',
+        texto: 'cuidado com o altar',
+      });
+      expect(interpretarComandoSussurro('/w beatriz alvares psiu', jogadores)).toMatchObject({
+        jogadorUid: 'u-bia',
+        paraNome: 'Beatriz Álvares',
+        texto: 'psiu',
+      });
+    });
+
+    it('nome com espaços (o mais longo vence) e nome exato vence o prefixo', () => {
+      expect(
+        interpretarComandoSussurro('/w Wesley Chase siga a luz', jogadores),
+      ).toMatchObject({ jogadorUid: 'u-wesley', texto: 'siga a luz' });
+      expect(interpretarComandoSussurro('/w ana oi', jogadores)).toMatchObject({
+        jogadorUid: 'u-ana',
+        texto: 'oi',
+      });
+      expect(interpretarComandoSussurro('/w ana clara oi', jogadores)).toMatchObject({
+        jogadorUid: 'u-clara',
+        texto: 'oi',
+      });
+    });
+
+    it('aceita dois pontos/vírgula depois do nome', () => {
+      expect(interpretarComandoSussurro('/w Bruno: vem cá', jogadores)).toMatchObject({
+        jogadorUid: 'u-bruno',
+        texto: 'vem cá',
+      });
+    });
+
+    it('o mesmo jogador com dois nomes não é ambíguo', () => {
+      expect(interpretarComandoSussurro('/w b oi', jogadores).erro).toMatch(/combina com/);
+      expect(interpretarComandoSussurro('/w be oi', jogadores)).toMatchObject({
+        jogadorUid: 'u-bia',
+      });
+    });
+
+    it('nome ambíguo, desconhecido ou sem mensagem devolvem erro amigável', () => {
+      const ambiguo = interpretarComandoSussurro('/w an oi', jogadores);
+      expect(ambiguo.erro).toBe(
+        '"an" combina com Ana e Ana Clara. Digite mais letras do nome.',
+      );
+      expect(interpretarComandoSussurro('/w zeca oi', jogadores).erro).toBe(
+        'Não encontrei "zeca" entre os jogadores. Use /w Nome mensagem.',
+      );
+      expect(interpretarComandoSussurro('/w Bruno', jogadores).erro).toBe(
+        'Escreva a mensagem do sussurro para Bruno.',
+      );
+      expect(interpretarComandoSussurro('/w', jogadores).erro).toBe('Use /w Nome mensagem.');
+      expect(interpretarComandoSussurro('/w bruno oi', []).erro).toMatch(
+        /Não há jogadores/,
+      );
+    });
+  });
+});
+
+describe('montarMensagemSussurro', () => {
+  const autor = {
+    uid: 'u1',
+    personagemId: 'p1',
+    autorNome: 'Wesley',
+    autorAvatar: null,
+    isMestre: false,
+  };
+
+  it('é um texto marcado como sussurro, com o nome do destinatário', () => {
+    expect(montarMensagemSussurro(autor, '  psiu  ', 'Mestre')).toEqual({
+      uid: 'u1',
+      personagemId: 'p1',
+      autorNome: 'Wesley',
+      autorAvatar: null,
+      isMestre: false,
+      persona: 'jogador',
+      tipo: 'texto',
+      texto: 'psiu',
+      url: null,
+      sussurro: true,
+      paraNome: 'Mestre',
+    });
+  });
+
+  it('limita o nome do destinatário e tem padrão', () => {
+    expect(montarMensagemSussurro(autor, 'x', 'a'.repeat(300)).paraNome).toHaveLength(200);
+    expect(montarMensagemSussurro(autor, 'x', '').paraNome).toBe('Mestre');
+  });
+
+  it('o mestre fala com a persona dele', () => {
+    const mestre = { uid: 'm1', autorNome: 'Mestre', isMestre: true, persona: 'npc' };
+    expect(montarMensagemSussurro(mestre, 'oi', 'Wesley')).toMatchObject({
+      isMestre: true,
+      persona: 'npc',
+      personagemId: null,
+      sussurro: true,
+      paraNome: 'Wesley',
+    });
+  });
+});
+
+describe('destinatariosDasMensagens', () => {
+  it('lista os jogadores que já falaram (sem repetir, sem o mestre)', () => {
+    expect(
+      destinatariosDasMensagens([
+        { uid: 'u1', autorNome: 'Wesley', isMestre: false },
+        { uid: 'u1', autorNome: 'wesley', isMestre: false },
+        { uid: 'u2', autorNome: 'Ana', isMestre: false },
+        { uid: 'm1', autorNome: 'Mestre', isMestre: true },
+        { uid: 'u3', isMestre: false },
+      ]),
+    ).toEqual([
+      { uid: 'u1', nome: 'Wesley' },
+      { uid: 'u2', nome: 'Ana' },
+    ]);
+    expect(destinatariosDasMensagens(undefined)).toEqual([]);
   });
 });

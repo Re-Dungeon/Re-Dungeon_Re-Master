@@ -4,12 +4,16 @@ import { useAudioDoChat } from 'context/AudioMesaContext';
 import {
   addChatMensagem,
   addChatRolagemSecreta,
+  addChatSussurro,
   getChatMensagensAntes,
   removeChatMensagem,
   removeChatRolagemSecreta,
+  removeChatSussurro,
   subscribeChatMensagens,
   subscribeChatSecretasDoMestre,
   subscribeChatSecretasDoUsuario,
+  subscribeChatSussurros,
+  subscribeChatSussurrosDoMestre,
 } from 'service/storage';
 import {
   CHAT_JANELA_MENSAGENS,
@@ -19,6 +23,7 @@ import {
   montarMensagemImagem,
   montarMensagemMacro,
   montarMensagemRolagem,
+  montarMensagemSussurro,
   montarMensagemTexto,
 } from 'common/utils/chat';
 import { rolarEspecificacao } from 'common/utils/dados';
@@ -43,6 +48,10 @@ import useMembroDoChat from 'hooks/useMembroDoChat';
 // (getChatMensagensAntes), que ficam guardadas por campanha e são mescladas à
 // janela por id — uma mensagem que sai da janela ao vivo continua na tela se já
 // tinha sido carregada. `temMaisAntigas`/`carregandoAntigas` guiam o botão.
+// Sussurros (/w): `sussurrar({ jogadorUid, paraNome, texto })` grava em
+// chatSecretas/{jogador}/sussurros — o jogador na própria pasta (sempre para o
+// mestre), o mestre na do `jogadorUid`; o mestre ouve a pasta de cada membro e
+// o jogador só a dele, e tudo entra na linha do tempo junto das secretas.
 // `carregarAnteriores()` resolve `true` se buscou (com ou sem erro) e `false`
 // se não havia o que buscar.
 const SEM_MENSAGENS = [];
@@ -61,6 +70,10 @@ const useChatCampanha = (campanhaId, autor, { ehMestreDaCampanha = false } = {})
   // campanha, `carregando` volta a true sem setState síncrono no efeito.
   const [recebido, setRecebido] = useState({ campanhaId: null, mensagens: [] });
   const [secretasRecebidas, setSecretasRecebidas] = useState({
+    campanhaId: null,
+    mensagens: [],
+  });
+  const [sussurrosRecebidos, setSussurrosRecebidos] = useState({
     campanhaId: null,
     mensagens: [],
   });
@@ -123,6 +136,21 @@ const useChatCampanha = (campanhaId, autor, { ehMestreDaCampanha = false } = {})
     return isMestre
       ? subscribeChatSecretasDoMestre(campanhaId, uid, aoMudar, aoErrar)
       : subscribeChatSecretasDoUsuario(campanhaId, uid, aoMudar, aoErrar);
+  }, [campanhaId, podeOuvir, isMestre, uid]);
+
+  // Sussurros: o jogador ouve a própria pasta; o mestre, a de cada membro. Se a
+  // leitura for recusada (regra ainda não publicada), a conversa pública segue
+  // normal — só não aparecem sussurros, sem alarmar o usuário.
+  useEffect(() => {
+    if (!podeOuvir) return undefined;
+    const aoMudar = mensagens => setSussurrosRecebidos({ campanhaId, mensagens });
+    const aoErrar = error => {
+      // eslint-disable-next-line no-console
+      console.error('Falha ao ouvir sussurros:', error);
+    };
+    return isMestre
+      ? subscribeChatSussurrosDoMestre(campanhaId, aoMudar, aoErrar)
+      : subscribeChatSussurros(campanhaId, uid, aoMudar, aoErrar);
   }, [campanhaId, podeOuvir, isMestre, uid]);
 
   const antigas = antigasEstado.campanhaId === campanhaId ? antigasEstado : SEM_ANTIGAS;
@@ -214,9 +242,35 @@ const useChatCampanha = (campanhaId, autor, { ehMestreDaCampanha = false } = {})
     [campanhaId, uid, autor],
   );
 
+  // "/w": o jogador grava na própria pasta (vai para o mestre); o mestre, na
+  // pasta do jogador escolhido.
+  const sussurrar = useCallback(
+    async ({ jogadorUid, paraNome, texto }) => {
+      const pasta = isMestre ? jogadorUid : uid;
+      try {
+        if (!pasta) throw new Error('Sussurro sem destinatário.');
+        await addChatSussurro(
+          campanhaId,
+          pasta,
+          montarMensagemSussurro(autor, texto, paraNome),
+        );
+      } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error('Falha ao enviar sussurro:', error);
+        setErro('Não foi possível enviar o sussurro.');
+        throw error;
+      }
+    },
+    [campanhaId, uid, isMestre, autor],
+  );
+
   const apagar = useCallback(
     async mensagem => {
       try {
+        if (mensagem.sussurro) {
+          await removeChatSussurro(campanhaId, mensagem.donoUid, mensagem.id);
+          return;
+        }
         await (mensagem.secreta
           ? removeChatRolagemSecreta(campanhaId, mensagem.donoUid, mensagem.id)
           : removeChatMensagem(campanhaId, mensagem.id));
@@ -333,12 +387,19 @@ const useChatCampanha = (campanhaId, autor, { ehMestreDaCampanha = false } = {})
     secretasRecebidas.campanhaId === campanhaId
       ? secretasRecebidas.mensagens
       : SEM_MENSAGENS;
+  const sussurros =
+    sussurrosRecebidos.campanhaId === campanhaId
+      ? sussurrosRecebidos.mensagens
+      : SEM_MENSAGENS;
   const mensagens = useMemo(
     () =>
       carregando
         ? []
-        : mesclarMensagens(mesclarComAntigas(recebido.mensagens, antigas.mensagens), secretas),
-    [carregando, recebido.mensagens, antigas.mensagens, secretas],
+        : mesclarMensagens(mesclarComAntigas(recebido.mensagens, antigas.mensagens), [
+            ...secretas,
+            ...sussurros,
+          ]),
+    [carregando, recebido.mensagens, antigas.mensagens, secretas, sussurros],
   );
   // Só há o que carregar se a janela ao vivo está cheia (ou se já veio uma
   // página antiga) e a última busca não voltou incompleta.
@@ -357,6 +418,7 @@ const useChatCampanha = (campanhaId, autor, { ehMestreDaCampanha = false } = {})
     enviarTexto,
     enviarImagem,
     rolar,
+    sussurrar,
     apagar,
     carregarAnteriores,
     temMaisAntigas,

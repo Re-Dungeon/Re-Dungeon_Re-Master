@@ -108,14 +108,21 @@ export const MensagemBalao = styled.div`
   max-width: min(560px, 80%);
   padding: 8px 12px;
   border-radius: 12px;
-  border: 1px solid
-    ${props => (props.$mestre ? 'rgba(var(--chat-destaque-rgb, 232, 203, 133), 0.45)' : 'var(--border-primary)')};
+  border: 1px ${props => (props.$sussurro ? 'dashed' : 'solid')}
+    ${props =>
+      props.$sussurro
+        ? 'rgba(177, 140, 255, 0.6)'
+        : props.$mestre
+          ? 'rgba(var(--chat-destaque-rgb, 232, 203, 133), 0.45)'
+          : 'var(--border-primary)'};
   background: ${props =>
-    props.$mestre
-      ? 'rgba(var(--chat-destaque-rgb, 232, 203, 133), 0.08)'
-      : props.$minha
-        ? 'rgba(91, 124, 250, 0.14)'
-        : 'rgba(255, 255, 255, 0.04)'};
+    props.$sussurro
+      ? 'rgba(177, 140, 255, 0.1)'
+      : props.$mestre
+        ? 'rgba(var(--chat-destaque-rgb, 232, 203, 133), 0.08)'
+        : props.$minha
+          ? 'rgba(91, 124, 250, 0.14)'
+          : 'rgba(255, 255, 255, 0.04)'};
 
   &:hover .chat-acoes {
     opacity: 1;
@@ -161,6 +168,15 @@ export const MensagemPersona = styled.span`
 export const MensagemHorario = styled.span`
   font-size: 0.7rem;
   color: var(--text-muted);
+`;
+
+// Linha "🤫 Sussurro para X" / "🤫 X sussurrou" no balão do sussurro.
+export const MensagemSussurro = styled.div`
+  margin-bottom: 2px;
+  color: rgb(197, 170, 255);
+  font-size: 0.74rem;
+  font-style: italic;
+  overflow-wrap: anywhere;
 `;
 
 export const MensagemTexto = styled.div`

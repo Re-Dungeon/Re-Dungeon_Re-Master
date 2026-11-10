@@ -657,6 +657,44 @@ service cloud.firestore {
         (donoUid == request.auth.uid || isMestreDaCampanha(campanhaId));
     }
 
+    // Sussurros (/w): mensagem privada entre o mestre e UM jogador, na pasta
+    // do jogador (como as rolagens secretas). Só o dono da pasta e o mestre da
+    // campanha leem; os outros jogadores não ficam sabendo. O jogador escreve
+    // só na PRÓPRIA pasta (e sempre "para o mestre"); o mestre escreve na pasta
+    // de qualquer jogador. Espelha montarMensagemSussurro (common/utils/chat.js):
+    // `tipo: 'texto'` com `sussurro: true` e `paraNome` (só para exibir — o
+    // destinatário real é a pasta). Os campos são exatamente os listados.
+    function chatSussurroValido(campanhaId, data, donoUid) {
+      return data.keys().hasOnly(['uid', 'personagemId', 'autorNome', 'autorAvatar', 'isMestre',
+                                  'persona', 'tipo', 'texto', 'url', 'sussurro', 'paraNome',
+                                  'createdAt']) &&
+        data.keys().hasAll(['uid', 'personagemId', 'autorNome', 'autorAvatar', 'isMestre',
+                            'persona', 'tipo', 'texto', 'url', 'sussurro', 'paraNome',
+                            'createdAt']) &&
+        data.uid == request.auth.uid &&
+        data.createdAt == request.time &&
+        data.sussurro == true &&
+        data.tipo == 'texto' &&
+        data.url == null &&
+        data.texto is string && data.texto.size() > 0 && data.texto.size() <= 2000 &&
+        data.autorNome is string && data.autorNome.size() > 0 && data.autorNome.size() <= 200 &&
+        (data.autorAvatar == null || (data.autorAvatar is string && data.autorAvatar.size() <= 2000)) &&
+        data.paraNome is string && data.paraNome.size() > 0 && data.paraNome.size() <= 200 &&
+        ((data.isMestre == true && data.personagemId == null &&
+          data.persona in ['mestre', 'npc', 'criatura'] && isMestreDaCampanha(campanhaId)) ||
+         (data.isMestre == false && data.persona == 'jogador' && donoUid == request.auth.uid &&
+          personagemDoUsuarioNaCampanha(campanhaId, data.personagemId)));
+    }
+
+    match /rmCampanhas/{campanhaId}/chatSecretas/{donoUid}/sussurros/{sussurroId} {
+      allow read: if isAuth() &&
+        (donoUid == request.auth.uid || isMestreDaCampanha(campanhaId));
+      allow create: if isAuth() &&
+        chatSussurroValido(campanhaId, request.resource.data, donoUid);
+      allow delete: if isAuth() &&
+        (resource.data.uid == request.auth.uid || isMestreDaCampanha(campanhaId));
+    }
+
     // Macros Lua da campanha (common/lua/ + common/utils/macros.js). Só o
     // mestre cria/edita/apaga; membros leem as que não são `somenteMestre`
     // (a consulta do jogador filtra `somenteMestre == false`, senão a lista
