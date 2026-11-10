@@ -151,10 +151,35 @@ export const getUniversos = () => getFirestoreItems(UNIVERSO_COLLECTION);
 // baixar documentos irrelevantes para a tela.
 const PERSONAGENS_COLLECTION = 'personagens';
 
-const getPersonagensPorTipo = async tipos => {
+// Cache curto em memória das listas de personagens (chave `tipos|universo`,
+// validade de 3 min): NPCs, Criaturas, Jogadores e a mesa (Chat/Grid) leem as
+// mesmas listas ao navegar entre telas. Guarda a promise (aberturas
+// simultâneas dividem a leitura), descarta a entrada se falhar e devolve uma
+// cópia. As escritas de clones (NPC/Criatura/Jogador da campanha) e o
+// "Recarregar fontes" da mesa limpam o cache (`limparCachePersonagens`).
+const PERSONAGENS_CACHE_TTL_MS = 3 * 60 * 1000;
+const personagensCache = new Map();
+
+export const limparCachePersonagens = () => personagensCache.clear();
+
+// Escritas de clones da campanha: limpa o cache ao terminar (mesmo se falhar).
+const invalidandoPersonagens = async escrita => {
   try {
+    return await escrita();
+  } finally {
+    limparCachePersonagens();
+  }
+};
+
+const buscarPersonagensPorTipo = async (tipos, universoId) => {
+  try {
+    const filtros = [where('tipo', 'in', tipos)];
+    // `universo` é o id do Universo gravado na ficha (mesmo valor de
+    // `campanha.universoId`). Igualdade + `in` em campos diferentes usa o
+    // merge de índices simples do Firestore — não pede índice composto.
+    if (universoId) filtros.push(where('universo', '==', universoId));
     const snapshot = await getDocs(
-      query(collection(db, PERSONAGENS_COLLECTION), where('tipo', 'in', tipos)),
+      query(collection(db, PERSONAGENS_COLLECTION), ...filtros),
     );
     return snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
   } catch (error) {
@@ -167,12 +192,39 @@ const getPersonagensPorTipo = async tipos => {
   }
 };
 
-export const getPersonagens = () => getPersonagensPorTipo(['NPC', 'Criatura']);
+const getPersonagensPorTipo = async (
+  tipos,
+  universoId,
+  { forcar = false } = {},
+) => {
+  const chave = `${tipos.join(',')}|${universoId ?? ''}`;
+  const agora = Date.now();
+  if (forcar) personagensCache.delete(chave);
+  const emCache = personagensCache.get(chave);
+  if (emCache && emCache.expiraEm > agora) {
+    return (await emCache.promise).map(personagem => ({ ...personagem }));
+  }
+  const promise = buscarPersonagensPorTipo(tipos, universoId);
+  const entrada = { promise, expiraEm: agora + PERSONAGENS_CACHE_TTL_MS };
+  personagensCache.set(chave, entrada);
+  try {
+    return (await promise).map(personagem => ({ ...personagem }));
+  } catch (error) {
+    if (personagensCache.get(chave) === entrada) personagensCache.delete(chave);
+    throw error;
+  }
+};
+
+// Sem `universoId` lê todos os universos (legado/testes); as telas passam o
+// `universoId` da campanha ativa para não baixar personagens de outros mundos.
+// `{ forcar: true }` ignora o cache ("Recarregar fontes").
+export const getPersonagens = (universoId, opcoes) =>
+  getPersonagensPorTipo(['NPC', 'Criatura'], universoId, opcoes);
 
 // Documentos antigos sem o campo `tipo` não entram aqui (o filtro `where`
 // só casa com o valor literal) — mesma limitação já aceita para NPC/Criatura.
-export const getPersonagensJogaveis = () =>
-  getPersonagensPorTipo(['Personagem Jogável']);
+export const getPersonagensJogaveis = (universoId, opcoes) =>
+  getPersonagensPorTipo(['Personagem Jogável'], universoId, opcoes);
 
 export const getPersonagemPorId = async personagemId => {
   try {
@@ -368,11 +420,17 @@ export const getRmCampanhaNpcs = (campanhaId, universoId, mestreId) =>
     ['mestreId', mestreId],
   ]);
 export const addRmCampanhaNpc = (campanhaId, npc) =>
-  addFirestoreItem(npcsSubcollectionPath(campanhaId), npc);
+  invalidandoPersonagens(() =>
+    addFirestoreItem(npcsSubcollectionPath(campanhaId), npc),
+  );
 export const removeRmCampanhaNpc = (campanhaId, id) =>
-  removeFirestoreItem(npcsSubcollectionPath(campanhaId), id);
+  invalidandoPersonagens(() =>
+    removeFirestoreItem(npcsSubcollectionPath(campanhaId), id),
+  );
 export const updateRmCampanhaNpc = (campanhaId, id, updates) =>
-  updateFirestoreItem(npcsSubcollectionPath(campanhaId), id, updates);
+  invalidandoPersonagens(() =>
+    updateFirestoreItem(npcsSubcollectionPath(campanhaId), id, updates),
+  );
 
 // ── rmCampanhas/{campanhaId}/jogadores (Firestore) ──────────────────────────
 // Clones de Personagem Jogável específicos de uma Campanha, criados a partir
@@ -390,11 +448,17 @@ export const getRmCampanhaJogadores = (campanhaId, universoId, mestreId) =>
     ['mestreId', mestreId],
   ]);
 export const addRmCampanhaJogador = (campanhaId, jogador) =>
-  addFirestoreItem(jogadoresSubcollectionPath(campanhaId), jogador);
+  invalidandoPersonagens(() =>
+    addFirestoreItem(jogadoresSubcollectionPath(campanhaId), jogador),
+  );
 export const removeRmCampanhaJogador = (campanhaId, id) =>
-  removeFirestoreItem(jogadoresSubcollectionPath(campanhaId), id);
+  invalidandoPersonagens(() =>
+    removeFirestoreItem(jogadoresSubcollectionPath(campanhaId), id),
+  );
 export const updateRmCampanhaJogador = (campanhaId, id, updates) =>
-  updateFirestoreItem(jogadoresSubcollectionPath(campanhaId), id, updates);
+  invalidandoPersonagens(() =>
+    updateFirestoreItem(jogadoresSubcollectionPath(campanhaId), id, updates),
+  );
 
 // ── rmCampanhas/{campanhaId}/criaturas (Firestore) ──────────────────────────
 // Clones de Criatura específicos de uma Campanha, criados a partir de um
@@ -412,11 +476,17 @@ export const getRmCampanhaCriaturas = (campanhaId, universoId, mestreId) =>
     ['mestreId', mestreId],
   ]);
 export const addRmCampanhaCriatura = (campanhaId, criatura) =>
-  addFirestoreItem(criaturasSubcollectionPath(campanhaId), criatura);
+  invalidandoPersonagens(() =>
+    addFirestoreItem(criaturasSubcollectionPath(campanhaId), criatura),
+  );
 export const removeRmCampanhaCriatura = (campanhaId, id) =>
-  removeFirestoreItem(criaturasSubcollectionPath(campanhaId), id);
+  invalidandoPersonagens(() =>
+    removeFirestoreItem(criaturasSubcollectionPath(campanhaId), id),
+  );
 export const updateRmCampanhaCriatura = (campanhaId, id, updates) =>
-  updateFirestoreItem(criaturasSubcollectionPath(campanhaId), id, updates);
+  invalidandoPersonagens(() =>
+    updateFirestoreItem(criaturasSubcollectionPath(campanhaId), id, updates),
+  );
 
 // ── rmCampanhas/{campanhaId}/lutaParticipantes (Firestore) ─────────────────
 // Participantes (NPCs/Criaturas) adicionados à tela de Luta de uma Campanha.
@@ -857,6 +927,42 @@ export const getRmSessaoLogsPorCampanha = (campanhaId, universoId, mestreId) =>
     ['universoId', universoId],
     ['mestreId', mestreId],
   ]);
+
+// Só os eventos mais recentes (o Dashboard mostra poucos): `orderBy` + `limit`
+// evitam baixar o histórico inteiro da campanha. Pede o índice composto
+// (campanhaId, universoId, mestreId, createdAt desc) em firestore.indexes.json;
+// enquanto ele não está publicado o Firestore responde `failed-precondition` e
+// caímos na leitura completa (a tela ordena e corta no cliente).
+export const SESSAO_LOGS_LIMITE = 30;
+
+export const getRmSessaoLogsRecentes = async (
+  campanhaId,
+  universoId,
+  mestreId,
+  limite = SESSAO_LOGS_LIMITE,
+) => {
+  try {
+    const snapshot = await getDocs(
+      query(
+        collection(db, RM_SESSAO_LOGS_COLLECTION),
+        where('campanhaId', '==', campanhaId),
+        where('universoId', '==', universoId),
+        where('mestreId', '==', mestreId),
+        orderBy('createdAt', 'desc'),
+        limit(limite),
+      ),
+    );
+    return snapshot.docs.map(d => ({ ...d.data(), id: d.id }));
+  } catch (error) {
+    if (error?.code === 'failed-precondition') {
+      return getRmSessaoLogsPorCampanha(campanhaId, universoId, mestreId);
+    }
+    // eslint-disable-next-line no-console
+    console.error('Erro ao buscar os eventos recentes da sessão:', error);
+    throw error;
+  }
+};
+
 export const addRmSessaoLog = log =>
   addFirestoreItem(RM_SESSAO_LOGS_COLLECTION, log);
 

@@ -55,7 +55,7 @@ const Npcs = () => {
       setLoadingNpcs(true);
       setErrorNpcs(null);
       Promise.all([
-        getPersonagens(),
+        getPersonagens(campanhaAtiva.universoId),
         getRmCampanhaNpcs(
           campanhaAtiva.id,
           campanhaAtiva.universoId,

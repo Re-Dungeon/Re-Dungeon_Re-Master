@@ -72,11 +72,11 @@ export const formatarHoraEvento = valor => {
   return `${hora}:${minuto}`;
 };
 
-// `getRmSessaoLogsPorCampanha` filtra só por `campanhaId` (sem `orderBy`,
-// para não exigir um índice composto extra no Firestore) — a ordenação por
-// mais recente primeiro é feita aqui, no cliente, sobre a lista já
-// carregada. Logs sem `createdAt` resolvido ainda (ver `formatarHoraEvento`)
-// vão para o fim.
+// `getRmSessaoLogsRecentes` já pede os mais recentes ao Firestore, mas cai na
+// leitura completa se o índice composto ainda não existe — por isso a
+// ordenação por mais recente primeiro também é feita aqui, no cliente, sobre
+// a lista carregada. Logs sem `createdAt` resolvido ainda (ver
+// `formatarHoraEvento`) vão para o fim.
 export const ordenarLogsPorDataDesc = logs =>
   [...logs].sort((a, b) => {
     const dataA = ehTimestamp(a.createdAt)

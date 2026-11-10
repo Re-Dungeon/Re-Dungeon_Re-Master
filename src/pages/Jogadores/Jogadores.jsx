@@ -48,7 +48,7 @@ const Jogadores = () => {
       setLoadingJogadores(true);
       setErrorJogadores(null);
       Promise.all([
-        getPersonagensJogaveis(),
+        getPersonagensJogaveis(campanhaAtiva.universoId),
         getRmCampanhaJogadores(
           campanhaAtiva.id,
           campanhaAtiva.universoId,

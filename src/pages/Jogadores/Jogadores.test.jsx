@@ -109,6 +109,7 @@ describe('Jogadores (personagens jogáveis do Universo vinculados à campanha at
     expect(screen.queryByText('Fera das Sombras')).not.toBeInTheDocument();
     expect(screen.queryByText('De outra campanha')).not.toBeInTheDocument();
     expect(screen.queryByText('De outro universo')).not.toBeInTheDocument();
+    expect(getPersonagensJogaveis).toHaveBeenCalledWith('u1');
   });
 
   it('mostra o estado vazio quando não há jogadores vinculados', async () => {

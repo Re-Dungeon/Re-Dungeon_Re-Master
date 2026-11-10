@@ -56,7 +56,7 @@ const Criaturas = () => {
       setLoadingCriaturas(true);
       setErrorCriaturas(null);
       Promise.all([
-        getPersonagens(),
+        getPersonagens(campanhaAtiva.universoId),
         getRmCampanhaCriaturas(
           campanhaAtiva.id,
           campanhaAtiva.universoId,
