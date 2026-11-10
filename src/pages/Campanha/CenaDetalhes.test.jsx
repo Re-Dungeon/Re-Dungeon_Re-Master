@@ -35,18 +35,20 @@ vi.mock('context/AuthContext', () => ({
   useAuth: () => ({ currentUser: { uid: 'm1' }, isAdmin: false }),
 }));
 
-vi.mock('context/CampanhaContext', () => ({
-  useCampanha: () => ({
-    campanhaAtiva: {
-      id: 'campanha-1',
-      nome: 'Ascensão Carmesim',
-      universoId: 'u1',
-      mestreId: 'm1',
-      cenaAtualId: 'cena2',
-    },
-    recarregarCampanhas,
-  }),
-}));
+vi.mock('context/CampanhaContext', () => {
+  // Referência estável, como no contexto real (um objeto novo a cada render
+  // refaria o efeito de carga em loop).
+  const campanhaAtiva = {
+    id: 'campanha-1',
+    nome: 'Ascensão Carmesim',
+    universoId: 'u1',
+    mestreId: 'm1',
+    cenaAtualId: 'cena2',
+  };
+  return {
+    useCampanha: () => ({ campanhaAtiva, recarregarCampanhas }),
+  };
+});
 
 vi.mock('service/storage', () => ({
   getRmCenas: (...args) => getRmCenas(...args),
@@ -131,5 +133,32 @@ describe('CenaDetalhes', () => {
       expect(notifyError).toHaveBeenCalledWith('Não foi possível marcar a cena atual.'),
     );
     expect(registrarEventoSessao).not.toHaveBeenCalled();
+  });
+
+  it('distingue "não encontrada" de falha ao carregar e deixa tentar de novo', async () => {
+    const user = userEvent.setup();
+    getRmCenas.mockRejectedValueOnce(new Error('offline'));
+    renderCenaDetalhes();
+
+    expect(
+      await screen.findByText('Não foi possível carregar a cena'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Cena não encontrada')).not.toBeInTheDocument();
+    expect(notifyError).toHaveBeenCalledWith('Não foi possível carregar a cena.');
+
+    await user.click(screen.getByRole('button', { name: 'Tentar de novo' }));
+
+    await waitFor(() =>
+      expect(screen.getAllByText('A Chegada').length).toBeGreaterThan(0),
+    );
+    expect(getRmCenas).toHaveBeenCalledTimes(2);
+  });
+
+  it('mostra "Cena não encontrada" quando a lista carrega mas a cena não existe', async () => {
+    getRmCenas.mockResolvedValue([{ id: 'outra', titulo: 'Outra' }]);
+    renderCenaDetalhes();
+
+    expect(await screen.findByText('Cena não encontrada')).toBeInTheDocument();
+    expect(notifyError).not.toHaveBeenCalled();
   });
 });

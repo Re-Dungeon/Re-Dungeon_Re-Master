@@ -153,13 +153,14 @@ const Notas = () => {
       .catch(() => {
         if (isMounted) {
           setTiposDisponiveis([]);
+          notifyError('Não foi possível carregar os tipos de entidade.');
         }
       });
 
     return () => {
       isMounted = false;
     };
-  }, [campanhaAtiva]);
+  }, [campanhaAtiva, notifyError]);
 
   useEffect(() => {
     if (!loadingCampanhas && !campanhaAtiva) navigate(ROUTE_PATHS.CAMPANHA);
