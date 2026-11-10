@@ -9,8 +9,7 @@ import { TIPOS_TOKEN } from 'common/utils/grid';
 
 // 1ª expressão de dados do texto ("2d6+3 de fogo" → "2d6+3"), sem espaços;
 // null se não houver. "mão2d6" não casa (letra/dígito colado antes do dado).
-const EXPRESSAO_DADOS =
-  /(?<![A-Za-z0-9])\d*d\d+(?:\s*[+-]\s*(?:\d*d\d+|\d+))*/i;
+const EXPRESSAO_DADOS = /(?<![A-Za-z0-9])\d*d\d+(?:\s*[+-]\s*(?:\d*d\d+|\d+))*/i;
 
 export const extrairExpressaoDeDados = texto => {
   const match = EXPRESSAO_DADOS.exec(String(texto ?? ''));
@@ -25,9 +24,9 @@ export const preparar = expressao => {
   return interpretarExpressaoRolagem(texto);
 };
 
-const PREFIXOS_ROTULO = { ataque: 'Ataque', defesa: 'Defesa', arte: 'Arte' };
+const PREFIXOS_ROTULO = { ataque: 'Ataque', defesa: 'Defesa', arte: 'Arte', item: 'Item' };
 
-// 'Ataque: X' | 'Defesa: X' | 'Arte: X'
+// 'Ataque: X' | 'Defesa: X' | 'Arte: X' | 'Item: X'
 export const rotuloDeRolagem = (tipo, nome) => {
   const prefixo = PREFIXOS_ROTULO[tipo];
   const nomeLimpo = String(nome ?? '').trim();
@@ -76,9 +75,7 @@ export const autorDoToken = (
     };
   }
 
-  const ficha = token.refId
-    ? personagensDoUsuario.find(p => p.id === token.refId)
-    : null;
+  const ficha = token.refId ? personagensDoUsuario.find(p => p.id === token.refId) : null;
   if (ficha) {
     return {
       uid,
