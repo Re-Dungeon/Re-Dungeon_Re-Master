@@ -5,10 +5,11 @@ import { MemoryRouter } from 'react-router-dom';
 
 const addRmCampanha = vi.fn();
 const updateRmCampanha = vi.fn();
+const getUniversos = vi.fn();
 vi.mock('service/storage', () => ({
   addRmCampanha: (...args) => addRmCampanha(...args),
   updateRmCampanha: (...args) => updateRmCampanha(...args),
-  getUniversos: vi.fn().mockResolvedValue([{ id: 'u1', Nome: 'Prime' }]),
+  getUniversos: (...args) => getUniversos(...args),
 }));
 
 const canCreate = vi.fn(() => true);
@@ -30,6 +31,7 @@ vi.mock('context/CampanhaContext', () => ({
   useCampanha: () => ({ recarregarCampanhas, setCampanhaAtiva }),
 }));
 
+import { invalidateUniversosCache } from 'hooks/useUniversos';
 import NovaCampanha from './NovaCampanha';
 
 const renderNova = state =>
@@ -41,10 +43,16 @@ const renderNova = state =>
 
 describe('NovaCampanha', () => {
   beforeEach(() => {
+    invalidateUniversosCache();
     vi.clearAllMocks();
     canCreate.mockReturnValue(true);
     canWrite.mockReturnValue(true);
     recarregarCampanhas.mockResolvedValue(undefined);
+    getUniversos.mockResolvedValue([
+      { id: 'u1', Nome: 'Prime', ativo: true },
+      { id: 'u2', Nome: 'Segundo', ativo: false },
+      { id: 'u3', Nome: 'Terceiro' },
+    ]);
   });
 
   it('mostra "Nova Campanha" e o placeholder de preview antes de preencher a imagem', async () => {
@@ -116,6 +124,68 @@ describe('NovaCampanha', () => {
     );
     expect(addRmCampanha).not.toHaveBeenCalled();
     expect(setCampanhaAtiva).not.toHaveBeenCalled();
+  });
+
+  it('não mostra universos inativos ao criar uma campanha nova', async () => {
+    const user = userEvent.setup();
+    renderNova(undefined);
+
+    await waitFor(() =>
+      expect(screen.getByText('Nova Campanha')).toBeInTheDocument(),
+    );
+
+    await user.click(screen.getByRole('combobox', { name: 'Universo' }));
+
+    expect(await screen.findByRole('option', { name: 'Prime' })).toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: 'Segundo' })).not.toBeInTheDocument();
+    expect(await screen.findByRole('option', { name: 'Terceiro' })).toBeInTheDocument();
+  });
+
+  it('ordena os universos em ordem alfabética e permite pesquisar', async () => {
+    getUniversos.mockResolvedValue([
+      { id: 'u2', Nome: 'Zeta', ativo: true },
+      { id: 'u1', Nome: 'Alfa', ativo: true },
+      { id: 'u3', Nome: 'Beta', ativo: true },
+    ]);
+
+    const user = userEvent.setup();
+    renderNova(undefined);
+
+    await waitFor(() =>
+      expect(screen.getByText('Nova Campanha')).toBeInTheDocument(),
+    );
+
+    await user.click(screen.getByRole('combobox', { name: 'Universo' }));
+
+    const opcoes = await screen.findAllByRole('option');
+    expect(opcoes.map(opcao => opcao.textContent)).toEqual(['Alfa', 'Beta', 'Zeta']);
+
+    await user.clear(screen.getByRole('combobox', { name: 'Universo' }));
+    await user.type(screen.getByRole('combobox', { name: 'Universo' }), 'be');
+
+    expect(screen.getAllByRole('option').map(opcao => opcao.textContent)).toEqual([
+      'Beta',
+    ]);
+  });
+
+  it('preserva o universo inativo ao editar a campanha existente', async () => {
+    updateRmCampanha.mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    renderNova({
+      campanha: {
+        id: 'c1',
+        nome: 'Campanha Antiga',
+        universoId: 'u2',
+        mestreId: 'mestre-1',
+      },
+    });
+
+    await waitFor(() =>
+      expect(screen.getByText('Editar Campanha')).toBeInTheDocument(),
+    );
+
+    await user.click(screen.getByRole('combobox', { name: 'Universo' }));
+    expect(await screen.findByRole('option', { name: 'Segundo' })).toBeInTheDocument();
   });
 
   it('exige a seleção de um Universo', async () => {

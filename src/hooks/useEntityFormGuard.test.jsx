@@ -41,11 +41,27 @@ describe('useEntityFormGuard', () => {
     };
     mockUniversosHook.mockReset().mockReturnValue({
       universos: [
-        { id: 'u1', Nome: 'Prime' },
-        { id: 'u2', Nome: 'Segundo' },
+        { id: 'u1', Nome: 'Prime', ativo: true },
+        { id: 'u2', Nome: 'Segundo', ativo: false },
+        { id: 'u3', Nome: 'Terceiro' },
       ],
       loadingUniversos: false,
     });
+  });
+
+  it('filtra universos ativos e sem campo ativo na criação, ocultando inativos', () => {
+    const { result } = renderHook(
+      () =>
+        useEntityFormGuard({
+          itemParaEditar: null,
+          routeOnDeny: '/rota',
+        }),
+      { wrapper },
+    );
+
+    expect(result.current.universos.map(universo => universo.id)).toEqual([
+      'u1',
+    ]);
   });
 
   it('filtra universos por allowedUniversos quando não é admin', () => {
@@ -58,11 +74,13 @@ describe('useEntityFormGuard', () => {
       { wrapper },
     );
 
-    expect(result.current.universos).toEqual([{ id: 'u1', Nome: 'Prime' }]);
+    expect(result.current.universos.map(universo => universo.id)).toEqual([
+      'u1',
+    ]);
     expect(result.current.isEditing).toBe(false);
   });
 
-  it('não filtra universos quando isAdmin é true', () => {
+  it('não filtra universos quando isAdmin é true, mas continua ocultando inativos em nova criação', () => {
     authState.isAdmin = true;
     const { result } = renderHook(
       () =>
@@ -73,7 +91,10 @@ describe('useEntityFormGuard', () => {
       { wrapper },
     );
 
-    expect(result.current.universos).toHaveLength(2);
+    expect(result.current.universos.map(universo => universo.id)).toEqual([
+      'u1',
+      'u3',
+    ]);
   });
 
   it('não redireciona quando canCreate() retorna true (criação)', async () => {
@@ -155,7 +176,7 @@ describe('useEntityFormGuard', () => {
   });
 
   describe('bypassUniversoPermission', () => {
-    it('mostra todos os universos, ignorando allowedUniversos', () => {
+    it('mostra todos os universos ativos ou sem campo ativo, ignorando allowedUniversos', () => {
       const { result } = renderHook(
         () =>
           useEntityFormGuard({
@@ -166,7 +187,10 @@ describe('useEntityFormGuard', () => {
         { wrapper },
       );
 
-      expect(result.current.universos).toHaveLength(2);
+      expect(result.current.universos.map(universo => universo.id)).toEqual([
+        'u1',
+        'u3',
+      ]);
     });
 
     it('não redireciona ao criar, mesmo com canCreate() retornando false', async () => {
@@ -185,6 +209,24 @@ describe('useEntityFormGuard', () => {
       expect(navigate).not.toHaveBeenCalled();
       expect(canCreate).not.toHaveBeenCalled();
       expect(canWrite).not.toHaveBeenCalled();
+    });
+
+    it('preserva o universo inativo do item em edição e não o remove da lista', () => {
+      const { result } = renderHook(
+        () =>
+          useEntityFormGuard({
+            itemParaEditar: { id: '1', universoId: 'u2', mestreId: CURRENT_USER_UID },
+            universoDoItem: 'u2',
+            routeOnDeny: '/rota',
+            bypassUniversoPermission: true,
+          }),
+        { wrapper },
+      );
+
+      expect(result.current.universos.map(universo => universo.id)).toEqual(
+        expect.arrayContaining(['u1', 'u2', 'u3']),
+      );
+      expect(result.current.universos).toHaveLength(3);
     });
 
     it('não redireciona ao editar item do próprio usuário (mestreId === uid)', async () => {
