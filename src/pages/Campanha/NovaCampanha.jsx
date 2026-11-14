@@ -2,14 +2,11 @@ import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import TextField from '@mui/material/TextField';
-import Select from '@mui/material/Select';
-import MenuItem from '@mui/material/MenuItem';
 import FormControl from '@mui/material/FormControl';
-import InputLabel from '@mui/material/InputLabel';
-import FormHelperText from '@mui/material/FormHelperText';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
+import Autocomplete from '@mui/material/Autocomplete';
 import { Formik, Form, FastField, Field } from 'formik';
 import { useAuth } from 'context/AuthContext';
 import { useCampanha } from 'context/CampanhaContext';
@@ -59,16 +56,6 @@ const selectSx = {
   '& .MuiSvgIcon-root': { color: 'var(--text-secondary)' },
 };
 
-const menuPropsSx = {
-  paper: {
-    sx: {
-      background: 'var(--bg-card)',
-      color: 'var(--text-primary)',
-      border: '1px solid rgba(255,255,255,0.08)',
-    },
-  },
-};
-
 const NovaCampanha = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -82,6 +69,8 @@ const NovaCampanha = () => {
     routeOnDeny: ROUTE_PATHS.CAMPANHA,
     bypassUniversoPermission: true,
   });
+
+  const [universoInputValue, setUniversoInputValue] = React.useState('');
 
   const editInitialValues = campanhaParaEditar
     ? { ...CAMPANHA_INITIAL_VALUES, ...campanhaParaEditar }
@@ -215,44 +204,84 @@ const NovaCampanha = () => {
                       </FastField>
 
                       <Field name="universoId">
-                        {({ field }) => (
-                          <FormControl
-                            fullWidth
-                            error={
-                              touched.universoId && Boolean(errors.universoId)
-                            }
-                          >
-                            <InputLabel
-                              id="nova-campanha-universo-label"
-                              sx={{
-                                color: 'var(--text-secondary)',
-                                '&.Mui-focused': {
-                                  color: 'var(--color-accent)',
-                                },
-                              }}
+                        {({ field, form }) => {
+                          const universosOrdenados = [...universos].sort((a, b) =>
+                            (a.Nome ?? '').localeCompare(b.Nome ?? '', 'pt-BR', {
+                              sensitivity: 'base',
+                            }),
+                          );
+
+                          const universoSelecionado =
+                            universosOrdenados.find(
+                              universo => universo.id === field.value,
+                            ) ?? null;
+                          const inputValueAtual =
+                            universoSelecionado?.Nome ?? universoInputValue;
+
+                          return (
+                            <FormControl
+                              fullWidth
+                              error={
+                                touched.universoId && Boolean(errors.universoId)
+                              }
                             >
-                              Universo
-                            </InputLabel>
-                            <Select
-                              {...field}
-                              labelId="nova-campanha-universo-label"
-                              label="Universo"
-                              sx={selectSx}
-                              slotProps={menuPropsSx}
-                            >
-                              {universos.map(universo => (
-                                <MenuItem key={universo.id} value={universo.id}>
-                                  {universo.Nome}
-                                </MenuItem>
-                              ))}
-                            </Select>
-                            {touched.universoId && errors.universoId && (
-                              <FormHelperText>
-                                {errors.universoId}
-                              </FormHelperText>
-                            )}
-                          </FormControl>
-                        )}
+                              <Autocomplete
+                                options={universosOrdenados}
+                                value={universoSelecionado}
+                                inputValue={inputValueAtual}
+                                onInputChange={(_, novoValor) => {
+                                  setUniversoInputValue(novoValor);
+                                }}
+                                getOptionLabel={option => option?.Nome ?? ''}
+                                isOptionEqualToValue={(option, value) =>
+                                  option.id === value.id
+                                }
+                                filterOptions={(opcoesFiltradas, state) => {
+                                  const termo = state.inputValue.trim().toLowerCase();
+                                  if (!termo) return opcoesFiltradas;
+
+                                  return opcoesFiltradas.filter(universo =>
+                                    (universo.Nome ?? '')
+                                      .toLowerCase()
+                                      .includes(termo),
+                                  );
+                                }}
+                                onChange={(_, novoValor) => {
+                                  const proximoValor = novoValor ? novoValor.id : '';
+                                  form.setFieldValue(field.name, proximoValor);
+                                  setUniversoInputValue(novoValor ? novoValor.Nome : '');
+                                }}
+                                ListboxProps={{
+                                  style: {
+                                    maxHeight: 260,
+                                    overflowY: 'auto',
+                                  },
+                                }}
+                                noOptionsText="Nenhum universo encontrado"
+                                renderInput={params => (
+                                  <TextField
+                                    {...params}
+                                    label="Universo"
+                                    error={
+                                      touched.universoId && Boolean(errors.universoId)
+                                    }
+                                    helperText={
+                                      touched.universoId && errors.universoId
+                                    }
+                                    sx={inputSx}
+                                  />
+                                )}
+                                sx={{
+                                  ...selectSx,
+                                  '& .MuiAutocomplete-listbox': {
+                                    maxHeight: 260,
+                                    overflowY: 'auto',
+                                  },
+                                }}
+                              />
+                            </FormControl>
+                          );
+                        }}
                       </Field>
 
                       <FastField name="linkImagem">

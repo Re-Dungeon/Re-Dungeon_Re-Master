@@ -3,6 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from 'context/AuthContext';
 import useUniversos from './useUniversos';
 
+const isUniversoDisponivelParaNovaAssociacao = universo =>
+  universo?.ativo !== false;
+
+const toArray = valor =>
+  Array.isArray(valor) ? valor.filter(Boolean) : [valor].filter(Boolean);
+
 /**
  * Encapsula o padrão repetido em toda página `Nova*`/`Novo*`: buscar os
  * universos (via `useUniversos`, com cache de módulo), filtrar por
@@ -11,8 +17,9 @@ import useUniversos from './useUniversos';
  * existente, avaliado contra `universoDoItem`).
  * `bypassUniversoPermission` (usado só pela Campanha) troca a checagem de
  * `allowedUniversos` por posse (`mestreId` do item === uid do usuário) e
- * mostra todos os universos no lugar de filtrar — qualquer usuário
- * autenticado pode criar/editar uma Campanha em qualquer universo.
+ * permite que a campanha em edição mantenha seu universo atual mesmo quando
+ * ele foi desativado; em criação, a regra de `ativo !== false` continua
+ * aplicada para impedir novas associações a universos inativos.
  * @param {{ itemParaEditar: object|null, universoDoItem?: string|string[], routeOnDeny: string, bypassUniversoPermission?: boolean }} params
  */
 const useEntityFormGuard = ({
@@ -55,10 +62,29 @@ const useEntityFormGuard = ({
     currentUser,
   ]);
 
-  const universosFiltrados =
-    bypassUniversoPermission || isAdmin
-      ? universos
-      : universos.filter(u => allowedUniversos.includes(u.id));
+  const idsDoItemEmEdicao = new Set(
+    (isEditing ? toArray(universoDoItem ?? itemParaEditar?.universoId) : []).map(
+      id => String(id),
+    ),
+  );
+
+  const universosFiltrados = universos.filter(universo => {
+    const isUniversoHistorico = idsDoItemEmEdicao.has(String(universo.id));
+    const isNovaAssociacaoValida = isUniversoDisponivelParaNovaAssociacao(universo);
+
+    if (isEditing) {
+      if (isUniversoHistorico) return true;
+      if (!isNovaAssociacaoValida) return false;
+    } else if (!isNovaAssociacaoValida) {
+      return false;
+    }
+
+    if (bypassUniversoPermission || isAdmin) {
+      return true;
+    }
+
+    return allowedUniversos.includes(universo.id);
+  });
 
   return { universos: universosFiltrados, loadingUniversos, isEditing };
 };
