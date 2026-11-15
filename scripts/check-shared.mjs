@@ -48,6 +48,8 @@ const COMPARTILHADOS = [
   'common/utils/gridMarcadores.test.js',
   'common/utils/gridRolagem.js',
   'common/utils/gridRolagem.test.js',
+  'common/utils/imagemUpload.js',
+  'common/utils/imagemUpload.test.js',
   'context/AudioMesaContext.jsx',
   'hooks/useAudioMesa.js',
   'hooks/useAvisarAcoesChat.js',
@@ -73,6 +75,8 @@ const COMPARTILHADOS = [
   'hooks/useMembroDoChat.js',
   'hooks/useRolarDoToken.js',
   'hooks/useRolarDoToken.test.js',
+  'service/uploadImagem.js',
+  'service/uploadImagem.test.js',
 ];
 
 // Divergências intencionais e documentadas (CLAUDE.md dos dois repos).

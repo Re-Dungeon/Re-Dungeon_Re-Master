@@ -43,7 +43,9 @@ import {
 } from 'common/utils/chatHistorico';
 import { interpretarComandoRolagem } from 'common/utils/dados';
 import { preparar } from 'common/utils/gridRolagem';
+import { arrasteTemArquivos, primeiraImagem } from 'common/utils/imagemUpload';
 import { encontrarMacroPorNome, interpretarComandoMacro } from 'common/utils/macros';
+import { uploadImagemDisponivel } from 'service/uploadImagem';
 
 import AudioDialog from './AudioDialog';
 import { audioPropType } from './audioPropType';
@@ -63,7 +65,10 @@ import {
   ListaMensagens,
   ListaVazia,
   NovasMensagensPilula,
+  SoltarOverlay,
 } from './styles';
+
+const AVISO_VARIAS_IMAGENS = 'Envie uma imagem por vez — usamos a primeira.';
 
 // Distância (px) do fim da lista dentro da qual consideramos que o usuário
 // "está acompanhando" a conversa — só nesse caso uma mensagem nova rola a
@@ -104,6 +109,11 @@ const ChatSala = ({
   const [texto, setTexto] = useState('');
   const [enviando, setEnviando] = useState(false);
   const [dialogImagemAberto, setDialogImagemAberto] = useState(false);
+  // Imagem colada/arrastada no chat: abre o diálogo já com a prévia.
+  const [imagemRecebida, setImagemRecebida] = useState({ arquivo: null, aviso: null });
+  const [arrastando, setArrastando] = useState(false);
+  const arrasteContadorRef = useRef(0);
+  const aceitaArquivo = uploadImagemDisponivel();
   const [dialogRolagemAberto, setDialogRolagemAberto] = useState(false);
   const [dialogMacrosAberto, setDialogMacrosAberto] = useState(false);
   const [dialogAudioAberto, setDialogAudioAberto] = useState(false);
@@ -355,7 +365,56 @@ const ChatSala = ({
   const handleEnviarImagem = async url => {
     acompanhandoRef.current = true;
     await onEnviarImagem(url);
+    fecharDialogImagem();
+  };
+
+  const fecharDialogImagem = () => {
     setDialogImagemAberto(false);
+    setImagemRecebida({ arquivo: null, aviso: null });
+  };
+
+  // Colar/soltar: só a primeira imagem vai para o diálogo (nada sobe sem o
+  // "Enviar" dele). Devolve `true` se havia imagem.
+  const receberImagem = fonte => {
+    const { arquivo, varias } = primeiraImagem(fonte);
+    if (!arquivo) return false;
+    setImagemRecebida({ arquivo, aviso: varias ? AVISO_VARIAS_IMAGENS : null });
+    setDialogImagemAberto(true);
+    return true;
+  };
+
+  // Imagem tem prioridade sobre o texto que vier junto; só texto cola normal.
+  const handlePaste = event => {
+    if (!aceitaArquivo) return;
+    if (receberImagem(event.clipboardData)) event.preventDefault();
+  };
+
+  // O contador evita o "pisca" do realce ao passar por cima dos filhos.
+  const handleDragEnter = event => {
+    if (!aceitaArquivo || !arrasteTemArquivos(event.dataTransfer)) return;
+    event.preventDefault();
+    arrasteContadorRef.current += 1;
+    setArrastando(true);
+  };
+
+  const handleDragOver = event => {
+    if (!aceitaArquivo || !arrasteTemArquivos(event.dataTransfer)) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'copy';
+  };
+
+  const handleDragLeave = event => {
+    if (!aceitaArquivo || !arrasteTemArquivos(event.dataTransfer)) return;
+    arrasteContadorRef.current = Math.max(0, arrasteContadorRef.current - 1);
+    if (arrasteContadorRef.current === 0) setArrastando(false);
+  };
+
+  const handleDrop = event => {
+    if (!aceitaArquivo || !arrasteTemArquivos(event.dataTransfer)) return;
+    event.preventDefault();
+    arrasteContadorRef.current = 0;
+    setArrastando(false);
+    receberImagem(event.dataTransfer);
   };
 
   const handleCombate = async item => {
@@ -371,7 +430,13 @@ const ChatSala = ({
   };
 
   return (
-    <ChatWrapper>
+    <ChatWrapper
+      onDragEnter={handleDragEnter}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      {arrastando && <SoltarOverlay>Solte para enviar a imagem</SoltarOverlay>}
       <ChatHeader $compact={compactHeader} data-compact={compactHeader ? 'true' : undefined}>
         {cabecalho && <div style={{ flex: '1 1 auto', minWidth: 0 }}>{cabecalho}</div>}
       </ChatHeader>
@@ -444,7 +509,7 @@ const ChatSala = ({
           </Button>
         )}
         <ComposerAcoes>
-          <Tooltip title="Enviar imagem ou GIF por link">
+          <Tooltip title={aceitaArquivo ? 'Enviar imagem ou GIF' : 'Enviar imagem ou GIF por link'}>
             <IconButton
               size="small"
               aria-label="Enviar imagem"
@@ -623,6 +688,7 @@ const ChatSala = ({
               setErroComando(null);
             }}
             onKeyDown={handleKeyDown}
+            onPaste={handlePaste}
             inputRef={entradaRef}
             error={Boolean(erroComando)}
             helperText={erroComando}
@@ -993,8 +1059,10 @@ const ChatSala = ({
       )}
       <ImagemUrlDialog
         open={dialogImagemAberto}
-        onClose={() => setDialogImagemAberto(false)}
+        onClose={fecharDialogImagem}
         onConfirmar={handleEnviarImagem}
+        arquivoInicial={imagemRecebida.arquivo}
+        avisoInicial={imagemRecebida.aviso}
       />
       <RolagemDialog
         open={dialogRolagemAberto}
