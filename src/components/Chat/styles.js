@@ -5,6 +5,7 @@ import styled from 'styled-components';
 const MOBILE = '@media (max-width: 599.95px)';
 
 export const ChatWrapper = styled.div`
+  position: relative;
   display: flex;
   flex-direction: column;
   flex: 1 1 auto;
@@ -276,6 +277,32 @@ export const ComposerEntrada = styled.div`
       height: 44px;
     }
   }
+`;
+
+export const UploadLinha = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-top: 4px;
+`;
+
+// Realce do painel do chat enquanto um arquivo é arrastado por cima.
+export const SoltarOverlay = styled.div`
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  text-align: center;
+  border: 2px dashed var(--color-primary);
+  border-radius: 12px;
+  background: rgba(10, 9, 19, 0.82);
+  color: var(--color-primary);
+  font-weight: 700;
+  pointer-events: none;
 `;
 
 export const PreviewImagem = styled.img`
