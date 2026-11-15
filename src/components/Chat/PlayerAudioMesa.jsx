@@ -13,6 +13,7 @@ import {
   audioTerminou,
   mensagemErroYoutube,
   posicaoAtual,
+  volumeDoPlayer,
 } from 'common/utils/audioMesa';
 import { carregarApiYoutube } from 'common/utils/youtubeApi';
 
@@ -41,6 +42,15 @@ const ESPERA_BLOQUEIO_MS = 2500;
 // player está mudo e quem vê não pediu mudo, conta como bloqueado.
 const silenciadoPeloNavegador = (player, mudoPedido) =>
   !mudoPedido && Boolean(player.isMuted?.());
+
+// O YouTube pode trocar o volume ao carregar uma faixa (usa o que ele guarda
+// no navegador): reaplica o volume de quem vê a cada carga/início. Não chama
+// unMute aqui — isso fica para o efeito de volume/mudo e para o clique de
+// liberar o som, senão o silêncio do bloqueio de autoplay seria mascarado.
+const reaplicarVolume = (player, volume, mudo) => {
+  player.setVolume?.(volumeDoPlayer(volume));
+  if (mudo) player.mute?.();
+};
 
 const estiloEscondido = {
   position: 'fixed',
@@ -141,6 +151,7 @@ const PlayerAudioMesa = ({
   const verificacaoRef = useRef(null);
   const atualRef = useRef(atual);
   const mudoRef = useRef(mudo);
+  const volumeRef = useRef(volume);
   const aoMudarEstadoRef = useRef(null);
   const [pronto, setPronto] = useState(false);
   // Liberar por clique não bastou: mostra o player para um toque direto.
@@ -174,9 +185,12 @@ const PlayerAudioMesa = ({
   useLayoutEffect(() => {
     atualRef.current = atual;
     mudoRef.current = mudo;
+    volumeRef.current = volume;
     aoMudarEstadoRef.current = estado => {
       const player = playerRef.current;
       if (!player) return;
+      if (estado === TOCANDO || estado === PREPARADO)
+        reaplicarVolume(player, volumeRef.current, mudoRef.current);
       const dados = player.getVideoData?.() ?? {};
       const info = {
         videoId: dados.video_id || atualRef.current?.videoId || null,
@@ -306,6 +320,7 @@ const PlayerAudioMesa = ({
       } else {
         player.cueVideoById({ videoId: atual.videoId, startSeconds: posicao });
       }
+      reaplicarVolume(player, volumeRef.current, mudoRef.current);
       return;
     }
     if (!deveTocar) {
@@ -351,7 +366,7 @@ const PlayerAudioMesa = ({
   useEffect(() => {
     const player = playerRef.current;
     if (!pronto || !player) return;
-    player.setVolume(volume);
+    player.setVolume(volumeDoPlayer(volume));
     if (mudo) player.mute();
     else player.unMute();
   }, [pronto, volume, mudo]);

@@ -15,6 +15,25 @@ export const AUDIO_ESTADOS = {
 export const AUDIO_POSICAO_MAX = 86400;
 export const VOLUME_PADRAO = 50;
 
+// Slider (0–100, o que a pessoa vê e o que fica salvo) → volume do player do
+// YouTube (0–100, linear). O ouvido percebe o volume em escala logarítmica,
+// então o slider sobe pela curva quadrática: 10% → 1, 50% → 25, 100% → 100.
+// Assim o volume baixo tem controle fino em vez de pular direto para "alto".
+// Acima de 0 nunca zera (1 é o menor volume audível do YouTube).
+export const volumeDoPlayer = slider => {
+  const valor = Math.min(Math.max(Number(slider) || 0, 0), 100);
+  if (valor === 0) return 0;
+  return Math.max(1, Math.round((valor * valor) / 100));
+};
+
+// iPhone/iPad ignoram o setVolume do player (só o volume do aparelho vale).
+// O iPadOS se apresenta como "MacIntel", mas com tela de toque.
+export const ehAparelhoIOS = (nav = globalThis.navigator) => {
+  if (!nav) return false;
+  if (/iPad|iPhone|iPod/.test(nav.userAgent ?? '')) return true;
+  return nav.platform === 'MacIntel' && (nav.maxTouchPoints ?? 0) > 1;
+};
+
 export const AUDIO_PARADO = {
   videoId: null,
   estado: AUDIO_ESTADOS.PARADO,
