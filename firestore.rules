@@ -1,4 +1,9 @@
 rules_version = '2';
+// Regras do projeto Firebase compartilhado pelo Banco de Dados, pela Ficha de
+// Jogador e pelo Re:Master. A publicação (`firebase deploy --only
+// firestore:rules`) é feita SÓ a partir do Banco-de-Dados---Re-Dungeon. Os
+// outros dois repositórios guardam cópias idênticas deste arquivo: mudou uma,
+// copie para as três antes de publicar.
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -18,7 +23,15 @@ service cloud.firestore {
 
     function canWriteUniverso(universoId) {
       return isAdmin() ||
-             (isAuth() && universoId in perms().universos);
+             (isAuth() && universoId is string && universoId in perms().universos);
+    }
+
+    function canWriteDocUniverso(data) {
+      return isAdmin() ||
+        (isAuth() && (
+          (data.universo is string && data.universo in perms().universos) ||
+          (data.universoId is string && data.universoId in perms().universos)
+        ));
     }
 
     // Aptidões, Regras e Condições podem pertencer a mais de um universo
@@ -75,6 +88,15 @@ service cloud.firestore {
          resource.data.universos.hasAny(perms().universos))
       );
       allow write: if isAdmin();
+    }
+
+    // ── user settings ───────────────────────────────────────────────────────────
+    // Cada usuário só pode ler, criar, atualizar e excluir suas próprias
+    // preferências. O UID do proprietário deve coincidir com o usuário
+    // autenticado; nunca é permitido acessar ou alterar dados privados de outro
+    // jogador por esse caminho.
+    match /users/{userId}/settings/{settingId} {
+      allow read, create, update, delete: if isAuth() && request.auth.uid == userId;
     }
 
     // ── Universo ───────────────────────────────────────────────────────────────
@@ -141,8 +163,9 @@ service cloud.firestore {
     match /condicoes/{condicaoId} {
       allow read: if isAuth();
       allow create: if canWriteUniversos(request.resource.data.universos);
-      allow update: if canWriteMultiUniversoData(resource.data)
-                    && canWriteUniversos(request.resource.data.universos);
+      allow update: if (canWriteMultiUniversoData(resource.data)
+                    && canWriteUniversos(request.resource.data.universos))
+                    || canTogglePartialUniverso(resource.data, request.resource.data);
       allow delete: if canWriteMultiUniversoData(resource.data);
     }
 
@@ -255,10 +278,21 @@ service cloud.firestore {
     // de regras do Firestore não suporta.
     match /personagens/{personagemId} {
       allow read: if isAuth();
-      allow create: if isAuth() && request.resource.data.uid == request.auth.uid;
-      allow update: if isAuth() && resource.data.uid == request.auth.uid
-                    && request.resource.data.uid == request.auth.uid;
-      allow delete: if isAuth() && resource.data.uid == request.auth.uid;
+      allow create: if isAuth() && (
+        request.resource.data.uid == request.auth.uid ||
+        canWriteDocUniverso(request.resource.data)
+      );
+      allow update: if isAuth() && (
+        resource.data.uid == request.auth.uid ||
+        canWriteDocUniverso(resource.data)
+      ) && (
+        request.resource.data.uid == request.auth.uid ||
+        canWriteDocUniverso(request.resource.data)
+      );
+      allow delete: if isAuth() && (
+        resource.data.uid == request.auth.uid ||
+        canWriteDocUniverso(resource.data)
+      );
 
       // Subcoleções (aptidoesAdquiridas, arts, historicoSorte — Fases futuras).
       // Escrita: só o dono do documento pai (uid), como antes.
@@ -675,40 +709,101 @@ service cloud.firestore {
     }
 
     // ── supportTickets ───────────────────────────────────────────────────────
-    // Cada usuário só lê e cria os próprios tickets. O status/finalização é
-    // controlado pela equipe administrativa (admin), que também pode responder
-    // o ticket em nome do suporte.
+    // Coleção compartilhada pelo Banco de Dados (painel admin, sourceApp
+    // 'database') e pela Ficha de Jogador (sourceApp 'player-sheet').
+    //
+    // Vocabulário (src/common/utils/supportTickets.js, idêntico nos dois apps):
+    //   category      → 'bug' | 'suggestion' | 'question' | 'system-problem' | 'other'
+    //   adminResponse → null até o suporte responder
+    //   status        → 'open' | 'in-progress' | 'answered' | 'resolved'
+    //                   ('in_progress' ainda é aceito por causa de docs antigos)
+    //
+    // Cada usuário lê e cria os próprios tickets; o admin lê e lista todos e
+    // controla status/resposta. Na Ficha, o dono ainda pode editar o conteúdo
+    // (título, descrição, anexos, categoria) e apagar o próprio ticket. Tickets
+    // antigos, sem `sourceApp`, foram criados pela Ficha.
+
+    function supportTicketCategoriaValida(category) {
+      return category in ['bug', 'suggestion', 'question', 'system-problem', 'other'];
+    }
+
+    function supportTicketConteudoValido(data) {
+      return data.title is string &&
+        data.title.size() > 0 &&
+        data.title.size() <= 120 &&
+        data.description is string &&
+        data.description.size() > 0 &&
+        data.description.size() <= 5000 &&
+        data.attachments is list &&
+        data.attachments.size() <= 10 &&
+        supportTicketCategoriaValida(data.category);
+    }
+
+    function isTicketDaFicha(data) {
+      return data.get('sourceApp', null) in ['player-sheet', null];
+    }
+
+    function isDonoDoTicket(data) {
+      return isAuth() && data.userId == request.auth.uid;
+    }
+
     match /supportTickets/{ticketId} {
-      allow read: if isAuth() && (
-        resource.data.userId == request.auth.uid ||
-        isAdmin()
-      );
-      allow create: if isAuth() &&
-        request.resource.data.userId == request.auth.uid &&
+      allow read: if isAdmin() || isDonoDoTicket(resource.data);
+
+      allow create: if isDonoDoTicket(request.resource.data) &&
         request.resource.data.userEmail is string &&
         request.resource.data.userDisplayName is string &&
-        request.resource.data.sourceApp is string &&
+        request.resource.data.sourceApp in ['database', 'player-sheet', 'gm-shield'] &&
         request.resource.data.sourceAppName is string &&
         request.resource.data.sourceUrl is string &&
-        request.resource.data.category in ['Bug', 'Sugestão', 'Dúvida', 'Problema', 'Outro'] &&
-        request.resource.data.title is string &&
-        request.resource.data.title.size() > 0 &&
-        request.resource.data.title.size() <= 120 &&
-        request.resource.data.description is string &&
-        request.resource.data.description.size() > 0 &&
-        request.resource.data.description.size() <= 5000 &&
-        request.resource.data.attachments is list &&
-        request.resource.data.attachments.size() <= 10 &&
+        supportTicketConteudoValido(request.resource.data) &&
         request.resource.data.status == 'open' &&
-        request.resource.data.adminResponse == '' &&
+        request.resource.data.adminResponse == null &&
         request.resource.data.respondedAt == null &&
         request.resource.data.createdAt == request.time &&
         request.resource.data.updatedAt == request.time;
-      allow update: if isAdmin() &&
-        request.resource.data.userId == resource.data.userId &&
-        request.resource.data.status in ['open', 'in_progress', 'in-progress', 'answered', 'resolved'] &&
-        request.resource.data.updatedAt == request.time;
-      allow delete: if isAdmin();
+
+      // Admin: status/resposta de qualquer ticket (dono e criação imutáveis).
+      // Dono (Ficha): só o conteúdo do próprio ticket, sem tocar em status,
+      // resposta, origem ou datas de criação.
+      allow update: if request.resource.data.userId == resource.data.userId &&
+        request.resource.data.createdAt == resource.data.createdAt &&
+        request.resource.data.updatedAt == request.time &&
+        (
+          (isAdmin() &&
+           request.resource.data.status in ['open', 'in-progress', 'in_progress', 'answered', 'resolved']) ||
+          (isDonoDoTicket(resource.data) &&
+           isTicketDaFicha(resource.data) &&
+           request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['title', 'description', 'attachments', 'category', 'updatedAt']) &&
+           supportTicketConteudoValido(request.resource.data))
+        );
+
+      allow delete: if isAdmin() ||
+        (isDonoDoTicket(resource.data) && isTicketDaFicha(resource.data));
+    }
+
+    // Conversa do ticket: o dono do ticket e o admin leem e escrevem; só o
+    // admin edita ou apaga mensagens.
+    function supportTicketMensagemValida(data) {
+      return data.keys().hasOnly(['userId', 'userEmail', 'userDisplayName', 'message', 'createdAt']) &&
+        data.userId is string && data.userId.size() > 0 &&
+        data.userEmail is string && data.userEmail.size() > 0 &&
+        data.userDisplayName is string && data.userDisplayName.size() > 0 &&
+        data.message is string && data.message.size() > 0 && data.message.size() <= 5000 &&
+        data.createdAt == request.time;
+    }
+
+    function ticketDaMensagem(ticketId) {
+      return get(/databases/$(database)/documents/supportTickets/$(ticketId)).data;
+    }
+
+    match /supportTickets/{ticketId}/messages/{messageId} {
+      allow read: if isAdmin() || isDonoDoTicket(ticketDaMensagem(ticketId));
+      allow create: if supportTicketMensagemValida(request.resource.data) &&
+        request.resource.data.userId == request.auth.uid &&
+        (isAdmin() || isDonoDoTicket(ticketDaMensagem(ticketId)));
+      allow update, delete: if isAdmin();
     }
 
     // Sussurros (/w): mensagem privada entre o mestre e UM jogador, na pasta
