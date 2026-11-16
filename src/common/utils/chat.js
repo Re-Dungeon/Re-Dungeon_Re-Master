@@ -8,6 +8,13 @@
 export const CHAT_JANELA_MENSAGENS = 100;
 export const CHAT_PAGINA_ANTERIORES = 50;
 
+// O mestre só abre a pasta de secretas/sussurros de quem usou o chat nos
+// últimos N dias (`chatMembros/{uid}.updatedAt`, gravado a cada abertura do
+// chat) e limita cada pasta de jogador a N mensagens — sem isso cada jogador
+// que já passou pela campanha vira um listener permanente.
+export const CHAT_MEMBRO_ATIVO_DIAS = 14;
+export const CHAT_LIMITE_SECRETAS_MEMBRO = 30;
+
 export const CHAT_TEXTO_MAX = 2000;
 export const CHAT_URL_MAX = 2000;
 
@@ -423,6 +430,19 @@ const paraDate = valor => {
     return Number.isNaN(data.getTime()) ? null : data;
   }
   return null;
+};
+
+// Membro do chat com atividade recente? `dados` é o doc de `chatMembros`.
+// `updatedAt` ausente/nulo (escrita pendente do serverTimestamp, ou doc antigo
+// sem o campo) conta como recente, para nunca esconder alguém sem prova.
+export const membroChatAtivo = (
+  dados,
+  agora = Date.now(),
+  dias = CHAT_MEMBRO_ATIVO_DIAS,
+) => {
+  const data = paraDate(dados?.updatedAt);
+  if (!data) return true;
+  return agora - data.getTime() <= dias * 24 * 60 * 60 * 1000;
 };
 
 export const ehMesmoDiaLocal = (createdAt, agora = new Date()) => {

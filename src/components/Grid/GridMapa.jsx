@@ -188,6 +188,11 @@ const ZOOM_PASSO = 1.25;
 const LIMIAR_ARRASTE = 4;
 const MARGEM_ENCAIXE = 24;
 
+// Passos de seta acumulam no cliente e viram UMA gravação ao soltar a tecla (ou
+// após este tempo parado, se o keyup se perder) — segurar a seta não escreve a
+// cada auto-repeat.
+const TECLADO_OCIOSO_MS = 1000;
+
 const SETAS = {
   ArrowUp: [0, -1],
   ArrowDown: [0, 1],
@@ -394,7 +399,11 @@ const GridMapa = ({
     toque: null,
     parede: null,
     hover: null,
+    teclado: null,
   });
+  // Passos de seta ainda não gravados: { token, col, lin, caminho }.
+  const tecladoPendente = useRef(null);
+  const confirmarTecladoRef = useRef(null);
   // Celular (abaixo do `sm`): o mapa abre focado no primeiro token que a
   // pessoa pode mover, com célula ≥ 44px. A posição do foco é a do token
   // quando ele apareceu — mover o token depois não arrasta a vista junto.
@@ -625,6 +634,7 @@ const GridMapa = ({
       clearTimeout(timers.toque);
       clearTimeout(timers.parede);
       clearTimeout(timers.hover);
+      clearTimeout(timers.teclado);
     };
   }, []);
 
@@ -1192,26 +1202,75 @@ const GridMapa = ({
     onSelecionar?.(atual.token);
   };
 
+  // Grava os passos de seta acumulados (uma única chamada de `onMover`).
+  const confirmarTeclado = () => {
+    clearTimeout(temporizadores.current.teclado);
+    temporizadores.current.teclado = null;
+    const pendente = tecladoPendente.current;
+    if (!pendente) return;
+    tecladoPendente.current = null;
+    const { token, col, lin, caminho } = pendente;
+    const gravacao = moverPara(token, col, lin, caminho);
+    const limpar = () =>
+      setArraste(anterior =>
+        anterior?.tokenId === token.id && anterior.soltando ? null : anterior,
+      );
+    if (!gravacao) limpar();
+    else gravacao.finally(limpar);
+  };
+  useEffect(() => {
+    confirmarTecladoRef.current = confirmarTeclado;
+  });
+
+  const handleTokenKeyUp = event => {
+    if (SETAS[event.key]) confirmarTeclado();
+  };
+
   const handleTokenKeyDown = (event, token) => {
     const seta = SETAS[event.key];
     if (seta && podeMover(token)) {
       event.preventDefault();
+      const pendente =
+        tecladoPendente.current?.token.id === token.id ? tecladoPendente.current : null;
+      // Outro token com passos pendentes: grava-os antes de começar este.
+      if (!pendente) confirmarTeclado();
+      const origem = pendente
+        ? { col: pendente.col, lin: pendente.lin }
+        : { col: token.col, lin: token.lin };
       const destino = limitarPosicao(
-        token.col + seta[0],
-        token.lin + seta[1],
+        origem.col + seta[0],
+        origem.lin + seta[1],
         mundo,
         token.tamanho ?? 1,
       );
-      const caminho = [
-        { col: token.col, lin: token.lin },
-        { col: destino.col, lin: destino.lin },
-      ];
-      const mudouDeCelula = destino.col !== token.col || destino.lin !== token.lin;
-      if (mudouDeCelula && !movimentoPermitido(token, caminho)) {
+      const mudouDeCelula = destino.col !== origem.col || destino.lin !== origem.lin;
+      if (mudouDeCelula && !movimentoPermitido(token, [origem, destino])) {
         mostrarAvisoParede();
         return;
       }
-      moverPara(token, destino.col, destino.lin, caminho);
+      if (!mudouDeCelula) return;
+      const caminho = pendente
+        ? avancarCaminho(pendente.caminho, destino)
+        : [origem, { col: destino.col, lin: destino.lin }];
+      tecladoPendente.current = {
+        token: pendente?.token ?? token,
+        col: destino.col,
+        lin: destino.lin,
+        caminho,
+      };
+      // O token já aparece na célula nova (como na prévia do arraste).
+      setArraste({
+        tokenId: token.id,
+        ...posicaoEmPx(config, destino.col, destino.lin),
+        col: destino.col,
+        lin: destino.lin,
+        soltando: true,
+      });
+      clearTimeout(temporizadores.current.teclado);
+      temporizadores.current.teclado = setTimeout(
+        () => confirmarTecladoRef.current?.(),
+        TECLADO_OCIOSO_MS,
+      );
     } else if (
       (event.key === 'r' || event.key === 'R') &&
       !event.ctrlKey &&
@@ -1782,6 +1841,8 @@ const GridMapa = ({
               aria-label={`${token.nome}, coluna ${token.col + 1}, linha ${token.lin + 1}${token.oculto ? ', oculto' : ''}${daVez ? ', turno atual' : ''}`}
               aria-pressed={onSelecionar ? selecionado : undefined}
               onKeyDown={event => handleTokenKeyDown(event, token)}
+              onKeyUp={handleTokenKeyUp}
+              onBlur={confirmarTeclado}
               onPointerEnter={event => {
                 if (event.pointerType !== 'mouse') return;
                 clearTimeout(temporizadores.current.hover);

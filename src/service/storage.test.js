@@ -49,12 +49,17 @@ import {
   getPersonagens,
   getPersonagensJogaveis,
   limparCachePersonagens,
+  limparCacheCatalogos,
   getPersonagemSubcolecao,
   getAptidao,
   getRaca,
   getClasse,
   getVeiaAstral,
+  getOrigem,
+  getCorpoEspecial,
+  getReinoCultivo,
   getCondicoes,
+  getUsuarioNome,
   getRmCampanhaNpcs,
   addRmCampanhaNpc,
   removeRmCampanhaNpc,
@@ -105,7 +110,7 @@ describe('storage.js — CRUD de rmCampanhas (padrão Firestore repetido em toda
     vi.clearAllMocks();
   });
 
-  it('getRmCampanhas busca a coleção certa e mapeia docs para {id, ...data}', async () => {
+  it('getRmCampanhas consulta só as campanhas do mestre e mapeia docs para {id, ...data}', async () => {
     getDocs.mockResolvedValue({
       docs: [
         { id: 'abc', data: () => ({ nome: 'Ascensão Carmesim' }) },
@@ -113,9 +118,16 @@ describe('storage.js — CRUD de rmCampanhas (padrão Firestore repetido em toda
       ],
     });
 
-    const result = await getRmCampanhas();
+    const result = await getRmCampanhas('mestre-1');
 
     expect(collection).toHaveBeenCalledWith({}, 'rmCampanhas');
+    expect(where).toHaveBeenCalledWith('mestreId', '==', 'mestre-1');
+    expect(getDocs).toHaveBeenCalledWith(
+      expect.objectContaining({
+        __query: { __collection: 'rmCampanhas' },
+        constraints: [{ __where: ['mestreId', '==', 'mestre-1'] }],
+      }),
+    );
     expect(result).toEqual([
       { id: 'abc', nome: 'Ascensão Carmesim' },
       { id: 'def', nome: 'Ruínas do Norte' },
@@ -283,13 +295,20 @@ describe('storage.js — CRUD de rmCampanhas (padrão Firestore repetido em toda
     const firestoreError = new Error('permission-denied');
     getDocs.mockRejectedValue(firestoreError);
 
-    await expect(getRmCampanhas()).rejects.toThrow('permission-denied');
+    await expect(getRmCampanhas('mestre-1')).rejects.toThrow(
+      'permission-denied',
+    );
     expect(consoleError).toHaveBeenCalledWith(
       expect.stringContaining('rmCampanhas'),
       firestoreError,
     );
 
     consoleError.mockRestore();
+  });
+
+  it('getRmCampanhas sem mestreId não consulta o Firestore e devolve lista vazia', async () => {
+    await expect(getRmCampanhas()).resolves.toEqual([]);
+    expect(getDocs).not.toHaveBeenCalled();
   });
 });
 
@@ -514,19 +533,96 @@ describe('storage.js — personagens (somente leitura) e CRUD de rmCampanhaNpcs/
     expect(getDocs).toHaveBeenCalledTimes(2);
   });
 
-  it('o cache expira depois de alguns minutos', async () => {
+  it('o cache dura a sessão (1 h): não expira aos 50 min, expira depois de 1 h', async () => {
     vi.useFakeTimers();
     try {
       getDocs.mockResolvedValue({ docs: [] });
 
       await getPersonagens('u1');
-      vi.advanceTimersByTime(10 * 60 * 1000);
+      vi.advanceTimersByTime(50 * 60 * 1000);
       await getPersonagens('u1');
+      expect(getDocs).toHaveBeenCalledTimes(1);
 
+      vi.advanceTimersByTime(11 * 60 * 1000);
+      await getPersonagens('u1');
       expect(getDocs).toHaveBeenCalledTimes(2);
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('os clones da campanha (npcs/jogadores/criaturas) também ficam em cache, por campanha', async () => {
+    getDocs.mockResolvedValue({
+      docs: [{ id: 'n1', data: () => ({ nome: 'Clone' }) }],
+    });
+
+    const primeira = await getRmCampanhaNpcs('c1', 'u1', 'mestre-1');
+    primeira[0].nome = 'Alterado';
+    const segunda = await getRmCampanhaNpcs('c1', 'u1', 'mestre-1');
+    await getRmCampanhaNpcs('c2', 'u1', 'mestre-1');
+    await getRmCampanhaJogadores('c1', 'u1', 'mestre-1');
+    await getRmCampanhaJogadores('c1', 'u1', 'mestre-1');
+    await getRmCampanhaCriaturas('c1', 'u1', 'mestre-1');
+    await getRmCampanhaCriaturas('c1', 'u1', 'mestre-1');
+
+    // npcs c1, npcs c2, jogadores c1, criaturas c1
+    expect(getDocs).toHaveBeenCalledTimes(4);
+    expect(segunda).toEqual([{ id: 'n1', nome: 'Clone' }]);
+  });
+
+  it('{ forcar: true } também ignora o cache dos clones', async () => {
+    getDocs.mockResolvedValue({ docs: [] });
+
+    await getRmCampanhaNpcs('c1', 'u1', 'mestre-1');
+    await getRmCampanhaNpcs('c1', 'u1', 'mestre-1', { forcar: true });
+
+    expect(getDocs).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([
+    ['add', () => addRmCampanhaNpc('c1', { nome: 'X' })],
+    ['update', () => updateRmCampanhaNpc('c1', 'n1', { nome: 'X' })],
+    ['remove', () => removeRmCampanhaNpc('c1', 'n1')],
+    ['add jogador', () => addRmCampanhaJogador('c1', { nome: 'X' })],
+    [
+      'update criatura',
+      () => updateRmCampanhaCriatura('c1', 'k1', { nome: 'X' }),
+    ],
+    ['remove criatura', () => removeRmCampanhaCriatura('c1', 'k1')],
+  ])(
+    'escrever clone (%s) invalida os clones e as listas de personagens em cache',
+    async (_nome, escrever) => {
+      getDocs.mockResolvedValue({ docs: [] });
+      addDoc.mockResolvedValue({ id: 'novo' });
+
+      await getRmCampanhaNpcs('c1', 'u1', 'mestre-1');
+      await getPersonagens('u1');
+      await getPersonagensJogaveis('u1');
+      expect(getDocs).toHaveBeenCalledTimes(3);
+
+      await escrever();
+
+      await getRmCampanhaNpcs('c1', 'u1', 'mestre-1');
+      await getPersonagens('u1');
+      await getPersonagensJogaveis('u1');
+      expect(getDocs).toHaveBeenCalledTimes(6);
+    },
+  );
+
+  it('descarta a entrada do cache dos clones quando a leitura falha', async () => {
+    const consoleErro = vi.spyOn(console, 'error').mockImplementation(() => {});
+    getDocs.mockRejectedValueOnce(new Error('offline'));
+    getDocs.mockResolvedValueOnce({ docs: [] });
+
+    await expect(getRmCampanhaNpcs('c1', 'u1', 'mestre-1')).rejects.toThrow(
+      'offline',
+    );
+    await expect(getRmCampanhaNpcs('c1', 'u1', 'mestre-1')).resolves.toEqual(
+      [],
+    );
+
+    expect(getDocs).toHaveBeenCalledTimes(2);
+    consoleErro.mockRestore();
   });
 
   it('escrever um clone de NPC da campanha limpa o cache de personagens', async () => {
@@ -1032,6 +1128,7 @@ describe.each([
 ])('storage.js — %s', (nomeFuncao, getFuncao, colecao) => {
   beforeEach(() => {
     vi.clearAllMocks();
+    limparCacheCatalogos();
   });
 
   it(`busca o doc na coleção "${colecao}" e retorna {id, ...data}`, async () => {
@@ -1056,9 +1153,146 @@ describe.each([
   });
 });
 
+describe('storage.js — cache dos catálogos (leituras por id e condições)', () => {
+  const docExistente = (id, data = {}) => ({
+    exists: () => true,
+    id,
+    data: () => data,
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    limparCacheCatalogos();
+  });
+
+  it.each([
+    ['getAptidao', getAptidao],
+    ['getRaca', getRaca],
+    ['getClasse', getClasse],
+    ['getVeiaAstral', getVeiaAstral],
+    ['getOrigem', getOrigem],
+    ['getCorpoEspecial', getCorpoEspecial],
+    ['getReinoCultivo', getReinoCultivo],
+  ])(
+    '%s: a segunda leitura do mesmo id vem do cache e devolve uma cópia',
+    async (_nome, getFuncao) => {
+      getDoc.mockResolvedValue(docExistente('r1', { nome: 'Original' }));
+
+      const primeira = await getFuncao('r1');
+      primeira.nome = 'Alterado';
+      const segunda = await getFuncao('r1');
+      await getFuncao('r2');
+
+      expect(getDoc).toHaveBeenCalledTimes(2);
+      expect(segunda).toEqual({ id: 'r1', nome: 'Original' });
+    },
+  );
+
+  it('o mesmo id em coleções diferentes não colide no cache', async () => {
+    getDoc.mockResolvedValue(docExistente('x'));
+
+    await getRaca('x');
+    await getClasse('x');
+
+    expect(getDoc).toHaveBeenCalledTimes(2);
+  });
+
+  it('chamadas simultâneas dividem a mesma leitura', async () => {
+    getDoc.mockResolvedValue(docExistente('r1', { nome: 'A' }));
+
+    await Promise.all([getRaca('r1'), getRaca('r1'), getRaca('r1')]);
+
+    expect(getDoc).toHaveBeenCalledTimes(1);
+  });
+
+  it('não guarda falha nem doc inexistente: a próxima chamada lê de novo', async () => {
+    const consoleErro = vi.spyOn(console, 'error').mockImplementation(() => {});
+    getDoc.mockRejectedValueOnce(new Error('offline'));
+    getDoc.mockResolvedValueOnce({ exists: () => false });
+    getDoc.mockResolvedValueOnce(docExistente('r1', { nome: 'Criado depois' }));
+
+    await expect(getRaca('r1')).rejects.toThrow('offline');
+    await expect(getRaca('r1')).resolves.toBeNull();
+    await expect(getRaca('r1')).resolves.toEqual({
+      id: 'r1',
+      nome: 'Criado depois',
+    });
+
+    expect(getDoc).toHaveBeenCalledTimes(3);
+    consoleErro.mockRestore();
+  });
+
+  it('o cache expira após 10 minutos', async () => {
+    vi.useFakeTimers();
+    try {
+      getDoc.mockResolvedValue(docExistente('r1'));
+
+      await getRaca('r1');
+      vi.advanceTimersByTime(9 * 60 * 1000);
+      await getRaca('r1');
+      expect(getDoc).toHaveBeenCalledTimes(1);
+
+      vi.advanceTimersByTime(2 * 60 * 1000);
+      await getRaca('r1');
+      expect(getDoc).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('limparCacheCatalogos força uma nova leitura', async () => {
+    getDoc.mockResolvedValue(docExistente('r1'));
+
+    await getRaca('r1');
+    limparCacheCatalogos();
+    await getRaca('r1');
+
+    expect(getDoc).toHaveBeenCalledTimes(2);
+  });
+
+  it('getCondicoes: o mesmo universo faz as 2 consultas uma vez só; outro universo consulta de novo', async () => {
+    getDocs.mockResolvedValue({
+      docs: [{ id: 'atordoado', data: () => ({ nome: 'Atordoado' }) }],
+    });
+
+    const primeira = await getCondicoes('u1');
+    primeira.push({ id: 'lixo' });
+    const segunda = await getCondicoes('u1');
+    expect(getDocs).toHaveBeenCalledTimes(2);
+    expect(segunda).toEqual([{ id: 'atordoado', nome: 'Atordoado' }]);
+
+    await getCondicoes('u2');
+    expect(getDocs).toHaveBeenCalledTimes(4);
+  });
+
+  it('getCondicoes: falha não fica em cache', async () => {
+    const consoleErro = vi.spyOn(console, 'error').mockImplementation(() => {});
+    getDocs.mockRejectedValue(new Error('offline'));
+
+    await expect(getCondicoes('u1')).rejects.toThrow('offline');
+
+    getDocs.mockReset();
+    getDocs.mockResolvedValue({ docs: [] });
+    await expect(getCondicoes('u1')).resolves.toEqual([]);
+    consoleErro.mockRestore();
+  });
+
+  it('getUsuarioNome: guarda o nome em cache; sem nome cadastrado devolve null', async () => {
+    getDoc.mockResolvedValueOnce(docExistente('uid-1', { Nome: '  Diego  ' }));
+
+    await expect(getUsuarioNome('uid-1')).resolves.toBe('Diego');
+    await expect(getUsuarioNome('uid-1')).resolves.toBe('Diego');
+    expect(getDoc).toHaveBeenCalledTimes(1);
+
+    getDoc.mockResolvedValueOnce({ exists: () => false });
+    await expect(getUsuarioNome('uid-2')).resolves.toBeNull();
+  });
+});
+
 describe('storage.js — getCondicoes (busca por universos-lista + universo-singular, mescladas por id)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    limparCacheCatalogos();
   });
 
   it('busca a coleção "condicoes" pelos dois campos e mescla os docs sem duplicar', async () => {

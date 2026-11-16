@@ -19,6 +19,9 @@ Re:Master é um projeto irmão do **Re-Dungeon** (banco de dados de campanha de 
 ### Persistência de Dados
 Toda a persistência é feita via **Firebase/Firestore** através do serviço `src/service/storage.js`. Não há uso de `localStorage` no projeto — cada entidade nova do Re:Master (Campanhas, Cenas, Conexões de Cena, NPCs, Criaturas, Mapas, Missões, CardFlux, Notas) é uma coleção Firestore própria, prefixada com `rm`, acessada por funções CRUD (`get*`/`add*`/`remove*`/`update*`) que seguem o mesmo padrão genérico das entidades do Re-Dungeon já presentes em `storage.js`. As coleções `Universo` e `userPermissions` são geridas pelo Re-Dungeon e somente-leitura pelo Re:Master (`getUniversos`, `getUserPermissions`); a coleção `personagens` também pertence ao Re-Dungeon e é a fonte de importação de NPCs/Criaturas (filtrada por um campo `tipo`).
 
+- **Cache persistente do Firestore**: `src/service/firebase.js` inicializa o Firestore com `persistentLocalCache` + `persistentMultipleTabManager` (IndexedDB, várias abas), com `try/catch` caindo no `getFirestore(app)` padrão (em memória). Efeito: reabrir a página/aba e reconectar servem o que já foi baixado e os listeners só cobram os documentos que mudaram. Nunca chame `getFirestore`/`initializeFirestore` fora desse arquivo.
+- **Leituras do chat/grid (custo)**: o mestre só abre a pasta de secretas/sussurros de membros com `chatMembros.updatedAt` dentro de `CHAT_MEMBRO_ATIVO_DIAS` (14; `membroChatAtivo` em `common/utils/chat.js`) e lê no máximo `CHAT_LIMITE_SECRETAS_MEMBRO` (30) por pasta de jogador; `subscribeGridDesenhos/Marcadores/Areas` têm `limit` de segurança (300/100/50, acima dos tetos de UI); `getChatMacros` tem cache em memória por campanha (5 min, invalidado por add/update/remove); setas no `GridMapa` acumulam o deslocamento e gravam uma vez ao soltar a tecla; `useFichasDoGrid` só abre/fecha os ids que entram/saem.
+
 ---
 
 ## Arquitetura

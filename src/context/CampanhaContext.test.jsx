@@ -78,6 +78,15 @@ describe('CampanhaContext', () => {
     ).not.toBeInTheDocument();
   });
 
+  it('pede ao storage só as campanhas do mestre logado (consulta por mestreId)', async () => {
+    renderComProvider();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('campanhas-count')).toHaveTextContent('1'),
+    );
+    expect(getRmCampanhas).toHaveBeenCalledWith('mestre-1');
+  });
+
   it('não busca campanhas enquanto a autenticação ainda está carregando', () => {
     mockAuth = { currentUser: null, loading: true };
     renderComProvider();

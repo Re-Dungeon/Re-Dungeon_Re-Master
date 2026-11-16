@@ -38,14 +38,17 @@ describe('useFichasDoGrid', () => {
     expect(result.current.p2).toBeNull();
   });
 
-  it('mudar o conjunto re-assina; desmontar cancela', () => {
+  it('mudar o conjunto abre só os ids novos e fecha só os removidos', () => {
     const { result, rerender, unmount } = renderFichas('p1');
     act(() => emissores.p1.onChange({ id: 'p1' }));
     const cancelarP1 = cancelamentos.p1;
+    expect(subscribePersonagem).toHaveBeenCalledTimes(1);
 
     rerender({ ids: 'p1|p3', ligado: true });
-    expect(cancelarP1).toHaveBeenCalled();
-    expect(subscribePersonagem).toHaveBeenCalledWith(
+    // p1 segue com o mesmo listener; só p3 foi assinado.
+    expect(cancelarP1).not.toHaveBeenCalled();
+    expect(subscribePersonagem).toHaveBeenCalledTimes(2);
+    expect(subscribePersonagem).toHaveBeenLastCalledWith(
       'p3',
       expect.any(Function),
       expect.any(Function),
@@ -54,10 +57,24 @@ describe('useFichasDoGrid', () => {
     expect(result.current).toEqual({ p1: { id: 'p1' }, p3: null });
 
     rerender({ ids: 'p3', ligado: true });
+    expect(cancelarP1).toHaveBeenCalledTimes(1);
+    expect(cancelamentos.p3).not.toHaveBeenCalled();
+    expect(subscribePersonagem).toHaveBeenCalledTimes(2);
     expect(result.current).toEqual({ p3: null });
 
     unmount();
-    expect(cancelamentos.p3).toHaveBeenCalled();
+    expect(cancelamentos.p3).toHaveBeenCalledTimes(1);
+    expect(cancelarP1).toHaveBeenCalledTimes(1);
+  });
+
+  it('inativo fecha tudo e reativar reabre', () => {
+    const { rerender } = renderFichas('p1|p2');
+    const { p1: cancelarP1, p2: cancelarP2 } = cancelamentos;
+    rerender({ ids: 'p1|p2', ligado: false });
+    expect(cancelarP1).toHaveBeenCalledTimes(1);
+    expect(cancelarP2).toHaveBeenCalledTimes(1);
+    rerender({ ids: 'p1|p2', ligado: true });
+    expect(subscribePersonagem).toHaveBeenCalledTimes(4);
   });
 
   it('sem ids ou inativo não escuta', () => {
