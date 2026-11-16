@@ -54,6 +54,63 @@ describe('useFontesDaMesa — cache de personagens', () => {
     });
   });
 
+  it('os clones também recebem a opção forcar (primeira carga usa cache, recarregar ignora)', async () => {
+    const { result } = renderHook(() =>
+      useFontesDaMesa(CAMPANHA, { incluirJogadores: true }),
+    );
+
+    await waitFor(() => expect(result.current.campanhaId).toBe('c1'));
+    expect(getRmCampanhaNpcs).toHaveBeenLastCalledWith('c1', 'u1', 'm1', {
+      forcar: false,
+    });
+    expect(getRmCampanhaCriaturas).toHaveBeenLastCalledWith('c1', 'u1', 'm1', {
+      forcar: false,
+    });
+    expect(getRmCampanhaJogadores).toHaveBeenLastCalledWith('c1', 'u1', 'm1', {
+      forcar: false,
+    });
+
+    act(() => result.current.recarregar());
+
+    await waitFor(() =>
+      expect(getRmCampanhaNpcs).toHaveBeenLastCalledWith('c1', 'u1', 'm1', {
+        forcar: true,
+      }),
+    );
+  });
+
+  it('não relê quando o objeto campanha muda de identidade mas id/universo/mestre são os mesmos', async () => {
+    const { result, rerender } = renderHook(
+      ({ campanha }) => useFontesDaMesa(campanha, { incluirJogadores: true }),
+      { initialProps: { campanha: { ...CAMPANHA, nome: 'A' } } },
+    );
+
+    await waitFor(() => expect(result.current.campanhaId).toBe('c1'));
+    expect(getPersonagens).toHaveBeenCalledTimes(1);
+
+    rerender({ campanha: { ...CAMPANHA, nome: 'A renomeada' } });
+    rerender({ campanha: { ...CAMPANHA, nome: 'A renomeada de novo' } });
+
+    expect(getPersonagens).toHaveBeenCalledTimes(1);
+    expect(getRmCampanhaNpcs).toHaveBeenCalledTimes(1);
+    expect(getRmCampanhaJogadores).toHaveBeenCalledTimes(1);
+  });
+
+  it('relê quando a campanha realmente muda', async () => {
+    const { result, rerender } = renderHook(
+      ({ campanha }) => useFontesDaMesa(campanha),
+      { initialProps: { campanha: CAMPANHA } },
+    );
+
+    await waitFor(() => expect(result.current.campanhaId).toBe('c1'));
+    rerender({ campanha: { ...CAMPANHA, id: 'c2' } });
+
+    await waitFor(() => expect(result.current.campanhaId).toBe('c2'));
+    expect(getRmCampanhaNpcs).toHaveBeenLastCalledWith('c2', 'u1', 'm1', {
+      forcar: false,
+    });
+  });
+
   it('avisa quando a leitura falha', async () => {
     const consoleErro = vi.spyOn(console, 'error').mockImplementation(() => {});
     getPersonagens.mockRejectedValue(new Error('offline'));

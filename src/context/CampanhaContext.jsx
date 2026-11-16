@@ -42,8 +42,10 @@ export const CampanhaProvider = ({ children }) => {
     setLoadingCampanhas(true);
     setErrorCampanhas(null);
     try {
-      const todas = await getRmCampanhas();
-      setCampanhas(todas.filter(c => c.mestreId === currentUser.uid));
+      // A consulta já filtra por `mestreId`; o filtro local fica como cinto
+      // e suspensório (barato, e mantém o comportamento se a consulta mudar).
+      const minhas = await getRmCampanhas(currentUser.uid);
+      setCampanhas(minhas.filter(c => c.mestreId === currentUser.uid));
     } catch (err) {
       setErrorCampanhas(err);
     } finally {

@@ -3,7 +3,11 @@ import { describe, expect, it } from 'vitest';
 import { PING_COORDENADA_MAX } from 'common/utils/grid';
 import {
   DESENHO_PONTOS_MAX,
+  DESENHO_VALIDADE_MS,
+  DESENHOS_POR_USUARIO_MAX,
   ajustarTraco,
+  desenhoVigente,
+  filtrarDesenhosVigentes,
   normalizarDesenho,
   ordenarDesenhos,
   pontosDoDesenho,
@@ -37,9 +41,7 @@ describe('simplificarTraco', () => {
   });
 
   it('é iterativo: aguenta zigue-zague do tamanho máximo bruto', () => {
-    const grande = Array.from({ length: 2000 }, (_, i) =>
-      p(i, i % 2 ? 100 : 0),
-    );
+    const grande = Array.from({ length: 2000 }, (_, i) => p(i, i % 2 ? 100 : 0));
     expect(simplificarTraco(grande, 1).length).toBeGreaterThan(2);
   });
 
@@ -51,10 +53,7 @@ describe('simplificarTraco', () => {
   });
 
   it('pontos repetidos não quebram (segmento de comprimento zero)', () => {
-    expect(simplificarTraco([p(5, 5), p(5, 5), p(5, 5)], 1)).toEqual([
-      p(5, 5),
-      p(5, 5),
-    ]);
+    expect(simplificarTraco([p(5, 5), p(5, 5), p(5, 5)], 1)).toEqual([p(5, 5), p(5, 5)]);
   });
 });
 
@@ -66,9 +65,7 @@ describe('ajustarTraco', () => {
   });
 
   it('respeita o máximo de pontos', () => {
-    const ruido = Array.from({ length: 2000 }, (_, i) =>
-      p(i, (i * 7919) % 300),
-    );
+    const ruido = Array.from({ length: 2000 }, (_, i) => p(i, (i * 7919) % 300));
     const plano = ajustarTraco(ruido, { zoom: 1 });
     expect(plano.length).toBeLessThanOrEqual(DESENHO_PONTOS_MAX * 2);
     expect(plano.length % 2).toBe(0);
@@ -90,9 +87,7 @@ describe('ajustarTraco', () => {
   });
 
   it('zoom maior preserva mais detalhe', () => {
-    const onda = Array.from({ length: 100 }, (_, i) =>
-      p(i, Math.sin(i / 3) * 2),
-    );
+    const onda = Array.from({ length: 100 }, (_, i) => p(i, Math.sin(i / 3) * 2));
     const longe = ajustarTraco(onda, { zoom: 0.2 });
     const perto = ajustarTraco(onda, { zoom: 8 });
     expect(perto.length).toBeGreaterThanOrEqual(longe.length);
@@ -123,20 +118,14 @@ describe('normalizarDesenho', () => {
   it('descarta pontos ímpares, curtos ou não finitos', () => {
     expect(normalizarDesenho({ ...base, pontos: [0, 0, 10] }, 'u1')).toBeNull();
     expect(normalizarDesenho({ ...base, pontos: [0, 0] }, 'u1')).toBeNull();
-    expect(
-      normalizarDesenho({ ...base, pontos: [0, 0, NaN, 1] }, 'u1'),
-    ).toBeNull();
-    expect(
-      normalizarDesenho({ ...base, pontos: [0, 0, '1', 1] }, 'u1'),
-    ).toBeNull();
+    expect(normalizarDesenho({ ...base, pontos: [0, 0, NaN, 1] }, 'u1')).toBeNull();
+    expect(normalizarDesenho({ ...base, pontos: [0, 0, '1', 1] }, 'u1')).toBeNull();
     expect(normalizarDesenho({ ...base, pontos: 'x' }, 'u1')).toBeNull();
     expect(normalizarDesenho(null, 'u1')).toBeNull();
   });
 
   it('cor inválida cai no padrão', () => {
-    expect(normalizarDesenho({ ...base, cor: 'azul' }, 'u1').cor).toBe(
-      '#ffffff',
-    );
+    expect(normalizarDesenho({ ...base, cor: 'azul' }, 'u1').cor).toBe('#ffffff');
   });
 });
 
@@ -153,13 +142,47 @@ describe('ordenarDesenhos', () => {
 
 describe('pontosDoDesenho', () => {
   it('monta o atributo points do polyline', () => {
-    expect(pontosDoDesenho({ pontos: [0, 0, 10, 10, 20, 5] })).toBe(
-      '0,0 10,10 20,5',
-    );
+    expect(pontosDoDesenho({ pontos: [0, 0, 10, 10, 20, 5] })).toBe('0,0 10,10 20,5');
   });
 
   it('ignora sobra ímpar e entrada ausente', () => {
     expect(pontosDoDesenho({ pontos: [1, 2, 3] })).toBe('1,2');
     expect(pontosDoDesenho(null)).toBe('');
+  });
+});
+
+describe('validade dos desenhos', () => {
+  const agora = 10 * DESENHO_VALIDADE_MS;
+
+  it('são temporários (2 h) e o limite por pessoa é 20', () => {
+    expect(DESENHO_VALIDADE_MS).toBe(2 * 60 * 60 * 1000);
+    expect(DESENHOS_POR_USUARIO_MAX).toBe(20);
+  });
+
+  it('vale dentro da janela e expira depois dela', () => {
+    expect(desenhoVigente({ createdAt: agora - 1000 }, agora)).toBe(true);
+    expect(desenhoVigente({ createdAt: agora - DESENHO_VALIDADE_MS + 1 }, agora)).toBe(true);
+    expect(desenhoVigente({ createdAt: agora - DESENHO_VALIDADE_MS }, agora)).toBe(false);
+    expect(desenhoVigente({ createdAt: agora - DESENHO_VALIDADE_MS - 1 }, agora)).toBe(false);
+  });
+
+  it('aceita Timestamp do Firestore e Date', () => {
+    const velho = agora - DESENHO_VALIDADE_MS - 5;
+    expect(desenhoVigente({ createdAt: { toMillis: () => velho } }, agora)).toBe(false);
+    expect(desenhoVigente({ createdAt: new Date(agora - 5) }, agora)).toBe(true);
+  });
+
+  it('createdAt pendente (null) conta como recém-criado', () => {
+    expect(desenhoVigente({ createdAt: null }, agora)).toBe(true);
+    expect(desenhoVigente({}, agora)).toBe(true);
+  });
+
+  it('filtrarDesenhosVigentes tira só os vencidos', () => {
+    const lista = [
+      { id: 'velho', createdAt: agora - DESENHO_VALIDADE_MS - 1 },
+      { id: 'novo', createdAt: agora - 1 },
+      { id: 'pendente', createdAt: null },
+    ];
+    expect(filtrarDesenhosVigentes(lista, agora).map(d => d.id)).toEqual(['novo', 'pendente']);
   });
 });

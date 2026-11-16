@@ -343,6 +343,31 @@ describe('Grid (Re:Master)', () => {
     ]);
   });
 
+  it('não abre a primeira cena enquanto a cena ativa (grid/atual) ainda não chegou', async () => {
+    let entregarAtiva;
+    subscribeGridCenaAtiva.mockImplementation((_id, onChange) => {
+      entregarAtiva = onChange;
+      return vi.fn();
+    });
+    renderGrid();
+
+    // A lista de cenas já chegou, o ponteiro não: nada de listeners de cena.
+    expect(await screen.findByText('Carregando o grid…')).toBeInTheDocument();
+    expect(subscribeGridCenas).toHaveBeenCalled();
+    expect(subscribeGridCena).not.toHaveBeenCalled();
+    expect(subscribeGridTokens).not.toHaveBeenCalled();
+
+    act(() => entregarAtiva('cena-2'));
+    await waitFor(() => expect(subscribeGridCena).toHaveBeenCalled());
+    // Abriu direto a ativa; a cena-1 (primeira da lista) nunca foi ouvida.
+    expect(
+      subscribeGridCena.mock.calls.every(([, cenaId]) => cenaId === 'cena-2'),
+    ).toBe(true);
+    expect(
+      subscribeGridTokens.mock.calls.every(([, cenaId]) => cenaId === 'cena-2'),
+    ).toBe(true);
+  });
+
   it('abre a cena ativa, com os tokens ocultos, e move qualquer token', async () => {
     const user = userEvent.setup();
     renderGrid();
@@ -814,10 +839,13 @@ describe('Grid (Re:Master)', () => {
       await user.click(
         within(painel).getByRole('button', { name: 'Aumentar PV' }),
       );
-      await waitFor(() =>
-        expect(updateGridToken).toHaveBeenCalledWith('c1', 'cena-1', 't2', {
-          pv: { atual: 11, max: 20 },
-        }),
+      // Cliques de −/+ são acumulados: a escrita sai ~0,8 s depois do último.
+      await waitFor(
+        () =>
+          expect(updateGridToken).toHaveBeenCalledWith('c1', 'cena-1', 't2', {
+            pv: { atual: 11, max: 20 },
+          }),
+        { timeout: 3000 },
       );
       // Energia já em 0: não desce mais.
       expect(
@@ -836,6 +864,28 @@ describe('Grid (Re:Master)', () => {
         within(painel).getByRole('button', { name: 'Definir Fadiga' }),
       ).toBeInTheDocument();
       expect(notifySuccess).not.toHaveBeenCalled();
+    });
+
+    it('vários cliques em − viram uma escrita só, com o valor somado', async () => {
+      const user = userEvent.setup();
+      const painel = await abrirOgro(user);
+      const menos = within(painel).getByRole('button', { name: 'Diminuir PV' });
+
+      await user.click(menos);
+      await user.click(menos);
+      await user.click(menos);
+      // O valor novo aparece na hora, antes de qualquer escrita.
+      expect(within(painel).getByLabelText('PV atual')).toHaveValue('7');
+      expect(updateGridToken).not.toHaveBeenCalled();
+
+      await waitFor(
+        () =>
+          expect(updateGridToken).toHaveBeenCalledWith('c1', 'cena-1', 't2', {
+            pv: { atual: 7, max: 20 },
+          }),
+        { timeout: 3000 },
+      );
+      expect(updateGridToken).toHaveBeenCalledTimes(1);
     });
 
     it('condições, visibilidade dos recursos e aura', async () => {

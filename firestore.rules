@@ -1,4 +1,9 @@
 rules_version = '2';
+// Regras do projeto Firebase compartilhado pelo Banco de Dados, pela Ficha de
+// Jogador e pelo Re:Master. A publicação (`firebase deploy --only
+// firestore:rules`) é feita SÓ a partir do Banco-de-Dados---Re-Dungeon. Os
+// outros dois repositórios guardam cópias idênticas deste arquivo: mudou uma,
+// copie para as três antes de publicar.
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -18,7 +23,15 @@ service cloud.firestore {
 
     function canWriteUniverso(universoId) {
       return isAdmin() ||
-             (isAuth() && universoId in perms().universos);
+             (isAuth() && universoId is string && universoId in perms().universos);
+    }
+
+    function canWriteDocUniverso(data) {
+      return isAdmin() ||
+        (isAuth() && (
+          (data.universo is string && data.universo in perms().universos) ||
+          (data.universoId is string && data.universoId in perms().universos)
+        ));
     }
 
     // Aptidões, Regras e Condições podem pertencer a mais de um universo
@@ -75,6 +88,15 @@ service cloud.firestore {
          resource.data.universos.hasAny(perms().universos))
       );
       allow write: if isAdmin();
+    }
+
+    // ── user settings ───────────────────────────────────────────────────────────
+    // Cada usuário só pode ler, criar, atualizar e excluir suas próprias
+    // preferências. O UID do proprietário deve coincidir com o usuário
+    // autenticado; nunca é permitido acessar ou alterar dados privados de outro
+    // jogador por esse caminho.
+    match /users/{userId}/settings/{settingId} {
+      allow read, create, update, delete: if isAuth() && request.auth.uid == userId;
     }
 
     // ── Universo ───────────────────────────────────────────────────────────────
@@ -141,8 +163,9 @@ service cloud.firestore {
     match /condicoes/{condicaoId} {
       allow read: if isAuth();
       allow create: if canWriteUniversos(request.resource.data.universos);
-      allow update: if canWriteMultiUniversoData(resource.data)
-                    && canWriteUniversos(request.resource.data.universos);
+      allow update: if (canWriteMultiUniversoData(resource.data)
+                    && canWriteUniversos(request.resource.data.universos))
+                    || canTogglePartialUniverso(resource.data, request.resource.data);
       allow delete: if canWriteMultiUniversoData(resource.data);
     }
 
@@ -255,10 +278,21 @@ service cloud.firestore {
     // de regras do Firestore não suporta.
     match /personagens/{personagemId} {
       allow read: if isAuth();
-      allow create: if isAuth() && request.resource.data.uid == request.auth.uid;
-      allow update: if isAuth() && resource.data.uid == request.auth.uid
-                    && request.resource.data.uid == request.auth.uid;
-      allow delete: if isAuth() && resource.data.uid == request.auth.uid;
+      allow create: if isAuth() && (
+        request.resource.data.uid == request.auth.uid ||
+        canWriteDocUniverso(request.resource.data)
+      );
+      allow update: if isAuth() && (
+        resource.data.uid == request.auth.uid ||
+        canWriteDocUniverso(resource.data)
+      ) && (
+        request.resource.data.uid == request.auth.uid ||
+        canWriteDocUniverso(request.resource.data)
+      );
+      allow delete: if isAuth() && (
+        resource.data.uid == request.auth.uid ||
+        canWriteDocUniverso(resource.data)
+      );
 
       // Subcoleções (aptidoesAdquiridas, arts, historicoSorte — Fases futuras).
       // Escrita: só o dono do documento pai (uid), como antes.
@@ -526,10 +560,27 @@ service cloud.firestore {
     // Acesso: o mestre da campanha (`mestreId` do doc pai) OU um jogador cujo
     // personagem (dele, `uid`) tem a campanha em `campanhas`. Admin que não é
     // o mestre NÃO entra (conversa de mesa é privada). Como `personagens` não
-    // pode ser consultado por regra, cada jogador grava um ponteiro
-    // `chatMembros/{uid}` = {uid, personagemId}; a leitura revalida esse
-    // personagem a cada request — desmarcar a campanha na ficha corta o acesso
-    // na hora, sem precisar apagar o ponteiro.
+    // pode ser consultado por regra de LISTA, cada jogador grava um ponteiro
+    // `chatMembros/{uid}` = {uid, personagemId}. O personagem é validado na
+    // ESCRITA do ponteiro (regra de chatMembros abaixo); a LEITURA/ESCRITA do
+    // chat e do grid só confere que o ponteiro existe (1 exists()).
+    //
+    // Custo (cada get()/exists()/getAfter() de uma request é cobrado como
+    // leitura, e o ouvinte reavalia a regra quando um doc de que ela depende
+    // muda): antes, todo acesso de jogador lia o personagem dele — o doc mais
+    // escrito do combate — então cada gravação na ficha reavaliava as regras de
+    // todos os ouvintes abertos (~12). Agora a regra depende só do ponteiro
+    // (que quase nunca muda) e de grid/atual.
+    // TROCA CONSCIENTE: desmarcar a campanha na ficha NÃO corta mais o acesso na
+    // hora — o ponteiro precisa ser apagado (o jogador apaga o dele; o mestre
+    // também pode, ver chatMembros abaixo). O ponteiro só nasce com a campanha
+    // marcada na ficha do dono, então não amplia quem consegue entrar.
+    // Ordem dos operandos: nas regras que jogadores usam o ramo do MEMBRO vem
+    // antes do `isMestreDaCampanha` (jogador paga 1 exists em vez de get + exists;
+    // o mestre paga no máximo 1 exists a mais). Onde o mestre domina (combate,
+    // criar/editar tokens/cenas) ou a consulta do jogador filtra por campo
+    // (macros `somenteMestre`, tokens `oculto`, marcadores `secreto`) o
+    // `isMestreDaCampanha` segue primeiro.
     // ═══════════════════════════════════════════════════════════════════════
 
     function isMestreDaCampanha(campanhaId) {
@@ -544,10 +595,10 @@ service cloud.firestore {
         campanhaId in personagem.get('campanhas', []);
     }
 
+    // Só o ponteiro: o personagem já foi conferido quando ele foi gravado.
     function isMembroDoChat(campanhaId) {
-      let membroPath = /databases/$(database)/documents/rmCampanhas/$(campanhaId)/chatMembros/$(request.auth.uid);
-      return isAuth() && exists(membroPath) &&
-        personagemDoUsuarioNaCampanha(campanhaId, get(membroPath).data.personagemId);
+      return isAuth() &&
+        exists(/databases/$(database)/documents/rmCampanhas/$(campanhaId)/chatMembros/$(request.auth.uid));
     }
 
     // Rolagem de dados (common/utils/dados.js): o dado é rolado no cliente e a
@@ -639,7 +690,7 @@ service cloud.firestore {
 
     // Sem update: mensagens não são editáveis (v1). Apagar: autor ou mestre.
     match /rmCampanhas/{campanhaId}/chatMensagens/{mensagemId} {
-      allow read: if isMestreDaCampanha(campanhaId) || isMembroDoChat(campanhaId);
+      allow read: if isMembroDoChat(campanhaId) || isMestreDaCampanha(campanhaId);
       allow create: if isAuth() && chatMensagemValida(campanhaId, request.resource.data, false);
       allow delete: if isAuth() &&
         (resource.data.uid == request.auth.uid || isMestreDaCampanha(campanhaId));
@@ -658,40 +709,101 @@ service cloud.firestore {
     }
 
     // ── supportTickets ───────────────────────────────────────────────────────
-    // Cada usuário só lê e cria os próprios tickets. O status/finalização é
-    // controlado pela equipe administrativa (admin), que também pode responder
-    // o ticket em nome do suporte.
+    // Coleção compartilhada pelo Banco de Dados (painel admin, sourceApp
+    // 'database') e pela Ficha de Jogador (sourceApp 'player-sheet').
+    //
+    // Vocabulário (src/common/utils/supportTickets.js, idêntico nos dois apps):
+    //   category      → 'bug' | 'suggestion' | 'question' | 'system-problem' | 'other'
+    //   adminResponse → null até o suporte responder
+    //   status        → 'open' | 'in-progress' | 'answered' | 'resolved'
+    //                   ('in_progress' ainda é aceito por causa de docs antigos)
+    //
+    // Cada usuário lê e cria os próprios tickets; o admin lê e lista todos e
+    // controla status/resposta. Na Ficha, o dono ainda pode editar o conteúdo
+    // (título, descrição, anexos, categoria) e apagar o próprio ticket. Tickets
+    // antigos, sem `sourceApp`, foram criados pela Ficha.
+
+    function supportTicketCategoriaValida(category) {
+      return category in ['bug', 'suggestion', 'question', 'system-problem', 'other'];
+    }
+
+    function supportTicketConteudoValido(data) {
+      return data.title is string &&
+        data.title.size() > 0 &&
+        data.title.size() <= 120 &&
+        data.description is string &&
+        data.description.size() > 0 &&
+        data.description.size() <= 5000 &&
+        data.attachments is list &&
+        data.attachments.size() <= 10 &&
+        supportTicketCategoriaValida(data.category);
+    }
+
+    function isTicketDaFicha(data) {
+      return data.get('sourceApp', null) in ['player-sheet', null];
+    }
+
+    function isDonoDoTicket(data) {
+      return isAuth() && data.userId == request.auth.uid;
+    }
+
     match /supportTickets/{ticketId} {
-      allow read: if isAuth() && (
-        resource.data.userId == request.auth.uid ||
-        isAdmin()
-      );
-      allow create: if isAuth() &&
-        request.resource.data.userId == request.auth.uid &&
+      allow read: if isAdmin() || isDonoDoTicket(resource.data);
+
+      allow create: if isDonoDoTicket(request.resource.data) &&
         request.resource.data.userEmail is string &&
         request.resource.data.userDisplayName is string &&
-        request.resource.data.sourceApp is string &&
+        request.resource.data.sourceApp in ['database', 'player-sheet', 'gm-shield'] &&
         request.resource.data.sourceAppName is string &&
         request.resource.data.sourceUrl is string &&
-        request.resource.data.category in ['Bug', 'Sugestão', 'Dúvida', 'Problema', 'Outro'] &&
-        request.resource.data.title is string &&
-        request.resource.data.title.size() > 0 &&
-        request.resource.data.title.size() <= 120 &&
-        request.resource.data.description is string &&
-        request.resource.data.description.size() > 0 &&
-        request.resource.data.description.size() <= 5000 &&
-        request.resource.data.attachments is list &&
-        request.resource.data.attachments.size() <= 10 &&
+        supportTicketConteudoValido(request.resource.data) &&
         request.resource.data.status == 'open' &&
-        request.resource.data.adminResponse == '' &&
+        request.resource.data.adminResponse == null &&
         request.resource.data.respondedAt == null &&
         request.resource.data.createdAt == request.time &&
         request.resource.data.updatedAt == request.time;
-      allow update: if isAdmin() &&
-        request.resource.data.userId == resource.data.userId &&
-        request.resource.data.status in ['open', 'in_progress', 'in-progress', 'answered', 'resolved'] &&
-        request.resource.data.updatedAt == request.time;
-      allow delete: if isAdmin();
+
+      // Admin: status/resposta de qualquer ticket (dono e criação imutáveis).
+      // Dono (Ficha): só o conteúdo do próprio ticket, sem tocar em status,
+      // resposta, origem ou datas de criação.
+      allow update: if request.resource.data.userId == resource.data.userId &&
+        request.resource.data.createdAt == resource.data.createdAt &&
+        request.resource.data.updatedAt == request.time &&
+        (
+          (isAdmin() &&
+           request.resource.data.status in ['open', 'in-progress', 'in_progress', 'answered', 'resolved']) ||
+          (isDonoDoTicket(resource.data) &&
+           isTicketDaFicha(resource.data) &&
+           request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['title', 'description', 'attachments', 'category', 'updatedAt']) &&
+           supportTicketConteudoValido(request.resource.data))
+        );
+
+      allow delete: if isAdmin() ||
+        (isDonoDoTicket(resource.data) && isTicketDaFicha(resource.data));
+    }
+
+    // Conversa do ticket: o dono do ticket e o admin leem e escrevem; só o
+    // admin edita ou apaga mensagens.
+    function supportTicketMensagemValida(data) {
+      return data.keys().hasOnly(['userId', 'userEmail', 'userDisplayName', 'message', 'createdAt']) &&
+        data.userId is string && data.userId.size() > 0 &&
+        data.userEmail is string && data.userEmail.size() > 0 &&
+        data.userDisplayName is string && data.userDisplayName.size() > 0 &&
+        data.message is string && data.message.size() > 0 && data.message.size() <= 5000 &&
+        data.createdAt == request.time;
+    }
+
+    function ticketDaMensagem(ticketId) {
+      return get(/databases/$(database)/documents/supportTickets/$(ticketId)).data;
+    }
+
+    match /supportTickets/{ticketId}/messages/{messageId} {
+      allow read: if isAdmin() || isDonoDoTicket(ticketDaMensagem(ticketId));
+      allow create: if supportTicketMensagemValida(request.resource.data) &&
+        request.resource.data.userId == request.auth.uid &&
+        (isAdmin() || isDonoDoTicket(ticketDaMensagem(ticketId)));
+      allow update, delete: if isAdmin();
     }
 
     // Sussurros (/w): mensagem privada entre o mestre e UM jogador, na pasta
@@ -748,6 +860,10 @@ service cloud.firestore {
     }
 
     match /rmCampanhas/{campanhaId}/macros/{macroId} {
+      // Consulta com filtro em resource.data (somenteMestre/oculto/secreto): o mestre
+      // (consulta sem o filtro) tem de vir primeiro — o ramo do membro não é
+      // demonstrável para a consulta dele, e erro à esquerda de um || não é
+      // algo em que dê para confiar. Aqui o jogador paga +1 leitura por ouvinte.
       allow read: if isMestreDaCampanha(campanhaId) ||
         (isMembroDoChat(campanhaId) && resource.data.somenteMestre == false);
       allow create, update: if isMestreDaCampanha(campanhaId) &&
@@ -783,7 +899,11 @@ service cloud.firestore {
       return exists(ponteiro) && get(ponteiro).data.get('cenaAtivaId', null) == cenaId;
     }
 
-    // Jogador da mesa olhando a cena ativa.
+    // Jogador da mesa olhando a cena ativa: 2 docs lidos no total (o ponteiro
+    // chatMembros/{uid} e grid/atual) — nada de `personagens` nem da campanha.
+    // Em `veCenaDoGrid || isMestreDaCampanha` (jogador primeiro) o jogador paga
+    // essas 2 leituras; o mestre paga 2 também (o ponteiro, que não existe para
+    // ele, e a campanha) — antes pagava 1.
     function veCenaDoGrid(campanhaId, cenaId) {
       return isMembroDoChat(campanhaId) && gridCenaAtiva(campanhaId, cenaId);
     }
@@ -885,43 +1005,66 @@ service cloud.firestore {
 
     // Ponteiro da cena ativa (null = nenhuma cena visível aos jogadores) +
     // `avisarAcoesChat` (opção do mestre: ações da Central de Ações dos
-    // jogadores vão para o chat).
+    // jogadores vão para o chat). `travamento` ('livre' | 'turno' | 'congelado')
+    // é uma CÓPIA do `travamento` da cena ativa: o Re:Master a grava ao ativar
+    // a cena e ao mudar o travamento da cena ativa. A regra de movimento de
+    // token lê só este doc (que já precisa ler para saber a cena ativa) em vez
+    // de ler também a cena; sem o campo (dado antigo) ela cai no doc da cena.
     match /rmCampanhas/{campanhaId}/grid/{gridId} {
-      allow read: if isMestreDaCampanha(campanhaId) || isMembroDoChat(campanhaId);
+      allow read: if isMembroDoChat(campanhaId) || isMestreDaCampanha(campanhaId);
       allow create, update: if gridId == 'atual' && isMestreDaCampanha(campanhaId) &&
-        request.resource.data.keys().hasOnly(['cenaAtivaId', 'avisarAcoesChat', 'updatedAt']) &&
+        request.resource.data.keys().hasOnly(['cenaAtivaId', 'avisarAcoesChat', 'travamento',
+                                              'updatedAt']) &&
         (request.resource.data.get('cenaAtivaId', null) == null ||
          (request.resource.data.cenaAtivaId is string &&
           request.resource.data.cenaAtivaId.size() <= 200)) &&
-        request.resource.data.get('avisarAcoesChat', false) is bool;
+        request.resource.data.get('avisarAcoesChat', false) is bool &&
+        request.resource.data.get('travamento', 'livre') in ['livre', 'turno', 'congelado'];
       allow delete: if isMestreDaCampanha(campanhaId);
     }
 
     match /rmCampanhas/{campanhaId}/gridCenas/{cenaId} {
-      allow read: if isMestreDaCampanha(campanhaId) || veCenaDoGrid(campanhaId, cenaId);
+      allow read: if veCenaDoGrid(campanhaId, cenaId) || isMestreDaCampanha(campanhaId);
       allow create, update: if isMestreDaCampanha(campanhaId) &&
         gridCenaValida(request.resource.data);
       allow delete: if isMestreDaCampanha(campanhaId);
     }
 
-    // Travar movimento (cena `travamento`): 'congelado' = só o mestre; 'turno' =
-    // em combate, só o token da vez (fora de combate, livre).
+    // O `travamento` vigente é o de grid/atual (cópia da cena ativa, ver o
+    // comentário do doc `grid/atual`). Só se o campo não existir lá (dado
+    // anterior à cópia) lê-se a cena. `get(ponteiro)` aqui é o MESMO doc que
+    // `veCenaDoGrid` já leu na request — o Firestore cobra uma vez por doc.
+    // Os `||`/`&&` curto-circuitam: com o campo no ponteiro a cena nunca é lida.
+    function gridModoDeMovimento(campanhaId, cenaId, modo) {
+      let noPonteiro = get(/databases/$(database)/documents/rmCampanhas/$(campanhaId)/grid/atual)
+        .data.get('travamento', null);
+      return noPonteiro == modo ||
+        (noPonteiro == null &&
+         get(/databases/$(database)/documents/rmCampanhas/$(campanhaId)/gridCenas/$(cenaId))
+           .data.get('travamento', 'livre') == modo);
+    }
+
+    // Travar movimento (`travamento`): 'congelado' = só o mestre; 'turno' = em
+    // combate, só o token da vez (fora de combate, livre).
     function gridMovimentoLiberado(campanhaId, cenaId, tokenId) {
-      let base = /databases/$(database)/documents/rmCampanhas/$(campanhaId)/gridCenas/$(cenaId);
       let combate = /databases/$(database)/documents/rmCampanhas/$(campanhaId)/gridCenas/$(cenaId)/combate/atual;
-      let modo = get(base).data.get('travamento', 'livre');
-      return modo == 'livre' ||
-        (modo == 'turno' && (!exists(combate) ||
+      return gridModoDeMovimento(campanhaId, cenaId, 'livre') ||
+        (gridModoDeMovimento(campanhaId, cenaId, 'turno') && (!exists(combate) ||
           get(combate).data.ordem[get(combate).data.indice].tokenId == tokenId));
     }
 
+    // Mover o PRÓPRIO token (jogador) é a escrita mais frequente da mesa: o ramo
+    // do jogador vem primeiro e as conferências sem leitura (donos, campos
+    // alterados, posição…) antes de qualquer get(). Leituras do movimento com
+    // `livre`: chatMembros + grid/atual = 2 (eram 5: campanha, chatMembros,
+    // personagem, grid/atual e a cena). Com `turno`, +1 (o combate). O mestre
+    // falha o ramo do jogador de graça (não está em `donos`) e paga 1 (campanha).
     match /rmCampanhas/{campanhaId}/gridCenas/{cenaId}/tokens/{tokenId} {
+      // Mestre primeiro: a consulta dele não filtra `oculto` (ver nota em macros).
       allow read: if isMestreDaCampanha(campanhaId) ||
         (resource.data.oculto == false && veCenaDoGrid(campanhaId, cenaId));
       allow create: if isMestreDaCampanha(campanhaId) && gridTokenValido(request.resource.data);
-      allow update: if (isMestreDaCampanha(campanhaId) && gridTokenValido(request.resource.data) &&
-                        gridMovidoEmValido(resource.data, request.resource.data)) ||
-        (isAuth() && request.auth.uid in resource.data.donos &&
+      allow update: if (isAuth() && request.auth.uid in resource.data.donos &&
          resource.data.oculto == false &&
          request.resource.data.diff(resource.data).affectedKeys()
            .hasOnly(['col', 'lin', 'updatedAt', 'rastro', 'movidoEm']) &&
@@ -930,7 +1073,9 @@ service cloud.firestore {
          gridRastroValido(request.resource.data) &&
          gridMovidoEmValido(resource.data, request.resource.data) &&
          veCenaDoGrid(campanhaId, cenaId) &&
-         gridMovimentoLiberado(campanhaId, cenaId, tokenId));
+         gridMovimentoLiberado(campanhaId, cenaId, tokenId)) ||
+        (isMestreDaCampanha(campanhaId) && gridTokenValido(request.resource.data) &&
+         gridMovidoEmValido(resource.data, request.resource.data));
       allow delete: if isMestreDaCampanha(campanhaId);
     }
 
@@ -947,11 +1092,14 @@ service cloud.firestore {
         data.criadoEm == request.time;
     }
 
+    // Efêmero e frequente: validação sem leitura primeiro (o `isMestre` interno
+    // do `puxar` só roda se `puxar == true`), depois jogador (2 leituras) antes
+    // do mestre.
     match /rmCampanhas/{campanhaId}/gridCenas/{cenaId}/pings/{pingUid} {
-      allow read: if isMestreDaCampanha(campanhaId) || veCenaDoGrid(campanhaId, cenaId);
+      allow read: if veCenaDoGrid(campanhaId, cenaId) || isMestreDaCampanha(campanhaId);
       allow create, update: if isAuth() && pingUid == request.auth.uid &&
-        (isMestreDaCampanha(campanhaId) || veCenaDoGrid(campanhaId, cenaId)) &&
-        gridPingValido(campanhaId, request.resource.data);
+        gridPingValido(campanhaId, request.resource.data) &&
+        (veCenaDoGrid(campanhaId, cenaId) || isMestreDaCampanha(campanhaId));
       allow delete: if isAuth() &&
         (pingUid == request.auth.uid || isMestreDaCampanha(campanhaId));
     }
@@ -987,7 +1135,7 @@ service cloud.firestore {
     }
 
     match /rmCampanhas/{campanhaId}/gridCenas/{cenaId}/combate/{combateId} {
-      allow read: if isMestreDaCampanha(campanhaId) || veCenaDoGrid(campanhaId, cenaId);
+      allow read: if veCenaDoGrid(campanhaId, cenaId) || isMestreDaCampanha(campanhaId);
       allow create: if combateId == 'atual' && isMestreDaCampanha(campanhaId) &&
         gridCombateDaCenaValido(request.resource.data);
       allow update: if combateId == 'atual' && gridCombateDaCenaValido(request.resource.data) &&
@@ -1018,20 +1166,23 @@ service cloud.firestore {
         (!('nome' in data) || (data.nome is string && data.nome.size() <= 100));
     }
 
+    // Efêmero e frequente: validações sem leitura primeiro, depois o ramo do
+    // jogador (2 leituras) antes do mestre. O update continua sendo
+    // (autor OU mestre) E (mestre OU vê a cena) = mestre OU (autor E vê a cena).
     match /rmCampanhas/{campanhaId}/gridCenas/{cenaId}/templates/{areaId} {
-      allow read: if isMestreDaCampanha(campanhaId) || veCenaDoGrid(campanhaId, cenaId);
+      allow read: if veCenaDoGrid(campanhaId, cenaId) || isMestreDaCampanha(campanhaId);
       allow create: if isAuth() && request.resource.data.uid == request.auth.uid &&
-        (isMestreDaCampanha(campanhaId) || veCenaDoGrid(campanhaId, cenaId)) &&
         gridAreaValida(request.resource.data) &&
         request.resource.data.createdAt == request.time &&
-        request.resource.data.updatedAt == request.time;
+        request.resource.data.updatedAt == request.time &&
+        (veCenaDoGrid(campanhaId, cenaId) || isMestreDaCampanha(campanhaId));
       allow update: if isAuth() &&
-        (resource.data.uid == request.auth.uid || isMestreDaCampanha(campanhaId)) &&
-        (isMestreDaCampanha(campanhaId) || veCenaDoGrid(campanhaId, cenaId)) &&
         gridAreaValida(request.resource.data) &&
         request.resource.data.diff(resource.data).affectedKeys()
           .hasOnly(['origem', 'alvo', 'updatedAt']) &&
-        request.resource.data.updatedAt == request.time;
+        request.resource.data.updatedAt == request.time &&
+        ((resource.data.uid == request.auth.uid && veCenaDoGrid(campanhaId, cenaId)) ||
+         isMestreDaCampanha(campanhaId));
       allow delete: if isAuth() &&
         (resource.data.uid == request.auth.uid || isMestreDaCampanha(campanhaId));
     }
@@ -1051,7 +1202,7 @@ service cloud.firestore {
     }
 
     match /rmCampanhas/{campanhaId}/gridCenas/{cenaId}/camadas/{camadaId} {
-      allow read: if isMestreDaCampanha(campanhaId) || veCenaDoGrid(campanhaId, cenaId);
+      allow read: if veCenaDoGrid(campanhaId, cenaId) || isMestreDaCampanha(campanhaId);
       allow create, update: if isMestreDaCampanha(campanhaId) &&
         gridCamadaValida(camadaId, request.resource.data);
       allow delete: if isMestreDaCampanha(campanhaId);
@@ -1074,6 +1225,7 @@ service cloud.firestore {
     }
 
     match /rmCampanhas/{campanhaId}/gridCenas/{cenaId}/marcadores/{marcadorId} {
+      // Mestre primeiro: a consulta dele não filtra `secreto` (ver nota em macros).
       allow read: if isMestreDaCampanha(campanhaId) ||
         (resource.data.secreto == false && veCenaDoGrid(campanhaId, cenaId));
       allow create, update: if isMestreDaCampanha(campanhaId) &&
@@ -1084,24 +1236,34 @@ service cloud.firestore {
     // Desenhos (common/utils/gridDesenho.js): um doc por traço, `pontos` plano
     // [x0,y0,x1,y1,...] em px do mundo. Cada um cria os seus; só o autor (ou o
     // mestre) apaga; não há update. O limite por pessoa é do cliente.
+    // Os traços são TEMPORÁRIOS (~2 h): a leitura só busca `createdAt` recente e
+    // `expiraEm` (opcional, Timestamp) é o campo de uma política de TTL do
+    // Firestore no grupo de coleções `desenhos`, que apaga o doc de verdade.
+    // Opcional para o app antigo (sem o campo) continuar gravando; limitado a 6 h
+    // à frente para não virar traço "eterno" (o relógio do cliente pode errar).
     function gridDesenhoValido(data) {
-      return data.keys().hasOnly(['uid', 'cor', 'pontos', 'createdAt']) &&
+      return data.keys().hasOnly(['uid', 'cor', 'pontos', 'createdAt', 'expiraEm']) &&
         data.keys().hasAll(['uid', 'cor', 'pontos', 'createdAt']) &&
         data.uid == request.auth.uid &&
         data.cor is string && data.cor.matches('#[0-9a-fA-F]{6}') &&
         data.pontos is list && data.pontos.size() >= 4 && data.pontos.size() <= 400 &&
         data.pontos.size() % 2 == 0 &&
-        data.createdAt == request.time;
+        data.createdAt == request.time &&
+        (!('expiraEm' in data) ||
+         (data.expiraEm is timestamp &&
+          data.expiraEm <= request.time + duration.value(6, 'h')));
     }
 
+    // Efêmero e frequente: validação (sem leitura) antes das leituras, jogador
+    // (2 leituras) antes do mestre.
     match /rmCampanhas/{campanhaId}/gridCenas/{cenaId}/desenhos/{desenhoId} {
-      allow read: if isMestreDaCampanha(campanhaId) || veCenaDoGrid(campanhaId, cenaId);
+      allow read: if veCenaDoGrid(campanhaId, cenaId) || isMestreDaCampanha(campanhaId);
       allow create: if isAuth() &&
-        (isMestreDaCampanha(campanhaId) || veCenaDoGrid(campanhaId, cenaId)) &&
-        gridDesenhoValido(request.resource.data);
+        gridDesenhoValido(request.resource.data) &&
+        (veCenaDoGrid(campanhaId, cenaId) || isMestreDaCampanha(campanhaId));
       allow delete: if isAuth() &&
-        (isMestreDaCampanha(campanhaId) ||
-         (resource.data.uid == request.auth.uid && veCenaDoGrid(campanhaId, cenaId)));
+        ((resource.data.uid == request.auth.uid && veCenaDoGrid(campanhaId, cenaId)) ||
+         isMestreDaCampanha(campanhaId));
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -1124,7 +1286,7 @@ service cloud.firestore {
     }
 
     match /rmCampanhas/{campanhaId}/audio/{audioId} {
-      allow read: if isMestreDaCampanha(campanhaId) || isMembroDoChat(campanhaId);
+      allow read: if isMembroDoChat(campanhaId) || isMestreDaCampanha(campanhaId);
       allow create, update: if audioId == 'atual' && isMestreDaCampanha(campanhaId) &&
         audioMesaValido(request.resource.data);
       allow delete: if isMestreDaCampanha(campanhaId);

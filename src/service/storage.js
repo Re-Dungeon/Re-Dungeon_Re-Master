@@ -9,6 +9,7 @@ import {
   updateDoc,
   setDoc,
   serverTimestamp,
+  Timestamp,
   query,
   where,
   orderBy,
@@ -23,9 +24,13 @@ import {
 } from '../pages/CardFlux/exploracaoGrid';
 import { normalizeEntityTypeName } from '../pages/Notas/notaUtils';
 import { extrairVideoYoutube } from 'common/utils/audioMesa';
+import { DESENHO_VALIDADE_MS } from 'common/utils/gridDesenho';
+import { normalizarTravamento } from 'common/utils/grid';
 import {
   CHAT_JANELA_MENSAGENS,
+  CHAT_LIMITE_SECRETAS_MEMBRO,
   CHAT_PAGINA_ANTERIORES,
+  membroChatAtivo,
 } from 'common/utils/chat';
 import { db } from './firebase';
 
@@ -151,13 +156,17 @@ export const getUniversos = () => getFirestoreItems(UNIVERSO_COLLECTION);
 // baixar documentos irrelevantes para a tela.
 const PERSONAGENS_COLLECTION = 'personagens';
 
-// Cache curto em memória das listas de personagens (chave `tipos|universo`,
-// validade de 3 min): NPCs, Criaturas, Jogadores e a mesa (Chat/Grid) leem as
+// Cache em memória das listas de personagens do universo e dos clones da
+// campanha (chave `tipos|universo` / `clones:…`, validade de 1 h — na
+// prática a sessão): NPCs, Criaturas, Jogadores e a mesa (Chat/Grid) leem as
 // mesmas listas ao navegar entre telas. Guarda a promise (aberturas
 // simultâneas dividem a leitura), descarta a entrada se falhar e devolve uma
-// cópia. As escritas de clones (NPC/Criatura/Jogador da campanha) e o
-// "Recarregar fontes" da mesa limpam o cache (`limparCachePersonagens`).
-const PERSONAGENS_CACHE_TTL_MS = 3 * 60 * 1000;
+// cópia. O Re:Master não escreve em `personagens` (é do Re-Dungeon): as únicas
+// escritas são os clones (NPC/Criatura/Jogador da campanha), e todas limpam o
+// cache ao terminar (`invalidandoPersonagens`), assim como a exclusão da
+// campanha e o "Recarregar fontes" da mesa (`forcar`). Edições feitas por
+// outros no Re-Dungeon só aparecem após o TTL ou "Recarregar fontes".
+const PERSONAGENS_CACHE_TTL_MS = 60 * 60 * 1000;
 const personagensCache = new Map();
 
 export const limparCachePersonagens = () => personagensCache.clear();
@@ -192,19 +201,14 @@ const buscarPersonagensPorTipo = async (tipos, universoId) => {
   }
 };
 
-const getPersonagensPorTipo = async (
-  tipos,
-  universoId,
-  { forcar = false } = {},
-) => {
-  const chave = `${tipos.join(',')}|${universoId ?? ''}`;
+const comCachePersonagens = async (chave, carregar, { forcar = false } = {}) => {
   const agora = Date.now();
   if (forcar) personagensCache.delete(chave);
   const emCache = personagensCache.get(chave);
   if (emCache && emCache.expiraEm > agora) {
     return (await emCache.promise).map(personagem => ({ ...personagem }));
   }
-  const promise = buscarPersonagensPorTipo(tipos, universoId);
+  const promise = carregar();
   const entrada = { promise, expiraEm: agora + PERSONAGENS_CACHE_TTL_MS };
   personagensCache.set(chave, entrada);
   try {
@@ -214,6 +218,27 @@ const getPersonagensPorTipo = async (
     throw error;
   }
 };
+
+const getPersonagensPorTipo = (tipos, universoId, opcoes) =>
+  comCachePersonagens(
+    `${tipos.join(',')}|${universoId ?? ''}`,
+    () => buscarPersonagensPorTipo(tipos, universoId),
+    opcoes,
+  );
+
+// Clones da campanha (subcoleções npcs/jogadores/criaturas): só este app os
+// escreve, e toda escrita passa por `invalidandoPersonagens`, então ficam no
+// mesmo cache (chave com prefixo `clones:`).
+const getClonesDaCampanha = (caminho, campanhaId, universoId, mestreId, opcoes) =>
+  comCachePersonagens(
+    `clones:${caminho(campanhaId).join('/')}|${universoId}|${mestreId}`,
+    () =>
+      getFirestoreItemsWhereAll(caminho(campanhaId), [
+        ['universoId', universoId],
+        ['mestreId', mestreId],
+      ]),
+    opcoes,
+  );
 
 // Sem `universoId` lê todos os universos (legado/testes); as telas passam o
 // `universoId` da campanha ativa para não baixar personagens de outros mundos.
@@ -252,16 +277,59 @@ export const getPersonagemSubcolecao = (personagemId, subcolecao) =>
 // (allow read: if isAuth()). A ficha de personagem guarda só o id dessas
 // entidades (aptidão adquirida, raça, classe, nó de veia astral); usado para
 // resolver o nome a partir do id em vez de mostrar o id cru na tela de NPCs.
-const getReferenciaPorId = async (collectionName, id) => {
-  try {
-    const snap = await getDoc(doc(db, collectionName, id));
-    return snap.exists() ? { id: snap.id, ...snap.data() } : null;
-  } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error(`Erro ao buscar "${collectionName}/${id}":`, error);
-    throw error;
-  }
+//
+// Cache em memória (chave "coleção|id" ou "coleção|universo", validade de
+// 10 min): o catálogo muda raramente (só o admin do Re-Dungeon o edita — o
+// Re:Master NUNCA escreve nessas coleções, então não há o que invalidar em
+// escrita aqui) e cada abertura da ficha relê dezenas de docs. Guarda a
+// promise (aberturas simultâneas dividem a leitura), descarta a entrada se a
+// leitura falhar e devolve uma cópia. Só catálogos de referência passam por
+// aqui — personagens, rm* e subcoleções nunca.
+const CATALOGO_TTL_MS = 10 * 60 * 1000;
+const cacheCatalogos = new Map();
+
+export const limparCacheCatalogos = () => cacheCatalogos.clear();
+
+const copiarCatalogo = valor => {
+  if (Array.isArray(valor)) return [...valor];
+  return valor && typeof valor === 'object' ? { ...valor } : valor;
 };
+
+const comCacheCatalogo = async (chave, carregar) => {
+  const agora = Date.now();
+  let entrada = cacheCatalogos.get(chave);
+  if (!entrada || entrada.expiraEm <= agora) {
+    const promessa = carregar();
+    entrada = { promessa, expiraEm: agora + CATALOGO_TTL_MS };
+    cacheCatalogos.set(chave, entrada);
+    const atual = entrada;
+    // Falha ou doc inexistente (null) não ficam guardados: um catálogo
+    // cadastrado depois não pode ficar "invisível" por 10 min.
+    promessa.then(
+      resultado => {
+        if (resultado == null && cacheCatalogos.get(chave) === atual) {
+          cacheCatalogos.delete(chave);
+        }
+      },
+      () => {
+        if (cacheCatalogos.get(chave) === atual) cacheCatalogos.delete(chave);
+      },
+    );
+  }
+  return copiarCatalogo(await entrada.promessa);
+};
+
+const getReferenciaPorId = (collectionName, id) =>
+  comCacheCatalogo(`${collectionName}|${id}`, async () => {
+    try {
+      const snap = await getDoc(doc(db, collectionName, id));
+      return snap.exists() ? { id: snap.id, ...snap.data() } : null;
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error(`Erro ao buscar "${collectionName}/${id}":`, error);
+      throw error;
+    }
+  });
 
 export const getAptidao = id => getReferenciaPorId('aptidoes', id);
 export const getRaca = id => getReferenciaPorId('racas', id);
@@ -280,7 +348,12 @@ export const getReinoCultivo = id => getReferenciaPorId('reinosCultivo', id);
 // documenta essa mesma dualidade do lado da escrita).
 const CONDICOES_COLLECTION = 'condicoes';
 
-export const getCondicoes = async universoId => {
+export const getCondicoes = universoId =>
+  comCacheCatalogo(`${CONDICOES_COLLECTION}|${universoId}`, () =>
+    carregarCondicoes(universoId),
+  );
+
+const carregarCondicoes = async universoId => {
   try {
     const [porLista, porCampoSingular] = await Promise.all([
       getDocs(
@@ -327,12 +400,15 @@ export const getUserPermissions = async uid => {
 // NPC/Criatura/Jogador na modal de visualização. `null` quando o doc não
 // existe ou não tem `nome` cadastrado; quem chama trata o fallback (exibir o
 // uid cru).
-export const getUsuarioNome = async uid => {
-  const snap = await getDoc(doc(db, USER_PERMISSIONS_COLLECTION, uid));
-  if (!snap.exists()) return null;
-  const nome = snap.data().Nome;
-  return typeof nome === 'string' && nome.trim() ? nome.trim() : null;
-};
+// Em cache (10 min, como os catálogos): o nome do criador da ficha é relido a
+// cada abertura da ficha; o Re:Master não escreve em `userPermissions`.
+export const getUsuarioNome = uid =>
+  comCacheCatalogo(`${USER_PERMISSIONS_COLLECTION}|nome|${uid}`, async () => {
+    const snap = await getDoc(doc(db, USER_PERMISSIONS_COLLECTION, uid));
+    if (!snap.exists()) return null;
+    const nome = snap.data().Nome;
+    return typeof nome === 'string' && nome.trim() ? nome.trim() : null;
+  });
 
 // ── cardflux (Firestore) — gerida por um projeto irmão (banco de cartas de
 // evento do CardFlux), leitura liberada para qualquer autenticado. O
@@ -367,7 +443,14 @@ export const getCardfluxCartas = async universoId => {
 // ── rmCampanhas (Firestore) ──────────────────────────────────────────────────
 const RM_CAMPANHAS_COLLECTION = 'rmCampanhas';
 
-export const getRmCampanhas = () => getFirestoreItems(RM_CAMPANHAS_COLLECTION);
+// Só as campanhas do mestre (`mestreId == uid`): antes lia a coleção inteira
+// (de todos os mestres) e filtrava no cliente. A regra de leitura é `isAuth()`,
+// então a consulta com `where` passa; igualdade em um campo só não pede índice
+// composto. Sem `mestreId` não há o que consultar.
+export const getRmCampanhas = mestreId =>
+  mestreId
+    ? getFirestoreItemsWhereAll(RM_CAMPANHAS_COLLECTION, [['mestreId', mestreId]])
+    : Promise.resolve([]);
 export const addRmCampanha = campanha =>
   addFirestoreItem(RM_CAMPANHAS_COLLECTION, campanha);
 export const removeRmCampanha = id =>
@@ -414,11 +497,14 @@ const npcsSubcollectionPath = campanhaId => [
   'npcs',
 ];
 
-export const getRmCampanhaNpcs = (campanhaId, universoId, mestreId) =>
-  getFirestoreItemsWhereAll(npcsSubcollectionPath(campanhaId), [
-    ['universoId', universoId],
-    ['mestreId', mestreId],
-  ]);
+export const getRmCampanhaNpcs = (campanhaId, universoId, mestreId, opcoes) =>
+  getClonesDaCampanha(
+    npcsSubcollectionPath,
+    campanhaId,
+    universoId,
+    mestreId,
+    opcoes,
+  );
 export const addRmCampanhaNpc = (campanhaId, npc) =>
   invalidandoPersonagens(() =>
     addFirestoreItem(npcsSubcollectionPath(campanhaId), npc),
@@ -442,11 +528,19 @@ const jogadoresSubcollectionPath = campanhaId => [
   'jogadores',
 ];
 
-export const getRmCampanhaJogadores = (campanhaId, universoId, mestreId) =>
-  getFirestoreItemsWhereAll(jogadoresSubcollectionPath(campanhaId), [
-    ['universoId', universoId],
-    ['mestreId', mestreId],
-  ]);
+export const getRmCampanhaJogadores = (
+  campanhaId,
+  universoId,
+  mestreId,
+  opcoes,
+) =>
+  getClonesDaCampanha(
+    jogadoresSubcollectionPath,
+    campanhaId,
+    universoId,
+    mestreId,
+    opcoes,
+  );
 export const addRmCampanhaJogador = (campanhaId, jogador) =>
   invalidandoPersonagens(() =>
     addFirestoreItem(jogadoresSubcollectionPath(campanhaId), jogador),
@@ -470,11 +564,19 @@ const criaturasSubcollectionPath = campanhaId => [
   'criaturas',
 ];
 
-export const getRmCampanhaCriaturas = (campanhaId, universoId, mestreId) =>
-  getFirestoreItemsWhereAll(criaturasSubcollectionPath(campanhaId), [
-    ['universoId', universoId],
-    ['mestreId', mestreId],
-  ]);
+export const getRmCampanhaCriaturas = (
+  campanhaId,
+  universoId,
+  mestreId,
+  opcoes,
+) =>
+  getClonesDaCampanha(
+    criaturasSubcollectionPath,
+    campanhaId,
+    universoId,
+    mestreId,
+    opcoes,
+  );
 export const addRmCampanhaCriatura = (campanhaId, criatura) =>
   invalidandoPersonagens(() =>
     addFirestoreItem(criaturasSubcollectionPath(campanhaId), criatura),
@@ -1044,12 +1146,13 @@ export const subscribeChatSecretasDoUsuario = (
   donoUid,
   onChange,
   onError,
+  limite = CHAT_LIMITE_SECRETAS,
 ) =>
   onSnapshot(
     query(
       rolagensSecretasRef(campanhaId, donoUid),
       orderBy('createdAt', 'desc'),
-      limit(CHAT_LIMITE_SECRETAS),
+      limit(limite),
     ),
     snapshot =>
       onChange(
@@ -1063,8 +1166,10 @@ export const subscribeChatSecretasDoUsuario = (
     onError,
   );
 
-// Mestre: ouve as próprias secretas e as de cada jogador em `chatMembros`
-// (acompanha membros novos em tempo real). Devolve um único `unsubscribe`.
+// Mestre: ouve as próprias secretas e as dos jogadores de `chatMembros` com
+// atividade recente (`membroChatAtivo`; um listener por pasta, limite menor que
+// o da própria). Membro novo ou que voltou a usar o chat entra em tempo real;
+// quem sai da janela segue ouvido até o cleanup. Devolve um único `unsubscribe`.
 export const subscribeChatSecretasDoMestre = (
   campanhaId,
   mestreUid,
@@ -1074,7 +1179,7 @@ export const subscribeChatSecretasDoMestre = (
   const porDono = new Map();
   const emitir = () =>
     onChange([...porDono.values()].flatMap(entrada => entrada.mensagens));
-  const ouvir = donoUid => {
+  const ouvir = (donoUid, limite = CHAT_LIMITE_SECRETAS) => {
     if (porDono.has(donoUid)) return;
     const entrada = { mensagens: [], unsubscribe: () => {} };
     porDono.set(donoUid, entrada);
@@ -1086,13 +1191,19 @@ export const subscribeChatSecretasDoMestre = (
         emitir();
       },
       onError,
+      limite,
     );
   };
 
   ouvir(mestreUid);
   const pararMembros = onSnapshot(
     collection(db, RM_CAMPANHAS_COLLECTION, campanhaId, 'chatMembros'),
-    snapshot => snapshot.docs.forEach(docSnapshot => ouvir(docSnapshot.id)),
+    snapshot =>
+      snapshot.docs.forEach(docSnapshot => {
+        // Só quem usou o chat há pouco (CHAT_MEMBRO_ATIVO_DIAS) ganha listener.
+        if (membroChatAtivo(docSnapshot.data({ serverTimestamps: 'estimate' })))
+          ouvir(docSnapshot.id, CHAT_LIMITE_SECRETAS_MEMBRO);
+      }),
     onError,
   );
 
@@ -1134,12 +1245,18 @@ const sussurrosRef = (campanhaId, jogadorUid) =>
 
 // As mensagens chegam com `donoUid` (a pasta — necessário para apagar). Ordem:
 // mais recente primeiro (quem consome mescla com `mesclarMensagens`).
-export const subscribeChatSussurros = (campanhaId, jogadorUid, onChange, onError) =>
+export const subscribeChatSussurros = (
+  campanhaId,
+  jogadorUid,
+  onChange,
+  onError,
+  limite = CHAT_LIMITE_SUSSURROS,
+) =>
   onSnapshot(
     query(
       sussurrosRef(campanhaId, jogadorUid),
       orderBy('createdAt', 'desc'),
-      limit(CHAT_LIMITE_SUSSURROS),
+      limit(limite),
     ),
     snapshot =>
       onChange(
@@ -1152,13 +1269,14 @@ export const subscribeChatSussurros = (campanhaId, jogadorUid, onChange, onError
     onError,
   );
 
-// Mestre: ouve a pasta de cada jogador em `chatMembros` (acompanha membros
-// novos em tempo real). Devolve um único `unsubscribe`.
+// Mestre: ouve a pasta dos jogadores de `chatMembros` com atividade recente
+// (`membroChatAtivo`), no mesmo esquema das secretas. Devolve um único
+// `unsubscribe`.
 export const subscribeChatSussurrosDoMestre = (campanhaId, onChange, onError) => {
   const porJogador = new Map();
   const emitir = () =>
     onChange([...porJogador.values()].flatMap(entrada => entrada.mensagens));
-  const ouvir = jogadorUid => {
+  const ouvir = (jogadorUid, limite = CHAT_LIMITE_SUSSURROS) => {
     if (porJogador.has(jogadorUid)) return;
     const entrada = { mensagens: [], unsubscribe: () => {} };
     porJogador.set(jogadorUid, entrada);
@@ -1170,12 +1288,17 @@ export const subscribeChatSussurrosDoMestre = (campanhaId, onChange, onError) =>
         emitir();
       },
       onError,
+      limite,
     );
   };
 
   const pararMembros = onSnapshot(
     collection(db, RM_CAMPANHAS_COLLECTION, campanhaId, 'chatMembros'),
-    snapshot => snapshot.docs.forEach(docSnapshot => ouvir(docSnapshot.id)),
+    snapshot =>
+      snapshot.docs.forEach(docSnapshot => {
+        if (membroChatAtivo(docSnapshot.data({ serverTimestamps: 'estimate' })))
+          ouvir(docSnapshot.id, CHAT_LIMITE_SECRETAS_MEMBRO);
+      }),
     onError,
   );
 
@@ -1206,7 +1329,7 @@ export const removeChatSussurro = (campanhaId, jogadorUid, sussurroId) =>
 const macrosRef = campanhaId =>
   collection(db, RM_CAMPANHAS_COLLECTION, campanhaId, 'macros');
 
-export const getChatMacros = async (
+const lerChatMacros = async (
   campanhaId,
   { incluirSomenteMestre = false } = {},
 ) => {
@@ -1220,23 +1343,55 @@ export const getChatMacros = async (
   }));
 };
 
+// Cache por sessão da página (campanha + modo), com a promise guardada: reabrir
+// o chat/mesa não relê a coleção inteira. add/update/removeChatMacro invalidam.
+const MACROS_CACHE_MS = 5 * 60 * 1000;
+const macrosCache = new Map();
+
+export const limparCacheMacros = campanhaId =>
+  [...macrosCache.keys()].forEach(chave => {
+    if (campanhaId === undefined || chave.startsWith(`${campanhaId}|`)) {
+      macrosCache.delete(chave);
+    }
+  });
+
+export const getChatMacros = (campanhaId, { incluirSomenteMestre = false } = {}) => {
+  const chave = `${campanhaId}|${incluirSomenteMestre}`;
+  let guardado = macrosCache.get(chave);
+  if (!guardado || Date.now() - guardado.em > MACROS_CACHE_MS) {
+    const promessa = lerChatMacros(campanhaId, { incluirSomenteMestre });
+    guardado = { promessa, em: Date.now() };
+    macrosCache.set(chave, guardado);
+    promessa.catch(() => {
+      if (macrosCache.get(chave)?.promessa === promessa) macrosCache.delete(chave);
+    });
+  }
+  // Cópia: quem chama pode ordenar/alterar a lista sem sujar o cache.
+  return guardado.promessa.then(macros => macros.map(macro => ({ ...macro })));
+};
+
 export const addChatMacro = async (campanhaId, macro) => {
   const docRef = await addDoc(macrosRef(campanhaId), {
     ...macro,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
+  limparCacheMacros(campanhaId);
   return docRef.id;
 };
 
-export const updateChatMacro = (campanhaId, macroId, patch) =>
-  updateDoc(doc(db, RM_CAMPANHAS_COLLECTION, campanhaId, 'macros', macroId), {
+export const updateChatMacro = async (campanhaId, macroId, patch) => {
+  await updateDoc(doc(db, RM_CAMPANHAS_COLLECTION, campanhaId, 'macros', macroId), {
     ...patch,
     updatedAt: serverTimestamp(),
   });
+  limparCacheMacros(campanhaId);
+};
 
-export const removeChatMacro = (campanhaId, macroId) =>
-  deleteDoc(doc(db, RM_CAMPANHAS_COLLECTION, campanhaId, 'macros', macroId));
+export const removeChatMacro = async (campanhaId, macroId) => {
+  await deleteDoc(doc(db, RM_CAMPANHAS_COLLECTION, campanhaId, 'macros', macroId));
+  limparCacheMacros(campanhaId);
+};
 
 // ── Grid da campanha — rmCampanhas/{id}/grid/atual e gridCenas ────────────
 // Em CENAS: `gridCenas/{cenaId}` (nome, imagem, grade) com os próprios tokens
@@ -1301,9 +1456,15 @@ const gridAreasRef = (campanhaId, cenaId) =>
 
 // Templates de área da cena (common/utils/gridAreas.js). Chama
 // `onChange([{ id, ...dados }])`; quem lê normaliza (normalizarArea).
+// Tetos de segurança (limit) acima dos limites de UI: AREAS_POR_CENA_MAX = 50,
+// MARCADORES_POR_CENA_MAX = 100, DESENHOS_POR_USUARIO_MAX = 20 por pessoa.
+export const GRID_LIMITE_AREAS = 50;
+export const GRID_LIMITE_MARCADORES = 100;
+export const GRID_LIMITE_DESENHOS = 300;
+
 export const subscribeGridAreas = (campanhaId, cenaId, onChange, onError) =>
   onSnapshot(
-    gridAreasRef(campanhaId, cenaId),
+    query(gridAreasRef(campanhaId, cenaId), limit(GRID_LIMITE_AREAS)),
     snapshot =>
       onChange(
         snapshot.docs.map(docSnapshot => ({
@@ -1516,12 +1677,11 @@ export const subscribeGridMarcadores = (
   onError,
 ) =>
   onSnapshot(
-    incluirSecretos
-      ? gridMarcadoresRef(campanhaId, cenaId)
-      : query(
-          gridMarcadoresRef(campanhaId, cenaId),
-          where('secreto', '==', false),
-        ),
+    query(
+      gridMarcadoresRef(campanhaId, cenaId),
+      ...(incluirSecretos ? [] : [where('secreto', '==', false)]),
+      limit(GRID_LIMITE_MARCADORES),
+    ),
     snapshot =>
       onChange(
         snapshot.docs.map(docSnapshot => ({
@@ -1550,10 +1710,24 @@ export const updateGridMarcador = (campanhaId, cenaId, marcadorId, patch) =>
 export const removeGridMarcador = (campanhaId, cenaId, marcadorId) =>
   deleteDoc(doc(gridMarcadoresRef(campanhaId, cenaId), marcadorId));
 
-// Um doc por traço. Chama `onChange([{ id, ...dados }])`, sem ordenação.
+// Um doc por traço, só os RECENTES (`createdAt` > agora − DESENHO_VALIDADE_MS):
+// os antigos nem são lidos nem cobrados. Faixa de um único campo — índice
+// automático; `orderBy` desc + `limit` mantêm os mais novos se passar do teto.
+// Chama `onChange([{ id, ...dados }])`, sem ordenação. O traço que acabo de
+// criar só entra aqui depois da confirmação do servidor (o serverTimestamp
+// pendente não casa com o filtro no cache local) — o hook cuida do eco local.
 export const subscribeGridDesenhos = (campanhaId, cenaId, onChange, onError) =>
   onSnapshot(
-    gridDesenhosRef(campanhaId, cenaId),
+    query(
+      gridDesenhosRef(campanhaId, cenaId),
+      where(
+        'createdAt',
+        '>',
+        Timestamp.fromMillis(Date.now() - DESENHO_VALIDADE_MS),
+      ),
+      orderBy('createdAt', 'desc'),
+      limit(GRID_LIMITE_DESENHOS),
+    ),
     snapshot =>
       onChange(
         snapshot.docs.map(docSnapshot => ({
@@ -1564,21 +1738,52 @@ export const subscribeGridDesenhos = (campanhaId, cenaId, onChange, onError) =>
     onError,
   );
 
+// `expiraEm` (Timestamp) alimenta a política de TTL do Firestore sobre o grupo
+// de coleções `desenhos` (apaga o doc de verdade). Se as regras publicadas
+// ainda não aceitam o campo (app novo antes das regras), a escrita volta a ser
+// feita sem ele e o app lembra disso — o desenho continua funcionando e some
+// pela validade de `createdAt`, só não é apagado fisicamente.
+let desenhoAceitaExpiraEm = true;
+
 // Cria o traço `{ uid, cor, pontos }` e, no mesmo lote, apaga `idsParaApagar`
-// (o excedente do limite por pessoa). Devolve o id do novo.
+// (o excedente do limite por pessoa). Devolve o id do novo. `aoCriarLocal(id)`
+// roda antes do envio, para quem chama mostrar o traço sem esperar o servidor.
 export const addGridDesenho = async (
   campanhaId,
   cenaId,
   { uid, cor, pontos },
   idsParaApagar = [],
+  { aoCriarLocal } = {},
 ) => {
-  const lote = writeBatch(db);
   const novoRef = doc(gridDesenhosRef(campanhaId, cenaId));
-  lote.set(novoRef, { uid, cor, pontos, createdAt: serverTimestamp() });
-  idsParaApagar.forEach(id =>
-    lote.delete(doc(gridDesenhosRef(campanhaId, cenaId), id)),
-  );
-  await lote.commit();
+  const enviar = async comExpiraEm => {
+    const lote = writeBatch(db);
+    lote.set(novoRef, {
+      uid,
+      cor,
+      pontos,
+      createdAt: serverTimestamp(),
+      ...(comExpiraEm
+        ? { expiraEm: Timestamp.fromMillis(Date.now() + DESENHO_VALIDADE_MS) }
+        : {}),
+    });
+    idsParaApagar.forEach(id =>
+      lote.delete(doc(gridDesenhosRef(campanhaId, cenaId), id)),
+    );
+    await lote.commit();
+  };
+  aoCriarLocal?.(novoRef.id);
+  if (!desenhoAceitaExpiraEm) {
+    await enviar(false);
+    return novoRef.id;
+  }
+  try {
+    await enviar(true);
+  } catch (error) {
+    if (error?.code !== 'permission-denied') throw error;
+    await enviar(false); // regras antigas: sem `expiraEm`
+    desenhoAceitaExpiraEm = false;
+  }
   return novoRef.id;
 };
 
@@ -1641,14 +1846,31 @@ export const subscribePersonagem = (personagemId, onChange, onError) =>
     onError,
   );
 
+// `grid/atual.travamento` é uma CÓPIA do `travamento` da cena ativa: a regra
+// do movimento de token lê só esse doc (que ela já lê para saber a cena ativa)
+// em vez de ler também a cena (firestore.rules — gridModoDeMovimento). Por isso
+// ativar uma cena e mudar o travamento da cena ativa gravam os dois. Se as
+// regras publicadas ainda não aceitam o campo (app novo antes das regras), a
+// escrita repete sem ele — nada quebra; a cópia só começa a valer depois.
+const ehPermissaoNegada = error => error?.code === 'permission-denied';
+
 // null = nenhuma cena visível aos jogadores. `merge` para não apagar as
-// outras opções do doc (`avisarAcoesChat`).
-export const setGridCenaAtiva = (campanhaId, cenaId) =>
-  setDoc(
-    gridRef(campanhaId),
-    { cenaAtivaId: cenaId, updatedAt: serverTimestamp() },
-    { merge: true },
-  );
+// outras opções do doc (`avisarAcoesChat`). Copia o `travamento` da cena
+// (ou apaga a cópia quando não há cena ativa).
+export const setGridCenaAtiva = async (campanhaId, cenaId) => {
+  const base = { cenaAtivaId: cenaId, updatedAt: serverTimestamp() };
+  let travamento = deleteField();
+  if (cenaId) {
+    const cena = await getDoc(gridCenaRef(campanhaId, cenaId));
+    travamento = normalizarTravamento(cena.data()?.travamento);
+  }
+  try {
+    await setDoc(gridRef(campanhaId), { ...base, travamento }, { merge: true });
+  } catch (error) {
+    if (!ehPermissaoNegada(error)) throw error;
+    await setDoc(gridRef(campanhaId), base, { merge: true });
+  }
+};
 
 // Liga/desliga o aviso no chat das ações da Central de Ações dos jogadores.
 export const setGridAvisarAcoesChat = (campanhaId, avisar) =>
@@ -1686,11 +1908,35 @@ export const addGridCena = async (
   return cenaRef.id;
 };
 
-export const updateGridCena = (campanhaId, cenaId, patch) =>
-  updateDoc(gridCenaRef(campanhaId, cenaId), {
-    ...patch,
-    updatedAt: serverTimestamp(),
-  });
+// Mudar o `travamento` da cena que está ATIVA também atualiza a cópia em
+// `grid/atual` (ver setGridCenaAtiva), na mesma transação.
+export const updateGridCena = async (campanhaId, cenaId, patch) => {
+  const dados = { ...patch, updatedAt: serverTimestamp() };
+  if (!('travamento' in patch)) {
+    await updateDoc(gridCenaRef(campanhaId, cenaId), dados);
+    return;
+  }
+  try {
+    await runTransaction(db, async transacao => {
+      const atual = await transacao.get(gridRef(campanhaId));
+      transacao.update(gridCenaRef(campanhaId, cenaId), dados);
+      if (atual.exists() && atual.data().cenaAtivaId === cenaId) {
+        transacao.set(
+          gridRef(campanhaId),
+          {
+            travamento: normalizarTravamento(patch.travamento),
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true },
+        );
+      }
+    });
+  } catch (error) {
+    if (!ehPermissaoNegada(error)) throw error;
+    // Regras antigas (sem `travamento` em grid/atual): só a cena.
+    await updateDoc(gridCenaRef(campanhaId, cenaId), dados);
+  }
+};
 
 // Dados de um doc sem createdAt/updatedAt (a cópia ganha datas novas).
 const semDatas = dados => {
@@ -1852,6 +2098,8 @@ export const removeRmCampanhaCompleta = async (campanhaId, mestreId) => {
   }
 
   await removeFirestoreItem(RM_CAMPANHAS_COLLECTION, campanhaId);
+  // Os clones da campanha foram apagados: tira as listas do cache.
+  limparCachePersonagens();
 };
 
 export const addGridTokens = async (campanhaId, cenaId, tokens) => {

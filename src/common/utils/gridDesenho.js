@@ -1,9 +1,12 @@
 // Desenhos livres do mapa do grid (Fase 3B), funções puras — cópia nos dois
 // sites (mudou um, mude o outro). Estado em
 // rmCampanhas/{id}/gridCenas/{cenaId}/desenhos/{id}:
-//   { uid, cor, pontos: [x0, y0, x1, y1, ...], createdAt }
+//   { uid, cor, pontos: [x0, y0, x1, y1, ...], createdAt, expiraEm }
 // `pontos` é um array plano de inteiros em px do mundo. As constantes marcadas
-// "regra" espelham o firestore.rules.
+// "regra" espelham o firestore.rules. Os traços são TEMPORÁRIOS: valem
+// DESENHO_VALIDADE_MS a partir de `createdAt` (a leitura só busca os recentes
+// e o cliente esconde os que envelhecem). `expiraEm` (Timestamp gravado junto)
+// serve a uma política de TTL do Firestore que apaga o doc de verdade.
 import { PING_COORDENADA_MAX } from 'common/utils/grid';
 
 export const CORES_DESENHO = [
@@ -17,7 +20,9 @@ export const CORES_DESENHO = [
 export const COR_DESENHO_PADRAO = CORES_DESENHO[0];
 export const DESENHO_PONTOS_MAX = 200; // pontos por traço (regra: 400 números)
 export const DESENHO_BRUTOS_MAX = 2000; // coletados durante o gesto
-export const DESENHOS_POR_USUARIO_MAX = 50; // só cliente: rolante, apaga o mais antigo
+export const DESENHOS_POR_USUARIO_MAX = 20; // só cliente: rolante, apaga o mais antigo
+export const DESENHO_VALIDADE_MS = 2 * 60 * 60 * 1000; // o traço some após 2 h
+export const DESENHO_REVISAO_MS = 60 * 1000; // o mapa reavalia a validade a cada minuto
 export const DESENHO_DISTANCIA_MIN_PX = 3; // em px de tela, entre amostras
 const AJUSTE_ITERACOES_MAX = 10;
 
@@ -56,11 +61,7 @@ export const simplificarTraco = (pontos, tolerancia) => {
     let maior = -1;
     let indice = -1;
     for (let i = inicio + 1; i < fim; i += 1) {
-      const distancia = distanciaAoSegmento(
-        lista[i],
-        lista[inicio],
-        lista[fim],
-      );
+      const distancia = distanciaAoSegmento(lista[i], lista[inicio], lista[fim]);
       if (distancia > maior) {
         maior = distancia;
         indice = i;
@@ -109,15 +110,20 @@ export const ajustarTraco = (
   ]);
 };
 
+// Traço ainda dentro da validade? `createdAt` pendente (null: o serverTimestamp
+// ainda não foi confirmado) conta como recém-criado.
+export const desenhoVigente = (desenho, agora = Date.now()) =>
+  milissegundos(desenho?.createdAt) > agora - DESENHO_VALIDADE_MS;
+
+export const filtrarDesenhosVigentes = (desenhos, agora = Date.now()) =>
+  desenhos.filter(desenho => desenhoVigente(desenho, agora));
+
 // Doc do Firestore → desenho pronto para o mapa, ou null se inutilizável.
 export const normalizarDesenho = (doc, uid) => {
-  if (!doc || typeof doc !== 'object' || !Array.isArray(doc.pontos))
-    return null;
+  if (!doc || typeof doc !== 'object' || !Array.isArray(doc.pontos)) return null;
   const { pontos } = doc;
   if (pontos.length < 4 || pontos.length % 2 !== 0) return null;
-  if (
-    !pontos.every(valor => typeof valor === 'number' && Number.isFinite(valor))
-  )
+  if (!pontos.every(valor => typeof valor === 'number' && Number.isFinite(valor)))
     return null;
   return {
     id: doc.id,
@@ -131,9 +137,7 @@ export const normalizarDesenho = (doc, uid) => {
 
 // Do mais antigo para o mais novo (recém-criado, com timestamp pendente, por último).
 export const ordenarDesenhos = desenhos =>
-  [...desenhos].sort(
-    (a, b) => milissegundos(a.createdAt) - milissegundos(b.createdAt),
-  );
+  [...desenhos].sort((a, b) => milissegundos(a.createdAt) - milissegundos(b.createdAt));
 
 // Atributo `points` de um <polyline>: '0,0 10,10 ...'.
 export const pontosDoDesenho = desenho => {

@@ -413,6 +413,46 @@ describe('useGridCampanha — sinais e detalhes dos tokens', () => {
     expect(result.current.veTudo).toBe(false);
   });
 
+  it('trocar de cena não fecha nem reabre a escuta das fichas que continuam', () => {
+    const pararFicha = vi.fn();
+    subscribePersonagem.mockImplementation((_id, onChange) => {
+      onChange(FICHA);
+      return pararFicha;
+    });
+    let mudarCena;
+    let emitirDaCena2;
+    subscribeGridCenaAtiva.mockImplementation((_campanhaId, onChange) => {
+      mudarCena = onChange;
+      onChange('cena-1');
+      return vi.fn();
+    });
+    subscribeGridTokens.mockImplementation((_campanhaId, cenaId, _opcoes, onChange) => {
+      if (cenaId === 'cena-1') onChange([ALDRIC_JOGADOR, OGRO_NPC]);
+      else emitirDaCena2 = onChange;
+      return vi.fn();
+    });
+    const { result } = renderGrid({ catalogoCondicoes: CATALOGO });
+    expect(subscribePersonagem).toHaveBeenCalledTimes(1);
+
+    // Cena 2 ainda carregando: tokens vazios, fichas intactas.
+    act(() => mudarCena('cena-2'));
+    expect(result.current.carregando).toBe(true);
+    expect(result.current.tokens).toEqual([]);
+    expect(pararFicha).not.toHaveBeenCalled();
+    expect(subscribePersonagem).toHaveBeenCalledTimes(1);
+
+    // Chegou a cena 2 com o mesmo jogador: continua sem reabrir.
+    act(() => emitirDaCena2([ALDRIC_JOGADOR]));
+    expect(result.current.carregando).toBe(false);
+    expect(pararFicha).not.toHaveBeenCalled();
+    expect(subscribePersonagem).toHaveBeenCalledTimes(1);
+
+    // Cena sem jogadores: aí sim a ficha deixa de ser ouvida.
+    act(() => mudarCena('cena-3'));
+    act(() => emitirDaCena2([OGRO_NPC]));
+    expect(pararFicha).toHaveBeenCalledTimes(1);
+  });
+
   it('mestre vê os números do npc', () => {
     const { result } = renderGrid({ isMestre: true });
     expect(result.current.detalhes.t2.recursos.numeros).toBe(true);
@@ -667,6 +707,7 @@ describe('useGridCampanha — mapa (Fase 3B)', () => {
       'cena-1',
       { uid: 'u1', cor: '#ffffff', pontos: [0, 0, 9, 9] },
       [],
+      { aoCriarLocal: expect.any(Function) },
     );
     await act(() =>
       mestre.current.editarCamada('paredes', 'adicionar', [{ col: 3, lin: 1 }]),

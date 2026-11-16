@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, renderHook } from '@testing-library/react';
 
 import {
@@ -6,7 +6,11 @@ import {
   removeGridDesenhos,
   subscribeGridDesenhos,
 } from 'service/storage';
-import { DESENHOS_POR_USUARIO_MAX } from 'common/utils/gridDesenho';
+import {
+  DESENHO_REVISAO_MS,
+  DESENHO_VALIDADE_MS,
+  DESENHOS_POR_USUARIO_MAX,
+} from 'common/utils/gridDesenho';
 import useGridDesenhos from './useGridDesenhos';
 
 vi.mock('service/storage', () => ({
@@ -17,17 +21,20 @@ vi.mock('service/storage', () => ({
 
 const onErro = vi.fn();
 let falhar;
-const doc = (id, uid, createdAt) => ({
+let emitir;
+// `ordem` só ordena: o traço nasce há ~1 min (bem dentro da validade).
+const doc = (id, uid, ordem) => ({
   id,
   uid,
   cor: '#ffffff',
   pontos: [0, 0, 5, 5],
-  createdAt,
+  createdAt: Date.now() - 60_000 + ordem,
 });
 
 const emitirDocs = docs =>
   subscribeGridDesenhos.mockImplementation((_c, _cena, onChange, onError) => {
     falhar = onError;
+    emitir = onChange;
     onChange(docs);
     return vi.fn();
   });
@@ -67,6 +74,7 @@ describe('useGridDesenhos', () => {
       'cena-1',
       { uid: 'u1', cor: '#e05555', pontos: [0, 0, 9, 9] },
       [],
+      { aoCriarLocal: expect.any(Function) },
     );
   });
 
@@ -123,5 +131,78 @@ describe('useGridDesenhos', () => {
     renderDesenhos({ veTudo: true });
     act(() => falhar({ code: 'permission-denied' }));
     expect(onErro).toHaveBeenCalledTimes(1);
+  });
+
+  it('o limite rolante por pessoa é 20', () => {
+    expect(DESENHOS_POR_USUARIO_MAX).toBe(20);
+  });
+
+  it('esconde os traços já vencidos que vieram na consulta', () => {
+    emitirDocs([
+      doc('novo', 'u1', 5),
+      { ...doc('velho', 'u1', 0), createdAt: Date.now() - DESENHO_VALIDADE_MS - 1000 },
+      { ...doc('pendente', 'u1', 0), createdAt: null },
+    ]);
+    const { result } = renderDesenhos();
+    expect(result.current.desenhos.map(d => d.id).sort()).toEqual(['novo', 'pendente']);
+  });
+
+  describe('com o relógio', () => {
+    beforeEach(() => vi.useFakeTimers());
+    afterEach(() => vi.useRealTimers());
+
+    it('o traço some sozinho ao passar da validade, sem nova leitura', () => {
+      emitirDocs([{ ...doc('d1', 'u1', 0), createdAt: Date.now() - DESENHO_VALIDADE_MS + 90_000 }]);
+      const { result } = renderDesenhos();
+      expect(result.current.desenhos.map(d => d.id)).toEqual(['d1']);
+      act(() => {
+        vi.advanceTimersByTime(DESENHO_REVISAO_MS);
+      });
+      expect(result.current.desenhos.map(d => d.id)).toEqual(['d1']);
+      act(() => {
+        vi.advanceTimersByTime(DESENHO_REVISAO_MS);
+      });
+      expect(result.current.desenhos).toEqual([]);
+      expect(subscribeGridDesenhos).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('o traço que acabo de criar aparece antes da confirmação do servidor', async () => {
+    emitirDocs([]);
+    let liberar;
+    addGridDesenho.mockImplementation(
+      (_c, _cena, _dados, _ids, { aoCriarLocal }) => {
+        aoCriarLocal('novo-id');
+        return new Promise(resolve => {
+          liberar = () => resolve('novo-id');
+        });
+      },
+    );
+    const { result } = renderDesenhos();
+    let promessa;
+    act(() => {
+      promessa = result.current.desenhar({ cor: '#e05555', pontos: [0, 0, 9, 9] });
+    });
+    expect(result.current.desenhos.map(d => [d.id, d.proprio])).toEqual([['novo-id', true]]);
+    await act(async () => {
+      liberar();
+      await promessa;
+    });
+    // A consulta traz o doc: não duplica.
+    act(() => emitir([doc('novo-id', 'u1', 0)]));
+    expect(result.current.desenhos.map(d => d.id)).toEqual(['novo-id']);
+  });
+
+  it('se a gravação falhar, o traço otimista some', async () => {
+    emitirDocs([]);
+    addGridDesenho.mockImplementation(async (_c, _cena, _dados, _ids, { aoCriarLocal }) => {
+      aoCriarLocal('x');
+      throw new Error('falhou');
+    });
+    const { result } = renderDesenhos();
+    await act(async () => {
+      await result.current.desenhar({ cor: '#ffffff', pontos: [0, 0, 1, 1] });
+    });
+    expect(result.current.desenhos).toEqual([]);
   });
 });

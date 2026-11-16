@@ -8,6 +8,8 @@ import {
   montarMensagemSussurro,
   normalizarRotulo,
   campanhaIdsDosPersonagens,
+  CHAT_MEMBRO_ATIVO_DIAS,
+  membroChatAtivo,
   descreverMensagemCombate,
   formatarIniciativa,
   formatarHorarioMensagem,
@@ -603,5 +605,37 @@ describe('destinatariosDasMensagens', () => {
       { uid: 'u2', nome: 'Ana' },
     ]);
     expect(destinatariosDasMensagens(undefined)).toEqual([]);
+  });
+});
+
+describe('membroChatAtivo', () => {
+  const agora = new Date('2026-06-30T12:00:00Z').getTime();
+  const diasAtras = dias => new Date(agora - dias * 24 * 60 * 60 * 1000);
+
+  it('aceita quem abriu o chat dentro da janela', () => {
+    expect(membroChatAtivo({ updatedAt: diasAtras(1) }, agora)).toBe(true);
+    expect(membroChatAtivo({ updatedAt: diasAtras(CHAT_MEMBRO_ATIVO_DIAS) }, agora)).toBe(
+      true,
+    );
+  });
+
+  it('recusa quem passou da janela', () => {
+    expect(membroChatAtivo({ updatedAt: diasAtras(CHAT_MEMBRO_ATIVO_DIAS + 1) }, agora)).toBe(
+      false,
+    );
+    expect(membroChatAtivo({ updatedAt: diasAtras(90) }, agora)).toBe(false);
+  });
+
+  it('lê Timestamp do Firestore (toDate)', () => {
+    expect(membroChatAtivo({ updatedAt: { toDate: () => diasAtras(60) } }, agora)).toBe(
+      false,
+    );
+    expect(membroChatAtivo({ updatedAt: { toDate: () => diasAtras(2) } }, agora)).toBe(true);
+  });
+
+  it('trata ausente ou pendente (null) como recente', () => {
+    expect(membroChatAtivo({ updatedAt: null }, agora)).toBe(true);
+    expect(membroChatAtivo({}, agora)).toBe(true);
+    expect(membroChatAtivo(undefined, agora)).toBe(true);
   });
 });

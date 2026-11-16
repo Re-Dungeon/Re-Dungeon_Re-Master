@@ -34,18 +34,29 @@ const useFontesDaMesa = (campanha, { incluirJogadores = false } = {}) => {
 
   const recarregar = useCallback(() => setVersao(atual => atual + 1), []);
 
+  // O efeito depende só do que a leitura usa (id/universo/mestre), não do
+  // objeto `campanha`: ele ganha identidade nova a cada `recarregarCampanhas`
+  // e refazia as leituras à toa. Os filtros de `chatPersonas` só olham
+  // `id`/`universoId`.
+  const id = campanha?.id;
+  const universoId = campanha?.universoId;
+  const mestreId = campanha?.mestreId;
+
   useEffect(() => {
-    if (!campanha) return undefined;
+    if (!id) return undefined;
     let active = true;
-    const { id, universoId, mestreId } = campanha;
-    // "Recarregar fontes" (versão > 0) ignora o cache de personagens.
+    const campanhaDaLeitura = { id, universoId, mestreId };
+    // "Recarregar fontes" (versão > 0) ignora o cache de personagens/clones.
     const forcar = versao > 0;
+    const opcoes = { forcar };
     Promise.all([
-      getPersonagens(universoId, { forcar }),
-      getRmCampanhaNpcs(id, universoId, mestreId),
-      getRmCampanhaCriaturas(id, universoId, mestreId),
-      incluirJogadores ? getPersonagensJogaveis(universoId, { forcar }) : [],
-      incluirJogadores ? getRmCampanhaJogadores(id, universoId, mestreId) : [],
+      getPersonagens(universoId, opcoes),
+      getRmCampanhaNpcs(id, universoId, mestreId, opcoes),
+      getRmCampanhaCriaturas(id, universoId, mestreId, opcoes),
+      incluirJogadores ? getPersonagensJogaveis(universoId, opcoes) : [],
+      incluirJogadores
+        ? getRmCampanhaJogadores(id, universoId, mestreId, opcoes)
+        : [],
     ])
       .then(
         ([personagens, npcClones, criaturaClones, jogaveis, jogadorClones]) => {
@@ -56,12 +67,12 @@ const useFontesDaMesa = (campanha, { incluirJogadores = false } = {}) => {
               personagens,
               npcClones,
               criaturaClones,
-              campanha,
+              campanha: campanhaDaLeitura,
             }),
             jogadores: montarJogadoresDaMesa({
               personagens: jogaveis,
               clones: jogadorClones,
-              campanha,
+              campanha: campanhaDaLeitura,
             }),
           });
         },
@@ -79,10 +90,9 @@ const useFontesDaMesa = (campanha, { incluirJogadores = false } = {}) => {
     return () => {
       active = false;
     };
-  }, [campanha, incluirJogadores, notifyError, versao]);
+  }, [id, universoId, mestreId, incluirJogadores, notifyError, versao]);
 
-  const fontes =
-    carregadas.campanhaId === campanha?.id ? carregadas : FONTES_VAZIAS;
+  const fontes = carregadas.campanhaId === id ? carregadas : FONTES_VAZIAS;
   return useMemo(() => ({ ...fontes, recarregar }), [fontes, recarregar]);
 };
 
