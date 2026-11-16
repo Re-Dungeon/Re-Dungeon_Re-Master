@@ -9,6 +9,7 @@ import {
   updateDoc,
   setDoc,
   serverTimestamp,
+  Timestamp,
   query,
   where,
   orderBy,
@@ -23,6 +24,8 @@ import {
 } from '../pages/CardFlux/exploracaoGrid';
 import { normalizeEntityTypeName } from '../pages/Notas/notaUtils';
 import { extrairVideoYoutube } from 'common/utils/audioMesa';
+import { DESENHO_VALIDADE_MS } from 'common/utils/gridDesenho';
+import { normalizarTravamento } from 'common/utils/grid';
 import {
   CHAT_JANELA_MENSAGENS,
   CHAT_LIMITE_SECRETAS_MEMBRO,
@@ -1454,7 +1457,7 @@ const gridAreasRef = (campanhaId, cenaId) =>
 // Templates de área da cena (common/utils/gridAreas.js). Chama
 // `onChange([{ id, ...dados }])`; quem lê normaliza (normalizarArea).
 // Tetos de segurança (limit) acima dos limites de UI: AREAS_POR_CENA_MAX = 50,
-// MARCADORES_POR_CENA_MAX = 100, DESENHOS_POR_USUARIO_MAX = 50 por pessoa.
+// MARCADORES_POR_CENA_MAX = 100, DESENHOS_POR_USUARIO_MAX = 20 por pessoa.
 export const GRID_LIMITE_AREAS = 50;
 export const GRID_LIMITE_MARCADORES = 100;
 export const GRID_LIMITE_DESENHOS = 300;
@@ -1707,10 +1710,24 @@ export const updateGridMarcador = (campanhaId, cenaId, marcadorId, patch) =>
 export const removeGridMarcador = (campanhaId, cenaId, marcadorId) =>
   deleteDoc(doc(gridMarcadoresRef(campanhaId, cenaId), marcadorId));
 
-// Um doc por traço. Chama `onChange([{ id, ...dados }])`, sem ordenação.
+// Um doc por traço, só os RECENTES (`createdAt` > agora − DESENHO_VALIDADE_MS):
+// os antigos nem são lidos nem cobrados. Faixa de um único campo — índice
+// automático; `orderBy` desc + `limit` mantêm os mais novos se passar do teto.
+// Chama `onChange([{ id, ...dados }])`, sem ordenação. O traço que acabo de
+// criar só entra aqui depois da confirmação do servidor (o serverTimestamp
+// pendente não casa com o filtro no cache local) — o hook cuida do eco local.
 export const subscribeGridDesenhos = (campanhaId, cenaId, onChange, onError) =>
   onSnapshot(
-    query(gridDesenhosRef(campanhaId, cenaId), limit(GRID_LIMITE_DESENHOS)),
+    query(
+      gridDesenhosRef(campanhaId, cenaId),
+      where(
+        'createdAt',
+        '>',
+        Timestamp.fromMillis(Date.now() - DESENHO_VALIDADE_MS),
+      ),
+      orderBy('createdAt', 'desc'),
+      limit(GRID_LIMITE_DESENHOS),
+    ),
     snapshot =>
       onChange(
         snapshot.docs.map(docSnapshot => ({
@@ -1721,21 +1738,52 @@ export const subscribeGridDesenhos = (campanhaId, cenaId, onChange, onError) =>
     onError,
   );
 
+// `expiraEm` (Timestamp) alimenta a política de TTL do Firestore sobre o grupo
+// de coleções `desenhos` (apaga o doc de verdade). Se as regras publicadas
+// ainda não aceitam o campo (app novo antes das regras), a escrita volta a ser
+// feita sem ele e o app lembra disso — o desenho continua funcionando e some
+// pela validade de `createdAt`, só não é apagado fisicamente.
+let desenhoAceitaExpiraEm = true;
+
 // Cria o traço `{ uid, cor, pontos }` e, no mesmo lote, apaga `idsParaApagar`
-// (o excedente do limite por pessoa). Devolve o id do novo.
+// (o excedente do limite por pessoa). Devolve o id do novo. `aoCriarLocal(id)`
+// roda antes do envio, para quem chama mostrar o traço sem esperar o servidor.
 export const addGridDesenho = async (
   campanhaId,
   cenaId,
   { uid, cor, pontos },
   idsParaApagar = [],
+  { aoCriarLocal } = {},
 ) => {
-  const lote = writeBatch(db);
   const novoRef = doc(gridDesenhosRef(campanhaId, cenaId));
-  lote.set(novoRef, { uid, cor, pontos, createdAt: serverTimestamp() });
-  idsParaApagar.forEach(id =>
-    lote.delete(doc(gridDesenhosRef(campanhaId, cenaId), id)),
-  );
-  await lote.commit();
+  const enviar = async comExpiraEm => {
+    const lote = writeBatch(db);
+    lote.set(novoRef, {
+      uid,
+      cor,
+      pontos,
+      createdAt: serverTimestamp(),
+      ...(comExpiraEm
+        ? { expiraEm: Timestamp.fromMillis(Date.now() + DESENHO_VALIDADE_MS) }
+        : {}),
+    });
+    idsParaApagar.forEach(id =>
+      lote.delete(doc(gridDesenhosRef(campanhaId, cenaId), id)),
+    );
+    await lote.commit();
+  };
+  aoCriarLocal?.(novoRef.id);
+  if (!desenhoAceitaExpiraEm) {
+    await enviar(false);
+    return novoRef.id;
+  }
+  try {
+    await enviar(true);
+  } catch (error) {
+    if (error?.code !== 'permission-denied') throw error;
+    await enviar(false); // regras antigas: sem `expiraEm`
+    desenhoAceitaExpiraEm = false;
+  }
   return novoRef.id;
 };
 
@@ -1798,14 +1846,31 @@ export const subscribePersonagem = (personagemId, onChange, onError) =>
     onError,
   );
 
+// `grid/atual.travamento` é uma CÓPIA do `travamento` da cena ativa: a regra
+// do movimento de token lê só esse doc (que ela já lê para saber a cena ativa)
+// em vez de ler também a cena (firestore.rules — gridModoDeMovimento). Por isso
+// ativar uma cena e mudar o travamento da cena ativa gravam os dois. Se as
+// regras publicadas ainda não aceitam o campo (app novo antes das regras), a
+// escrita repete sem ele — nada quebra; a cópia só começa a valer depois.
+const ehPermissaoNegada = error => error?.code === 'permission-denied';
+
 // null = nenhuma cena visível aos jogadores. `merge` para não apagar as
-// outras opções do doc (`avisarAcoesChat`).
-export const setGridCenaAtiva = (campanhaId, cenaId) =>
-  setDoc(
-    gridRef(campanhaId),
-    { cenaAtivaId: cenaId, updatedAt: serverTimestamp() },
-    { merge: true },
-  );
+// outras opções do doc (`avisarAcoesChat`). Copia o `travamento` da cena
+// (ou apaga a cópia quando não há cena ativa).
+export const setGridCenaAtiva = async (campanhaId, cenaId) => {
+  const base = { cenaAtivaId: cenaId, updatedAt: serverTimestamp() };
+  let travamento = deleteField();
+  if (cenaId) {
+    const cena = await getDoc(gridCenaRef(campanhaId, cenaId));
+    travamento = normalizarTravamento(cena.data()?.travamento);
+  }
+  try {
+    await setDoc(gridRef(campanhaId), { ...base, travamento }, { merge: true });
+  } catch (error) {
+    if (!ehPermissaoNegada(error)) throw error;
+    await setDoc(gridRef(campanhaId), base, { merge: true });
+  }
+};
 
 // Liga/desliga o aviso no chat das ações da Central de Ações dos jogadores.
 export const setGridAvisarAcoesChat = (campanhaId, avisar) =>
@@ -1843,11 +1908,35 @@ export const addGridCena = async (
   return cenaRef.id;
 };
 
-export const updateGridCena = (campanhaId, cenaId, patch) =>
-  updateDoc(gridCenaRef(campanhaId, cenaId), {
-    ...patch,
-    updatedAt: serverTimestamp(),
-  });
+// Mudar o `travamento` da cena que está ATIVA também atualiza a cópia em
+// `grid/atual` (ver setGridCenaAtiva), na mesma transação.
+export const updateGridCena = async (campanhaId, cenaId, patch) => {
+  const dados = { ...patch, updatedAt: serverTimestamp() };
+  if (!('travamento' in patch)) {
+    await updateDoc(gridCenaRef(campanhaId, cenaId), dados);
+    return;
+  }
+  try {
+    await runTransaction(db, async transacao => {
+      const atual = await transacao.get(gridRef(campanhaId));
+      transacao.update(gridCenaRef(campanhaId, cenaId), dados);
+      if (atual.exists() && atual.data().cenaAtivaId === cenaId) {
+        transacao.set(
+          gridRef(campanhaId),
+          {
+            travamento: normalizarTravamento(patch.travamento),
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true },
+        );
+      }
+    });
+  } catch (error) {
+    if (!ehPermissaoNegada(error)) throw error;
+    // Regras antigas (sem `travamento` em grid/atual): só a cena.
+    await updateDoc(gridCenaRef(campanhaId, cenaId), dados);
+  }
+};
 
 // Dados de um doc sem createdAt/updatedAt (a cópia ganha datas novas).
 const semDatas = dados => {

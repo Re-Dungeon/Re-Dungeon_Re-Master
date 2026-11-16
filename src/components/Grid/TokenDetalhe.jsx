@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import PropTypes from 'prop-types';
 
 import {
@@ -7,39 +7,47 @@ import {
   ajustarRecursoAtual,
   recursoDigitadoAtual,
 } from 'common/utils/grid';
+import useAcumuladorRecurso from 'hooks/useAcumuladorRecurso';
 
 import { LinhaRecursoEditavel, TokenDetalheCaixa } from './styles';
 
 // Uma linha "PV [−] 12 / 20 [+]" do dono: o valor atual também se digita
-// (rascunho; grava no Enter/ao sair do campo). `local` é o valor otimista até
-// a ficha chegar com o novo `atual` (ou a gravação falhar).
+// (rascunho; grava no Enter/ao sair do campo). Os cliques em −/+ são
+// acumulados (hooks/useAcumuladorRecurso): o valor novo aparece na hora e uma
+// única escrita sai ~0,8 s depois do último clique, ao sair da linha ou ao
+// fechar o cartão. Se a gravação falhar, volta ao valor da ficha.
 const RecursoEditavel = ({ id, recurso, onAlterar }) => {
-  // { valor, base }: vale enquanto a ficha ainda mostra `base` (o atual de antes).
-  const [local, setLocal] = useState(null);
   const [rascunho, setRascunho] = useState(null);
-
-  const atual = local && local.base === recurso.atual ? local.valor : recurso.atual;
+  const gravar = useCallback(valor => onAlterar(id, valor), [id, onAlterar]);
+  const { valor: atual, definir, descarregar } = useAcumuladorRecurso(recurso.atual, gravar);
   const rotulo = ROTULOS_RECURSO[id];
 
-  const gravar = valor => {
-    if (valor === null || valor === atual) return;
-    setLocal({ valor, base: recurso.atual });
-    Promise.resolve(onAlterar(id, valor)).catch(() => setLocal(null));
+  const ajustar = delta => {
+    const novo = ajustarRecursoAtual({ ...recurso, atual }, delta);
+    if (novo !== null && novo !== atual) definir(novo);
   };
   const confirmarRascunho = () => {
     if (rascunho === null) return;
-    gravar(recursoDigitadoAtual({ ...recurso, atual }, rascunho));
+    const novo = recursoDigitadoAtual({ ...recurso, atual }, rascunho);
     setRascunho(null);
+    if (novo === null || novo === atual) return;
+    definir(novo);
+    descarregar();
   };
 
   return (
-    <LinhaRecursoEditavel data-recurso={id}>
+    <LinhaRecursoEditavel
+      data-recurso={id}
+      onBlur={event => {
+        if (!event.currentTarget.contains(event.relatedTarget)) descarregar();
+      }}
+    >
       <span>{rotulo}</span>
       <button
         type="button"
         aria-label={`Diminuir ${rotulo}`}
         disabled={atual <= 0}
-        onClick={() => gravar(ajustarRecursoAtual({ ...recurso, atual }, -1))}
+        onClick={() => ajustar(-1)}
       >
         −
       </button>
@@ -66,7 +74,7 @@ const RecursoEditavel = ({ id, recurso, onAlterar }) => {
         type="button"
         aria-label={`Aumentar ${rotulo}`}
         disabled={atual >= recurso.max}
-        onClick={() => gravar(ajustarRecursoAtual({ ...recurso, atual }, 1))}
+        onClick={() => ajustar(1)}
       >
         +
       </button>

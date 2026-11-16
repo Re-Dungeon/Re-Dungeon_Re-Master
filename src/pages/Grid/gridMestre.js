@@ -635,6 +635,22 @@ export const haDialogoAberto = (doc = document) =>
     ),
   );
 
+// Cena que o mestre abre: a escolhida, senão a ativa, senão a primeira. Com a
+// lista de cenas ou o ponteiro `grid/atual` ainda carregando (são dois
+// listeners), devolve null — evita abrir `cenas[0]` e trocar logo depois.
+export const escolherCenaAberta = ({
+  cenas,
+  cenaEscolhidaId,
+  cenaAtivaId,
+  carregando = false,
+}) => {
+  if (carregando) return null;
+  const existe = id => Boolean(id) && cenas.some(cena => cena.id === id);
+  if (existe(cenaEscolhidaId)) return cenaEscolhidaId;
+  if (existe(cenaAtivaId)) return cenaAtivaId;
+  return cenas[0]?.id ?? null;
+};
+
 // "H": se todos os tokens já estão ocultos, revela; senão oculta todos.
 export const ocultoAlvoDosTokens = tokens =>
   !(tokens.length > 0 && tokens.every(token => token.oculto));

@@ -94,14 +94,13 @@ describe('useGridCamadas', () => {
       await result.current.preencherCamada('nevoa', 'adicionar', limites);
       await result.current.preencherCamada('paredes', 'remover', limites);
     });
-    expect(setGridCamada).toHaveBeenNthCalledWith(1, 'c1', 'cena-1', 'paredes', {
-      trechos: '3:5,8-9',
-    });
-    expect(setGridCamada).toHaveBeenNthCalledWith(2, 'c1', 'cena-1', 'nevoa', {
+    // A edição fora dos limites não muda nada: não grava.
+    expect(setGridCamada).toHaveBeenCalledTimes(2);
+    expect(setGridCamada).toHaveBeenNthCalledWith(1, 'c1', 'cena-1', 'nevoa', {
       ativa: true,
       trechos: '0:0-1;1:0-1',
     });
-    expect(setGridCamada).toHaveBeenNthCalledWith(3, 'c1', 'cena-1', 'paredes', {
+    expect(setGridCamada).toHaveBeenNthCalledWith(2, 'c1', 'cena-1', 'paredes', {
       trechos: '',
     });
   });
@@ -165,5 +164,36 @@ describe('useGridCamadas', () => {
     subscribeGridCamadas.mockImplementation(() => vi.fn());
     rerender({ cena: 'cena-2' });
     expect(result.current.bloqueadas.size).toBe(0);
+  });
+
+  it('edição que não muda a camada não grava (e conta como feita)', async () => {
+    const { result } = renderCamadas();
+    const resultados = [];
+    await act(async () => {
+      // 5,3 já é parede; 7,7 não é; 0,0 já está revelado; a névoa já está ativa.
+      resultados.push(
+        await result.current.editarCamada('paredes', 'adicionar', [{ col: 5, lin: 3 }]),
+        await result.current.editarCamada('paredes', 'remover', [{ col: 7, lin: 7 }]),
+        await result.current.editarCamada('nevoa', 'adicionar', [{ col: 0, lin: 0 }]),
+        await result.current.definirNevoaAtiva(true),
+      );
+    });
+    expect(resultados).toEqual([true, true, true, true]);
+    expect(setGridCamada).not.toHaveBeenCalled();
+
+    // Limpar paredes já vazias (depois de limpar) também não grava de novo.
+    await act(async () => {
+      await result.current.preencherCamada('paredes', 'remover', null);
+      await result.current.preencherCamada('paredes', 'remover', null);
+    });
+    expect(setGridCamada).toHaveBeenCalledTimes(1);
+  });
+
+  it('edição que muda de verdade continua gravando', async () => {
+    const { result } = renderCamadas();
+    await act(async () => {
+      await result.current.editarCamada('paredes', 'remover', [{ col: 5, lin: 3 }]);
+    });
+    expect(setGridCamada).toHaveBeenCalledTimes(1);
   });
 });

@@ -19,6 +19,7 @@ import {
   chaveDasFichasDoGrupo,
   linhasDoGrupo,
   haDialogoAberto,
+  escolherCenaAberta,
   ocultoAlvoDosTokens,
   OPCOES_ACAO,
   OPCOES_FERRAMENTA,
@@ -941,5 +942,30 @@ describe('desfazer das camadas e revelar em volta (puro)', () => {
       ),
     ).toHaveLength(12);
     expect(celulasParaRevelarEmVolta([], 6, 1.5, limites)).toEqual([]);
+  });
+});
+
+describe('escolherCenaAberta', () => {
+  const cenas = [{ id: 'a' }, { id: 'b' }, { id: 'c' }];
+  const abrir = props =>
+    escolherCenaAberta({
+      cenas,
+      cenaEscolhidaId: null,
+      cenaAtivaId: null,
+      ...props,
+    });
+
+  it('não abre nada enquanto as cenas ou o ponteiro ainda carregam', () => {
+    expect(abrir({ carregando: true })).toBeNull();
+    expect(
+      abrir({ cenaEscolhidaId: 'b', cenaAtivaId: 'c', carregando: true }),
+    ).toBeNull();
+  });
+
+  it('prefere a escolhida, depois a ativa, depois a primeira', () => {
+    expect(abrir({ cenaEscolhidaId: 'b', cenaAtivaId: 'c' })).toBe('b');
+    expect(abrir({ cenaEscolhidaId: 'x', cenaAtivaId: 'c' })).toBe('c');
+    expect(abrir({})).toBe('a');
+    expect(abrir({ cenas: [] })).toBeNull();
   });
 });

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
 import Autocomplete from '@mui/material/Autocomplete';
 import Box from '@mui/material/Box';
@@ -27,6 +27,7 @@ import {
   normalizarRecurso,
   rodadasRestantes,
 } from 'common/utils/grid';
+import useAcumuladorRecurso from 'hooks/useAcumuladorRecurso';
 import {
   OPCOES_MOSTRAR_RECURSOS,
   ajustarRecurso,
@@ -85,13 +86,45 @@ CampoNumero.propTypes = {
   dica: PropTypes.string,
 };
 
-// `[−] [atual] / [max] [+]` de um recurso; sem recurso, "Definir PV".
+// `[−] [atual] / [max] [+]` de um recurso; sem recurso, "Definir PV". Os
+// cliques em −/+ são acumulados (hooks/useAcumuladorRecurso): o valor novo
+// aparece na hora e uma única escrita (updateGridToken) sai ~0,8 s depois do
+// último clique, ao sair da linha ou ao fechar o painel. Digitar o atual
+// grava no Enter/blur, como antes.
 const RecursoLinha = ({ id, recurso, onAlterar }) => {
   const [definindo, setDefinindo] = useState(false);
   const rotulo = ROTULOS_RECURSO[id];
+  const max = recurso?.max ?? null;
+
+  const gravarAtual = useCallback(
+    atual => onAlterar({ [id]: { atual, max } }),
+    [id, max, onAlterar],
+  );
+  const {
+    valor: atualExibido,
+    definir,
+    descarregar,
+  } = useAcumuladorRecurso(recurso?.atual ?? 0, gravarAtual);
+  // O recurso com o `atual` que o usuário está vendo (pode estar pendente).
+  const exibido = recurso ? { ...recurso, atual: atualExibido } : null;
 
   const gravar = novo => {
-    if (!igual(novo, recurso)) onAlterar({ [id]: novo });
+    if (!igual(novo, exibido)) {
+      // Um máximo novo (ou o recurso inteiro) leva o atual junto: o que estava
+      // pendente sai antes e não é regravado depois.
+      descarregar();
+      onAlterar({ [id]: novo });
+    }
+  };
+  const ajustar = delta => {
+    const novo = ajustarRecurso(exibido, delta);
+    if (novo && novo.atual !== atualExibido) definir(novo.atual);
+  };
+  const digitarAtual = texto => {
+    const novo = recursoDigitado(exibido, 'atual', texto);
+    if (!novo || novo.atual === atualExibido) return;
+    definir(novo.atual);
+    descarregar();
   };
 
   if (!recurso) {
@@ -118,21 +151,26 @@ const RecursoLinha = ({ id, recurso, onAlterar }) => {
   }
 
   return (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+    <Box
+      sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
+      onBlur={event => {
+        if (!event.currentTarget.contains(event.relatedTarget)) descarregar();
+      }}
+    >
       <IconButton
         size="small"
         aria-label={`Diminuir ${rotulo}`}
-        disabled={recurso.atual <= 0}
-        onClick={() => gravar(ajustarRecurso(recurso, -1))}
+        disabled={atualExibido <= 0}
+        onClick={() => ajustar(-1)}
       >
         <RemoveIcon fontSize="small" />
       </IconButton>
       <CampoNumero
         label={`${rotulo} atual`}
-        valor={recurso.atual}
+        valor={atualExibido}
         inputMode="text"
         dica="Digite o valor ou -N/+N para tirar/somar (ex.: -7)"
-        onConfirmar={texto => gravar(recursoDigitado(recurso, 'atual', texto))}
+        onConfirmar={digitarAtual}
       />
       <Typography sx={{ color: 'var(--text-muted)' }} aria-hidden="true">
         /
@@ -140,13 +178,13 @@ const RecursoLinha = ({ id, recurso, onAlterar }) => {
       <CampoNumero
         label={`${rotulo} máximo`}
         valor={recurso.max}
-        onConfirmar={texto => gravar(recursoDigitado(recurso, 'max', texto))}
+        onConfirmar={texto => gravar(recursoDigitado(exibido, 'max', texto))}
       />
       <IconButton
         size="small"
         aria-label={`Aumentar ${rotulo}`}
-        disabled={recurso.atual >= recurso.max}
-        onClick={() => gravar(ajustarRecurso(recurso, 1))}
+        disabled={atualExibido >= recurso.max}
+        onClick={() => ajustar(1)}
       >
         <AddIcon fontSize="small" />
       </IconButton>

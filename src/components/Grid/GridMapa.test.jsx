@@ -808,6 +808,7 @@ describe('GridMapa — sinais, estado dos tokens, auras e seguir', () => {
       });
 
     it('+ e digitar chamam onAlterarRecurso com o valor limitado a 0..max', () => {
+      vi.useFakeTimers();
       const onAlterarRecurso = vi.fn(() => Promise.resolve());
       const { container } = editavel({ onAlterarRecurso });
       fireEvent.pointerOver(screen.getByRole('button', { name: /Wesley/ }), {
@@ -815,6 +816,10 @@ describe('GridMapa — sinais, estado dos tokens, auras e seguir', () => {
       });
       const cartao = container.querySelector('[data-detalhe]');
       fireEvent.click(within(cartao).getByRole('button', { name: 'Aumentar PV' }));
+      // Cliques de −/+ são acumulados: o valor aparece já, a escrita sai depois.
+      expect(within(cartao).getByLabelText('PV atual')).toHaveValue('6');
+      expect(onAlterarRecurso).not.toHaveBeenCalled();
+      act(() => vi.advanceTimersByTime(800));
       expect(onAlterarRecurso).toHaveBeenLastCalledWith(
         expect.objectContaining({ id: 't1' }),
         'pv',
@@ -830,6 +835,39 @@ describe('GridMapa — sinais, estado dos tokens, auras e seguir', () => {
         expect.objectContaining({ id: 't1' }),
         'energia',
         4,
+      );
+    });
+
+    it('vários cliques viram uma escrita; fechar o cartão grava o que sobrou', () => {
+      vi.useFakeTimers();
+      const onAlterarRecurso = vi.fn(() => Promise.resolve());
+      const { container } = editavel({ onAlterarRecurso });
+      const wesley = screen.getByRole('button', { name: /Wesley/ });
+      fireEvent.pointerOver(wesley, { pointerType: 'mouse' });
+      const cartao = container.querySelector('[data-detalhe]');
+      const mais = within(cartao).getByRole('button', { name: 'Aumentar PV' });
+      fireEvent.click(mais);
+      fireEvent.click(mais);
+      fireEvent.click(mais);
+      expect(onAlterarRecurso).not.toHaveBeenCalled();
+      act(() => vi.advanceTimersByTime(800));
+      expect(onAlterarRecurso).toHaveBeenCalledTimes(1);
+      expect(onAlterarRecurso).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 't1' }),
+        'pv',
+        8,
+      );
+
+      fireEvent.click(within(cartao).getByRole('button', { name: 'Diminuir PV' }));
+      // Fecha o cartão antes do prazo: a escrita pendente não se perde.
+      fireEvent.pointerOut(wesley, { pointerType: 'mouse' });
+      act(() => vi.advanceTimersByTime(1000));
+      expect(container.querySelector('[data-detalhe]')).toBeNull();
+      expect(onAlterarRecurso).toHaveBeenCalledTimes(2);
+      expect(onAlterarRecurso).toHaveBeenLastCalledWith(
+        expect.objectContaining({ id: 't1' }),
+        'pv',
+        7,
       );
     });
 

@@ -36,6 +36,13 @@ const foraDoMundo = (limites, { col, lin }) =>
   Boolean(limites) &&
   (col < 0 || lin < 0 || col >= limites.colunas || lin >= limites.linhas);
 
+const mesmasCelulas = (a, b) => {
+  if (a === b) return true;
+  if (a.size !== b.size) return false;
+  for (const chaveCelula of a) if (!b.has(chaveCelula)) return false;
+  return true;
+};
+
 const camadaValida = camada => Object.values(CAMADAS).includes(camada);
 
 const useGridCamadas = (
@@ -124,9 +131,13 @@ const useGridCamadas = (
       const atual = ultimoRef.current;
       if (camada === CAMADAS.NEVOA) {
         const reveladas = aplicarCelulas(atual.nevoa.reveladas, dentro, acao);
+        // Nada mudou (ex.: revelar o que já está revelado): não grava.
+        if (mesmasCelulas(reveladas, atual.nevoa.reveladas)) return Promise.resolve(true);
         return gravar(camada, { ativa: atual.nevoa.ativa, reveladas });
       }
-      return gravar(camada, aplicarCelulas(atual.paredes, dentro, acao));
+      const paredes = aplicarCelulas(atual.paredes, dentro, acao);
+      if (mesmasCelulas(paredes, atual.paredes)) return Promise.resolve(true);
+      return gravar(camada, paredes);
     },
     [chave, gravar, veTudo],
   );
@@ -134,6 +145,7 @@ const useGridCamadas = (
   const definirNevoaAtiva = useCallback(
     ativa => {
       if (!chave || !veTudo) return Promise.resolve(false);
+      if (Boolean(ativa) === ultimoRef.current.nevoa.ativa) return Promise.resolve(true);
       return gravar(CAMADAS.NEVOA, {
         ativa: Boolean(ativa),
         reveladas: ultimoRef.current.nevoa.reveladas,
@@ -150,8 +162,12 @@ const useGridCamadas = (
       const novas =
         acao === ACOES_CAMADA.ADICIONAR && limites ? todasAsCelulas(limites) : new Set();
       if (camada === CAMADAS.NEVOA) {
+        if (mesmasCelulas(novas, ultimoRef.current.nevoa.reveladas)) {
+          return Promise.resolve(true);
+        }
         return gravar(camada, { ativa: ultimoRef.current.nevoa.ativa, reveladas: novas });
       }
+      if (mesmasCelulas(novas, ultimoRef.current.paredes)) return Promise.resolve(true);
       return gravar(camada, novas);
     },
     [chave, gravar, veTudo],

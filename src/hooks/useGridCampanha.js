@@ -441,7 +441,7 @@ const useGridCampanha = (
   });
 
   // Ids das fichas dos tokens de jogador (string estável para o hook).
-  const idsDasFichas = useMemo(
+  const idsAtuais = useMemo(
     () =>
       [
         ...new Set(
@@ -454,6 +454,18 @@ const useGridCampanha = (
         .join('|'),
     [tokens],
   );
+  // Troca de cena: `tokens` fica vazio até a escuta nova responder, o que
+  // fecharia e reabriria o listener de cada ficha que continua no grid. Mantém
+  // os ids da última chave carregada (da mesma campanha) enquanto carrega.
+  const [idsEstaveis, setIdsEstaveis] = useState({ campanhaId: null, ids: '' });
+  if (
+    !carregando &&
+    (idsEstaveis.ids !== idsAtuais || idsEstaveis.campanhaId !== campanhaId)
+  ) {
+    setIdsEstaveis({ campanhaId, ids: idsAtuais });
+  }
+  const idsDasFichas =
+    carregando && idsEstaveis.campanhaId === campanhaId ? idsEstaveis.ids : idsAtuais;
   const fichas = useFichasDoGrid(idsDasFichas, { ativo: Boolean(podeOuvir && chave) });
   const catalogoPorId = useMemo(
     () => new Map(catalogoCondicoes.map(condicao => [condicao.id, condicao])),

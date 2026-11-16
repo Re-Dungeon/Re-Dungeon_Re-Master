@@ -98,6 +98,7 @@ import {
   celulasParaRevelarEmVolta,
   chaveDasFichasDoGrupo,
   copiaDoToken,
+  escolherCenaAberta,
   haDialogoAberto,
   jogadoresSemToken,
   linhasDoGrupo,
@@ -161,10 +162,15 @@ const Grid = () => {
 
   // Cena aberta pelo mestre: a escolhida, senão a ativa, senão a primeira.
   const [cenaEscolhidaId, setCenaEscolhidaId] = useState(null);
-  const existe = id => Boolean(id) && cenas.some(cena => cena.id === id);
-  let cenaAbertaId = cenas[0]?.id ?? null;
-  if (existe(cenaEscolhidaId)) cenaAbertaId = cenaEscolhidaId;
-  else if (existe(cenaAtivaId)) cenaAbertaId = cenaAtivaId;
+  // Enquanto a lista de cenas ou o ponteiro `grid/atual` ainda não chegaram
+  // (dois listeners separados), nada é aberto: senão cairia em `cenas[0]` e
+  // montaria o conjunto inteiro de listeners da cena errada antes de trocar.
+  const cenaAbertaId = escolherCenaAberta({
+    cenas,
+    cenaEscolhidaId,
+    cenaAtivaId,
+    carregando: carregandoCenas,
+  });
   const cenaAberta = cenas.find(cena => cena.id === cenaAbertaId) ?? null;
 
   // Catálogo de condições do universo (ícones/nomes nos tokens e no painel),
