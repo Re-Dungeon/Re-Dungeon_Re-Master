@@ -41,7 +41,7 @@ jobs:
           java-version: 21
 
       - name: Test
-        run: npx --yes firebase-tools@15.0.0 emulators:exec --only firestore --project re-dungeon-banco-de-dados "npm run test -- --run"
+        run: npm run test
 
       - name: Build
         run: npm run build
