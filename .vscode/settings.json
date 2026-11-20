@@ -15,6 +15,18 @@
         "/^Set-Location 'd:\\\\Bagre\\.exe\\\\01_PROJETOS\\\\Re-Dungeon_Re-Master'; python -c \"from pathlib import Path; lines=Path\\('src/components/PersonagemFichaDialog/PersonagemFichaDialog\\.jsx'\\)\\.read_text\\(encoding='utf-8'\\)\\.splitlines\\(\\); import itertools; \\[print\\(f'\\{i\\+1\\}: \\{lines\\[i\\]\\}'\\) for i in range\\(1058,1082\\)\\]\"$/": {
             "approve": true,
             "matchCommandLine": true
+        },
+        "/^Get-CimInstance Win32_Process \\| Where-Object \\{ \\$_\\.Name -match 'java\\|node\\|firebase' \\} \\| Select-Object ProcessId,Name,CommandLine \\| Format-Table -Wrap -AutoSize$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^Set-Location 'd:\\\\Bagre\\.exe\\\\01_PROJETOS\\\\Re-Dungeon_Re-Master'; git diff --unified=80 -- \\.vscode/settings\\.json$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^Set-Location 'd:\\\\Bagre\\.exe\\\\01_PROJETOS\\\\Re-Dungeon_Re-Master'; git diff --unified=80 -- \\.github/workflows/ci\\.yml$/": {
+            "approve": true,
+            "matchCommandLine": true
         }
     }
 }
