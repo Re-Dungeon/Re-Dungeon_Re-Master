@@ -22,8 +22,14 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
       - name: Test
-        run: npm run test -- --run
+        run: npx --yes firebase-tools@15.0.0 emulators:exec --only firestore "npm run test -- --run"
 
       - name: Build
         run: npm run build
