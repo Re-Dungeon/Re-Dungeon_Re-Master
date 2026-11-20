@@ -34,7 +34,10 @@ export const SnackbarProvider = ({ children }) => {
     setSnackbar(null);
   }, []);
 
-  const value = useMemo(() => ({ notifyError, notifySuccess }), [notifyError, notifySuccess]);
+  const value = useMemo(
+    () => ({ notifyError, notifySuccess }),
+    [notifyError, notifySuccess],
+  );
 
   return (
     <SnackbarContext.Provider value={value}>
@@ -43,7 +46,8 @@ export const SnackbarProvider = ({ children }) => {
         open={Boolean(snackbar)}
         autoHideDuration={6000}
         onClose={handleClose}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+        sx={{ mt: { xs: 1, sm: 2 }, mr: { xs: 1, sm: 2 } }}
       >
         {snackbar ? (
           <Alert

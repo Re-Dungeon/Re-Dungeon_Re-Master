@@ -201,7 +201,11 @@ const buscarPersonagensPorTipo = async (tipos, universoId) => {
   }
 };
 
-const comCachePersonagens = async (chave, carregar, { forcar = false } = {}) => {
+const comCachePersonagens = async (
+  chave,
+  carregar,
+  { forcar = false } = {},
+) => {
   const agora = Date.now();
   if (forcar) personagensCache.delete(chave);
   const emCache = personagensCache.get(chave);
@@ -229,7 +233,13 @@ const getPersonagensPorTipo = (tipos, universoId, opcoes) =>
 // Clones da campanha (subcoleções npcs/jogadores/criaturas): só este app os
 // escreve, e toda escrita passa por `invalidandoPersonagens`, então ficam no
 // mesmo cache (chave com prefixo `clones:`).
-const getClonesDaCampanha = (caminho, campanhaId, universoId, mestreId, opcoes) =>
+const getClonesDaCampanha = (
+  caminho,
+  campanhaId,
+  universoId,
+  mestreId,
+  opcoes,
+) =>
   comCachePersonagens(
     `clones:${caminho(campanhaId).join('/')}|${universoId}|${mestreId}`,
     () =>
@@ -449,7 +459,9 @@ const RM_CAMPANHAS_COLLECTION = 'rmCampanhas';
 // composto. Sem `mestreId` não há o que consultar.
 export const getRmCampanhas = mestreId =>
   mestreId
-    ? getFirestoreItemsWhereAll(RM_CAMPANHAS_COLLECTION, [['mestreId', mestreId]])
+    ? getFirestoreItemsWhereAll(RM_CAMPANHAS_COLLECTION, [
+        ['mestreId', mestreId],
+      ])
     : Promise.resolve([]);
 export const addRmCampanha = campanha =>
   addFirestoreItem(RM_CAMPANHAS_COLLECTION, campanha);
@@ -723,15 +735,26 @@ export const updateRmCardfluxExploracao = (id, updates) => {
 const RM_NOTAS_COLLECTION = 'rmNotas';
 
 export const getRmNotasPorCampanha = (campanhaId, universoId, mestreId) =>
-  getFirestoreItemsWhereAll(RM_NOTAS_COLLECTION, [
-    ['campanhaId', campanhaId],
-    ['universoId', universoId],
-    ['mestreId', mestreId],
-  ]);
+  getFirestoreItemsWhereAll(RM_NOTAS_COLLECTION, [['mestreId', mestreId]]).then(
+    notas =>
+      notas.filter(nota => {
+        const vinculaOutraCampanha =
+          nota.campanhaId && String(nota.campanhaId) !== String(campanhaId);
+        const vinculaOutroUniverso =
+          nota.universoId && String(nota.universoId) !== String(universoId);
+        return !vinculaOutraCampanha && !vinculaOutroUniverso;
+      }),
+  );
 export const addRmNota = nota => addFirestoreItem(RM_NOTAS_COLLECTION, nota);
 export const removeRmNota = id => removeFirestoreItem(RM_NOTAS_COLLECTION, id);
 export const updateRmNota = (id, updates) =>
   updateFirestoreItem(RM_NOTAS_COLLECTION, id, updates);
+
+export const getRmNota = async id => {
+  if (!id) return null;
+  const snapshot = await getDoc(doc(db, RM_NOTAS_COLLECTION, id));
+  return snapshot.exists() ? { ...snapshot.data(), id: snapshot.id } : null;
+};
 
 // ── rmTiposEntidade (Firestore) ───────────────────────────────────────────────
 const RM_TIPOS_ENTIDADE_COLLECTION = 'rmTiposEntidade';
@@ -755,15 +778,32 @@ export const getRmTiposEntidadePorMestre = async mestreId => {
 
 export const addRmTipoEntidade = async item => {
   const nome = typeof item?.name === 'string' ? item.name.trim() : '';
-  if (!nome || !item?.universoId || !item?.mestreId) return null;
+  if (!nome || !item?.universoId || !item?.mestreId) {
+    throw new Error('Dados insuficientes para criar o tipo de entidade.');
+  }
+
+  const normalizedName = normalizeEntityTypeName(nome);
+  const tiposExistentes = await getRmTiposEntidadePorUniverso(
+    item.universoId,
+    item.mestreId,
+  );
+  const existente = tiposExistentes.find(
+    tipo =>
+      normalizeEntityTypeName(tipo?.name ?? tipo?.nome ?? tipo?.Nome ?? '') ===
+      normalizedName,
+  );
+  if (existente) {
+    return { ...existente, existing: true };
+  }
 
   const payload = {
     ...item,
     name: nome,
-    normalizedName: normalizeEntityTypeName(nome),
+    normalizedName,
   };
 
-  return addFirestoreItem(RM_TIPOS_ENTIDADE_COLLECTION, payload);
+  const created = await addFirestoreItem(RM_TIPOS_ENTIDADE_COLLECTION, payload);
+  return { ...created, existing: false };
 };
 
 export const removeRmTipoEntidade = id =>
@@ -779,6 +819,80 @@ export const updateRmTipoEntidade = (id, updates) => {
 
   return updateFirestoreItem(RM_TIPOS_ENTIDADE_COLLECTION, id, payload);
 };
+
+// ── Vínculos e tipos de vínculo (Firestore) ───────────────────────────────
+const RM_TIPOS_VINCULO_COLLECTION = 'rmTiposVinculo';
+
+const vinculosSubcollectionPath = campanhaId => [
+  RM_CAMPANHAS_COLLECTION,
+  campanhaId,
+  'vinculos',
+];
+
+export const getRmTiposVinculoPorUniverso = (universoId, mestreId) =>
+  getFirestoreItemsWhereAll(RM_TIPOS_VINCULO_COLLECTION, [
+    ['universoId', universoId],
+    ['mestreId', mestreId],
+  ]);
+
+export const addRmTipoVinculo = async item => {
+  const nome = typeof item?.name === 'string' ? item.name.trim() : '';
+  if (!nome || !item?.universoId || !item?.mestreId) {
+    throw new Error('Dados insuficientes para criar o tipo de vínculo.');
+  }
+
+  const normalizedName = normalizeEntityTypeName(nome);
+  const existentes = await getRmTiposVinculoPorUniverso(
+    item.universoId,
+    item.mestreId,
+  );
+  const existente = existentes.find(
+    tipo =>
+      normalizeEntityTypeName(tipo?.name ?? tipo?.nome ?? '') ===
+      normalizedName,
+  );
+  if (existente) return { ...existente, existing: true };
+
+  return addFirestoreItem(RM_TIPOS_VINCULO_COLLECTION, {
+    ...item,
+    name: nome,
+    normalizedName,
+  });
+};
+
+export const updateRmTipoVinculo = (id, updates) => {
+  const payload = { ...updates };
+  if (typeof payload.name === 'string') {
+    payload.name = payload.name.trim();
+    payload.normalizedName = normalizeEntityTypeName(payload.name);
+  }
+  return updateFirestoreItem(RM_TIPOS_VINCULO_COLLECTION, id, payload);
+};
+
+export const removeRmTipoVinculo = id =>
+  removeFirestoreItem(RM_TIPOS_VINCULO_COLLECTION, id);
+
+export const getRmVinculosPorEntidade = (
+  campanhaId,
+  universoId,
+  mestreId,
+  entidadeOrigemId,
+) =>
+  getFirestoreItemsWhereAll(vinculosSubcollectionPath(campanhaId), [
+    ['campanhaId', campanhaId],
+    ['universoId', universoId],
+    ['mestreId', mestreId],
+    ['origemId', entidadeOrigemId],
+  ]);
+
+export const addRmVinculo = (campanhaId, vinculo) =>
+  addFirestoreItem(vinculosSubcollectionPath(campanhaId), vinculo);
+
+export const updateRmVinculo = (campanhaId, id, updates) =>
+  updateFirestoreItem(vinculosSubcollectionPath(campanhaId), id, updates);
+
+export const removeRmVinculo = (campanhaId, id) =>
+  removeFirestoreItem(vinculosSubcollectionPath(campanhaId), id);
 
 // ── Biblioteca Global de Músicas (Firestore) ───────────────────────────────
 // `rmMusicasBiblioteca` guarda músicas reutilizáveis por Mestre; as playlists
@@ -1241,7 +1355,14 @@ export const removeChatRolagemSecreta = (campanhaId, donoUid, rolagemId) =>
 export const CHAT_LIMITE_SUSSURROS = 50;
 
 const sussurrosRef = (campanhaId, jogadorUid) =>
-  collection(db, RM_CAMPANHAS_COLLECTION, campanhaId, 'chatSecretas', jogadorUid, 'sussurros');
+  collection(
+    db,
+    RM_CAMPANHAS_COLLECTION,
+    campanhaId,
+    'chatSecretas',
+    jogadorUid,
+    'sussurros',
+  );
 
 // As mensagens chegam com `donoUid` (a pasta — necessário para apagar). Ordem:
 // mais recente primeiro (quem consome mescla com `mesclarMensagens`).
@@ -1272,7 +1393,11 @@ export const subscribeChatSussurros = (
 // Mestre: ouve a pasta dos jogadores de `chatMembros` com atividade recente
 // (`membroChatAtivo`), no mesmo esquema das secretas. Devolve um único
 // `unsubscribe`.
-export const subscribeChatSussurrosDoMestre = (campanhaId, onChange, onError) => {
+export const subscribeChatSussurrosDoMestre = (
+  campanhaId,
+  onChange,
+  onError,
+) => {
   const porJogador = new Map();
   const emitir = () =>
     onChange([...porJogador.values()].flatMap(entrada => entrada.mensagens));
@@ -1317,7 +1442,15 @@ export const addChatSussurro = (campanhaId, jogadorUid, mensagem) =>
 
 export const removeChatSussurro = (campanhaId, jogadorUid, sussurroId) =>
   deleteDoc(
-    doc(db, RM_CAMPANHAS_COLLECTION, campanhaId, 'chatSecretas', jogadorUid, 'sussurros', sussurroId),
+    doc(
+      db,
+      RM_CAMPANHAS_COLLECTION,
+      campanhaId,
+      'chatSecretas',
+      jogadorUid,
+      'sussurros',
+      sussurroId,
+    ),
   );
 
 // ── Macros Lua — rmCampanhas/{id}/macros ───────────────────────────────────
@@ -1355,7 +1488,10 @@ export const limparCacheMacros = campanhaId =>
     }
   });
 
-export const getChatMacros = (campanhaId, { incluirSomenteMestre = false } = {}) => {
+export const getChatMacros = (
+  campanhaId,
+  { incluirSomenteMestre = false } = {},
+) => {
   const chave = `${campanhaId}|${incluirSomenteMestre}`;
   let guardado = macrosCache.get(chave);
   if (!guardado || Date.now() - guardado.em > MACROS_CACHE_MS) {
@@ -1363,7 +1499,8 @@ export const getChatMacros = (campanhaId, { incluirSomenteMestre = false } = {})
     guardado = { promessa, em: Date.now() };
     macrosCache.set(chave, guardado);
     promessa.catch(() => {
-      if (macrosCache.get(chave)?.promessa === promessa) macrosCache.delete(chave);
+      if (macrosCache.get(chave)?.promessa === promessa)
+        macrosCache.delete(chave);
     });
   }
   // Cópia: quem chama pode ordenar/alterar a lista sem sujar o cache.
@@ -1381,15 +1518,20 @@ export const addChatMacro = async (campanhaId, macro) => {
 };
 
 export const updateChatMacro = async (campanhaId, macroId, patch) => {
-  await updateDoc(doc(db, RM_CAMPANHAS_COLLECTION, campanhaId, 'macros', macroId), {
-    ...patch,
-    updatedAt: serverTimestamp(),
-  });
+  await updateDoc(
+    doc(db, RM_CAMPANHAS_COLLECTION, campanhaId, 'macros', macroId),
+    {
+      ...patch,
+      updatedAt: serverTimestamp(),
+    },
+  );
   limparCacheMacros(campanhaId);
 };
 
 export const removeChatMacro = async (campanhaId, macroId) => {
-  await deleteDoc(doc(db, RM_CAMPANHAS_COLLECTION, campanhaId, 'macros', macroId));
+  await deleteDoc(
+    doc(db, RM_CAMPANHAS_COLLECTION, campanhaId, 'macros', macroId),
+  );
   limparCacheMacros(campanhaId);
 };
 
@@ -1673,6 +1815,7 @@ export const subscribeGridMarcadores = (
   campanhaId,
   cenaId,
   { incluirSecretos = false } = {},
+
   onChange,
   onError,
 ) =>
@@ -2018,9 +2161,6 @@ const apagarEmLotes = async refs => {
   }
 };
 
-const refsDaColecao = async caminho =>
-  (await getDocs(collection(db, ...caminho))).docs.map(item => item.ref);
-
 // Exclui a campanha com o que mora dentro dela: cenas do grid (e tudo de cada
 // uma), chat (mensagens, rolagens secretas e sussurros de cada membro, macros), música,
 // clones de NPC/criatura, jogadores e participantes da antiga Luta. As subcoleções
@@ -2102,6 +2242,11 @@ export const removeRmCampanhaCompleta = async (campanhaId, mestreId) => {
   limparCachePersonagens();
 };
 
+const refsDaColecao = async caminho =>
+  (await getDocs(collection(db, ...caminho))).docs.map(item => item.ref);
+
+// Exports para a interface
+
 export const addGridTokens = async (campanhaId, cenaId, tokens) => {
   const batch = writeBatch(db);
   tokens.forEach(token =>
@@ -2119,10 +2264,6 @@ export const updateGridToken = (campanhaId, cenaId, tokenId, patch) =>
 export const removeGridToken = (campanhaId, cenaId, tokenId) =>
   deleteDoc(doc(gridTokensRef(campanhaId, cenaId), tokenId));
 
-// Ações em lote do mestre (seleção múltipla do Grid): um único writeBatch
-// (a cena comporta até 200 tokens, bem abaixo do limite de 500 do Firestore).
-// `alteracoes` = [{ id, patch }]; cada update ganha `updatedAt`, como em
-// `updateGridToken`.
 export const updateGridTokensEmLote = async (
   campanhaId,
   cenaId,
@@ -2148,15 +2289,9 @@ export const removeGridTokensEmLote = async (campanhaId, cenaId, tokenIds) => {
   await batch.commit();
 };
 
-// ── Música da mesa — rmCampanhas/{id}/audio/atual ──────────────────────────
-// Estado da faixa do YouTube que toca para todos com a mesa aberta (modelo em
-// common/utils/audioMesa.js). Mesmo bloco do site dos jogadores: membros
-// leem, só o mestre grava (as regras garantem). `referenciaEm` (horário do
-// servidor na gravação) chega como milissegundos para o cálculo da posição.
 const audioMesaRef = campanhaId =>
   doc(db, RM_CAMPANHAS_COLLECTION, campanhaId, 'audio', 'atual');
 
-// Chama `onChange(estado | null)` — null enquanto nunca tocou nada.
 export const subscribeAudioMesa = (campanhaId, onChange, onError) =>
   onSnapshot(
     audioMesaRef(campanhaId),
@@ -2174,7 +2309,6 @@ export const subscribeAudioMesa = (campanhaId, onChange, onError) =>
     onError,
   );
 
-// `estado` = um dos montarAudio* (ou AUDIO_PARADO) de common/utils/audioMesa.js.
 export const setAudioMesa = (campanhaId, estado) =>
   setDoc(audioMesaRef(campanhaId), {
     ...estado,

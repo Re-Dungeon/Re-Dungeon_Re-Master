@@ -1,523 +1,768 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import './Notas.css';
-import { useNavigate } from 'react-router-dom';
+﻿import React, { useMemo, useState } from 'react';
 import Box from '@mui/material/Box';
-import Paper from '@mui/material/Paper';
-import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
-import IconButton from '@mui/material/IconButton';
-import Tooltip from '@mui/material/Tooltip';
-import CircularProgress from '@mui/material/CircularProgress';
-import Dialog from '@mui/material/Dialog';
-import DialogTitle from '@mui/material/DialogTitle';
-import DialogContent from '@mui/material/DialogContent';
-import DialogActions from '@mui/material/DialogActions';
-import TextField from '@mui/material/TextField';
-import InputAdornment from '@mui/material/InputAdornment';
-import InputLabel from '@mui/material/InputLabel';
-import MenuItem from '@mui/material/MenuItem';
-import Select from '@mui/material/Select';
+import Chip from '@mui/material/Chip';
+import Divider from '@mui/material/Divider';
 import FormControl from '@mui/material/FormControl';
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined';
-import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
-import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
+import IconButton from '@mui/material/IconButton';
+import InputAdornment from '@mui/material/InputAdornment';
+import Menu from '@mui/material/Menu';
+import MenuItem from '@mui/material/MenuItem';
+import Paper from '@mui/material/Paper';
+import Select from '@mui/material/Select';
+import TextField from '@mui/material/TextField';
+import Typography from '@mui/material/Typography';
+import GridViewOutlinedIcon from '@mui/icons-material/GridViewOutlined';
+import ListOutlinedIcon from '@mui/icons-material/ListOutlined';
 import SearchOutlinedIcon from '@mui/icons-material/SearchOutlined';
-import CloseIcon from '@mui/icons-material/Close';
-import { useAuth } from 'context/AuthContext';
-import { useCampanha } from 'context/CampanhaContext';
-import { useSnackbar } from 'context/SnackbarContext';
-import {
-  getRmNotasPorCampanha,
-  removeRmNota,
-  getRmCenas,
-  getRmTiposEntidadePorUniverso,
-} from 'service/storage';
-import useEntityCRUD from 'hooks/useEntityCRUD';
-import ListLoadError from 'components/ListLoadError/ListLoadError';
-import { ROUTE_PATHS } from 'common/constants/routes';
-import {
-  getEntityTypeOptions,
-  getNotaCapa,
-  matchEntityType,
-} from './notaUtils';
+import TuneOutlinedIcon from '@mui/icons-material/TuneOutlined';
+import FilterListOutlinedIcon from '@mui/icons-material/FilterListOutlined';
+import DownloadOutlinedIcon from '@mui/icons-material/DownloadOutlined';
+import ShareOutlinedIcon from '@mui/icons-material/ShareOutlined';
 
-const parseTimestamp = valor => {
-  if (!valor) return 0;
-  if (valor instanceof Date) return valor.getTime();
-  if (typeof valor.toDate === 'function') return valor.toDate().getTime();
-  if (typeof valor.toMillis === 'function') return valor.toMillis();
-  if (typeof valor === 'string') {
-    const data = new Date(valor);
-    return Number.isNaN(data.getTime()) ? 0 : data.getTime();
-  }
-  if (typeof valor === 'number') return valor;
-  return 0;
+const universoMock = {
+  nome: 'Reino de Arandor',
 };
 
-const formatarAtualizacao = valor => {
-  const timestamp = parseTimestamp(valor);
-  if (!timestamp) return 'Sem atualização recente';
-  const data = new Date(timestamp);
+const entidadesMock = [];
+
+const columnOptions = [5, 6, 8];
+const visibleFieldOptions = [
+  { key: 'tipo', label: 'Tipo' },
+  { key: 'descricao', label: 'Resumo' },
+  { key: 'tags', label: 'Tags' },
+];
+
+const sortOptions = [
+  { value: 'az', label: 'A–Z' },
+  { value: 'za', label: 'Z–A' },
+  { value: 'recentes', label: 'Mais recentes' },
+  { value: 'antigos', label: 'Mais antigos' },
+  { value: 'edicao', label: 'Última edição' },
+  { value: 'tipo', label: 'Por tipo' },
+];
+
+const formatDate = value => {
+  const date = new Date(value);
   return new Intl.DateTimeFormat('pt-BR', {
     day: '2-digit',
     month: 'short',
     year: 'numeric',
-  }).format(data);
+  }).format(date);
 };
 
-const normalizarTipo = valor => (typeof valor === 'string' ? valor.trim() : '');
-
-const pluralizarTipo = valor => {
-  const tipo = normalizarTipo(valor);
-  if (!tipo) return 'Outros';
-
-  const sinonimos = {
-    Conceito: 'Conceitos',
-    Criatura: 'Criaturas',
-    Divindade: 'Divindades',
-    Evento: 'Eventos',
-    Item: 'Itens',
-    Local: 'Locais',
-    Organização: 'Organizações',
-    Personagem: 'Personagens',
-    Raça: 'Raças',
-    Rota: 'Rotas',
-    Outro: 'Outros',
-  };
-
-  return sinonimos[tipo] || `${tipo}s`;
+const comparador = (a, b, ordenacao) => {
+  switch (ordenacao) {
+    case 'za':
+      return b.nome.localeCompare(a.nome, 'pt-BR');
+    case 'recentes':
+      return new Date(b.ultimoAcesso) - new Date(a.ultimoAcesso);
+    case 'antigos':
+      return new Date(a.ultimoAcesso) - new Date(b.ultimoAcesso);
+    case 'edicao':
+      return b.id.localeCompare(a.id);
+    case 'tipo':
+      return (
+        a.tipo.localeCompare(b.tipo, 'pt-BR') ||
+        a.nome.localeCompare(b.nome, 'pt-BR')
+      );
+    case 'az':
+    default:
+      return a.nome.localeCompare(b.nome, 'pt-BR');
+  }
 };
 
 const Notas = () => {
-  const navigate = useNavigate();
-  const { currentUser, isAdmin } = useAuth();
-  const { campanhaAtiva, loadingCampanhas } = useCampanha();
-  const { notifyError } = useSnackbar();
-
-  const getNotasDaCampanha = useCallback(() => {
-    if (!campanhaAtiva) return Promise.resolve([]);
-    return getRmNotasPorCampanha(
-      campanhaAtiva.id,
-      campanhaAtiva.universoId,
-      campanhaAtiva.mestreId,
-    );
-  }, [campanhaAtiva]);
-
-  const {
-    items: notas,
-    loading: loadingNotas,
-    error: errorNotas,
-    reload: reloadNotas,
-    remove: handleRemoveNota,
-  } = useEntityCRUD({ getAll: getNotasDaCampanha, remove: removeRmNota });
-
-  const [cenas, setCenas] = useState([]);
-  const [tiposDisponiveis, setTiposDisponiveis] = useState([]);
-  const [notaVisualizada, setNotaVisualizada] = useState(null);
   const [pesquisa, setPesquisa] = useState('');
-  const [categoria, setCategoria] = useState('todos');
-  const [ordem, setOrdem] = useState('atualizacao');
+  const [categoriaAtiva, setCategoriaAtiva] = useState('Todos');
+  const [ordem, setOrdem] = useState('az');
+  const [modoVisualizacao, setModoVisualizacao] = useState('grid');
+  const [colunas, setColunas] = useState(5);
+  const [visibleFields, setVisibleFields] = useState({
+    tipo: true,
+    descricao: true,
+    tags: true,
+  });
 
-  useEffect(() => {
-    if (!campanhaAtiva) return;
-    Promise.resolve().then(() =>
-      getRmCenas(
-        campanhaAtiva.id,
-        campanhaAtiva.universoId,
-        campanhaAtiva.mestreId,
-      )
-        .then(setCenas)
-        .catch(() => {
-          setCenas([]);
-          notifyError('Não foi possível carregar as cenas da campanha.');
-        }),
-    );
-  }, [campanhaAtiva, notifyError]);
-
-  useEffect(() => {
-    if (!campanhaAtiva?.universoId || !campanhaAtiva?.mestreId) return;
-
-    let isMounted = true;
-    Promise.resolve()
-      .then(() =>
-        getRmTiposEntidadePorUniverso(
-          campanhaAtiva.universoId,
-          campanhaAtiva.mestreId,
-        ),
-      )
-      .then(itens => {
-        if (isMounted) {
-          setTiposDisponiveis(Array.isArray(itens) ? itens : []);
-        }
-      })
-      .catch(() => {
-        if (isMounted) {
-          setTiposDisponiveis([]);
-          notifyError('Não foi possível carregar os tipos de entidade.');
-        }
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [campanhaAtiva, notifyError]);
-
-  useEffect(() => {
-    if (!loadingCampanhas && !campanhaAtiva) navigate(ROUTE_PATHS.CAMPANHA);
-  }, [loadingCampanhas, campanhaAtiva, navigate]);
+  const [configMenuAnchor, setConfigMenuAnchor] = useState(null);
 
   const categorias = useMemo(() => {
-    const tiposBase = getEntityTypeOptions(tiposDisponiveis, notas);
+    const counts = entidadesMock.reduce((acc, entidade) => {
+      acc[entidade.tipo] = (acc[entidade.tipo] ?? 0) + 1;
+      return acc;
+    }, {});
 
-    const total = notas.length;
-    const porTipo = tiposBase
-      .map(tipo => ({
-        value: tipo,
-        label: pluralizarTipo(tipo),
-        count: notas.filter(nota => {
-          const tipoNota = normalizarTipo(nota.tipo);
-          const tipoSelecionado = normalizarTipo(tipo);
-          return tipoNota && tipoSelecionado && matchEntityType(tipoNota, tipoSelecionado);
-        }).length,
-      }))
-      .filter(item => item.count > 0 || item.value === 'todos');
+    const tipos = Object.keys(counts).sort((a, b) => a.localeCompare(b));
+    return [
+      { label: 'Todos', value: 'Todos', count: entidadesMock.length },
+      ...tipos.map(tipo => ({ label: tipo, value: tipo, count: counts[tipo] })),
+    ];
+  }, []);
 
-    return [{ value: 'todos', label: 'Todos', count: total }, ...porTipo];
-  }, [notas, tiposDisponiveis]);
-
-  const notasFiltradas = useMemo(() => {
+  const entidadesFiltradas = useMemo(() => {
     const termo = pesquisa.trim().toLowerCase();
-    const filtradas = notas.filter(nota => {
-      const cenaVinculada = cenas.find(cena => cena.id === nota.cenaId);
-      const textoBusca = [nota.titulo, nota.conteudo, cenaVinculada?.titulo]
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase();
+    const lista = entidadesMock.filter(entidade => {
+      const matchTipo =
+        categoriaAtiva === 'Todos' || entidade.tipo === categoriaAtiva;
+      if (!matchTipo) return false;
 
-      if (termo && !textoBusca.includes(termo)) return false;
-      if (categoria !== 'todos' && !matchEntityType(nota.tipo ?? '', categoria)) {
-        return false;
-      }
+      const digest =
+        `${entidade.nome} ${entidade.descricao} ${entidade.tags.join(' ')}`.toLowerCase();
+      if (termo && !digest.includes(termo)) return false;
 
       return true;
     });
 
-    return [...filtradas].sort((a, b) => {
-      if (ordem === 'alfabetica') {
-        return (a.titulo || '').localeCompare(b.titulo || '', 'pt-BR');
-      }
+    return [...lista].sort((a, b) => comparador(a, b, ordem));
+  }, [categoriaAtiva, ordem, pesquisa]);
 
-      const dataA = parseTimestamp(a.updatedAt ?? a.createdAt);
-      const dataB = parseTimestamp(b.updatedAt ?? b.createdAt);
-      return dataB - dataA;
-    });
-  }, [categoria, cenas, notas, ordem, pesquisa]);
-
-  if (!campanhaAtiva && !loadingCampanhas) return null;
-
-  const loading = loadingCampanhas || loadingNotas;
-  const podeEscrever = campanhaAtiva
-    ? isAdmin || campanhaAtiva.mestreId === currentUser.uid
-    : false;
-
-  const abrirNotaVisualizacao = nota => {
-    navigate(ROUTE_PATHS.NOTA_DETALHES.replace(':notaId', nota.id));
+  const toggleField = field => {
+    setVisibleFields(prev => ({ ...prev, [field]: !prev[field] }));
   };
-  const fecharNotaVisualizacao = () => setNotaVisualizada(null);
+
+  const totalEntidades = entidadesMock.length;
 
   return (
-    <Box className="page-container universe-page">
-      <Box className="universo-header">
-        <Box className="universo-header__content">
-          <span className="universo-kicker">Enciclopédia do mundo</span>
-          <Typography component="h1" variant="h3" className="universo-title">
-            Universo
-          </Typography>
-          <Typography variant="body1" className="universo-subtitle">
-            Organize personagens, lugares, histórias e tudo que define seu
-            universo.
-          </Typography>
-          <Box className="universo-meta">
-            <span>{notas.length} entidades no compêndio</span>
-            <span>{campanhaAtiva?.nome}</span>
-          </Box>
-        </Box>
-
-        {podeEscrever && (
-          <Button
-            variant="contained"
-            onClick={() => navigate(ROUTE_PATHS.NOVA_NOTA)}
-            className="universo-primary-button"
-            sx={{
-              background: 'linear-gradient(135deg, #7f3db8 0%, #4f1d7c 100%)',
-              color: '#f5f3ff',
-              '&:hover': { background: 'linear-gradient(135deg, #8c4ad0 0%, #5a228b 100%)' },
-            }}
-          >
-            Nova entidade
-          </Button>
-        )}
-      </Box>
-
-      <Box className="universo-toolbar">
-        <TextField
-          value={pesquisa}
-          onChange={event => setPesquisa(event.target.value)}
-          placeholder="Buscar por nome ou conteúdo"
-          className="universo-search"
-          slotProps={{
-            input: {
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchOutlinedIcon fontSize="small" />
-                </InputAdornment>
-              ),
-            },
+    <Box
+      sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, width: '100%' }}
+    >
+      <Paper
+        elevation={0}
+        sx={{
+          borderRadius: 3,
+          border: '1px solid rgba(255,255,255,0.07)',
+          background:
+            'linear-gradient(180deg, rgba(16,18,24,0.95), rgba(10,12,17,0.94))',
+          p: { xs: 2.25, md: 3 },
+        }}
+      >
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            justifyContent: 'space-between',
+            gap: 2,
+            flexWrap: 'wrap',
           }}
-          aria-label="Buscar entidades"
-        />
+        >
+          <Box>
+            <Typography
+              variant="overline"
+              sx={{
+                color: '#d5a6a6',
+                letterSpacing: 1.5,
+                display: 'inline-block',
+              }}
+            >
+              Wiki
+            </Typography>
+            <Box
+              sx={{
+                display: 'flex',
+                gap: 1.5,
+                alignItems: 'baseline',
+                flexWrap: 'wrap',
+                mt: 0.5,
+              }}
+            >
+              <Typography
+                variant="h4"
+                sx={{
+                  fontWeight: 700,
+                  color: 'var(--text-primary)',
+                  letterSpacing: '-0.04em',
+                }}
+              >
+                Enciclopédia
+              </Typography>
+              <Typography
+                variant="body2"
+                sx={{ color: 'var(--text-secondary)' }}
+              >
+                • {universoMock.nome}
+              </Typography>
+            </Box>
+            <Typography
+              variant="body2"
+              sx={{ color: 'var(--text-secondary)', mt: 0.75 }}
+            >
+              {totalEntidades} entidades cadastradas
+            </Typography>
+          </Box>
 
-        <FormControl className="universo-select" size="small">
-          <InputLabel id="universo-filter-label">Categoria</InputLabel>
-          <Select
-            labelId="universo-filter-label"
-            value={categoria}
-            label="Categoria"
-            onChange={event => setCategoria(event.target.value)}
-          >
-            {categorias.map(item => (
-              <MenuItem key={item.value} value={item.value}>
-                {item.label} ({item.count})
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-
-        <FormControl className="universo-select" size="small">
-          <InputLabel id="universo-order-label">Ordenar</InputLabel>
-          <Select
-            labelId="universo-order-label"
-            value={ordem}
-            label="Ordenar"
-            onChange={event => setOrdem(event.target.value)}
-          >
-            <MenuItem value="atualizacao">Atualização</MenuItem>
-            <MenuItem value="alfabetica">Alfabética</MenuItem>
-          </Select>
-        </FormControl>
-      </Box>
-
-      <Box className="universo-filters">
-        {categorias.map(item => (
-          <button
-            key={item.value}
-            type="button"
-            className={`universo-chip ${categoria === item.value ? 'is-active' : ''}`}
-            onClick={() => setCategoria(item.value)}
-          >
-            {item.label}
-            {' '}
-            <span>{item.count}</span>
-          </button>
-        ))}
-      </Box>
-
-      {loading ? (
-        <Box className="universo-loading">
-          <CircularProgress sx={{ color: 'var(--color-accent)' }} />
-        </Box>
-      ) : errorNotas ? (
-        <ListLoadError mensagem="Erro ao carregar o universo." onRetry={reloadNotas} />
-      ) : notas.length === 0 ? (
-        <Box className="empty-state universo-empty">
-          <span className="empty-state-icon">🗂️</span>
-          <p>Nenhuma nota cadastrada</p>
-          <small>Registre ideias, improvisos e lembretes rápidos.</small>
-          {podeEscrever && (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Button
+              variant="text"
+              size="small"
+              startIcon={<DownloadOutlinedIcon fontSize="small" />}
+              sx={{
+                color: 'var(--text-secondary)',
+                textTransform: 'none',
+                borderRadius: 2,
+              }}
+            >
+              Exportar
+            </Button>
+            <Button
+              variant="text"
+              size="small"
+              startIcon={<ShareOutlinedIcon fontSize="small" />}
+              sx={{
+                color: 'var(--text-secondary)',
+                textTransform: 'none',
+                borderRadius: 2,
+              }}
+            >
+              Compartilhar
+            </Button>
             <Button
               variant="contained"
-              onClick={() => navigate(ROUTE_PATHS.NOVA_NOTA)}
-              sx={{ mt: 2, background: 'linear-gradient(135deg, #7f3db8 0%, #4f1d7c 100%)' }}
+              size="small"
+              disabled
+              sx={{
+                borderRadius: 2,
+                background: '#b13535',
+                color: '#ffffff',
+                textTransform: 'none',
+                px: 2,
+                '&.Mui-disabled': {
+                  background: 'rgba(177,53,53,0.35)',
+                  color: 'rgba(255,255,255,0.6)',
+                },
+              }}
             >
               Nova entidade
             </Button>
-          )}
+          </Box>
         </Box>
-      ) : notasFiltradas.length === 0 ? (
-        <Box className="empty-state universo-empty">
-          <span className="empty-state-icon">✦</span>
-          <p>Nenhuma entidade corresponde aos filtros atuais.</p>
-          <small>
-            Ajuste a busca ou remova os filtros para continuar a exploração.
-          </small>
-          <Button
-            variant="outlined"
-            onClick={() => {
-              setPesquisa('');
-              setCategoria('todos');
-            }}
+      </Paper>
+
+      <Paper
+        elevation={0}
+        sx={{
+          borderRadius: 2.5,
+          border: '1px solid rgba(255,255,255,0.06)',
+          background: 'rgba(17,20,27,0.82)',
+          p: { xs: 1.5, md: 1.8 },
+        }}
+      >
+        <Box
+          sx={{
+            display: 'flex',
+            gap: 1.25,
+            flexWrap: 'wrap',
+            alignItems: 'center',
+          }}
+        >
+          <TextField
+            value={pesquisa}
+            onChange={event => setPesquisa(event.target.value)}
+            size="small"
+            placeholder="Pesquisar entidade"
             sx={{
-              mt: 2,
+              flex: '1 1 300px',
+              minWidth: 220,
+              '& .MuiOutlinedInput-root': {
+                borderRadius: 2,
+                background: 'rgba(255,255,255,0.02)',
+                color: 'var(--text-primary)',
+              },
+            }}
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchOutlinedIcon fontSize="small" />
+                  </InputAdornment>
+                ),
+              },
+            }}
+          />
+
+          <Button
+            size="small"
+            startIcon={<FilterListOutlinedIcon fontSize="small" />}
+            sx={{
               color: 'var(--text-primary)',
-              borderColor: 'var(--border-primary)',
+              border: '1px solid rgba(255,255,255,0.08)',
+              borderRadius: 2,
+              background: 'rgba(255,255,255,0.02)',
+              textTransform: 'none',
             }}
           >
-            Limpar filtros
+            Tags
           </Button>
+
+          <FormControl size="small" sx={{ minWidth: 170 }}>
+            <Select
+              value={ordem}
+              onChange={event => setOrdem(event.target.value)}
+              displayEmpty
+              sx={{
+                borderRadius: 2,
+                background: 'rgba(255,255,255,0.02)',
+                color: 'var(--text-primary)',
+                '& .MuiOutlinedInput-notchedOutline': {
+                  borderColor: 'rgba(255,255,255,0.08)',
+                },
+              }}
+            >
+              {sortOptions.map(option => (
+                <MenuItem key={option.value} value={option.value}>
+                  {option.label}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          <Button
+            size="small"
+            startIcon={<TuneOutlinedIcon fontSize="small" />}
+            onClick={event => setConfigMenuAnchor(event.currentTarget)}
+            sx={{
+              color: 'var(--text-primary)',
+              border: '1px solid rgba(255,255,255,0.08)',
+              borderRadius: 2,
+              background: 'rgba(255,255,255,0.02)',
+              textTransform: 'none',
+            }}
+          >
+            Exibição
+          </Button>
+
+          <Box sx={{ ml: 'auto', display: 'flex', gap: 0.75 }}>
+            <IconButton
+              size="small"
+              onClick={() => setModoVisualizacao('grid')}
+              sx={{
+                background:
+                  modoVisualizacao === 'grid'
+                    ? 'rgba(177,53,53,0.12)'
+                    : 'rgba(255,255,255,0.02)',
+                border: '1px solid rgba(255,255,255,0.08)',
+                color:
+                  modoVisualizacao === 'grid'
+                    ? '#ff9d9d'
+                    : 'var(--text-secondary)',
+              }}
+            >
+              <GridViewOutlinedIcon fontSize="small" />
+            </IconButton>
+            <IconButton
+              size="small"
+              onClick={() => setModoVisualizacao('list')}
+              sx={{
+                background:
+                  modoVisualizacao === 'list'
+                    ? 'rgba(177,53,53,0.12)'
+                    : 'rgba(255,255,255,0.02)',
+                border: '1px solid rgba(255,255,255,0.08)',
+                color:
+                  modoVisualizacao === 'list'
+                    ? '#ff9d9d'
+                    : 'var(--text-secondary)',
+              }}
+            >
+              <ListOutlinedIcon fontSize="small" />
+            </IconButton>
+          </Box>
+        </Box>
+      </Paper>
+
+      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+        {categorias.map(categoria => (
+          <Chip
+            key={categoria.value}
+            label={`${categoria.label} (${categoria.count})`}
+            variant={categoriaAtiva === categoria.value ? 'filled' : 'outlined'}
+            onClick={() => setCategoriaAtiva(categoria.value)}
+            sx={{
+              borderRadius: '999px',
+              borderColor: 'rgba(255,255,255,0.1)',
+              background:
+                categoriaAtiva === categoria.value
+                  ? 'rgba(177,53,53,0.14)'
+                  : 'rgba(255,255,255,0.01)',
+              color:
+                categoriaAtiva === categoria.value
+                  ? '#f4dada'
+                  : 'var(--text-secondary)',
+              fontWeight: 600,
+            }}
+          />
+        ))}
+      </Box>
+
+      {modoVisualizacao === 'grid' ? (
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: `repeat(${colunas}, minmax(0, 1fr))`,
+            gap: 2,
+            alignItems: 'stretch',
+            '@media (max-width: 1200px)': {
+              gridTemplateColumns: `repeat(${Math.min(colunas, 6)}, minmax(0, 1fr))`,
+            },
+            '@media (max-width: 900px)': {
+              gridTemplateColumns: `repeat(${Math.min(colunas, 4)}, minmax(0, 1fr))`,
+            },
+            '@media (max-width: 640px)': {
+              gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+            },
+            '@media (max-width: 440px)': { gridTemplateColumns: '1fr' },
+          }}
+        >
+          {entidadesFiltradas.map(entidade => (
+            <Paper
+              key={entidade.id}
+              elevation={0}
+              sx={{
+                overflow: 'hidden',
+                borderRadius: 3,
+                border: '1px solid rgba(255,255,255,0.08)',
+                background: 'rgba(15,18,24,0.9)',
+                transition:
+                  'border-color 180ms ease, transform 180ms ease, box-shadow 180ms ease',
+                '&:hover': {
+                  transform: 'translateY(-2px)',
+                  borderColor: 'rgba(177,53,53,0.55)',
+                  boxShadow: '0 20px 30px rgba(0,0,0,0.22)',
+                },
+              }}
+            >
+              <Box
+                sx={{
+                  position: 'relative',
+                  aspectRatio: '5 / 6',
+                  backgroundColor: '#110d16',
+                }}
+              >
+                <Box
+                  component="img"
+                  src={entidade.capa}
+                  alt={entidade.nome}
+                  sx={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover',
+                    display: 'block',
+                  }}
+                />
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    inset: 0,
+                    background:
+                      'linear-gradient(180deg, rgba(10,12,18,0.08), rgba(10,12,18,0.72))',
+                  }}
+                />
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    left: 12,
+                    top: 12,
+                    display: 'flex',
+                    gap: 0.5,
+                    alignItems: 'center',
+                  }}
+                >
+                  <Box
+                    sx={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: '50%',
+                      background: '#cb7c7c',
+                      boxShadow: '0 0 14px rgba(203,124,124,0.7)',
+                    }}
+                  />
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: '#f7dadb',
+                      fontWeight: 700,
+                      letterSpacing: '0.08em',
+                      textTransform: 'uppercase',
+                    }}
+                  >
+                    {entidade.tipo}
+                  </Typography>
+                </Box>
+                <Box
+                  sx={{ position: 'absolute', left: 12, right: 12, bottom: 12 }}
+                >
+                  <Typography
+                    variant="h6"
+                    sx={{
+                      fontSize: '1rem',
+                      lineHeight: 1.2,
+                      color: '#fff',
+                      fontWeight: 700,
+                      letterSpacing: '-0.03em',
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden',
+                    }}
+                  >
+                    {entidade.nome}
+                  </Typography>
+                </Box>
+              </Box>
+
+              <Box
+                sx={{
+                  p: 1.5,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 1.2,
+                }}
+              >
+                {visibleFields.tipo && (
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                    }}
+                  >
+                    <Typography
+                      variant="caption"
+                      sx={{ color: 'var(--text-secondary)' }}
+                    >
+                      Categoria
+                    </Typography>
+                    <Typography
+                      variant="caption"
+                      sx={{ color: '#f0cece', fontWeight: 700 }}
+                    >
+                      {entidade.tipo}
+                    </Typography>
+                  </Box>
+                )}
+
+                {visibleFields.descricao && (
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      color: 'var(--text-secondary)',
+                      lineHeight: 1.55,
+                      display: '-webkit-box',
+                      WebkitLineClamp: 3,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden',
+                    }}
+                  >
+                    {entidade.descricao}
+                  </Typography>
+                )}
+
+                {visibleFields.tags && (
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.6 }}>
+                    {entidade.tags.slice(0, 2).map(tag => (
+                      <Chip
+                        key={tag}
+                        label={tag}
+                        size="small"
+                        sx={{
+                          height: 22,
+                          borderRadius: '999px',
+                          background: 'rgba(255,255,255,0.04)',
+                          color: 'var(--text-secondary)',
+                          fontSize: '0.68rem',
+                          border: '1px solid rgba(255,255,255,0.05)',
+                        }}
+                      />
+                    ))}
+                  </Box>
+                )}
+              </Box>
+            </Paper>
+          ))}
         </Box>
       ) : (
-        <Box className="universo-grid">
-          {notasFiltradas.map(nota => {
-            const cenaVinculada = cenas.find(cena => cena.id === nota.cenaId);
-            const capa = getNotaCapa(nota) || getNotaCapa(cenaVinculada);
-            const resumo = (nota.conteudo || '').replace(/\s+/g, ' ').trim();
-            const categoriaLabel = nota.cenaId ? 'Cena vinculada' : 'Nota rápida';
-
-            return (
-              <Paper key={nota.id} elevation={0} className="universo-card">
-                <Box className="universo-card__cover" sx={capa ? { backgroundImage: `linear-gradient(180deg, rgba(9,11,16,0.15), rgba(9,11,16,0.8)), url(${capa})` } : undefined}>
-                  {!capa && (
-                    <Box className="universo-card__placeholder">
-                      <span>✦</span>
-                      <Typography variant="caption">{categoriaLabel}</Typography>
-                    </Box>
-                  )}
-
-                  <Box className="universo-card__actions">
-                    <Tooltip title="Visualizar" arrow>
-                      <IconButton
-                        size="small"
-                        onClick={() => abrirNotaVisualizacao(nota)}
-                        className="universo-card__action"
-                        aria-label={`Visualizar nota ${nota.titulo}`}
-                      >
-                        <VisibilityOutlinedIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                    {podeEscrever && (
-                      <Tooltip title="Editar" arrow>
-                        <IconButton
-                          size="small"
-                          onClick={() => navigate(ROUTE_PATHS.NOTA_EDITAR.replace(':notaId', nota.id))}
-                          className="universo-card__action universo-card__action--edit"
-                          aria-label={`Editar nota ${nota.titulo}`}
-                        >
-                          <EditOutlinedIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                    )}
-                    {podeEscrever && (
-                      <Tooltip title="Excluir" arrow>
-                        <IconButton
-                          size="small"
-                          onClick={() => handleRemoveNota(nota.id)}
-                          className="universo-card__action universo-card__action--delete"
-                          aria-label={`Remover nota ${nota.titulo}`}
-                        >
-                          <DeleteOutlineIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                    )}
-                  </Box>
-
-                  <Box className="universo-card__meta-overlay">
-                    <Typography variant="caption" className="universo-card__eyebrow">
-                      <span className="universo-card__eyebrow-dot" />
-                      {nota.tipo || (cenaVinculada ? 'Cena' : 'Entidade')}
-                    </Typography>
-                    <Typography variant="h6" className="universo-card__title">
-                      {nota.titulo}
-                    </Typography>
-                  </Box>
-
-                  <Box className="universo-card__badge">
-                    {cenaVinculada ? `Cena: ${cenaVinculada.titulo}` : categoriaLabel}
-                  </Box>
-                </Box>
-
-                <Box className="universo-card__content">
-                  <Typography variant="body2" className="universo-card__summary">
-                    {resumo || 'Nenhum resumo disponível para esta entidade.'}
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.3 }}>
+          {entidadesFiltradas.map(entidade => (
+            <Paper
+              key={entidade.id}
+              elevation={0}
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: '112px 1.3fr 1fr 150px',
+                gap: 1.5,
+                alignItems: 'center',
+                p: 1.25,
+                borderRadius: 3,
+                border: '1px solid rgba(255,255,255,0.08)',
+                background: 'rgba(15,18,24,0.9)',
+              }}
+            >
+              <Box
+                sx={{
+                  borderRadius: 2,
+                  overflow: 'hidden',
+                  aspectRatio: '1 / 1',
+                  border: '1px solid rgba(255,255,255,0.06)',
+                }}
+              >
+                <Box
+                  component="img"
+                  src={entidade.capa}
+                  alt={entidade.nome}
+                  sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                />
+              </Box>
+              <Box>
+                <Typography
+                  variant="subtitle1"
+                  sx={{ color: 'var(--text-primary)', fontWeight: 700 }}
+                >
+                  {entidade.nome}
+                </Typography>
+                {visibleFields.descricao && (
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      color: 'var(--text-secondary)',
+                      mt: 0.4,
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden',
+                    }}
+                  >
+                    {entidade.descricao}
                   </Typography>
-
-                  <Box className="universo-card__meta">
-                    <span>{formatarAtualizacao(nota.updatedAt ?? nota.createdAt)}</span>
-                  </Box>
-                </Box>
-              </Paper>
-            );
-          })}
+                )}
+              </Box>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.6 }}>
+                {visibleFields.tags &&
+                  entidade.tags.map(tag => (
+                    <Chip
+                      key={tag}
+                      label={tag}
+                      size="small"
+                      sx={{
+                        background: 'rgba(255,255,255,0.04)',
+                        color: 'var(--text-secondary)',
+                        borderRadius: '999px',
+                      }}
+                    />
+                  ))}
+              </Box>
+              <Box
+                sx={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  gap: 1,
+                }}
+              >
+                <Typography
+                  variant="caption"
+                  sx={{ color: '#f0cece', fontWeight: 700 }}
+                >
+                  {entidade.tipo}
+                </Typography>
+                <Typography
+                  variant="caption"
+                  sx={{ color: 'var(--text-secondary)' }}
+                >
+                  {formatDate(entidade.ultimoAcesso)}
+                </Typography>
+              </Box>
+            </Paper>
+          ))}
         </Box>
       )}
 
-      <Dialog
-        open={Boolean(notaVisualizada)}
-        onClose={fecharNotaVisualizacao}
-        fullWidth
-        maxWidth="md"
+      <Menu
+        anchorEl={configMenuAnchor}
+        open={Boolean(configMenuAnchor)}
+        onClose={() => setConfigMenuAnchor(null)}
         slotProps={{
-          backdrop: {
-            sx: { backgroundColor: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(8px)' },
-          },
           paper: {
             sx: {
-              bgcolor: 'rgba(8,10,16,0.98)',
+              minWidth: 260,
+              borderRadius: 2,
               border: '1px solid rgba(255,255,255,0.08)',
-              boxShadow: '0 42px 120px rgba(0,0,0,0.55)',
-              borderRadius: 4,
-              mx: { xs: 1, sm: 2 },
+              background: '#10151d',
             },
           },
         }}
-        className="nota-dialog"
       >
-        <DialogTitle component="div" className="nota-dialog-title">
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 2 }}>
-            <Box>
-              <Typography variant="h6" sx={{ color: 'var(--text-primary)', fontWeight: 800, mb: 0.5 }}>
-                {notaVisualizada?.titulo}
-              </Typography>
-              <Typography variant="caption" sx={{ color: 'var(--text-secondary)', display: 'block', mt: 0.5 }}>
-                {notaVisualizada?.cenaId
-                  ? `Cena vinculada: ${cenas.find(cena => cena.id === notaVisualizada.cenaId)?.titulo ?? 'Desconhecida'}`
-                  : 'Nota rápida'}
-              </Typography>
-            </Box>
-            <IconButton
-              onClick={fecharNotaVisualizacao}
-              sx={{
-                color: 'var(--text-secondary)',
-                bgcolor: 'rgba(255,255,255,0.04)',
-                border: '1px solid rgba(255,255,255,0.08)',
-                '&:hover': { bgcolor: 'rgba(255,255,255,0.08)' },
-              }}
-              aria-label="Fechar visualização da entidade"
-            >
-              <CloseIcon fontSize="small" />
-            </IconButton>
-          </Box>
-        </DialogTitle>
-        <DialogContent className="nota-dialog-content">
-          <Box className="nota-dialog-panel">
-            <Typography variant="body2" className="nota-dialog-body">
-              {notaVisualizada?.conteudo || 'Sem conteúdo para exibir.'}
-            </Typography>
-          </Box>
-        </DialogContent>
-        <DialogActions sx={{ background: 'rgba(15,17,25,0.98)', px: 3, py: 2 }}>
-          <Button
-            onClick={fecharNotaVisualizacao}
-            sx={{
-              color: 'var(--text-primary)',
-              border: '1px solid rgba(255,255,255,0.08)',
-              background: 'rgba(255,255,255,0.04)',
-              '&:hover': { background: 'rgba(255,255,255,0.08)' },
-            }}
+        <Box sx={{ p: 1.5, minWidth: 230 }}>
+          <Typography
+            variant="subtitle2"
+            sx={{ color: 'var(--text-primary)', mb: 1.25, fontWeight: 700 }}
           >
-            Fechar
-          </Button>
-        </DialogActions>
-      </Dialog>
+            Exibição
+          </Typography>
+
+          <Typography
+            variant="caption"
+            sx={{ color: 'var(--text-secondary)', display: 'block', mb: 0.75 }}
+          >
+            Colunas
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap', mb: 1.5 }}>
+            {columnOptions.map(value => (
+              <Button
+                key={value}
+                size="small"
+                variant={colunas === value ? 'contained' : 'outlined'}
+                onClick={() => {
+                  setColunas(value);
+                  setConfigMenuAnchor(null);
+                }}
+                sx={{
+                  minWidth: 0,
+                  px: 1.25,
+                  borderRadius: 2,
+                  background: colunas === value ? '#b13535' : 'transparent',
+                  color: colunas === value ? '#fff' : 'var(--text-primary)',
+                  borderColor: 'rgba(255,255,255,0.08)',
+                  textTransform: 'none',
+                }}
+              >
+                {value}
+              </Button>
+            ))}
+          </Box>
+
+          <Divider sx={{ borderColor: 'rgba(255,255,255,0.08)', my: 1 }} />
+
+          <Typography
+            variant="caption"
+            sx={{ color: 'var(--text-secondary)', display: 'block', mb: 0.75 }}
+          >
+            Atributos
+          </Typography>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+            {visibleFieldOptions.map(field => (
+              <Button
+                key={field.key}
+                size="small"
+                variant={visibleFields[field.key] ? 'contained' : 'outlined'}
+                onClick={() => {
+                  toggleField(field.key);
+                }}
+                sx={{
+                  justifyContent: 'space-between',
+                  borderRadius: 2,
+                  background: visibleFields[field.key]
+                    ? 'rgba(177,53,53,0.16)'
+                    : 'transparent',
+                  borderColor: 'rgba(255,255,255,0.08)',
+                  color: 'var(--text-primary)',
+                  textTransform: 'none',
+                }}
+              >
+                {field.label}
+              </Button>
+            ))}
+          </Box>
+        </Box>
+      </Menu>
     </Box>
   );
 };

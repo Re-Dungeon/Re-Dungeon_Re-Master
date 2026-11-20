@@ -48,7 +48,8 @@ import {
 
 const panelSx = {
   p: 2,
-  background: 'linear-gradient(180deg, rgba(20,24,30,0.98), rgba(12,15,20,0.98))',
+  background:
+    'linear-gradient(180deg, rgba(20,24,30,0.98), rgba(12,15,20,0.98))',
   border: '1px solid var(--border-primary)',
   borderRadius: 3,
   boxShadow: '0 18px 36px rgba(0,0,0,0.18)',
@@ -57,7 +58,8 @@ const panelSx = {
 const primaryButtonSx = {
   minHeight: '42px',
   borderRadius: 2,
-  background: 'linear-gradient(135deg, rgba(89,171,255,0.95), rgba(196,58,47,0.92))',
+  background:
+    'linear-gradient(135deg, rgba(89,171,255,0.95), rgba(196,58,47,0.92))',
   color: '#f8fafc',
   fontWeight: 800,
   textTransform: 'uppercase',
@@ -133,7 +135,8 @@ const STATE_META = {
     badgeBackground: 'rgba(96, 165, 250, 0.12)',
     badgeBorder: 'rgba(96, 165, 250, 0.38)',
     badgeColor: '#bfdbfe',
-    cellBackground: 'linear-gradient(135deg, rgba(15,23,42,0.92), rgba(15,23,42,0.76))',
+    cellBackground:
+      'linear-gradient(135deg, rgba(15,23,42,0.92), rgba(15,23,42,0.76))',
     cellBorder: 'rgba(148,163,184,0.16)',
   },
   revelado: {
@@ -142,7 +145,8 @@ const STATE_META = {
     badgeBackground: 'rgba(251,191,36,0.12)',
     badgeBorder: 'rgba(251,191,36,0.45)',
     badgeColor: '#fbbf24',
-    cellBackground: 'linear-gradient(135deg, rgba(120,72,22,0.82), rgba(39,27,16,0.9))',
+    cellBackground:
+      'linear-gradient(135deg, rgba(120,72,22,0.82), rgba(39,27,16,0.9))',
     cellBorder: 'rgba(251,191,36,0.58)',
   },
   resolvido: {
@@ -151,7 +155,8 @@ const STATE_META = {
     badgeBackground: 'rgba(34,197,94,0.12)',
     badgeBorder: 'rgba(34,197,94,0.42)',
     badgeColor: '#86efac',
-    cellBackground: 'linear-gradient(135deg, rgba(15,64,39,0.9), rgba(12,26,18,0.9))',
+    cellBackground:
+      'linear-gradient(135deg, rgba(15,64,39,0.9), rgba(12,26,18,0.9))',
     cellBorder: 'rgba(74,222,128,0.64)',
   },
   vazio: {
@@ -160,7 +165,8 @@ const STATE_META = {
     badgeBackground: 'rgba(148,163,184,0.12)',
     badgeBorder: 'rgba(148,163,184,0.28)',
     badgeColor: '#e2e8f0',
-    cellBackground: 'linear-gradient(135deg, rgba(30,41,59,0.56), rgba(15,23,42,0.76))',
+    cellBackground:
+      'linear-gradient(135deg, rgba(30,41,59,0.56), rgba(15,23,42,0.76))',
     cellBorder: 'rgba(148,163,184,0.14)',
   },
   bloqueado: {
@@ -169,7 +175,8 @@ const STATE_META = {
     badgeBackground: 'rgba(168,85,247,0.12)',
     badgeBorder: 'rgba(168,85,247,0.35)',
     badgeColor: '#d8b4fe',
-    cellBackground: 'linear-gradient(135deg, rgba(120,72,22,0.82), rgba(39,27,16,0.9))',
+    cellBackground:
+      'linear-gradient(135deg, rgba(120,72,22,0.82), rgba(39,27,16,0.9))',
     cellBorder: 'rgba(168,85,247,0.5)',
   },
 };
@@ -225,11 +232,12 @@ const ICONS = {
   carta: CARD_ICONS,
 };
 
-const normalizeIconKey = valor => String(valor ?? '')
-  .normalize('NFD')
-  .replace(/[\u0300-\u036f]/g, '')
-  .toLowerCase()
-  .replace(/[^a-z]/g, '');
+const normalizeIconKey = valor =>
+  String(valor ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z]/g, '');
 
 const resolveCategoriaKey = valor => {
   const chave = normalizeIconKey(valor);
@@ -251,8 +259,8 @@ const resolveCategoriaKey = valor => {
   };
 
   if (!chave) return null;
-  return aliases[chave] || (
-    Object.keys(TYPE_ICONS).includes(chave) ? chave : null
+  return (
+    aliases[chave] || (Object.keys(TYPE_ICONS).includes(chave) ? chave : null)
   );
 };
 
@@ -266,14 +274,16 @@ const buildIconElement = ({
   boxSx = {},
 }) => {
   const resolvedSize = typeof size === 'number' ? `${size}px` : size;
-  const fallbackFontSize = typeof size === 'number' ? `${Math.max(0.8, size * 0.58)}rem` : '0.9rem';
-  const resolvedClassName = variant === 'legend-state'
-    ? 'exploration-legend__state-icon'
-    : variant === 'legend-category'
-      ? 'exploration-legend__category-icon'
-      : variant === 'cell-category'
-        ? 'exploration-cell__category-icon'
-        : 'exploration-cell__state-icon';
+  const fallbackFontSize =
+    typeof size === 'number' ? `${Math.max(0.8, size * 0.58)}rem` : '0.9rem';
+  const resolvedClassName =
+    variant === 'legend-state'
+      ? 'exploration-legend__state-icon'
+      : variant === 'legend-category'
+        ? 'exploration-legend__category-icon'
+        : variant === 'cell-category'
+          ? 'exploration-cell__category-icon'
+          : 'exploration-cell__state-icon';
 
   return (
     <Box
@@ -303,8 +313,14 @@ const buildIconElement = ({
         }}
         sx={{
           display: 'block',
-          width: variant === 'legend-state' || variant === 'legend-category' ? '100%' : '100%',
-          height: variant === 'legend-state' || variant === 'legend-category' ? '100%' : '100%',
+          width:
+            variant === 'legend-state' || variant === 'legend-category'
+              ? '100%'
+              : '100%',
+          height:
+            variant === 'legend-state' || variant === 'legend-category'
+              ? '100%'
+              : '100%',
           objectFit: 'contain',
           filter: 'drop-shadow(0 0 10px rgba(89,171,255,0.25))',
           ...sx,
@@ -331,7 +347,8 @@ const buildIconElement = ({
 
 const resolveQuadranteMarcador = quadrante => {
   if (!quadrante) return null;
-  const marcador = quadrante?.marcador ?? quadrante?.tipoMarcador ?? quadrante?.marcadorTipo;
+  const marcador =
+    quadrante?.marcador ?? quadrante?.tipoMarcador ?? quadrante?.marcadorTipo;
   if (!marcador || typeof marcador !== 'string') return null;
   return resolveCategoriaKey(marcador);
 };
@@ -341,40 +358,64 @@ const getQuadrantePrincipalIconMeta = quadrante => {
 
   const estado = getEstadoQuadrante(quadrante).estado;
   const marcador = resolveQuadranteMarcador(quadrante);
-  const marcadorLabel = {
-    combate: 'Combate',
-    descoberta: 'Descoberta',
-    interacao: 'Interação',
-    perigo: 'Perigo',
-    objetivo: 'Objetivo',
-    ambiental: 'Ambiental',
-    acampamento: 'Acampamento',
-  }[marcador] || marcador || 'Marcador';
+  const marcadorLabel =
+    {
+      combate: 'Combate',
+      descoberta: 'Descoberta',
+      interacao: 'Interação',
+      perigo: 'Perigo',
+      objetivo: 'Objetivo',
+      ambiental: 'Ambiental',
+      acampamento: 'Acampamento',
+    }[marcador] ||
+    marcador ||
+    'Marcador';
 
   if (estado === 'oculto' || quadrante?.bloqueado) {
     return { src: ICONS.estado.oculto, fallback: '◌', alt: 'Não explorado' };
   }
 
-  if (marcador && ['revelado', 'em_andamento', 'resolvido', 'vazio'].includes(estado)) {
-    return { src: TYPE_ICONS[marcador], fallback: marcadorLabel.charAt(0).toUpperCase(), alt: marcadorLabel };
+  if (
+    marcador &&
+    ['revelado', 'em_andamento', 'resolvido', 'vazio'].includes(estado)
+  ) {
+    return {
+      src: TYPE_ICONS[marcador],
+      fallback: marcadorLabel.charAt(0).toUpperCase(),
+      alt: marcadorLabel,
+    };
   }
 
   if (estado === 'resolvido') {
     return { src: ICONS.estado.resolvido, fallback: '✓', alt: 'Resolvido' };
   }
 
-  if (quadrante?.cartaId && ['revelado', 'em_andamento', 'vazio'].includes(estado)) {
+  if (
+    quadrante?.cartaId &&
+    ['revelado', 'em_andamento', 'vazio'].includes(estado)
+  ) {
     return { src: ICONS.carta.carta, fallback: 'C', alt: 'Carta' };
   }
 
-  if (estado === 'revelado' || estado === 'em_andamento' || estado === 'vazio') {
+  if (
+    estado === 'revelado' ||
+    estado === 'em_andamento' ||
+    estado === 'vazio'
+  ) {
     return { src: ICONS.estado.revelado, fallback: '◉', alt: 'Explorado' };
   }
 
   return { src: ICONS.estado.oculto, fallback: '◌', alt: 'Não explorado' };
 };
 
-const QuadranteBadge = ({ icon, label, background, border, color, sx = {} }) => (
+const QuadranteBadge = ({
+  icon,
+  label,
+  background,
+  border,
+  color,
+  sx = {},
+}) => (
   <Box
     component="span"
     sx={{
@@ -397,7 +438,17 @@ const QuadranteBadge = ({ icon, label, background, border, color, sx = {} }) => 
       ...sx,
     }}
   >
-    <Box component="span" aria-hidden="true" sx={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.92rem', lineHeight: 1 }}>
+    <Box
+      component="span"
+      aria-hidden="true"
+      sx={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: '0.92rem',
+        lineHeight: 1,
+      }}
+    >
       {icon}
     </Box>
     <Box component="span">{label}</Box>
@@ -414,15 +465,36 @@ const GridLegendItem = ({
   variant = 'state',
 }) => {
   const toneStyles = {
-    default: { background: 'rgba(148, 163, 184, 0.08)', border: 'rgba(148, 163, 184, 0.18)', color: 'var(--text-primary)' },
-    success: { background: 'rgba(34, 197, 94, 0.10)', border: 'rgba(34, 197, 94, 0.22)', color: 'var(--text-primary)' },
-    warning: { background: 'rgba(245, 158, 11, 0.10)', border: 'rgba(245, 158, 11, 0.22)', color: 'var(--text-primary)' },
-    danger: { background: 'rgba(196, 58, 47, 0.10)', border: 'rgba(196, 58, 47, 0.22)', color: 'var(--text-primary)' },
-    purple: { background: 'rgba(168, 85, 247, 0.10)', border: 'rgba(168, 85, 247, 0.22)', color: 'var(--text-primary)' },
+    default: {
+      background: 'rgba(148, 163, 184, 0.08)',
+      border: 'rgba(148, 163, 184, 0.18)',
+      color: 'var(--text-primary)',
+    },
+    success: {
+      background: 'rgba(34, 197, 94, 0.10)',
+      border: 'rgba(34, 197, 94, 0.22)',
+      color: 'var(--text-primary)',
+    },
+    warning: {
+      background: 'rgba(245, 158, 11, 0.10)',
+      border: 'rgba(245, 158, 11, 0.22)',
+      color: 'var(--text-primary)',
+    },
+    danger: {
+      background: 'rgba(196, 58, 47, 0.10)',
+      border: 'rgba(196, 58, 47, 0.22)',
+      color: 'var(--text-primary)',
+    },
+    purple: {
+      background: 'rgba(168, 85, 247, 0.10)',
+      border: 'rgba(168, 85, 247, 0.22)',
+      color: 'var(--text-primary)',
+    },
   };
 
   const resolvedTone = toneStyles[tone] || toneStyles.default;
-  const resolvedVariant = variant === 'state' ? 'legend-state' : 'legend-category';
+  const resolvedVariant =
+    variant === 'state' ? 'legend-state' : 'legend-category';
 
   return (
     <Tooltip title={description || 'Indicador visual do grid.'} arrow>
@@ -473,12 +545,26 @@ const GridLegendItem = ({
               sx: { maxWidth: '100%', maxHeight: '100%' },
             })
           ) : (
-            <Box component="span" aria-hidden="true" sx={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.9rem', width: '100%', height: '100%' }}>
+            <Box
+              component="span"
+              aria-hidden="true"
+              sx={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '0.9rem',
+                width: '100%',
+                height: '100%',
+              }}
+            >
               {icon}
             </Box>
           )}
         </Box>
-        <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', minHeight: 1 }}>
+        <Box
+          component="span"
+          sx={{ display: 'inline-flex', alignItems: 'center', minHeight: 1 }}
+        >
           {label}
         </Box>
       </Box>
@@ -504,7 +590,14 @@ const GridLegend = ({ groups }) => {
     >
       {group && (
         <Box sx={{ display: 'grid', gap: 0.5 }}>
-          <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, flexWrap: 'wrap' }}>
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'baseline',
+              gap: 1,
+              flexWrap: 'wrap',
+            }}
+          >
             <Typography
               variant="overline"
               sx={{
@@ -516,22 +609,36 @@ const GridLegend = ({ groups }) => {
             >
               {group.title}
             </Typography>
-            <Typography variant="caption" sx={{ color: 'var(--text-secondary)', ml: 0.5 }}>
-              Clique com o botão direito em um quadrante para adicionar um marcador.
+            <Typography
+              variant="caption"
+              sx={{ color: 'var(--text-secondary)', ml: 0.5 }}
+            >
+              Clique com o botão direito em um quadrante para adicionar um
+              marcador.
             </Typography>
           </Box>
 
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, alignItems: 'center' }}>
+          <Box
+            sx={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: 0.75,
+              alignItems: 'center',
+            }}
+          >
             {group.items.map(item => {
-              const tooltipText = {
-                Combate: 'Acontecimento envolvendo confronto.',
-                Descoberta: 'Acontecimento envolvendo descoberta.',
-                Interação: 'Acontecimento envolvendo diálogo, negociação ou troca.',
-                Perigo: 'Acontecimento perigoso ou instável.',
-                Objetivo: 'Acontecimento de meta ou missão.',
-                Ambiental: 'Acontecimento de cenário e atmosfera.',
-                Acampamento: 'Acontecimento ligado ao descanso ou montanhismo de campanha.',
-              }[item.label] || 'Indicador visual do grid.';
+              const tooltipText =
+                {
+                  Combate: 'Acontecimento envolvendo confronto.',
+                  Descoberta: 'Acontecimento envolvendo descoberta.',
+                  Interação:
+                    'Acontecimento envolvendo diálogo, negociação ou troca.',
+                  Perigo: 'Acontecimento perigoso ou instável.',
+                  Objetivo: 'Acontecimento de meta ou missão.',
+                  Ambiental: 'Acontecimento de cenário e atmosfera.',
+                  Acampamento:
+                    'Acontecimento ligado ao descanso ou montanhismo de campanha.',
+                }[item.label] || 'Indicador visual do grid.';
 
               return (
                 <GridLegendItem
@@ -571,7 +678,8 @@ const getQuadranteResultadoMeta = quadrante => {
 const getQuadranteEstadoMeta = quadrante => {
   if (quadrante?.bloqueado) return STATE_META.bloqueado;
   if (quadrante?.estado === 'resolvido') return STATE_META.resolvido;
-  if (quadrante?.estado === 'revelado' || quadrante?.estado === 'em_andamento') return STATE_META.revelado;
+  if (quadrante?.estado === 'revelado' || quadrante?.estado === 'em_andamento')
+    return STATE_META.revelado;
   if (quadrante?.estado === 'vazio') return STATE_META.vazio;
   return STATE_META.oculto;
 };
@@ -590,16 +698,15 @@ const getQuadranteBadges = quadrante => {
   return badges.filter(Boolean);
 };
 
-const getQuadranteEstadoLabel = estado => (
-  {
+const getQuadranteEstadoLabel = estado =>
+  ({
     oculto: 'Oculto',
     revelado: 'Revelado',
     resolvido: 'Resolvido',
     em_andamento: 'Em andamento',
     vazio: 'Vazio',
     bloqueado: 'Bloqueado',
-  }[estado] || 'Oculto'
-);
+  })[estado] || 'Oculto';
 
 QuadranteBadge.propTypes = {
   icon: PropTypes.node.isRequired,
@@ -637,14 +744,22 @@ const CardFluxExploracaoPage = () => {
   const [cartas, setCartas] = useState([]);
   const [selected, setSelected] = useState({ x: 0, y: 0 });
   const [cartaVisualizada, setCartaVisualizada] = useState(null);
-  const [resultadoSelecionado, setResultadoSelecionado] = useState(quadranteInicial?.resultado || 'sucesso');
+  const [resultadoSelecionado, setResultadoSelecionado] = useState(
+    quadranteInicial?.resultado || 'sucesso',
+  );
   const [anotacao, setAnotacao] = useState(quadranteInicial?.anotacao || '');
   const [cartaManualBusca, setCartaManualBusca] = useState('');
-  const [cartaManualId, setCartaManualId] = useState(quadranteInicial?.cartaId || '');
+  const [cartaManualId, setCartaManualId] = useState(
+    quadranteInicial?.cartaId || '',
+  );
   const [confirmarRemocaoOpen, setConfirmarRemocaoOpen] = useState(false);
   const [ajudaAberta, setAjudaAberta] = useState(false);
   const [savingAction, setSavingAction] = useState(null);
-  const [feedback, setFeedback] = useState({ open: false, severity: 'success', message: '' });
+  const [feedback, setFeedback] = useState({
+    open: false,
+    severity: 'success',
+    message: '',
+  });
   const [zoom, setZoom] = useState(1);
   const [mostrarGrid, setMostrarGrid] = useState(true);
   const [imagemFundoModalAberta, setImagemFundoModalAberta] = useState(false);
@@ -653,7 +768,12 @@ const CardFluxExploracaoPage = () => {
   const [pastasDisponiveis, setPastasDisponiveis] = useState([]);
   const [loadingMapas, setLoadingMapas] = useState(true);
   const [loadingPastas, setLoadingPastas] = useState(true);
-  const [contextMenu, setContextMenu] = useState({ open: false, x: 0, y: 0, quadrante: null });
+  const [contextMenu, setContextMenu] = useState({
+    open: false,
+    x: 0,
+    y: 0,
+    quadrante: null,
+  });
   const [imagemFundoDraft, setImagemFundoDraft] = useState({
     origem: 'url',
     mapaId: null,
@@ -663,8 +783,12 @@ const CardFluxExploracaoPage = () => {
   });
   const mapViewportRef = useRef(null);
   const [mapViewport, setMapViewport] = useState({ width: 620, height: 440 });
-  const gridColumns = exploracao?.dimensoes?.colunas || exploracaoInicial?.dimensoes?.colunas || 1;
-  const gridRows = exploracao?.dimensoes?.linhas || exploracaoInicial?.dimensoes?.linhas || 1;
+  const gridColumns =
+    exploracao?.dimensoes?.colunas ||
+    exploracaoInicial?.dimensoes?.colunas ||
+    1;
+  const gridRows =
+    exploracao?.dimensoes?.linhas || exploracaoInicial?.dimensoes?.linhas || 1;
   const mapSurfaceSize = useMemo(
     () => ({
       width: Math.max(0, (mapViewport.width || 620) - 24),
@@ -677,12 +801,20 @@ const CardFluxExploracaoPage = () => {
     if (!mapViewportRef.current) return undefined;
 
     const updateViewport = () => {
-      const nextWidth = Math.max(420, Math.floor(mapViewportRef.current.clientWidth || 620));
-      const nextHeight = Math.max(420, Math.floor(mapViewportRef.current.clientHeight || 440));
+      const nextWidth = Math.max(
+        420,
+        Math.floor(mapViewportRef.current.clientWidth || 620),
+      );
+      const nextHeight = Math.max(
+        420,
+        Math.floor(mapViewportRef.current.clientHeight || 440),
+      );
 
-      setMapViewport(prev => (
-        prev.width === nextWidth && prev.height === nextHeight ? prev : { width: nextWidth, height: nextHeight }
-      ));
+      setMapViewport(prev =>
+        prev.width === nextWidth && prev.height === nextHeight
+          ? prev
+          : { width: nextWidth, height: nextHeight },
+      );
     };
 
     updateViewport();
@@ -707,7 +839,9 @@ const CardFluxExploracaoPage = () => {
     setCartas(cartasDoUniverso || []);
 
     const item =
-      exploracoesDaCampanha.find(item => String(item.id) === String(exploracaoId)) ||
+      exploracoesDaCampanha.find(
+        item => String(item.id) === String(exploracaoId),
+      ) ||
       location.state?.exploracao ||
       null;
 
@@ -715,7 +849,9 @@ const CardFluxExploracaoPage = () => {
       setExploracao(item);
       setSelected({ x: 0, y: 0 });
       setAnotacao(item.quadrantes?.[0]?.[0]?.anotacao || '');
-      setResultadoSelecionado(item.quadrantes?.[0]?.[0]?.resultado || 'sucesso');
+      setResultadoSelecionado(
+        item.quadrantes?.[0]?.[0]?.resultado || 'sucesso',
+      );
       setCartaManualId(item.quadrantes?.[0]?.[0]?.cartaId || '');
     }
   };
@@ -790,7 +926,10 @@ const CardFluxExploracaoPage = () => {
     }
 
     if (proximo.source === 'opacidade') {
-      setImagemFundoDraft(prev => ({ ...prev, opacidadeQuadrantes: proximo.value }));
+      setImagemFundoDraft(prev => ({
+        ...prev,
+        opacidadeQuadrantes: proximo.value,
+      }));
       return;
     }
 
@@ -802,14 +941,25 @@ const CardFluxExploracaoPage = () => {
     }));
   };
 
-  const quadranteAtual = exploracao?.quadrantes?.[selected.y]?.[selected.x] || null;
+  const quadranteAtual =
+    exploracao?.quadrantes?.[selected.y]?.[selected.x] || null;
   const quadranteStatusLabel = getQuadranteEstadoLabel(quadranteAtual?.estado);
   const imagemFundoAtiva = (() => {
-    const url = exploracao?.imagemFundo?.url || exploracao?.configuracao?.imagemFundo?.url || '';
+    const url =
+      exploracao?.imagemFundo?.url ||
+      exploracao?.configuracao?.imagemFundo?.url ||
+      '';
     if (!url.trim()) return null;
     try {
       const parsed = new URL(url.trim());
-      return ['http:', 'https:'].includes(parsed.protocol) ? { ...(exploracao?.imagemFundo || exploracao?.configuracao?.imagemFundo || {}), url: parsed.href } : null;
+      return ['http:', 'https:'].includes(parsed.protocol)
+        ? {
+            ...(exploracao?.imagemFundo ||
+              exploracao?.configuracao?.imagemFundo ||
+              {}),
+            url: parsed.href,
+          }
+        : null;
     } catch {
       return null;
     }
@@ -824,8 +974,14 @@ const CardFluxExploracaoPage = () => {
     image.onload = () => {
       if (!isMounted) return;
       setImagemFundoSize({
-        width: Number.isFinite(image.naturalWidth) && image.naturalWidth > 0 ? image.naturalWidth : 1,
-        height: Number.isFinite(image.naturalHeight) && image.naturalHeight > 0 ? image.naturalHeight : 1,
+        width:
+          Number.isFinite(image.naturalWidth) && image.naturalWidth > 0
+            ? image.naturalWidth
+            : 1,
+        height:
+          Number.isFinite(image.naturalHeight) && image.naturalHeight > 0
+            ? image.naturalHeight
+            : 1,
       });
     };
 
@@ -841,9 +997,11 @@ const CardFluxExploracaoPage = () => {
     };
   }, [imagemFundoAtiva?.url]);
 
-  const opacidadeGrid = Number(imagemFundoAtiva?.opacidadeQuadrantes ?? 20) / 100;
+  const opacidadeGrid =
+    Number(imagemFundoAtiva?.opacidadeQuadrantes ?? 20) / 100;
   const universoAtualNome =
-    universos.find(universo => universo.id === campanhaAtiva?.universoId)?.Nome ||
+    universos.find(universo => universo.id === campanhaAtiva?.universoId)
+      ?.Nome ||
     campanhaAtiva?.universoId ||
     'Universo Desconhecido';
 
@@ -852,12 +1010,19 @@ const CardFluxExploracaoPage = () => {
     return (cartas || []).filter(carta => decks.has(carta.deck));
   }, [cartas, exploracao]);
 
-  const cartaAtual = cartasRelacionadas.find(carta => carta.id === quadranteAtual?.cartaId) || null;
-  const totalQuadrantes = exploracao?.quadrantes ? exploracao.quadrantes.flat().length : 0;
-  const totalDescobertos = exploracao?.quadrantes
-    ? exploracao.quadrantes.flat().filter(quadrante => quadrante?.cartaId || quadrante?.resultado).length
+  const cartaAtual =
+    cartasRelacionadas.find(carta => carta.id === quadranteAtual?.cartaId) ||
+    null;
+  const totalQuadrantes = exploracao?.quadrantes
+    ? exploracao.quadrantes.flat().length
     : 0;
-  const percentual = totalQuadrantes > 0 ? (totalDescobertos / totalQuadrantes) * 100 : 0;
+  const totalDescobertos = exploracao?.quadrantes
+    ? exploracao.quadrantes
+        .flat()
+        .filter(quadrante => quadrante?.cartaId || quadrante?.resultado).length
+    : 0;
+  const percentual =
+    totalQuadrantes > 0 ? (totalDescobertos / totalQuadrantes) * 100 : 0;
 
   const persistirExploracao = async proximaExploracao => {
     if (!proximaExploracao?.id) return;
@@ -878,7 +1043,10 @@ const CardFluxExploracaoPage = () => {
       await action();
       showFeedback('success', successMessage);
     } catch {
-      showFeedback('error', 'Não foi possível atualizar o quadrante. Tente novamente.');
+      showFeedback(
+        'error',
+        'Não foi possível atualizar o quadrante. Tente novamente.',
+      );
     } finally {
       setSavingAction(null);
     }
@@ -997,7 +1165,8 @@ const CardFluxExploracaoPage = () => {
     if (!exploracao || !contextMenu.quadrante) return;
 
     const proxima = JSON.parse(JSON.stringify(exploracao));
-    const alvo = proxima.quadrantes?.[contextMenu.quadrante.y]?.[contextMenu.quadrante.x];
+    const alvo =
+      proxima.quadrantes?.[contextMenu.quadrante.y]?.[contextMenu.quadrante.x];
     if (!alvo) {
       closeContextMenu();
       return;
@@ -1018,10 +1187,15 @@ const CardFluxExploracaoPage = () => {
     await runAction(
       'resultado',
       async () => {
-        const proxima = registrarResultadoQuadrante(exploracao, selected.x, selected.y, {
-          resultado,
-          observacao: anotacao || 'Acontecimento registrado.',
-        });
+        const proxima = registrarResultadoQuadrante(
+          exploracao,
+          selected.x,
+          selected.y,
+          {
+            resultado,
+            observacao: anotacao || 'Acontecimento registrado.',
+          },
+        );
         await persistirExploracao(proxima);
       },
       'Resultado registrado.',
@@ -1038,7 +1212,9 @@ const CardFluxExploracaoPage = () => {
         alvo.bloqueado = !alvo.bloqueado;
         await persistirExploracao(proxima);
       },
-      quadranteAtual?.bloqueado ? 'Quadrante desbloqueado.' : 'Quadrante bloqueado.',
+      quadranteAtual?.bloqueado
+        ? 'Quadrante desbloqueado.'
+        : 'Quadrante bloqueado.',
     );
   };
 
@@ -1058,12 +1234,15 @@ const CardFluxExploracaoPage = () => {
   };
 
   const abrirModalImagemFundo = () => {
-    const base = exploracao?.imagemFundo || exploracao?.configuracao?.imagemFundo || {};
+    const base =
+      exploracao?.imagemFundo || exploracao?.configuracao?.imagemFundo || {};
     setImagemFundoDraft({
       origem: base.origem === 'mapa' ? 'mapa' : 'url',
       mapaId: base.mapaId || null,
       url: typeof base.url === 'string' ? base.url : '',
-      ajuste: ['cover', 'contain', 'fill'].includes(base.ajuste) ? base.ajuste : 'cover',
+      ajuste: ['cover', 'contain', 'fill'].includes(base.ajuste)
+        ? base.ajuste
+        : 'cover',
       opacidadeQuadrantes: Number.isFinite(Number(base.opacidadeQuadrantes))
         ? Number(base.opacidadeQuadrantes)
         : 20,
@@ -1075,14 +1254,21 @@ const CardFluxExploracaoPage = () => {
     if (!exploracao) return;
 
     const origem = imagemFundoDraft.origem === 'mapa' ? 'mapa' : 'url';
-    const mapaSelecionadoAtual = origem === 'mapa'
-      ? mapasDisponiveis.find(mapa => mapa.id === imagemFundoDraft.mapaId) || null
-      : null;
-    const url = origem === 'mapa'
-      ? (mapaSelecionadoAtual?.linkImagem || '').trim()
-      : (imagemFundoDraft.url || '').trim();
+    const mapaSelecionadoAtual =
+      origem === 'mapa'
+        ? mapasDisponiveis.find(mapa => mapa.id === imagemFundoDraft.mapaId) ||
+          null
+        : null;
+    const url =
+      origem === 'mapa'
+        ? (mapaSelecionadoAtual?.linkImagem || '').trim()
+        : (imagemFundoDraft.url || '').trim();
 
-    if (origem === 'mapa' && (!mapaSelecionadoAtual || !mapaSelecionadoAtual.linkImagem)) return;
+    if (
+      origem === 'mapa' &&
+      (!mapaSelecionadoAtual || !mapaSelecionadoAtual.linkImagem)
+    )
+      return;
     if (origem === 'url' && url && !imagemFundoValida(url)) return;
 
     const proxima = JSON.parse(JSON.stringify(exploracao));
@@ -1090,9 +1276,16 @@ const CardFluxExploracaoPage = () => {
       origem,
       mapaId: origem === 'mapa' ? imagemFundoDraft.mapaId || null : null,
       url,
-      ajuste: ['cover', 'contain', 'fill'].includes(imagemFundoDraft.ajuste) ? imagemFundoDraft.ajuste : 'cover',
-      opacidadeQuadrantes: Number.isFinite(Number(imagemFundoDraft.opacidadeQuadrantes))
-        ? Math.min(100, Math.max(0, Number(imagemFundoDraft.opacidadeQuadrantes)))
+      ajuste: ['cover', 'contain', 'fill'].includes(imagemFundoDraft.ajuste)
+        ? imagemFundoDraft.ajuste
+        : 'cover',
+      opacidadeQuadrantes: Number.isFinite(
+        Number(imagemFundoDraft.opacidadeQuadrantes),
+      )
+        ? Math.min(
+            100,
+            Math.max(0, Number(imagemFundoDraft.opacidadeQuadrantes)),
+          )
         : 20,
     };
     if (proxima.configuracao && typeof proxima.configuracao === 'object') {
@@ -1120,11 +1313,15 @@ const CardFluxExploracaoPage = () => {
   };
 
   const handleZoomIn = () => {
-    setZoom(valorAtual => Number(Math.min(1.6, Number((valorAtual + 0.1).toFixed(2)))));
+    setZoom(valorAtual =>
+      Number(Math.min(1.6, Number((valorAtual + 0.1).toFixed(2)))),
+    );
   };
 
   const handleZoomOut = () => {
-    setZoom(valorAtual => Number(Math.max(0.7, Number((valorAtual - 0.1).toFixed(2)))));
+    setZoom(valorAtual =>
+      Number(Math.max(0.7, Number((valorAtual - 0.1).toFixed(2)))),
+    );
   };
 
   const handleAjustarTela = () => {
@@ -1136,7 +1333,9 @@ const CardFluxExploracaoPage = () => {
     if (!termo) return cartasRelacionadas;
     return cartasRelacionadas.filter(carta =>
       [carta.nome, carta.tipo, carta.deck].some(valor =>
-        String(valor || '').toLowerCase().includes(termo),
+        String(valor || '')
+          .toLowerCase()
+          .includes(termo),
       ),
     );
   }, [cartasRelacionadas, cartaManualBusca]);
@@ -1145,21 +1344,78 @@ const CardFluxExploracaoPage = () => {
     {
       title: 'TIPO DE ACONTECIMENTO',
       items: [
-        { label: 'Combate', icon: '⚔️', iconUrl: ICONS.categoria.combate, fallback: '⚔', value: 'combate', tone: 'neutral' },
-        { label: 'Descoberta', icon: '✦', iconUrl: ICONS.categoria.descoberta, fallback: '✦', value: 'descoberta', tone: 'danger' },
-        { label: 'Interação', icon: '◎', iconUrl: ICONS.categoria.interacao, fallback: '◎', value: 'interacao', tone: 'success' },
-        { label: 'Perigo', icon: '⚠', iconUrl: ICONS.categoria.perigo, fallback: '⚠', value: 'perigo', tone: 'warning' },
-        { label: 'Objetivo', icon: '★', iconUrl: ICONS.categoria.objetivo, fallback: '★', value: 'objetivo', tone: 'purple' },
-        { label: 'Ambiental', icon: '❖', iconUrl: ICONS.categoria.ambiental, fallback: '❖', value: 'ambiental', tone: 'neutral' },
-        { label: 'Acampamento', icon: '⛺', iconUrl: ICONS.categoria.acampamento, fallback: '⛺', value: 'acampamento', tone: 'success' },
+        {
+          label: 'Combate',
+          icon: '⚔️',
+          iconUrl: ICONS.categoria.combate,
+          fallback: '⚔',
+          value: 'combate',
+          tone: 'neutral',
+        },
+        {
+          label: 'Descoberta',
+          icon: '✦',
+          iconUrl: ICONS.categoria.descoberta,
+          fallback: '✦',
+          value: 'descoberta',
+          tone: 'danger',
+        },
+        {
+          label: 'Interação',
+          icon: '◎',
+          iconUrl: ICONS.categoria.interacao,
+          fallback: '◎',
+          value: 'interacao',
+          tone: 'success',
+        },
+        {
+          label: 'Perigo',
+          icon: '⚠',
+          iconUrl: ICONS.categoria.perigo,
+          fallback: '⚠',
+          value: 'perigo',
+          tone: 'warning',
+        },
+        {
+          label: 'Objetivo',
+          icon: '★',
+          iconUrl: ICONS.categoria.objetivo,
+          fallback: '★',
+          value: 'objetivo',
+          tone: 'purple',
+        },
+        {
+          label: 'Ambiental',
+          icon: '❖',
+          iconUrl: ICONS.categoria.ambiental,
+          fallback: '❖',
+          value: 'ambiental',
+          tone: 'neutral',
+        },
+        {
+          label: 'Acampamento',
+          icon: '⛺',
+          iconUrl: ICONS.categoria.acampamento,
+          fallback: '⛺',
+          value: 'acampamento',
+          tone: 'success',
+        },
       ],
-    }];
+    },
+  ];
 
   if (!campanhaAtiva || !exploracao) {
     return (
       <Box sx={{ py: 4 }}>
-        <Typography sx={{ color: 'var(--text-primary)' }}>Exploração não encontrada.</Typography>
-        <Button onClick={() => navigate(ROUTE_PATHS.CARDFLUX)} sx={primaryButtonSx}>Voltar</Button>
+        <Typography sx={{ color: 'var(--text-primary)' }}>
+          Exploração não encontrada.
+        </Typography>
+        <Button
+          onClick={() => navigate(ROUTE_PATHS.CARDFLUX)}
+          sx={primaryButtonSx}
+        >
+          Voltar
+        </Button>
       </Box>
     );
   }
@@ -1172,13 +1428,15 @@ const CardFluxExploracaoPage = () => {
           border: '1px solid rgba(196, 58, 47, 0.28)',
           borderRadius: 4,
           overflow: 'hidden',
-          background: 'linear-gradient(180deg, rgba(18,21,29,0.96), rgba(12,15,21,0.96))',
+          background:
+            'linear-gradient(180deg, rgba(18,21,29,0.96), rgba(12,15,21,0.96))',
           boxShadow: '0 24px 60px rgba(2, 6, 23, 0.38)',
         }}
       >
         <Box
           sx={{
-            background: 'linear-gradient(135deg, rgba(196,58,47,0.18), rgba(18,21,29,0.9)), rgba(13,17,24,0.96)',
+            background:
+              'linear-gradient(135deg, rgba(196,58,47,0.18), rgba(18,21,29,0.9)), rgba(13,17,24,0.96)',
             borderBottom: '1px solid rgba(196,58,47,0.2)',
             p: { xs: 2.5, md: 3 },
           }}
@@ -1205,19 +1463,47 @@ const CardFluxExploracaoPage = () => {
               >
                 Exploração ativa
               </Typography>
-              <Typography variant="h3" sx={{ color: 'var(--text-primary)', fontWeight: 800, lineHeight: 1.06 }}>
+              <Typography
+                variant="h3"
+                sx={{
+                  color: 'var(--text-primary)',
+                  fontWeight: 800,
+                  lineHeight: 1.06,
+                }}
+              >
                 {exploracao.nome}
               </Typography>
             </Box>
 
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, alignItems: 'center', flexWrap: 'wrap', ml: 'auto' }}>
-              <Button variant="contained" onClick={handleSalvarExploracao} sx={primaryButtonSx}>
+            <Box
+              sx={{
+                display: 'flex',
+                justifyContent: 'flex-end',
+                gap: 1,
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                ml: 'auto',
+              }}
+            >
+              <Button
+                variant="contained"
+                onClick={handleSalvarExploracao}
+                sx={primaryButtonSx}
+              >
                 Salvar exploração
               </Button>
-              <Button variant="outlined" onClick={() => navigate(ROUTE_PATHS.CARDFLUX_EXPLORACOES)} sx={secondaryButtonSx}>
+              <Button
+                variant="outlined"
+                onClick={() => navigate(ROUTE_PATHS.CARDFLUX_EXPLORACOES)}
+                sx={secondaryButtonSx}
+              >
                 Explorações
               </Button>
-              <Button variant="outlined" onClick={() => navigate(ROUTE_PATHS.CARDFLUX)} sx={secondaryButtonSx}>
+              <Button
+                variant="outlined"
+                onClick={() => navigate(ROUTE_PATHS.CARDFLUX)}
+                sx={secondaryButtonSx}
+              >
                 Voltar
               </Button>
             </Box>
@@ -1231,69 +1517,330 @@ const CardFluxExploracaoPage = () => {
               mt: 2.75,
             }}
           >
-            <Chip label={`Campanha: ${campanhaAtiva.nome}`} sx={{ background: 'rgba(255,255,255,0.04)', color: 'var(--text-primary)' }} />
-            <Chip label={`Universo: ${universoAtualNome}`} sx={{ background: 'rgba(255,255,255,0.04)', color: 'var(--text-primary)' }} />
-            <Chip label={`Grid: ${exploracao.dimensoes?.linhas || 0}x${exploracao.dimensoes?.colunas || 0}`} sx={{ background: 'rgba(255,255,255,0.04)', color: 'var(--text-primary)' }} />
-            <Chip label={`Progresso: ${Math.round(percentual)}%`} sx={{ background: 'rgba(196,58,47,0.14)', color: 'var(--text-primary)' }} />
-            <Chip label={`Acontecimentos: ${totalDescobertos}/${totalQuadrantes}`} sx={{ background: 'rgba(255,255,255,0.04)', color: 'var(--text-primary)' }} />
+            <Chip
+              label={`Campanha: ${campanhaAtiva.nome}`}
+              sx={{
+                background: 'rgba(255,255,255,0.04)',
+                color: 'var(--text-primary)',
+              }}
+            />
+            <Chip
+              label={`Universo: ${universoAtualNome}`}
+              sx={{
+                background: 'rgba(255,255,255,0.04)',
+                color: 'var(--text-primary)',
+              }}
+            />
+            <Chip
+              label={`Grid: ${exploracao.dimensoes?.linhas || 0}x${exploracao.dimensoes?.colunas || 0}`}
+              sx={{
+                background: 'rgba(255,255,255,0.04)',
+                color: 'var(--text-primary)',
+              }}
+            />
+            <Chip
+              label={`Progresso: ${Math.round(percentual)}%`}
+              sx={{
+                background: 'rgba(196,58,47,0.14)',
+                color: 'var(--text-primary)',
+              }}
+            />
+            <Chip
+              label={`Acontecimentos: ${totalDescobertos}/${totalQuadrantes}`}
+              sx={{
+                background: 'rgba(255,255,255,0.04)',
+                color: 'var(--text-primary)',
+              }}
+            />
           </Box>
         </Box>
 
         <Box sx={{ p: { xs: 2, md: 3 } }}>
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', xl: '290px minmax(0,1fr) 360px' }, gap: 2.5 }}>
-            <Paper sx={{ ...panelSx, p: 2.25, background: 'rgba(15,18,24,0.96)', borderColor: 'rgba(196,58,47,0.2)' }}>
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: {
+                xs: '1fr',
+                xl: '290px minmax(0,1fr) 360px',
+              },
+              gap: 2.5,
+            }}
+          >
+            <Paper
+              sx={{
+                ...panelSx,
+                p: 2.25,
+                background: 'rgba(15,18,24,0.96)',
+                borderColor: 'rgba(196,58,47,0.2)',
+              }}
+            >
               <Box sx={{ mb: 2.5 }}>
-                <Typography variant="overline" sx={{ color: 'var(--color-accent)', letterSpacing: '0.12em', fontWeight: 800 }}>
+                <Typography
+                  variant="overline"
+                  sx={{
+                    color: 'var(--color-accent)',
+                    letterSpacing: '0.12em',
+                    fontWeight: 800,
+                  }}
+                >
                   Exploração
                 </Typography>
               </Box>
 
               <Box sx={{ display: 'grid', gap: 1.5 }}>
-                <Box sx={{ p: 1.5, borderRadius: 2, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
-                  <Typography variant="caption" sx={{ color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Campanha</Typography>
-                  <Typography sx={{ mt: 0.5, color: 'var(--text-primary)', fontWeight: 700 }}>{campanhaAtiva.nome}</Typography>
+                <Box
+                  sx={{
+                    p: 1.5,
+                    borderRadius: 2,
+                    background: 'rgba(255,255,255,0.02)',
+                    border: '1px solid rgba(255,255,255,0.05)',
+                  }}
+                >
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: 'var(--text-muted)',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.08em',
+                    }}
+                  >
+                    Campanha
+                  </Typography>
+                  <Typography
+                    sx={{
+                      mt: 0.5,
+                      color: 'var(--text-primary)',
+                      fontWeight: 700,
+                    }}
+                  >
+                    {campanhaAtiva.nome}
+                  </Typography>
                 </Box>
 
-                <Box sx={{ p: 1.5, borderRadius: 2, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
-                  <Typography variant="caption" sx={{ color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Universo</Typography>
-                  <Typography sx={{ mt: 0.5, color: 'var(--text-primary)', fontWeight: 700 }}>{universoAtualNome}</Typography>
+                <Box
+                  sx={{
+                    p: 1.5,
+                    borderRadius: 2,
+                    background: 'rgba(255,255,255,0.02)',
+                    border: '1px solid rgba(255,255,255,0.05)',
+                  }}
+                >
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: 'var(--text-muted)',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.08em',
+                    }}
+                  >
+                    Universo
+                  </Typography>
+                  <Typography
+                    sx={{
+                      mt: 0.5,
+                      color: 'var(--text-primary)',
+                      fontWeight: 700,
+                    }}
+                  >
+                    {universoAtualNome}
+                  </Typography>
                 </Box>
 
-                <Box sx={{ p: 1.5, borderRadius: 2, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
-                  <Typography variant="caption" sx={{ color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Baralhos</Typography>
-                  <Typography sx={{ mt: 0.5, color: 'var(--text-primary)', fontWeight: 700 }}>{exploracao.baralhos?.join(', ') || 'Sem baralhos'}</Typography>
+                <Box
+                  sx={{
+                    p: 1.5,
+                    borderRadius: 2,
+                    background: 'rgba(255,255,255,0.02)',
+                    border: '1px solid rgba(255,255,255,0.05)',
+                  }}
+                >
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: 'var(--text-muted)',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.08em',
+                    }}
+                  >
+                    Baralhos
+                  </Typography>
+                  <Typography
+                    sx={{
+                      mt: 0.5,
+                      color: 'var(--text-primary)',
+                      fontWeight: 700,
+                    }}
+                  >
+                    {exploracao.baralhos?.join(', ') || 'Sem baralhos'}
+                  </Typography>
                 </Box>
 
-                <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0,1fr))', gap: 1.25 }}>
-                  <Box sx={{ p: 1.25, borderRadius: 2, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
-                    <Typography variant="caption" sx={{ color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Dimensão</Typography>
-                    <Typography sx={{ mt: 0.6, color: 'var(--text-primary)', fontWeight: 800 }}>{exploracao.dimensoes?.linhas || 0}x{exploracao.dimensoes?.colunas || 0}</Typography>
+                <Box
+                  sx={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(2, minmax(0,1fr))',
+                    gap: 1.25,
+                  }}
+                >
+                  <Box
+                    sx={{
+                      p: 1.25,
+                      borderRadius: 2,
+                      background: 'rgba(255,255,255,0.02)',
+                      border: '1px solid rgba(255,255,255,0.05)',
+                    }}
+                  >
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        color: 'var(--text-muted)',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.08em',
+                      }}
+                    >
+                      Dimensão
+                    </Typography>
+                    <Typography
+                      sx={{
+                        mt: 0.6,
+                        color: 'var(--text-primary)',
+                        fontWeight: 800,
+                      }}
+                    >
+                      {exploracao.dimensoes?.linhas || 0}x
+                      {exploracao.dimensoes?.colunas || 0}
+                    </Typography>
                   </Box>
-                  <Box sx={{ p: 1.25, borderRadius: 2, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
-                    <Typography variant="caption" sx={{ color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Progresso</Typography>
-                    <Typography sx={{ mt: 0.6, color: 'var(--text-primary)', fontWeight: 800 }}>{Math.round(percentual)}%</Typography>
+                  <Box
+                    sx={{
+                      p: 1.25,
+                      borderRadius: 2,
+                      background: 'rgba(255,255,255,0.02)',
+                      border: '1px solid rgba(255,255,255,0.05)',
+                    }}
+                  >
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        color: 'var(--text-muted)',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.08em',
+                      }}
+                    >
+                      Progresso
+                    </Typography>
+                    <Typography
+                      sx={{
+                        mt: 0.6,
+                        color: 'var(--text-primary)',
+                        fontWeight: 800,
+                      }}
+                    >
+                      {Math.round(percentual)}%
+                    </Typography>
                   </Box>
                 </Box>
 
-                <Box sx={{ p: 1.5, borderRadius: 2, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
-                  <Typography variant="caption" sx={{ color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Acontecimentos</Typography>
-                  <Typography sx={{ mt: 0.5, color: 'var(--text-primary)', fontWeight: 700 }}>{totalDescobertos} / {totalQuadrantes}</Typography>
+                <Box
+                  sx={{
+                    p: 1.5,
+                    borderRadius: 2,
+                    background: 'rgba(255,255,255,0.02)',
+                    border: '1px solid rgba(255,255,255,0.05)',
+                  }}
+                >
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: 'var(--text-muted)',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.08em',
+                    }}
+                  >
+                    Acontecimentos
+                  </Typography>
+                  <Typography
+                    sx={{
+                      mt: 0.5,
+                      color: 'var(--text-primary)',
+                      fontWeight: 700,
+                    }}
+                  >
+                    {totalDescobertos} / {totalQuadrantes}
+                  </Typography>
                 </Box>
 
-                <Box sx={{ p: 1.5, borderRadius: 2, background: 'rgba(196,58,47,0.08)', border: '1px solid rgba(196,58,47,0.2)' }}>
-                  <Typography variant="caption" sx={{ color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Status</Typography>
-                  <Typography sx={{ mt: 0.5, color: 'var(--text-primary)', fontWeight: 700 }}>{exploracao.status || 'ativa'}</Typography>
+                <Box
+                  sx={{
+                    p: 1.5,
+                    borderRadius: 2,
+                    background: 'rgba(196,58,47,0.08)',
+                    border: '1px solid rgba(196,58,47,0.2)',
+                  }}
+                >
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: 'var(--text-muted)',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.08em',
+                    }}
+                  >
+                    Status
+                  </Typography>
+                  <Typography
+                    sx={{
+                      mt: 0.5,
+                      color: 'var(--text-primary)',
+                      fontWeight: 700,
+                    }}
+                  >
+                    {exploracao.status || 'ativa'}
+                  </Typography>
                 </Box>
               </Box>
 
               <Box sx={{ mt: 3, display: 'grid', gap: 1.2 }}>
-                <Typography variant="overline" sx={{ color: 'var(--text-muted)', letterSpacing: '0.12em', fontWeight: 800 }}>
+                <Typography
+                  variant="overline"
+                  sx={{
+                    color: 'var(--text-muted)',
+                    letterSpacing: '0.12em',
+                    fontWeight: 800,
+                  }}
+                >
                   Ações gerais
                 </Typography>
-                <Button variant="contained" onClick={() => navigate(ROUTE_PATHS.CARDFLUX_EXPLORACAO_CONFIG)} sx={primaryButtonSx}>Nova exploração</Button>
-                <Button variant="outlined" onClick={() => navigate(ROUTE_PATHS.CARDFLUX_EXPLORACOES)} sx={secondaryButtonSx}>Gerenciar explorações</Button>
-                <Button variant="outlined" onClick={handleSalvarExploracao} sx={secondaryButtonSx}>Salvar agora</Button>
-                <Button variant="outlined" onClick={() => navigate(ROUTE_PATHS.CARDFLUX)} sx={secondaryButtonSx}>Voltar ao CardFlux</Button>
+                <Button
+                  variant="contained"
+                  onClick={() =>
+                    navigate(ROUTE_PATHS.CARDFLUX_EXPLORACAO_CONFIG)
+                  }
+                  sx={primaryButtonSx}
+                >
+                  Nova exploração
+                </Button>
+                <Button
+                  variant="outlined"
+                  onClick={() => navigate(ROUTE_PATHS.CARDFLUX_EXPLORACOES)}
+                  sx={secondaryButtonSx}
+                >
+                  Gerenciar explorações
+                </Button>
+                <Button
+                  variant="outlined"
+                  onClick={handleSalvarExploracao}
+                  sx={secondaryButtonSx}
+                >
+                  Salvar agora
+                </Button>
+                <Button
+                  variant="outlined"
+                  onClick={() => navigate(ROUTE_PATHS.CARDFLUX)}
+                  sx={secondaryButtonSx}
+                >
+                  Voltar ao CardFlux
+                </Button>
               </Box>
             </Paper>
 
@@ -1308,9 +1855,23 @@ const CardFluxExploracaoPage = () => {
                 minHeight: { xs: '520px', md: '620px' },
               }}
             >
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1, mb: 2.5, flexWrap: 'wrap' }}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  gap: 1,
+                  mb: 2.5,
+                  flexWrap: 'wrap',
+                }}
+              >
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Typography variant="h5" sx={{ color: 'var(--text-primary)', fontWeight: 800 }}>Grid</Typography>
+                  <Typography
+                    variant="h5"
+                    sx={{ color: 'var(--text-primary)', fontWeight: 800 }}
+                  >
+                    Grid
+                  </Typography>
                   <Tooltip title="Como utilizar o Grid de Exploração" arrow>
                     <IconButton
                       aria-label="Ajuda da Exploração"
@@ -1333,9 +1894,32 @@ const CardFluxExploracaoPage = () => {
                     </IconButton>
                   </Tooltip>
                 </Box>
-                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
-                  <Button type="button" onClick={handleZoomOut} aria-label="Zoom -" size="small" sx={{ minWidth: 40, borderRadius: 2 }}>-</Button>
-                  <Button type="button" onClick={handleZoomIn} aria-label="Zoom +" size="small" sx={{ minWidth: 40, borderRadius: 2 }}>+</Button>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    gap: 1,
+                    flexWrap: 'wrap',
+                    alignItems: 'center',
+                  }}
+                >
+                  <Button
+                    type="button"
+                    onClick={handleZoomOut}
+                    aria-label="Zoom -"
+                    size="small"
+                    sx={{ minWidth: 40, borderRadius: 2 }}
+                  >
+                    -
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={handleZoomIn}
+                    aria-label="Zoom +"
+                    size="small"
+                    sx={{ minWidth: 40, borderRadius: 2 }}
+                  >
+                    +
+                  </Button>
                   <Button
                     type="button"
                     onClick={() => setMostrarGrid(prev => !prev)}
@@ -1345,17 +1929,33 @@ const CardFluxExploracaoPage = () => {
                       borderRadius: 2,
                       minHeight: 32,
                       minWidth: 138,
-                      border: mostrarGrid ? '1px solid rgba(89,171,255,0.4)' : '1px solid rgba(148,163,184,0.24)',
-                      background: mostrarGrid ? 'rgba(89,171,255,0.08)' : 'rgba(15,23,42,0.82)',
+                      border: mostrarGrid
+                        ? '1px solid rgba(89,171,255,0.4)'
+                        : '1px solid rgba(148,163,184,0.24)',
+                      background: mostrarGrid
+                        ? 'rgba(89,171,255,0.08)'
+                        : 'rgba(15,23,42,0.82)',
                       color: 'var(--text-primary)',
                     }}
                   >
                     {mostrarGrid ? 'Grid: ON' : 'Grid: OFF'}
                   </Button>
-                  <Button type="button" onClick={handleAjustarTela} aria-label="Ajustar à tela" size="small" sx={{ borderRadius: 2, minHeight: 32 }}>
+                  <Button
+                    type="button"
+                    onClick={handleAjustarTela}
+                    aria-label="Ajustar à tela"
+                    size="small"
+                    sx={{ borderRadius: 2, minHeight: 32 }}
+                  >
                     Ajustar à tela
                   </Button>
-                  <Button type="button" onClick={abrirModalImagemFundo} aria-label="Configurar Fundo" size="small" sx={{ borderRadius: 2, minHeight: 32 }}>
+                  <Button
+                    type="button"
+                    onClick={abrirModalImagemFundo}
+                    aria-label="Configurar Fundo"
+                    size="small"
+                    sx={{ borderRadius: 2, minHeight: 32 }}
+                  >
                     Configurar Fundo
                   </Button>
                 </Box>
@@ -1381,13 +1981,21 @@ const CardFluxExploracaoPage = () => {
               >
                 <Box
                   data-testid="exploracao-grid-stage"
-                  data-grid-width={Math.max(1, Math.round(mapSurfaceSize.width))}
-                  data-grid-height={Math.max(1, Math.round(mapSurfaceSize.height))}
+                  data-grid-width={Math.max(
+                    1,
+                    Math.round(mapSurfaceSize.width),
+                  )}
+                  data-grid-height={Math.max(
+                    1,
+                    Math.round(mapSurfaceSize.height),
+                  )}
                   sx={{
                     position: 'relative',
                     width: imagemFundoSize ? '100%' : '100%',
                     height: imagemFundoSize ? 'auto' : '100%',
-                    aspectRatio: imagemFundoSize ? `${imagemFundoSize.width} / ${imagemFundoSize.height}` : undefined,
+                    aspectRatio: imagemFundoSize
+                      ? `${imagemFundoSize.width} / ${imagemFundoSize.height}`
+                      : undefined,
                     minWidth: 0,
                     minHeight: 0,
                     maxWidth: '100%',
@@ -1437,261 +2045,351 @@ const CardFluxExploracaoPage = () => {
                       transition: 'opacity 0.2s ease',
                     }}
                   >
-                  {exploracao.quadrantes?.flat().map(quadrante => {
-                    const selectedNow = selected.x === quadrante.x && selected.y === quadrante.y;
-                    const visual = getQuadranteEstadoMeta(quadrante);
-                    const estadoQuadrante = getEstadoQuadrante(quadrante).estado;
-                    const marcadorAtual = getQuadranteMarcador(quadrante);
-                    const isOcultoQuadrante = estadoQuadrante === 'oculto';
-                    const marcadorManualPrincipal = !isOcultoQuadrante && Boolean(marcadorAtual);
-                    const marcadorLabel = {
-                      combate: 'Combate',
-                      descoberta: 'Descoberta',
-                      interacao: 'Interação',
-                      perigo: 'Perigo',
-                      objetivo: 'Objetivo',
-                      ambiental: 'Ambiental',
-                      acampamento: 'Acampamento',
-                    }[marcadorAtual] || marcadorAtual || 'Marcador';
-                    const categoriaMeta = marcadorAtual ? {
-                      key: marcadorAtual,
-                      src: TYPE_ICONS[marcadorAtual],
-                      fallback: marcadorLabel.charAt(0).toUpperCase(),
-                    } : null;
-                    const principalMeta = getQuadrantePrincipalIconMeta(quadrante);
-                    const principalIconSrc = principalMeta.src;
-                    const principalFallback = principalMeta.fallback;
-                    const principalAlt = principalMeta.alt;
-                    const podeMostrarTipoBadge = Boolean(
-                      quadrante?.cartaId &&
-                      categoriaMeta &&
-                      !marcadorManualPrincipal &&
-                      !isOcultoQuadrante &&
-                      ['revelado', 'em_andamento', 'resolvido'].includes(quadrante?.estado) &&
-                      !quadrante?.bloqueado &&
-                      quadrante?.estado !== 'vazio'
-                    );
-                    const cellTone = selectedNow
-                      ? 'linear-gradient(135deg, rgba(89,171,255,0.18), rgba(15,23,42,0.8))'
-                      : 'linear-gradient(135deg, rgba(15,23,42,0.72), rgba(15,23,42,0.88))';
-                    const overlayColor = quadrante.bloqueado
-                      ? 'rgba(15,23,42,0.78)'
-                      : isOcultoQuadrante
-                        ? 'rgba(2,6,23,0.74)'
-                        : quadrante.resultado === 'sucesso'
-                          ? 'rgba(16,185,129,0.18)'
-                          : quadrante.resultado === 'falha'
-                            ? 'rgba(239,68,68,0.18)'
-                            : quadrante.resultado === 'pendente'
-                              ? 'rgba(245,158,11,0.18)'
-                              : quadrante.estado === 'revelado' || quadrante.estado === 'em_andamento'
-                                ? 'rgba(15,23,42,0.2)'
-                                : 'rgba(2,6,23,0.74)';
+                    {exploracao.quadrantes?.flat().map(quadrante => {
+                      const selectedNow =
+                        selected.x === quadrante.x &&
+                        selected.y === quadrante.y;
+                      const visual = getQuadranteEstadoMeta(quadrante);
+                      const estadoQuadrante =
+                        getEstadoQuadrante(quadrante).estado;
+                      const marcadorAtual = getQuadranteMarcador(quadrante);
+                      const isOcultoQuadrante = estadoQuadrante === 'oculto';
+                      const marcadorManualPrincipal =
+                        !isOcultoQuadrante && Boolean(marcadorAtual);
+                      const marcadorLabel =
+                        {
+                          combate: 'Combate',
+                          descoberta: 'Descoberta',
+                          interacao: 'Interação',
+                          perigo: 'Perigo',
+                          objetivo: 'Objetivo',
+                          ambiental: 'Ambiental',
+                          acampamento: 'Acampamento',
+                        }[marcadorAtual] ||
+                        marcadorAtual ||
+                        'Marcador';
+                      const categoriaMeta = marcadorAtual
+                        ? {
+                            key: marcadorAtual,
+                            src: TYPE_ICONS[marcadorAtual],
+                            fallback: marcadorLabel.charAt(0).toUpperCase(),
+                          }
+                        : null;
+                      const principalMeta =
+                        getQuadrantePrincipalIconMeta(quadrante);
+                      const principalIconSrc = principalMeta.src;
+                      const principalFallback = principalMeta.fallback;
+                      const principalAlt = principalMeta.alt;
+                      const podeMostrarTipoBadge = Boolean(
+                        quadrante?.cartaId &&
+                        categoriaMeta &&
+                        !marcadorManualPrincipal &&
+                        !isOcultoQuadrante &&
+                        ['revelado', 'em_andamento', 'resolvido'].includes(
+                          quadrante?.estado,
+                        ) &&
+                        !quadrante?.bloqueado &&
+                        quadrante?.estado !== 'vazio',
+                      );
+                      const cellTone = selectedNow
+                        ? 'linear-gradient(135deg, rgba(89,171,255,0.18), rgba(15,23,42,0.8))'
+                        : 'linear-gradient(135deg, rgba(15,23,42,0.72), rgba(15,23,42,0.88))';
+                      const overlayColor = quadrante.bloqueado
+                        ? 'rgba(15,23,42,0.78)'
+                        : isOcultoQuadrante
+                          ? 'rgba(2,6,23,0.74)'
+                          : quadrante.resultado === 'sucesso'
+                            ? 'rgba(16,185,129,0.18)'
+                            : quadrante.resultado === 'falha'
+                              ? 'rgba(239,68,68,0.18)'
+                              : quadrante.resultado === 'pendente'
+                                ? 'rgba(245,158,11,0.18)'
+                                : quadrante.estado === 'revelado' ||
+                                    quadrante.estado === 'em_andamento'
+                                  ? 'rgba(15,23,42,0.2)'
+                                  : 'rgba(2,6,23,0.74)';
 
-                    return (
-                      <Button
-                        key={`${quadrante.x}-${quadrante.y}`}
-                        className="grid-cell-icon-slot"
-                        variant={selectedNow ? 'contained' : 'outlined'}
-                        onMouseDown={handleQuadranteMouseDown}
-                        onTouchStart={handleQuadranteMouseDown}
-                        onContextMenu={event => handleQuadranteContextMenu(event, quadrante)}
-                        onClick={() => handleSelecionarQuadrante({ x: quadrante.x, y: quadrante.y })}
-                        sx={{
-                          position: 'relative',
-                          minHeight: 0,
-                          height: '100%',
-                          minWidth: 0,
-                          padding: 0,
-                          background: 'transparent',
-                          border: selectedNow
-                            ? '1px solid rgba(89,171,255,0.88)'
-                            : `1px solid ${visual.cellBorder}`,
-                          borderRadius: 2.5,
-                          color: visual.badgeColor,
-                          display: 'flex',
-                          flexDirection: 'column',
-                          alignItems: 'stretch',
-                          justifyContent: 'stretch',
-                          fontSize: 'clamp(0.9rem, 1vw, 1.3rem)',
-                          fontWeight: 800,
-                          boxShadow: selectedNow ? '0 10px 24px rgba(89,171,255,0.14)' : '0 0 0 1px rgba(255,255,255,0.02)',
-                          opacity: mostrarGrid ? 1 : 0,
-                          transition: 'border-color 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease',
-                          overflow: 'hidden',
-                          touchAction: 'manipulation',
-                          userSelect: 'none',
-                          WebkitTapHighlightColor: 'transparent',
-                          pointerEvents: mostrarGrid ? 'auto' : 'none',
-                          '&:hover': {
-                            borderColor: selectedNow ? 'rgba(89,171,255,0.9)' : visual.badgeBorder,
-                            boxShadow: selectedNow ? '0 12px 28px rgba(89,171,255,0.16)' : '0 6px 18px rgba(15,23,42,0.2)',
-                          },
-                        }}
-                      >
-                        <Box
+                      return (
+                        <Button
+                          key={`${quadrante.x}-${quadrante.y}`}
+                          className="grid-cell-icon-slot"
+                          variant={selectedNow ? 'contained' : 'outlined'}
+                          onMouseDown={handleQuadranteMouseDown}
+                          onTouchStart={handleQuadranteMouseDown}
+                          onContextMenu={event =>
+                            handleQuadranteContextMenu(event, quadrante)
+                          }
+                          onClick={() =>
+                            handleSelecionarQuadrante({
+                              x: quadrante.x,
+                              y: quadrante.y,
+                            })
+                          }
                           sx={{
-                            position: 'absolute',
-                            inset: 0,
-                            background: cellTone,
-                            opacity: mostrarGrid ? opacidadeGrid : 0,
-                            zIndex: 0,
+                            position: 'relative',
+                            minHeight: 0,
+                            height: '100%',
+                            minWidth: 0,
+                            padding: 0,
+                            background: 'transparent',
+                            border: selectedNow
+                              ? '1px solid rgba(89,171,255,0.88)'
+                              : `1px solid ${visual.cellBorder}`,
+                            borderRadius: 2.5,
+                            color: visual.badgeColor,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'stretch',
+                            justifyContent: 'stretch',
+                            fontSize: 'clamp(0.9rem, 1vw, 1.3rem)',
+                            fontWeight: 800,
+                            boxShadow: selectedNow
+                              ? '0 10px 24px rgba(89,171,255,0.14)'
+                              : '0 0 0 1px rgba(255,255,255,0.02)',
+                            opacity: mostrarGrid ? 1 : 0,
+                            transition:
+                              'border-color 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease',
+                            overflow: 'hidden',
+                            touchAction: 'manipulation',
+                            userSelect: 'none',
+                            WebkitTapHighlightColor: 'transparent',
+                            pointerEvents: mostrarGrid ? 'auto' : 'none',
+                            '&:hover': {
+                              borderColor: selectedNow
+                                ? 'rgba(89,171,255,0.9)'
+                                : visual.badgeBorder,
+                              boxShadow: selectedNow
+                                ? '0 12px 28px rgba(89,171,255,0.16)'
+                                : '0 6px 18px rgba(15,23,42,0.2)',
+                            },
                           }}
-                        />
-                        <Box
-                          sx={{
-                            position: 'absolute',
-                            inset: 0,
-                            background: overlayColor,
-                            zIndex: 1,
-                          }}
-                        />
-                        {quadrante.bloqueado && (
+                        >
                           <Box
                             sx={{
                               position: 'absolute',
-                              top: 6,
-                              right: 6,
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              width: 18,
-                              height: 18,
-                              borderRadius: '50%',
-                              background: 'rgba(245,158,11,0.22)',
-                              border: '1px solid rgba(245,158,11,0.45)',
-                              fontSize: '0.68rem',
-                              lineHeight: 1,
-                              zIndex: 3,
+                              inset: 0,
+                              background: cellTone,
+                              opacity: mostrarGrid ? opacidadeGrid : 0,
+                              zIndex: 0,
                             }}
-                          >
-                            🔒
-                          </Box>
-                        )}
-                        <Box
-                          className="grid-cell-image-area"
-                          sx={{
-                            position: 'relative',
-                            zIndex: 2,
-                            display: 'flex',
-                            flex: 1,
-                            minHeight: 0,
-                            width: '100%',
-                            padding: '8px 8px 4px',
-                            boxSizing: 'border-box',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                          }}
-                        >
-                          {principalIconSrc && (
-                            <Box
-                              className="grid-cell-image-frame"
-                              sx={{
-                                width: '100%',
-                                height: '100%',
-                                maxWidth: '100%',
-                                maxHeight: '100%',
-                                pointerEvents: 'none',
-                              }}
-                            >
-                              {buildIconElement({
-                                src: principalIconSrc,
-                                fallback: principalFallback,
-                                alt: principalAlt,
-                                size: '100%',
-                                variant: 'cell-state',
-                                sx: {
-                                  filter: marcadorManualPrincipal
-                                    ? 'drop-shadow(0 0 18px rgba(96,165,250,0.35))'
-                                    : 'drop-shadow(0 0 18px rgba(89,171,255,0.42))',
-                                  objectFit: 'contain',
-                                  maxWidth: '100%',
-                                  maxHeight: '100%',
-                                },
-                                boxSx: { width: '100%', height: '100%', maxWidth: '100%', maxHeight: '100%' },
-                              })}
-                            </Box>
-                          )}
-                          {podeMostrarTipoBadge && (
+                          />
+                          <Box
+                            sx={{
+                              position: 'absolute',
+                              inset: 0,
+                              background: overlayColor,
+                              zIndex: 1,
+                            }}
+                          />
+                          {quadrante.bloqueado && (
                             <Box
                               sx={{
                                 position: 'absolute',
-                                right: 7,
-                                top: 7,
-                                display: 'flex',
+                                top: 6,
+                                right: 6,
+                                display: 'inline-flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                width: 'clamp(24px, 18%, 32px)',
-                                height: 'clamp(24px, 18%, 32px)',
-                                borderRadius: 999,
-                                background: 'rgba(15,23,42,0.72)',
-                                border: '1px solid rgba(148,163,184,0.26)',
-                                backdropFilter: 'blur(4px)',
+                                width: 18,
+                                height: 18,
+                                borderRadius: '50%',
+                                background: 'rgba(245,158,11,0.22)',
+                                border: '1px solid rgba(245,158,11,0.45)',
+                                fontSize: '0.68rem',
+                                lineHeight: 1,
                                 zIndex: 3,
-                                boxShadow: '0 8px 18px rgba(2,6,23,0.18)',
                               }}
                             >
-                              {buildIconElement({
-                                src: categoriaMeta.src,
-                                fallback: categoriaMeta.fallback,
-                                alt: categoriaMeta.key,
-                                size: '100%',
-                                variant: 'cell-category',
-                                boxSx: { width: '100%', height: '100%' },
-                              })}
+                              🔒
                             </Box>
                           )}
-                        </Box>
-                        <Box
-                          className="grid-cell-coordinates"
-                          sx={{
-                            position: 'relative',
-                            zIndex: 3,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            minHeight: '22px',
-                            px: 0.75,
-                            pb: 0.5,
-                            pt: 0.25,
-                            textAlign: 'center',
-                          }}
-                        >
-                          <Typography variant="caption" sx={{ color: 'rgba(248,250,252,0.88)', letterSpacing: '0.08em', opacity: 0.9, lineHeight: 1.2 }}>
-                            {quadrante.x},{quadrante.y}
-                          </Typography>
-                        </Box>
-                      </Button>
-                    );
-                  })}
+                          <Box
+                            className="grid-cell-image-area"
+                            sx={{
+                              position: 'relative',
+                              zIndex: 2,
+                              display: 'flex',
+                              flex: 1,
+                              minHeight: 0,
+                              width: '100%',
+                              padding: '8px 8px 4px',
+                              boxSizing: 'border-box',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                            }}
+                          >
+                            {principalIconSrc && (
+                              <Box
+                                className="grid-cell-image-frame"
+                                sx={{
+                                  width: '100%',
+                                  height: '100%',
+                                  maxWidth: '100%',
+                                  maxHeight: '100%',
+                                  pointerEvents: 'none',
+                                }}
+                              >
+                                {buildIconElement({
+                                  src: principalIconSrc,
+                                  fallback: principalFallback,
+                                  alt: principalAlt,
+                                  size: '100%',
+                                  variant: 'cell-state',
+                                  sx: {
+                                    filter: marcadorManualPrincipal
+                                      ? 'drop-shadow(0 0 18px rgba(96,165,250,0.35))'
+                                      : 'drop-shadow(0 0 18px rgba(89,171,255,0.42))',
+                                    objectFit: 'contain',
+                                    maxWidth: '100%',
+                                    maxHeight: '100%',
+                                  },
+                                  boxSx: {
+                                    width: '100%',
+                                    height: '100%',
+                                    maxWidth: '100%',
+                                    maxHeight: '100%',
+                                  },
+                                })}
+                              </Box>
+                            )}
+                            {podeMostrarTipoBadge && (
+                              <Box
+                                sx={{
+                                  position: 'absolute',
+                                  right: 7,
+                                  top: 7,
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  width: 'clamp(24px, 18%, 32px)',
+                                  height: 'clamp(24px, 18%, 32px)',
+                                  borderRadius: 999,
+                                  background: 'rgba(15,23,42,0.72)',
+                                  border: '1px solid rgba(148,163,184,0.26)',
+                                  backdropFilter: 'blur(4px)',
+                                  zIndex: 3,
+                                  boxShadow: '0 8px 18px rgba(2,6,23,0.18)',
+                                }}
+                              >
+                                {buildIconElement({
+                                  src: categoriaMeta.src,
+                                  fallback: categoriaMeta.fallback,
+                                  alt: categoriaMeta.key,
+                                  size: '100%',
+                                  variant: 'cell-category',
+                                  boxSx: { width: '100%', height: '100%' },
+                                })}
+                              </Box>
+                            )}
+                          </Box>
+                          <Box
+                            className="grid-cell-coordinates"
+                            sx={{
+                              position: 'relative',
+                              zIndex: 3,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              minHeight: '22px',
+                              px: 0.75,
+                              pb: 0.5,
+                              pt: 0.25,
+                              textAlign: 'center',
+                            }}
+                          >
+                            <Typography
+                              component="span"
+                              sx={{
+                                fontSize: '0.68rem',
+                                lineHeight: 1,
+                                color: 'var(--text-primary)',
+                                fontWeight: 800,
+                              }}
+                            >
+                              {quadrante.x},{quadrante.y}
+                            </Typography>
+                          </Box>
+                        </Button>
+                      );
+                    })}
+                  </Box>
                 </Box>
               </Box>
-            </Box>
 
-            <GridLegend groups={gridLegendGroups} />
+              <GridLegend groups={gridLegendGroups} />
 
-            <CardFluxGridContextMenu
-              open={contextMenu.open}
-              anchorPoint={{ x: contextMenu.x, y: contextMenu.y }}
-              options={gridLegendGroups.find(g => String(g.title).toUpperCase().includes('TIPO'))?.items || []}
-              selectedValue={getQuadranteMarcador(contextMenu.quadrante)}
-              onSelect={handleMarcarQuadrante}
-              onClose={closeContextMenu}
-            />
+              <CardFluxGridContextMenu
+                open={contextMenu.open}
+                anchorPoint={{ x: contextMenu.x, y: contextMenu.y }}
+                options={
+                  gridLegendGroups.find(g =>
+                    String(g.title).toUpperCase().includes('TIPO'),
+                  )?.items || []
+                }
+                selectedValue={getQuadranteMarcador(contextMenu.quadrante)}
+                onSelect={handleMarcarQuadrante}
+                onClose={closeContextMenu}
+              />
             </Paper>
 
-            <Paper sx={{ ...panelSx, p: 2.5, background: 'rgba(15,18,24,0.96)', borderColor: 'rgba(196,58,47,0.2)' }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, mb: 1.5 }}>
-                <Typography variant="overline" sx={{ color: 'var(--color-accent)', letterSpacing: '0.12em', fontWeight: 800 }}>
+            <Paper
+              sx={{
+                ...panelSx,
+                p: 2.5,
+                background: 'rgba(15,18,24,0.96)',
+                borderColor: 'rgba(196,58,47,0.2)',
+              }}
+            >
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 1,
+                  mb: 1.5,
+                }}
+              >
+                <Typography
+                  variant="overline"
+                  sx={{
+                    color: 'var(--color-accent)',
+                    letterSpacing: '0.12em',
+                    fontWeight: 800,
+                  }}
+                >
                   Quadrante selecionado
                 </Typography>
               </Box>
 
               {quadranteAtual ? (
                 <Box sx={{ display: 'grid', gap: 2, mt: 2 }}>
-                  <Box sx={{ p: 1.5, borderRadius: 2, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
-                    <Typography variant="caption" sx={{ color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Coordenadas</Typography>
-                    <Typography sx={{ mt: 0.5, color: 'var(--text-primary)', fontWeight: 800 }}>{selected.x},{selected.y}</Typography>
+                  <Box
+                    sx={{
+                      p: 1.5,
+                      borderRadius: 2,
+                      background: 'rgba(255,255,255,0.02)',
+                      border: '1px solid rgba(255,255,255,0.05)',
+                    }}
+                  >
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        color: 'var(--text-muted)',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.08em',
+                      }}
+                    >
+                      Coordenadas
+                    </Typography>
+                    <Typography
+                      sx={{
+                        mt: 0.5,
+                        color: 'var(--text-primary)',
+                        fontWeight: 800,
+                      }}
+                    >
+                      {selected.x},{selected.y}
+                    </Typography>
                   </Box>
 
                   <Box
@@ -1706,7 +2404,16 @@ const CardFluxExploracaoPage = () => {
                       border: '1px solid rgba(255,255,255,0.05)',
                     }}
                   >
-                    <Typography variant="caption" sx={{ color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Estado</Typography>
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        color: 'var(--text-muted)',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.08em',
+                      }}
+                    >
+                      Estado
+                    </Typography>
                     <Box
                       sx={{
                         display: 'flex',
@@ -1716,26 +2423,31 @@ const CardFluxExploracaoPage = () => {
                         minHeight: 36,
                       }}
                     >
-                      {getQuadranteBadges(quadranteAtual).map((badge, index) => (
-                        <QuadranteBadge
-                          key={`${badge.label}-${index}`}
-                          icon={badge.icon}
-                          label={badge.label}
-                          background={badge.badgeBackground}
-                          border={badge.badgeBorder}
-                          color={badge.badgeColor}
-                          sx={{
-                            transition: 'background 0.2s ease, border-color 0.2s ease, transform 0.2s ease',
-                            '@media (prefers-reduced-motion: reduce)': {
-                              transition: 'none',
-                            },
-                          }}
-                        />
-                      ))}
+                      {getQuadranteBadges(quadranteAtual).map(
+                        (badge, index) => (
+                          <QuadranteBadge
+                            key={`${badge.label}-${index}`}
+                            icon={badge.icon}
+                            label={badge.label}
+                            background={badge.badgeBackground}
+                            border={badge.badgeBorder}
+                            color={badge.badgeColor}
+                            sx={{
+                              transition:
+                                'background 0.2s ease, border-color 0.2s ease, transform 0.2s ease',
+                              '@media (prefers-reduced-motion: reduce)': {
+                                transition: 'none',
+                              },
+                            }}
+                          />
+                        ),
+                      )}
                       {getQuadranteBadges(quadranteAtual).length === 0 && (
                         <QuadranteBadge
                           icon={STATE_META.oculto.icon}
-                          label={quadranteStatusLabel || STATE_META.oculto.label}
+                          label={
+                            quadranteStatusLabel || STATE_META.oculto.label
+                          }
                           background={STATE_META.oculto.badgeBackground}
                           border={STATE_META.oculto.badgeBorder}
                           color={STATE_META.oculto.badgeColor}
@@ -1744,15 +2456,46 @@ const CardFluxExploracaoPage = () => {
                     </Box>
                   </Box>
 
-                  <Box sx={{ p: 1.5, borderRadius: 2, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
-                    <Typography variant="caption" sx={{ color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Carta vinculada</Typography>
-                    <Typography sx={{ mt: 0.5, color: 'var(--text-primary)', fontWeight: 800 }}>{cartaAtual?.nome || 'Sem carta atribuída'}</Typography>
+                  <Box
+                    sx={{
+                      p: 1.5,
+                      borderRadius: 2,
+                      background: 'rgba(255,255,255,0.02)',
+                      border: '1px solid rgba(255,255,255,0.05)',
+                    }}
+                  >
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        color: 'var(--text-muted)',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.08em',
+                      }}
+                    >
+                      Carta vinculada
+                    </Typography>
+                    <Typography
+                      sx={{
+                        mt: 0.5,
+                        color: 'var(--text-primary)',
+                        fontWeight: 800,
+                      }}
+                    >
+                      {cartaAtual?.nome || 'Sem carta atribuída'}
+                    </Typography>
                   </Box>
 
                   {cartaAtual && (
-                    <Tooltip title="Abre os detalhes completos da carta vinculada." arrow>
+                    <Tooltip
+                      title="Abre os detalhes completos da carta vinculada."
+                      arrow
+                    >
                       <span>
-                        <Button variant="outlined" onClick={() => setCartaVisualizada(cartaAtual)} sx={secondaryButtonSx}>
+                        <Button
+                          variant="outlined"
+                          onClick={() => setCartaVisualizada(cartaAtual)}
+                          sx={secondaryButtonSx}
+                        >
                           Abrir carta
                         </Button>
                       </span>
@@ -1760,7 +2503,14 @@ const CardFluxExploracaoPage = () => {
                   )}
 
                   <Box sx={{ display: 'grid', gap: 1.25 }}>
-                    <Typography variant="overline" sx={{ color: 'var(--text-muted)', letterSpacing: '0.12em', fontWeight: 800 }}>
+                    <Typography
+                      variant="overline"
+                      sx={{
+                        color: 'var(--text-muted)',
+                        letterSpacing: '0.12em',
+                        fontWeight: 800,
+                      }}
+                    >
                       Anotações e resultado
                     </Typography>
 
@@ -1774,8 +2524,12 @@ const CardFluxExploracaoPage = () => {
                         '& .MuiOutlinedInput-root': {
                           background: 'rgba(8,11,17,0.72)',
                           color: 'var(--text-primary)',
-                          '& fieldset': { borderColor: 'var(--border-primary)' },
-                          '&:hover fieldset': { borderColor: 'var(--border-hover)' },
+                          '& fieldset': {
+                            borderColor: 'var(--border-primary)',
+                          },
+                          '&:hover fieldset': {
+                            borderColor: 'var(--border-hover)',
+                          },
                         },
                       }}
                     />
@@ -1786,7 +2540,9 @@ const CardFluxExploracaoPage = () => {
                         labelId="resultado-label"
                         label="Resultado"
                         value={resultadoSelecionado}
-                        onChange={event => setResultadoSelecionado(event.target.value)}
+                        onChange={event =>
+                          setResultadoSelecionado(event.target.value)
+                        }
                       >
                         <MenuItem value="sucesso">Sucesso</MenuItem>
                         <MenuItem value="falha">Falha</MenuItem>
@@ -1796,12 +2552,22 @@ const CardFluxExploracaoPage = () => {
                   </Box>
 
                   <Box sx={{ display: 'grid', gap: 1.2 }}>
-                    <Typography variant="overline" sx={{ color: 'var(--text-muted)', letterSpacing: '0.12em', fontWeight: 800 }}>
+                    <Typography
+                      variant="overline"
+                      sx={{
+                        color: 'var(--text-muted)',
+                        letterSpacing: '0.12em',
+                        fontWeight: 800,
+                      }}
+                    >
                       Ações do quadrante
                     </Typography>
 
                     <Box sx={{ display: 'grid', gap: 1 }}>
-                      <Tooltip title="Marca o quadrante como descoberto para a sessão atual." arrow>
+                      <Tooltip
+                        title="Marca o quadrante como descoberto para a sessão atual."
+                        arrow
+                      >
                         <span style={{ display: 'block', width: '100%' }}>
                           <Button
                             variant="contained"
@@ -1809,11 +2575,16 @@ const CardFluxExploracaoPage = () => {
                             disabled={savingAction === 'revelar'}
                             sx={{ ...primaryButtonSx, width: '100%' }}
                           >
-                            {savingAction === 'revelar' ? 'Revelando...' : 'Revelar'}
+                            {savingAction === 'revelar'
+                              ? 'Revelando...'
+                              : 'Revelar'}
                           </Button>
                         </span>
                       </Tooltip>
-                      <Tooltip title="Volta o quadrante ao estado oculto sem apagar a anotação ou a carta vinculada." arrow>
+                      <Tooltip
+                        title="Volta o quadrante ao estado oculto sem apagar a anotação ou a carta vinculada."
+                        arrow
+                      >
                         <span style={{ display: 'block', width: '100%' }}>
                           <Button
                             variant="outlined"
@@ -1821,23 +2592,35 @@ const CardFluxExploracaoPage = () => {
                             disabled={savingAction === 'ocultar'}
                             sx={{ ...secondaryButtonSx, width: '100%' }}
                           >
-                            {savingAction === 'ocultar' ? 'Ocultando...' : 'Ocultar'}
+                            {savingAction === 'ocultar'
+                              ? 'Ocultando...'
+                              : 'Ocultar'}
                           </Button>
                         </span>
                       </Tooltip>
-                      <Tooltip title="Salva o resultado escolhido para o quadrante e marca a ocorrência como resolvida." arrow>
+                      <Tooltip
+                        title="Salva o resultado escolhido para o quadrante e marca a ocorrência como resolvida."
+                        arrow
+                      >
                         <span style={{ display: 'block', width: '100%' }}>
                           <Button
                             variant="contained"
-                            onClick={() => handleResultado(resultadoSelecionado)}
+                            onClick={() =>
+                              handleResultado(resultadoSelecionado)
+                            }
                             disabled={savingAction === 'resultado'}
                             sx={{ ...primaryButtonSx, width: '100%' }}
                           >
-                            {savingAction === 'resultado' ? 'Salvando...' : 'Registrar resultado'}
+                            {savingAction === 'resultado'
+                              ? 'Salvando...'
+                              : 'Registrar resultado'}
                           </Button>
                         </span>
                       </Tooltip>
-                      <Tooltip title="Persiste a anotação privada do mestre para este quadrante." arrow>
+                      <Tooltip
+                        title="Persiste a anotação privada do mestre para este quadrante."
+                        arrow
+                      >
                         <span style={{ display: 'block', width: '100%' }}>
                           <Button
                             variant="outlined"
@@ -1845,11 +2628,16 @@ const CardFluxExploracaoPage = () => {
                             disabled={savingAction === 'anotacao'}
                             sx={{ ...secondaryButtonSx, width: '100%' }}
                           >
-                            {savingAction === 'anotacao' ? 'Salvando...' : 'Salvar anotação'}
+                            {savingAction === 'anotacao'
+                              ? 'Salvando...'
+                              : 'Salvar anotação'}
                           </Button>
                         </span>
                       </Tooltip>
-                      <Tooltip title="Bloqueia ou desbloqueia a interação do quadrante sem remover o conteúdo dele." arrow>
+                      <Tooltip
+                        title="Bloqueia ou desbloqueia a interação do quadrante sem remover o conteúdo dele."
+                        arrow
+                      >
                         <span style={{ display: 'block', width: '100%' }}>
                           <Button
                             variant="outlined"
@@ -1858,8 +2646,12 @@ const CardFluxExploracaoPage = () => {
                             sx={{ ...secondaryButtonSx, width: '100%' }}
                           >
                             {savingAction === 'bloquear'
-                              ? (quadranteAtual?.bloqueado ? 'Desbloqueando...' : 'Bloqueando...')
-                              : (quadranteAtual?.bloqueado ? 'Desbloquear' : 'Bloquear')}
+                              ? quadranteAtual?.bloqueado
+                                ? 'Desbloqueando...'
+                                : 'Bloqueando...'
+                              : quadranteAtual?.bloqueado
+                                ? 'Desbloquear'
+                                : 'Bloquear'}
                           </Button>
                         </span>
                       </Tooltip>
@@ -1867,33 +2659,50 @@ const CardFluxExploracaoPage = () => {
                   </Box>
 
                   <Box sx={{ display: 'grid', gap: 1.2, mt: 0.5 }}>
-                    <Typography variant="overline" sx={{ color: 'var(--text-muted)', letterSpacing: '0.12em', fontWeight: 800 }}>
+                    <Typography
+                      variant="overline"
+                      sx={{
+                        color: 'var(--text-muted)',
+                        letterSpacing: '0.12em',
+                        fontWeight: 800,
+                      }}
+                    >
                       Gerenciar carta
                     </Typography>
 
                     <TextField
                       label="Buscar carta"
                       value={cartaManualBusca}
-                      onChange={event => setCartaManualBusca(event.target.value)}
+                      onChange={event =>
+                        setCartaManualBusca(event.target.value)
+                      }
                       placeholder="Nome, tipo ou baralho"
                       sx={{
                         '& .MuiOutlinedInput-root': {
                           background: 'rgba(8,11,17,0.72)',
                           color: 'var(--text-primary)',
-                          '& fieldset': { borderColor: 'var(--border-primary)' },
-                          '&:hover fieldset': { borderColor: 'var(--border-hover)' },
+                          '& fieldset': {
+                            borderColor: 'var(--border-primary)',
+                          },
+                          '&:hover fieldset': {
+                            borderColor: 'var(--border-hover)',
+                          },
                         },
                       }}
                     />
 
                     {cartasRelacionadas.length > 0 && (
                       <FormControl fullWidth>
-                        <InputLabel id="carta-manual-label">Carta selecionada</InputLabel>
+                        <InputLabel id="carta-manual-label">
+                          Carta selecionada
+                        </InputLabel>
                         <Select
                           labelId="carta-manual-label"
                           label="Carta selecionada"
                           value={cartaManualId || ''}
-                          onChange={event => setCartaManualId(event.target.value || '')}
+                          onChange={event =>
+                            setCartaManualId(event.target.value || '')
+                          }
                         >
                           <MenuItem value="">Sem carta</MenuItem>
                           {cartasFiltradas.map(carta => (
@@ -1906,30 +2715,45 @@ const CardFluxExploracaoPage = () => {
                     )}
 
                     <Box sx={{ display: 'grid', gap: 1 }}>
-                      <Tooltip title="Selecione uma carta para atribuir manualmente a esta posição." arrow>
+                      <Tooltip
+                        title="Selecione uma carta para atribuir manualmente a esta posição."
+                        arrow
+                      >
                         <span style={{ display: 'block', width: '100%' }}>
                           <Button
                             variant="contained"
                             onClick={handleAdicionarCarta}
-                            disabled={!cartaManualId || savingAction === 'substituir'}
+                            disabled={
+                              !cartaManualId || savingAction === 'substituir'
+                            }
                             sx={{ ...primaryButtonSx, width: '100%' }}
                           >
                             {savingAction === 'substituir'
                               ? 'Salvando...'
-                              : (quadranteAtual?.cartaId ? 'Substituir carta' : 'Adicionar carta')}
+                              : quadranteAtual?.cartaId
+                                ? 'Substituir carta'
+                                : 'Adicionar carta'}
                           </Button>
                         </span>
                       </Tooltip>
-                      <Tooltip title="Remove a carta vinculada sem excluir a original." arrow>
+                      <Tooltip
+                        title="Remove a carta vinculada sem excluir a original."
+                        arrow
+                      >
                         <span style={{ display: 'block', width: '100%' }}>
                           <Button
                             variant="outlined"
                             color="error"
                             onClick={() => setConfirmarRemocaoOpen(true)}
-                            disabled={!quadranteAtual?.cartaId || savingAction === 'remover'}
+                            disabled={
+                              !quadranteAtual?.cartaId ||
+                              savingAction === 'remover'
+                            }
                             sx={{ ...dangerButtonSx, width: '100%' }}
                           >
-                            {savingAction === 'remover' ? 'Removendo...' : 'Remover carta'}
+                            {savingAction === 'remover'
+                              ? 'Removendo...'
+                              : 'Remover carta'}
                           </Button>
                         </span>
                       </Tooltip>
@@ -1965,7 +2789,8 @@ const CardFluxExploracaoPage = () => {
         slotProps={{
           paper: {
             sx: {
-              background: 'linear-gradient(180deg, rgba(20,24,30,0.98), rgba(12,15,20,0.98))',
+              background:
+                'linear-gradient(180deg, rgba(20,24,30,0.98), rgba(12,15,20,0.98))',
               border: '1px solid rgba(196,58,47,0.28)',
               borderRadius: 3,
               color: 'var(--text-primary)',
@@ -1973,13 +2798,30 @@ const CardFluxExploracaoPage = () => {
           },
         }}
       >
-        <DialogTitle id="cardflux-guia-titulo" sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, color: 'var(--text-primary)', fontWeight: 800 }}>
+        <DialogTitle
+          id="cardflux-guia-titulo"
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 2,
+            color: 'var(--text-primary)',
+            fontWeight: 800,
+          }}
+        >
           <Box>
-            <Typography variant="h6" sx={{ color: 'var(--text-primary)', fontWeight: 800 }}>
+            <Typography
+              variant="h6"
+              sx={{ color: 'var(--text-primary)', fontWeight: 800 }}
+            >
               Ajuda da Exploração
             </Typography>
-            <Typography variant="body2" sx={{ color: 'var(--text-secondary)', mt: 0.5 }}>
-              Entenda o grid, os estados dos quadrantes e os controles do mestre durante a sessão.
+            <Typography
+              variant="body2"
+              sx={{ color: 'var(--text-secondary)', mt: 0.5 }}
+            >
+              Entenda o grid, os estados dos quadrantes e os controles do mestre
+              durante a sessão.
             </Typography>
           </Box>
           <IconButton
@@ -1988,179 +2830,432 @@ const CardFluxExploracaoPage = () => {
             size="small"
             sx={{
               color: 'var(--text-secondary)',
-              '&:hover': { background: 'rgba(196,58,47,0.10)', color: 'var(--text-primary)' },
+              '&:hover': {
+                background: 'rgba(196,58,47,0.10)',
+                color: 'var(--text-primary)',
+              },
             }}
           >
             <CloseIcon fontSize="small" />
           </IconButton>
         </DialogTitle>
         <DialogContent dividers sx={{ background: 'rgba(8,11,17,0.4)' }}>
-          <Accordion defaultExpanded sx={{ background: 'rgba(17,22,30,0.94)', color: 'var(--text-primary)', borderRadius: 2, mb: 1.5 }}>
-            <AccordionSummary sx={{ '& .MuiAccordionSummary-content': { my: 1 } }}>
-              <Typography sx={{ fontWeight: 700 }}>1. O que é o Grid de Exploração?</Typography>
+          <Accordion
+            defaultExpanded
+            sx={{
+              background: 'rgba(17,22,30,0.94)',
+              color: 'var(--text-primary)',
+              borderRadius: 2,
+              mb: 1.5,
+            }}
+          >
+            <AccordionSummary
+              sx={{ '& .MuiAccordionSummary-content': { my: 1 } }}
+            >
+              <Typography sx={{ fontWeight: 700 }}>
+                1. O que é o Grid de Exploração?
+              </Typography>
             </AccordionSummary>
             <AccordionDetails sx={{ color: 'var(--text-secondary)' }}>
               <Typography component="p" sx={{ mb: 1.5 }}>
-                O Grid de Exploração é uma ferramenta narrativa do CardFlux para organizar acontecimentos em uma matriz de quadrantes.
+                O Grid de Exploração é uma ferramenta narrativa do CardFlux para
+                organizar acontecimentos em uma matriz de quadrantes.
               </Typography>
               <Typography component="p" sx={{ mb: 1.5 }}>
-                Cada quadrante representa uma região do ambiente explorado pelos personagens, como uma sala, uma trilha, um setor da cidade ou qualquer ponto do cenário.
+                Cada quadrante representa uma região do ambiente explorado pelos
+                personagens, como uma sala, uma trilha, um setor da cidade ou
+                qualquer ponto do cenário.
               </Typography>
               <Typography component="p" sx={{ mb: 1.5 }}>
-                O mestre controla a exploração escolhendo os quadrantes que os jogadores alcançaram e decidindo como cada ponto do mapa será revelado, acessado ou resolvido.
+                O mestre controla a exploração escolhendo os quadrantes que os
+                jogadores alcançaram e decidindo como cada ponto do mapa será
+                revelado, acessado ou resolvido.
               </Typography>
               <Typography component="p" sx={{ mb: 0 }}>
-                O sistema não move personagens automaticamente e não substitui a regra de movimentação do RPG. Ele organiza o contexto narrativo e o controle dos acontecimentos.
+                O sistema não move personagens automaticamente e não substitui a
+                regra de movimentação do RPG. Ele organiza o contexto narrativo
+                e o controle dos acontecimentos.
               </Typography>
             </AccordionDetails>
           </Accordion>
 
-          <Accordion sx={{ background: 'rgba(17,22,30,0.94)', color: 'var(--text-primary)', borderRadius: 2, mb: 1.5 }}>
-            <AccordionSummary sx={{ '& .MuiAccordionSummary-content': { my: 1 } }}>
-              <Typography sx={{ fontWeight: 700 }}>2. Como utilizar o mapa?</Typography>
+          <Accordion
+            sx={{
+              background: 'rgba(17,22,30,0.94)',
+              color: 'var(--text-primary)',
+              borderRadius: 2,
+              mb: 1.5,
+            }}
+          >
+            <AccordionSummary
+              sx={{ '& .MuiAccordionSummary-content': { my: 1 } }}
+            >
+              <Typography sx={{ fontWeight: 700 }}>
+                2. Como utilizar o mapa?
+              </Typography>
             </AccordionSummary>
             <AccordionDetails sx={{ color: 'var(--text-secondary)' }}>
               <Typography component="ol" sx={{ pl: 2.5, mb: 0 }}>
                 <li>Observe a matriz no centro da tela.</li>
                 <li>Clique no quadrante que deseja administrar.</li>
                 <li>Consulte as informações no painel direito.</li>
-                <li>Use Revelar quando os personagens explorarem aquele local.</li>
+                <li>
+                  Use Revelar quando os personagens explorarem aquele local.
+                </li>
                 <li>Abra a carta vinculada, caso exista.</li>
                 <li>Conduza o acontecimento com as regras da sessão.</li>
                 <li>Registre anotações e o resultado.</li>
-                <li>Marque o acontecimento como resolvido quando a conclusão for registrada.</li>
+                <li>
+                  Marque o acontecimento como resolvido quando a conclusão for
+                  registrada.
+                </li>
                 <li>Continue a exploração normalmente.</li>
               </Typography>
               <Typography component="p" sx={{ mt: 1.5, mb: 0 }}>
-                Selecionar um quadrante não o revela automaticamente. Essa decisão fica com o mestre.
+                Selecionar um quadrante não o revela automaticamente. Essa
+                decisão fica com o mestre.
               </Typography>
             </AccordionDetails>
           </Accordion>
 
-          <Accordion sx={{ background: 'rgba(17,22,30,0.94)', color: 'var(--text-primary)', borderRadius: 2, mb: 1.5 }}>
-            <AccordionSummary sx={{ '& .MuiAccordionSummary-content': { my: 1 } }}>
-              <Typography sx={{ fontWeight: 700 }}>3. Estados dos quadrantes</Typography>
-            </AccordionSummary>
-            <AccordionDetails sx={{ color: 'var(--text-secondary)' }}>
-              <Typography component="p" sx={{ mb: 1.5 }}><strong>Oculto:</strong> ainda não foi explorado narrativamente. Pode possuir uma carta atribuída, dependendo da distribuição utilizada.</Typography>
-              <Typography component="p" sx={{ mb: 1.5 }}><strong>Revelado:</strong> já foi descoberto pelos personagens. Se houver carta vinculada, o mestre pode abri-la e usá-la.</Typography>
-              <Typography component="p" sx={{ mb: 1.5 }}><strong>Em andamento:</strong> este estado só deve ser usado quando existir na implementação real. Caso não esteja ativo, ele não será criado nesta tarefa.</Typography>
-              <Typography component="p" sx={{ mb: 1.5 }}><strong>Resolvido:</strong> o acontecimento foi concluído e teve desfecho registrado, podendo ser sucesso, falha ou outra conclusão permitida.</Typography>
-              <Typography component="p" sx={{ mb: 1.5 }}><strong>Vazio:</strong> o quadrante não possui acontecimento a ser executado e pode representar uma área tranquila ou sem carta sorteada.</Typography>
-              <Typography component="p" sx={{ mb: 0 }}><strong>Bloqueado:</strong> indica uma restrição de interação. Bloqueio é uma propriedade adicional e não substitui necessariamente o estado da exploração.</Typography>
-            </AccordionDetails>
-          </Accordion>
-
-          <Accordion sx={{ background: 'rgba(17,22,30,0.94)', color: 'var(--text-primary)', borderRadius: 2, mb: 1.5 }}>
-            <AccordionSummary sx={{ '& .MuiAccordionSummary-content': { my: 1 } }}>
-              <Typography sx={{ fontWeight: 700 }}>4. O que significam as cores e os ícones?</Typography>
+          <Accordion
+            sx={{
+              background: 'rgba(17,22,30,0.94)',
+              color: 'var(--text-primary)',
+              borderRadius: 2,
+              mb: 1.5,
+            }}
+          >
+            <AccordionSummary
+              sx={{ '& .MuiAccordionSummary-content': { my: 1 } }}
+            >
+              <Typography sx={{ fontWeight: 700 }}>
+                3. Estados dos quadrantes
+              </Typography>
             </AccordionSummary>
             <AccordionDetails sx={{ color: 'var(--text-secondary)' }}>
               <Typography component="p" sx={{ mb: 1.5 }}>
-                Os indicadores visuais usados no grid refletem os estados efetivamente implementados: oculta em tom escuro, revelado em tom âmbar, resolvido em tom verde, vazio em neutro e bloqueado com ícone de cadeado.
+                <strong>Oculto:</strong> ainda não foi explorado narrativamente.
+                Pode possuir uma carta atribuída, dependendo da distribuição
+                utilizada.
+              </Typography>
+              <Typography component="p" sx={{ mb: 1.5 }}>
+                <strong>Revelado:</strong> já foi descoberto pelos personagens.
+                Se houver carta vinculada, o mestre pode abri-la e usá-la.
+              </Typography>
+              <Typography component="p" sx={{ mb: 1.5 }}>
+                <strong>Em andamento:</strong> este estado só deve ser usado
+                quando existir na implementação real. Caso não esteja ativo, ele
+                não será criado nesta tarefa.
+              </Typography>
+              <Typography component="p" sx={{ mb: 1.5 }}>
+                <strong>Resolvido:</strong> o acontecimento foi concluído e teve
+                desfecho registrado, podendo ser sucesso, falha ou outra
+                conclusão permitida.
+              </Typography>
+              <Typography component="p" sx={{ mb: 1.5 }}>
+                <strong>Vazio:</strong> o quadrante não possui acontecimento a
+                ser executado e pode representar uma área tranquila ou sem carta
+                sorteada.
               </Typography>
               <Typography component="p" sx={{ mb: 0 }}>
-                O quadrante selecionado recebe destaque próprio para identificar o painel de administração atual. Não foram criados novos padrões de cor fora do que já está implementado.
+                <strong>Bloqueado:</strong> indica uma restrição de interação.
+                Bloqueio é uma propriedade adicional e não substitui
+                necessariamente o estado da exploração.
               </Typography>
             </AccordionDetails>
           </Accordion>
 
-          <Accordion sx={{ background: 'rgba(17,22,30,0.94)', color: 'var(--text-primary)', borderRadius: 2, mb: 1.5 }}>
-            <AccordionSummary sx={{ '& .MuiAccordionSummary-content': { my: 1 } }}>
-              <Typography sx={{ fontWeight: 700 }}>5. Painel esquerdo</Typography>
-            </AccordionSummary>
-            <AccordionDetails sx={{ color: 'var(--text-secondary)' }}>
-              <Typography component="p" sx={{ mb: 1.5 }}><strong>Campanha:</strong> identifica a campanha associada.</Typography>
-              <Typography component="p" sx={{ mb: 1.5 }}><strong>Universo:</strong> identifica o universo das cartas.</Typography>
-              <Typography component="p" sx={{ mb: 1.5 }}><strong>Baralhos:</strong> lista os baralhos ativos.</Typography>
-              <Typography component="p" sx={{ mb: 1.5 }}><strong>Dimensão:</strong> informa linhas e colunas da matriz.</Typography>
-              <Typography component="p" sx={{ mb: 1.5 }}><strong>Progresso:</strong> indica a porcentagem de quadrantes explorados conforme o cálculo atual do motor.</Typography>
-              <Typography component="p" sx={{ mb: 1.5 }}><strong>Acontecimentos:</strong> mostra a quantidade de quadrantes com conteúdo vinculado ou resolvido de acordo com a implementação atual.</Typography>
-              <Typography component="p" sx={{ mb: 1.5 }}><strong>Status:</strong> indica se a exploração está ativa ou encerrada.</Typography>
-              <Typography component="p" sx={{ mb: 1.5 }}><strong>Nova Exploração:</strong> abre a configuração de um novo Grid.</Typography>
-              <Typography component="p" sx={{ mb: 1.5 }}><strong>Gerenciar Explorações:</strong> permite consultar e continuar explorações salvas.</Typography>
-              <Typography component="p" sx={{ mb: 1.5 }}><strong>Salvar Agora:</strong> executa o salvamento atual da exploração.</Typography>
-              <Typography component="p" sx={{ mb: 0 }}><strong>Voltar ao CardFlux:</strong> retorna ao módulo principal.</Typography>
-            </AccordionDetails>
-          </Accordion>
-
-          <Accordion sx={{ background: 'rgba(17,22,30,0.94)', color: 'var(--text-primary)', borderRadius: 2, mb: 1.5 }}>
-            <AccordionSummary sx={{ '& .MuiAccordionSummary-content': { my: 1 } }}>
-              <Typography sx={{ fontWeight: 700 }}>6. Painel direito</Typography>
-            </AccordionSummary>
-            <AccordionDetails sx={{ color: 'var(--text-secondary)' }}>
-              <Typography component="p" sx={{ mb: 1.5 }}><strong>Coordenadas:</strong> indicam a posição do quadrante selecionado.</Typography>
-              <Typography component="p" sx={{ mb: 1.5 }}><strong>Estado:</strong> mostra a situação atual do quadrante.</Typography>
-              <Typography component="p" sx={{ mb: 1.5 }}><strong>Carta vinculada:</strong> mostra a carta associada àquela posição. Quando não houver carta, a interface usa Sem carta atribuída.</Typography>
-              <Typography component="p" sx={{ mb: 1.5 }}><strong>Abrir Carta:</strong> abre o visualizador completo da carta do CardFlux.</Typography>
-              <Typography component="p" sx={{ mb: 1.5 }}><strong>Anotações:</strong> permitem registrar observações privadas do mestre, como lembretes da sessão.</Typography>
-              <Typography component="p" sx={{ mb: 0 }}><strong>Resultado:</strong> define o desfecho do acontecimento conforme as opções disponíveis.</Typography>
-            </AccordionDetails>
-          </Accordion>
-
-          <Accordion sx={{ background: 'rgba(17,22,30,0.94)', color: 'var(--text-primary)', borderRadius: 2, mb: 1.5 }}>
-            <AccordionSummary sx={{ '& .MuiAccordionSummary-content': { my: 1 } }}>
-              <Typography sx={{ fontWeight: 700 }}>7. Ações do quadrante</Typography>
-            </AccordionSummary>
-            <AccordionDetails sx={{ color: 'var(--text-secondary)' }}>
-              <Typography component="p" sx={{ mb: 1.5 }}><strong>Revelar:</strong> marca o quadrante como descoberto e pode ativar a lógica do acontecimento conforme o modo de distribuição.</Typography>
-              <Typography component="p" sx={{ mb: 1.5 }}><strong>Ocultar:</strong> retorna o quadrante ao estado oculto preservando dados existentes.</Typography>
-              <Typography component="p" sx={{ mb: 1.5 }}><strong>Registrar Resultado:</strong> salva o desfecho selecionado. O efeito de marcar o quadrante como resolvido depende da implementação real do motor.</Typography>
-              <Typography component="p" sx={{ mb: 1.5 }}><strong>Salvar Anotação:</strong> persiste o texto digitado para o quadrante selecionado.</Typography>
-              <Typography component="p" sx={{ mb: 1.5 }}><strong>Bloquear / Desbloquear:</strong> adiciona ou remove a restrição de interação do quadrante.</Typography>
-              <Typography component="p" sx={{ mb: 1.5 }}><strong>Adicionar Carta:</strong> permite atribuir manualmente uma carta disponível a um quadrante sem carta.</Typography>
-              <Typography component="p" sx={{ mb: 1.5 }}><strong>Substituir Carta:</strong> troca a carta atribuída por outra.</Typography>
-              <Typography component="p" sx={{ mb: 0 }}><strong>Remover Carta:</strong> desvincula a carta do quadrante sem excluir a original no banco de dados.</Typography>
-            </AccordionDetails>
-          </Accordion>
-
-          <Accordion sx={{ background: 'rgba(17,22,30,0.94)', color: 'var(--text-primary)', borderRadius: 2, mb: 1.5 }}>
-            <AccordionSummary sx={{ '& .MuiAccordionSummary-content': { my: 1 } }}>
-              <Typography sx={{ fontWeight: 700 }}>8. Atribuição manual de cartas</Typography>
+          <Accordion
+            sx={{
+              background: 'rgba(17,22,30,0.94)',
+              color: 'var(--text-primary)',
+              borderRadius: 2,
+              mb: 1.5,
+            }}
+          >
+            <AccordionSummary
+              sx={{ '& .MuiAccordionSummary-content': { my: 1 } }}
+            >
+              <Typography sx={{ fontWeight: 700 }}>
+                4. O que significam as cores e os ícones?
+              </Typography>
             </AccordionSummary>
             <AccordionDetails sx={{ color: 'var(--text-secondary)' }}>
               <Typography component="p" sx={{ mb: 1.5 }}>
-                O mestre pode decidir que determinado acontecimento deve ocorrer em um lugar específico. Exemplo: ele seleciona o quadrante (2,3) e atribui a carta “A Chuva de Mana”.
+                Os indicadores visuais usados no grid refletem os estados
+                efetivamente implementados: oculta em tom escuro, revelado em
+                tom âmbar, resolvido em tom verde, vazio em neutro e bloqueado
+                com ícone de cadeado.
               </Typography>
               <Typography component="p" sx={{ mb: 0 }}>
-                A carta passa a ficar vinculada àquela casa e pode ser revelada quando os jogadores alcançarem o local. A atribuição manual não exclui a carta original, apenas liga a instância ao quadrante.
+                O quadrante selecionado recebe destaque próprio para identificar
+                o painel de administração atual. Não foram criados novos padrões
+                de cor fora do que já está implementado.
               </Typography>
             </AccordionDetails>
           </Accordion>
 
-          <Accordion sx={{ background: 'rgba(17,22,30,0.94)', color: 'var(--text-primary)', borderRadius: 2, mb: 1.5 }}>
-            <AccordionSummary sx={{ '& .MuiAccordionSummary-content': { my: 1 } }}>
-              <Typography sx={{ fontWeight: 700 }}>9. Salvamento e continuidade</Typography>
+          <Accordion
+            sx={{
+              background: 'rgba(17,22,30,0.94)',
+              color: 'var(--text-primary)',
+              borderRadius: 2,
+              mb: 1.5,
+            }}
+          >
+            <AccordionSummary
+              sx={{ '& .MuiAccordionSummary-content': { my: 1 } }}
+            >
+              <Typography sx={{ fontWeight: 700 }}>
+                5. Painel esquerdo
+              </Typography>
             </AccordionSummary>
             <AccordionDetails sx={{ color: 'var(--text-secondary)' }}>
               <Typography component="p" sx={{ mb: 1.5 }}>
-                As explorações possuem registros independentes no Firestore. O mestre pode continuar a sessão em outro momento sem gerar um novo mapa.
-              </Typography>
-              <Typography component="p" sx={{ mb: 1.5 }}><strong>Salvar Exploração:</strong> confirma o salvamento com a implementação atual.</Typography>
-              <Typography component="p" sx={{ mb: 1.5 }}><strong>Explorações:</strong> abre o gerenciador de registros salvos.</Typography>
-              <Typography component="p" sx={{ mb: 0 }}><strong>Voltar:</strong> retorna à navegação relevante. O gerenciador pode oferecer continuar, renomear, duplicar, encerrar ou excluir explorações conforme as funcionalidades existentes.</Typography>
-            </AccordionDetails>
-          </Accordion>
-
-          <Accordion sx={{ background: 'rgba(17,22,30,0.94)', color: 'var(--text-primary)', borderRadius: 2 }}>
-            <AccordionSummary sx={{ '& .MuiAccordionSummary-content': { my: 1 } }}>
-              <Typography sx={{ fontWeight: 700 }}>10. Exemplo prático</Typography>
-            </AccordionSummary>
-            <AccordionDetails sx={{ color: 'var(--text-secondary)' }}>
-              <Typography component="p" sx={{ mb: 1.5 }}>
-                Imagine uma exploração em uma floresta. O mestre cria um grid 6×6 e, ao avançar com os jogadores, seleciona o quadrante (1,2). Em seguida usa Revelar e observa a carta vinculada, se houver.
+                <strong>Campanha:</strong> identifica a campanha associada.
               </Typography>
               <Typography component="p" sx={{ mb: 1.5 }}>
-                Depois da ação, o mestre registra uma anotação: “Os jogadores identificaram pegadas próximas ao riacho”, e define o resultado do acontecimento conforme o desfecho da cena.
+                <strong>Universo:</strong> identifica o universo das cartas.
+              </Typography>
+              <Typography component="p" sx={{ mb: 1.5 }}>
+                <strong>Baralhos:</strong> lista os baralhos ativos.
+              </Typography>
+              <Typography component="p" sx={{ mb: 1.5 }}>
+                <strong>Dimensão:</strong> informa linhas e colunas da matriz.
+              </Typography>
+              <Typography component="p" sx={{ mb: 1.5 }}>
+                <strong>Progresso:</strong> indica a porcentagem de quadrantes
+                explorados conforme o cálculo atual do motor.
+              </Typography>
+              <Typography component="p" sx={{ mb: 1.5 }}>
+                <strong>Acontecimentos:</strong> mostra a quantidade de
+                quadrantes com conteúdo vinculado ou resolvido de acordo com a
+                implementação atual.
+              </Typography>
+              <Typography component="p" sx={{ mb: 1.5 }}>
+                <strong>Status:</strong> indica se a exploração está ativa ou
+                encerrada.
+              </Typography>
+              <Typography component="p" sx={{ mb: 1.5 }}>
+                <strong>Nova Exploração:</strong> abre a configuração de um novo
+                Grid.
+              </Typography>
+              <Typography component="p" sx={{ mb: 1.5 }}>
+                <strong>Gerenciar Explorações:</strong> permite consultar e
+                continuar explorações salvas.
+              </Typography>
+              <Typography component="p" sx={{ mb: 1.5 }}>
+                <strong>Salvar Agora:</strong> executa o salvamento atual da
+                exploração.
               </Typography>
               <Typography component="p" sx={{ mb: 0 }}>
-                O sistema salva esse contexto para a próxima sessão, mantendo o progresso da exploração sem reiniciar o mapa.
+                <strong>Voltar ao CardFlux:</strong> retorna ao módulo
+                principal.
+              </Typography>
+            </AccordionDetails>
+          </Accordion>
+
+          <Accordion
+            sx={{
+              background: 'rgba(17,22,30,0.94)',
+              color: 'var(--text-primary)',
+              borderRadius: 2,
+              mb: 1.5,
+            }}
+          >
+            <AccordionSummary
+              sx={{ '& .MuiAccordionSummary-content': { my: 1 } }}
+            >
+              <Typography sx={{ fontWeight: 700 }}>
+                6. Painel direito
+              </Typography>
+            </AccordionSummary>
+            <AccordionDetails sx={{ color: 'var(--text-secondary)' }}>
+              <Typography component="p" sx={{ mb: 1.5 }}>
+                <strong>Coordenadas:</strong> indicam a posição do quadrante
+                selecionado.
+              </Typography>
+              <Typography component="p" sx={{ mb: 1.5 }}>
+                <strong>Estado:</strong> mostra a situação atual do quadrante.
+              </Typography>
+              <Typography component="p" sx={{ mb: 1.5 }}>
+                <strong>Carta vinculada:</strong> mostra a carta associada
+                àquela posição. Quando não houver carta, a interface usa Sem
+                carta atribuída.
+              </Typography>
+              <Typography component="p" sx={{ mb: 1.5 }}>
+                <strong>Abrir Carta:</strong> abre o visualizador completo da
+                carta do CardFlux.
+              </Typography>
+              <Typography component="p" sx={{ mb: 1.5 }}>
+                <strong>Anotações:</strong> permitem registrar observações
+                privadas do mestre, como lembretes da sessão.
+              </Typography>
+              <Typography component="p" sx={{ mb: 0 }}>
+                <strong>Resultado:</strong> define o desfecho do acontecimento
+                conforme as opções disponíveis.
+              </Typography>
+            </AccordionDetails>
+          </Accordion>
+
+          <Accordion
+            sx={{
+              background: 'rgba(17,22,30,0.94)',
+              color: 'var(--text-primary)',
+              borderRadius: 2,
+              mb: 1.5,
+            }}
+          >
+            <AccordionSummary
+              sx={{ '& .MuiAccordionSummary-content': { my: 1 } }}
+            >
+              <Typography sx={{ fontWeight: 700 }}>
+                7. Ações do quadrante
+              </Typography>
+            </AccordionSummary>
+            <AccordionDetails sx={{ color: 'var(--text-secondary)' }}>
+              <Typography component="p" sx={{ mb: 1.5 }}>
+                <strong>Revelar:</strong> marca o quadrante como descoberto e
+                pode ativar a lógica do acontecimento conforme o modo de
+                distribuição.
+              </Typography>
+              <Typography component="p" sx={{ mb: 1.5 }}>
+                <strong>Ocultar:</strong> retorna o quadrante ao estado oculto
+                preservando dados existentes.
+              </Typography>
+              <Typography component="p" sx={{ mb: 1.5 }}>
+                <strong>Registrar Resultado:</strong> salva o desfecho
+                selecionado. O efeito de marcar o quadrante como resolvido
+                depende da implementação real do motor.
+              </Typography>
+              <Typography component="p" sx={{ mb: 1.5 }}>
+                <strong>Salvar Anotação:</strong> persiste o texto digitado para
+                o quadrante selecionado.
+              </Typography>
+              <Typography component="p" sx={{ mb: 1.5 }}>
+                <strong>Bloquear / Desbloquear:</strong> adiciona ou remove a
+                restrição de interação do quadrante.
+              </Typography>
+              <Typography component="p" sx={{ mb: 1.5 }}>
+                <strong>Adicionar Carta:</strong> permite atribuir manualmente
+                uma carta disponível a um quadrante sem carta.
+              </Typography>
+              <Typography component="p" sx={{ mb: 1.5 }}>
+                <strong>Substituir Carta:</strong> troca a carta atribuída por
+                outra.
+              </Typography>
+              <Typography component="p" sx={{ mb: 0 }}>
+                <strong>Remover Carta:</strong> desvincula a carta do quadrante
+                sem excluir a original no banco de dados.
+              </Typography>
+            </AccordionDetails>
+          </Accordion>
+
+          <Accordion
+            sx={{
+              background: 'rgba(17,22,30,0.94)',
+              color: 'var(--text-primary)',
+              borderRadius: 2,
+              mb: 1.5,
+            }}
+          >
+            <AccordionSummary
+              sx={{ '& .MuiAccordionSummary-content': { my: 1 } }}
+            >
+              <Typography sx={{ fontWeight: 700 }}>
+                8. Atribuição manual de cartas
+              </Typography>
+            </AccordionSummary>
+            <AccordionDetails sx={{ color: 'var(--text-secondary)' }}>
+              <Typography component="p" sx={{ mb: 1.5 }}>
+                O mestre pode decidir que determinado acontecimento deve ocorrer
+                em um lugar específico. Exemplo: ele seleciona o quadrante (2,3)
+                e atribui a carta “A Chuva de Mana”.
+              </Typography>
+              <Typography component="p" sx={{ mb: 0 }}>
+                A carta passa a ficar vinculada àquela casa e pode ser revelada
+                quando os jogadores alcançarem o local. A atribuição manual não
+                exclui a carta original, apenas liga a instância ao quadrante.
+              </Typography>
+            </AccordionDetails>
+          </Accordion>
+
+          <Accordion
+            sx={{
+              background: 'rgba(17,22,30,0.94)',
+              color: 'var(--text-primary)',
+              borderRadius: 2,
+              mb: 1.5,
+            }}
+          >
+            <AccordionSummary
+              sx={{ '& .MuiAccordionSummary-content': { my: 1 } }}
+            >
+              <Typography sx={{ fontWeight: 700 }}>
+                9. Salvamento e continuidade
+              </Typography>
+            </AccordionSummary>
+            <AccordionDetails sx={{ color: 'var(--text-secondary)' }}>
+              <Typography component="p" sx={{ mb: 1.5 }}>
+                As explorações possuem registros independentes no Firestore. O
+                mestre pode continuar a sessão em outro momento sem gerar um
+                novo mapa.
+              </Typography>
+              <Typography component="p" sx={{ mb: 1.5 }}>
+                <strong>Salvar Exploração:</strong> confirma o salvamento com a
+                implementação atual.
+              </Typography>
+              <Typography component="p" sx={{ mb: 1.5 }}>
+                <strong>Explorações:</strong> abre o gerenciador de registros
+                salvos.
+              </Typography>
+              <Typography component="p" sx={{ mb: 1.5 }}>
+                <strong>Voltar:</strong> retorna à navegação relevante. O
+                gerenciador pode oferecer continuar, renomear, duplicar,
+                encerrar ou excluir explorações conforme as funcionalidades
+                existentes.
+              </Typography>
+            </AccordionDetails>
+          </Accordion>
+
+          <Accordion
+            sx={{
+              background: 'rgba(17,22,30,0.94)',
+              color: 'var(--text-primary)',
+              borderRadius: 2,
+            }}
+          >
+            <AccordionSummary
+              sx={{ '& .MuiAccordionSummary-content': { my: 1 } }}
+            >
+              <Typography sx={{ fontWeight: 700 }}>
+                10. Exemplo prático
+              </Typography>
+            </AccordionSummary>
+            <AccordionDetails sx={{ color: 'var(--text-secondary)' }}>
+              <Typography component="p" sx={{ mb: 1.5 }}>
+                Imagine uma exploração em uma floresta. O mestre cria um grid
+                6×6 e, ao avançar com os jogadores, seleciona o quadrante (1,2).
+                Em seguida usa Revelar e observa a carta vinculada, se houver.
+              </Typography>
+              <Typography component="p" sx={{ mb: 1.5 }}>
+                Depois da ação, o mestre registra uma anotação: “Os jogadores
+                identificaram pegadas próximas ao riacho”, e define o resultado
+                do acontecimento conforme o desfecho da cena.
+              </Typography>
+              <Typography component="p" sx={{ mb: 0 }}>
+                O sistema salva esse contexto para a próxima sessão, mantendo o
+                progresso da exploração sem reiniciar o mapa.
               </Typography>
             </AccordionDetails>
           </Accordion>
         </DialogContent>
         <DialogActions sx={{ px: 3, py: 2 }}>
-          <Button onClick={() => setAjudaAberta(false)} sx={{ ...secondaryButtonSx, minWidth: 110 }}>
+          <Button
+            onClick={() => setAjudaAberta(false)}
+            sx={{ ...secondaryButtonSx, minWidth: 110 }}
+          >
             Entendi
           </Button>
         </DialogActions>
@@ -2170,7 +3265,8 @@ const CardFluxExploracaoPage = () => {
         open={feedback.open}
         autoHideDuration={4000}
         onClose={() => setFeedback(prev => ({ ...prev, open: false }))}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+        sx={{ mt: { xs: 1, sm: 2 }, mr: { xs: 1, sm: 2 } }}
       >
         <Alert
           onClose={() => setFeedback(prev => ({ ...prev, open: false }))}
@@ -2187,19 +3283,35 @@ const CardFluxExploracaoPage = () => {
         onClose={() => setConfirmarRemocaoOpen(false)}
         aria-labelledby="cardflux-remocao-carta-title"
       >
-        <DialogTitle id="cardflux-remocao-carta-title" sx={{ color: 'var(--text-primary)', fontWeight: 800 }}>
+        <DialogTitle
+          id="cardflux-remocao-carta-title"
+          sx={{ color: 'var(--text-primary)', fontWeight: 800 }}
+        >
           Confirmar remoção
         </DialogTitle>
         <DialogContent>
           <DialogContentText sx={{ color: 'var(--text-secondary)' }}>
-            A carta vinculada a este quadrante será removida. Essa ação não apaga o registro da carta no baralho, apenas desvincula este local da exploração.
+            A carta vinculada a este quadrante será removida. Essa ação não
+            apaga o registro da carta no baralho, apenas desvincula este local
+            da exploração.
           </DialogContentText>
         </DialogContent>
-        <DialogActions sx={{ px: 3, py: 2, borderTop: '1px solid var(--border-primary)' }}>
-          <Button onClick={() => setConfirmarRemocaoOpen(false)} variant="text" sx={{ color: 'var(--text-secondary)' }}>
+        <DialogActions
+          sx={{ px: 3, py: 2, borderTop: '1px solid var(--border-primary)' }}
+        >
+          <Button
+            onClick={() => setConfirmarRemocaoOpen(false)}
+            variant="text"
+            sx={{ color: 'var(--text-secondary)' }}
+          >
             Cancelar
           </Button>
-          <Button variant="contained" color="error" onClick={handleRemoverCarta} sx={primaryButtonSx}>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={handleRemoverCarta}
+            sx={primaryButtonSx}
+          >
             Confirmar remoção
           </Button>
         </DialogActions>

@@ -1,6 +1,7 @@
 export const ROUTE_PATHS = {
   DASHBOARD: '/dashboard',
   CAMPANHA: '/campanha',
+  UNIVERSO: '/universo',
   NOVA_CAMPANHA: '/campanha/nova',
   CENAS: '/campanha/cenas',
   NOVA_CENA: '/campanha/cenas/nova',
@@ -28,6 +29,9 @@ export const ROUTE_PATHS = {
   NOVA_NOTA: '/notas/nova',
   CHAT: '/chat',
   GRID: '/grid',
+  UNIVERSO_NOVA_ENTIDADE: '/universo/nova',
+  UNIVERSO_ENTIDADE: '/universo/:entidadeId',
+  UNIVERSO_ENTIDADE_EDITAR: '/universo/:entidadeId/editar',
 };
 
 export const PAGE_TITLES = {
@@ -53,10 +57,14 @@ export const PAGE_TITLES = {
   [ROUTE_PATHS.CARDFLUX_EXPLORACOES]: 'Explorações',
   [ROUTE_PATHS.CARDFLUX_EXPLORACAO]: 'Exploração',
   [ROUTE_PATHS.MUSICAS]: 'Músicas',
+  [ROUTE_PATHS.UNIVERSO]: 'Universo',
   [ROUTE_PATHS.NOTAS]: 'Universo',
   [ROUTE_PATHS.NOTA_DETALHES]: 'Entidade',
   [ROUTE_PATHS.NOTA_EDITAR]: 'Editar Entidade',
   [ROUTE_PATHS.NOVA_NOTA]: 'Nova Entidade',
   [ROUTE_PATHS.CHAT]: 'Chat',
   [ROUTE_PATHS.GRID]: 'Grid',
+  [ROUTE_PATHS.UNIVERSO_NOVA_ENTIDADE]: 'Nova Entidade',
+  [ROUTE_PATHS.UNIVERSO_ENTIDADE]: 'Detalhes da Entidade',
+  [ROUTE_PATHS.UNIVERSO_ENTIDADE_EDITAR]: 'Editar Entidade',
 };

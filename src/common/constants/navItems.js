@@ -20,7 +20,7 @@ export const NAV_ITEMS = [
   { path: ROUTE_PATHS.NPCS, icon: PersonOutlineOutlined, label: 'NPCs' },
   { path: ROUTE_PATHS.JOGADORES, icon: PeopleAltOutlined, label: 'Jogadores' },
   { path: ROUTE_PATHS.CRIATURAS, icon: ShieldOutlined, label: 'Criaturas' },
-  { path: ROUTE_PATHS.NOTAS, icon: NotesOutlined, label: 'Universo' },
+  { path: ROUTE_PATHS.UNIVERSO, icon: NotesOutlined, label: 'Universo' },
   { path: ROUTE_PATHS.MAPAS, icon: MapOutlined, label: 'Mapas' },
   { path: ROUTE_PATHS.MISSOES, icon: AssignmentOutlined, label: 'Missões' },
   { path: ROUTE_PATHS.CARDFLUX, icon: LibraryBooksOutlined, label: 'CardFlux' },
@@ -42,7 +42,7 @@ export const NAV_GROUPS = [
   {
     label: 'Gerenciamento do Mundo',
     items: [
-      { path: ROUTE_PATHS.NOTAS, icon: NotesOutlined, label: 'Universo' },
+      { path: ROUTE_PATHS.UNIVERSO, icon: NotesOutlined, label: 'Universo' },
       { path: ROUTE_PATHS.JOGADORES, icon: PeopleAltOutlined, label: 'Jogadores' },
       { path: ROUTE_PATHS.NPCS, icon: PersonOutlineOutlined, label: 'NPCs' },
       { path: ROUTE_PATHS.CRIATURAS, icon: ShieldOutlined, label: 'Criaturas' },

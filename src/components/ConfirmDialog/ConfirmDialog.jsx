@@ -113,34 +113,42 @@ const ConfirmDialog = ({
   exigirDigitar = null,
   onConfirmar,
   onCancelar,
-}) => (
-  <Dialog
-    open={open}
-    onClose={onCancelar}
-    maxWidth="xs"
-    fullWidth
-    aria-labelledby="confirm-dialog-titulo"
-  >
-    {/* Conteúdo só montado aberto: o texto digitado zera a cada abertura. */}
-    {open && (
-      <ConfirmDialogConteudo
-        titulo={titulo}
-        mensagem={mensagem}
-        consequencias={consequencias.filter(Boolean)}
-        confirmarTexto={confirmarTexto}
-        exigirDigitar={exigirDigitar}
-        onConfirmar={onConfirmar}
-        onCancelar={onCancelar}
-      />
-    )}
-  </Dialog>
-);
+}) => {
+  const consequenciasNormalizadas = (
+    Array.isArray(consequencias) ? consequencias : [consequencias]
+  ).filter(Boolean);
+
+  return (
+    <Dialog
+      open={open}
+      onClose={onCancelar}
+      maxWidth="xs"
+      fullWidth
+      aria-labelledby="confirm-dialog-titulo"
+    >
+      {open && (
+        <ConfirmDialogConteudo
+          titulo={titulo}
+          mensagem={mensagem}
+          consequencias={consequenciasNormalizadas}
+          confirmarTexto={confirmarTexto}
+          exigirDigitar={exigirDigitar}
+          onConfirmar={onConfirmar}
+          onCancelar={onCancelar}
+        />
+      )}
+    </Dialog>
+  );
+};
 
 ConfirmDialog.propTypes = {
   open: PropTypes.bool.isRequired,
   titulo: PropTypes.string.isRequired,
   mensagem: PropTypes.node,
-  consequencias: PropTypes.arrayOf(PropTypes.string),
+  consequencias: PropTypes.oneOfType([
+    PropTypes.string,
+    PropTypes.arrayOf(PropTypes.string),
+  ]),
   confirmarTexto: PropTypes.string,
   exigirDigitar: PropTypes.string,
   onConfirmar: PropTypes.func.isRequired,
