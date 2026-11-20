@@ -18,43 +18,13 @@ import {
 
 let testEnv;
 
-const aguardarEmuladorFirestore = async () => {
-  const endereco = process.env.FIRESTORE_EMULATOR_HOST;
-  if (!endereco) return;
-
-  const [host, porta] = endereco.split(':');
-
-  for (let tentativa = 0; tentativa < 60; tentativa += 1) {
-    try {
-      await fetch(`http://${host}:${porta}`);
-      return;
-    } catch {
-      await new Promise(resolve => setTimeout(resolve, 500));
-    }
-  }
-
-  throw new Error(`Firestore Emulator não iniciou em ${endereco}`);
-};
-
 beforeAll(async () => {
-  await aguardarEmuladorFirestore();
-
-  const endereco = process.env.FIRESTORE_EMULATOR_HOST;
-  let host = '127.0.0.1';
-  let port = 8080;
-
-  if (endereco) {
-    const partes = endereco.split(':');
-    host = partes[0];
-    port = Number(partes[1]);
-  }
-
   testEnv = await initializeTestEnvironment({
     projectId: 're-dungeon-banco-de-dados',
     firestore: {
       rules: readFileSync('firestore.rules', 'utf8'),
-      host,
-      port,
+      host: '127.0.0.1',
+      port: 8080,
     },
   });
 });
