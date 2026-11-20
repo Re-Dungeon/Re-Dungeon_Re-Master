@@ -34,8 +34,14 @@ jobs:
       - name: Lint
         run: npm run eslint
 
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
       - name: Test
-        run: npm run test -- --run
+        run: npx --yes firebase-tools@15.0.0 emulators:exec --only firestore --project re-dungeon-banco-de-dados "npm run test -- --run"
 
       - name: Build
         run: npm run build
