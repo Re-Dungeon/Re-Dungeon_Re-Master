@@ -308,7 +308,6 @@ const EntidadeWikiEditor = () => {
                   sx={{ gridColumn: { xs: '1', md: '1 / -1' } }}
                   error={touched.resumo && Boolean(errors.resumo)}
                   helperText={touched.resumo && errors.resumo}
-                  slotProps={{ htmlInput: { maxLength: 3000 } }}
                 />
 
                 <Box sx={{ gridColumn: { xs: '1', md: '1 / -1' } }}>

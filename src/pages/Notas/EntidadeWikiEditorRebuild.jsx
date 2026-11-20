@@ -838,7 +838,6 @@ const EntidadeWikiEditorRebuild = () => {
                             },
                           },
                         },
-                        htmlInput: { maxLength: 3000 },
                       }}
                       renderInput={params => (
                         <TextField {...params} label="Tipo" fullWidth />
@@ -1009,8 +1008,6 @@ const EntidadeWikiEditorRebuild = () => {
                       multiline
                       minRows={4}
                       fullWidth
-                      slotProps={{ htmlInput: { maxLength: 3000 } }}
-                      helperText={`${values.resumo.length}/3000`}
                     />
                   </AccordionDetails>
                 </Accordion>

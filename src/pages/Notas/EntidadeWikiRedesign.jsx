@@ -473,7 +473,7 @@ const EntidadeWikiRedesign = () => {
       <Box
         sx={{
           display: 'grid',
-          gridTemplateColumns: { xs: '1fr', lg: 'minmax(0, 1fr) 300px' },
+          gridTemplateColumns: { xs: '1fr', lg: 'minmax(0, 1fr) 450px' },
           gap: 2.5,
           alignItems: 'start',
         }}
@@ -637,7 +637,7 @@ const EntidadeWikiRedesign = () => {
               borderRadius: '14px',
               border: '1px solid rgba(255,255,255,0.08)',
               background: 'rgba(15,18,26,0.94)',
-              p: 2,
+              p: { xs: 1.5, md: 2.25 },
             }}
           >
             <Box
@@ -667,11 +667,16 @@ const EntidadeWikiRedesign = () => {
                     display: 'flex',
                     width: '100%',
                     alignItems: 'center',
-                    gap: 1,
-                    px: 0.75,
-                    py: 0.5,
+                    gap: 1.25,
+                    px: 1,
+                    py: 0.85,
+                    mb: 0.75,
                     color: 'var(--text-primary)',
-                    borderRadius: 2,
+                    borderRadius: '10px',
+                    border: '1px solid rgba(255,255,255,0.055)',
+                    background: 'rgba(255,255,255,0.018)',
+                    transition: 'all 0.18s ease',
+                    '&:last-of-type': { mb: 0 },
                   }}
                 >
                   {conexao.imagem ? (
@@ -713,9 +718,8 @@ const EntidadeWikiRedesign = () => {
                       variant="body2"
                       sx={{
                         fontWeight: 700,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
+                        lineHeight: 1.35,
+                        overflowWrap: 'anywhere',
                       }}
                     >
                       {conexao.nome}
@@ -747,7 +751,7 @@ const EntidadeWikiRedesign = () => {
               borderRadius: '14px',
               border: '1px solid rgba(255,255,255,0.08)',
               background: 'rgba(15,18,26,0.94)',
-              p: 2,
+              p: { xs: 1.5, md: 2.25 },
             }}
           >
             <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
@@ -760,10 +764,16 @@ const EntidadeWikiRedesign = () => {
                   key={atributo.nome}
                   sx={{
                     display: 'grid',
-                    gridTemplateColumns: '1fr auto',
-                    gap: 1,
-                    py: 0.65,
-                    borderBottom: '1px solid rgba(255,255,255,0.045)',
+                    gridTemplateColumns: 'minmax(0, 0.9fr) minmax(0, 1.1fr)',
+                    alignItems: 'start',
+                    gap: 1.25,
+                    px: 1,
+                    py: 0.9,
+                    mb: 0.6,
+                    borderRadius: '10px',
+                    border: '1px solid rgba(255,255,255,0.055)',
+                    background: 'rgba(255,255,255,0.018)',
+                    '&:last-of-type': { mb: 0 },
                   }}
                 >
                   <Typography
@@ -778,6 +788,8 @@ const EntidadeWikiRedesign = () => {
                       color: 'var(--text-primary)',
                       fontWeight: 700,
                       textAlign: 'right',
+                      lineHeight: 1.45,
+                      overflowWrap: 'anywhere',
                     }}
                   >
                     {atributo.valor}

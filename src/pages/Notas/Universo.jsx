@@ -478,9 +478,27 @@ const Notas = () => {
         <Box
           sx={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 280px))',
-            justifyContent: 'start',
+            gridTemplateColumns: 'repeat(7, minmax(0, 1fr))',
             gap: 2,
+            alignItems: 'stretch',
+            '@media (max-width: 1599px)': {
+              gridTemplateColumns: 'repeat(auto-fit, minmax(165px, 1fr))',
+            },
+            '@media (max-width: 1200px)': {
+              gridTemplateColumns: 'repeat(6, minmax(0, 1fr))',
+            },
+            '@media (max-width: 980px)': {
+              gridTemplateColumns: 'repeat(5, minmax(0, 1fr))',
+            },
+            '@media (max-width: 760px)': {
+              gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+            },
+            '@media (max-width: 600px)': {
+              gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+            },
+            '@media (max-width: 380px)': {
+              gridTemplateColumns: '1fr',
+            },
           }}
         >
           {entidadesFiltradas.map(entidade => (
