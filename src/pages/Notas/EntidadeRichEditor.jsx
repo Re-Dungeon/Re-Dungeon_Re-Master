@@ -114,6 +114,10 @@ const EntidadeRichEditor = ({ value = '', onChange = () => {} }) => {
   const [imageAnchor, setImageAnchor] = useState(null);
   const [imageWidth, setImageWidth] = useState('');
   const [imageWidthUnit, setImageWidthUnit] = useState('px');
+  const [contagem, setContagem] = useState(() => ({
+    palavras: value.split(/\s+/).filter(Boolean).length,
+    caracteres: value.length,
+  }));
 
   useEffect(() => {
     if (!editorRef.current) return;
@@ -124,9 +128,23 @@ const EntidadeRichEditor = ({ value = '', onChange = () => {} }) => {
     }
   }, [value]);
 
+  useEffect(() => {
+    setContagem({
+      palavras:
+        editorRef.current?.innerText.split(/\s+/).filter(Boolean).length || 0,
+      caracteres: editorRef.current?.innerText.length || 0,
+    });
+  }, [value]);
+
   const emitChange = () => {
     if (!editorRef.current) return;
-    onChange(sanitizeRichHtml(editorRef.current.innerHTML));
+    const html = sanitizeRichHtml(editorRef.current.innerHTML);
+    setContagem({
+      palavras:
+        editorRef.current?.innerText.split(/\s+/).filter(Boolean).length || 0,
+      caracteres: editorRef.current?.innerText.length || 0,
+    });
+    onChange(html);
   };
 
   const saveSelection = () => {
@@ -482,9 +500,16 @@ const EntidadeRichEditor = ({ value = '', onChange = () => {} }) => {
             suppressContentEditableWarning
             role="textbox"
             aria-multiline="true"
-            onInput={event =>
-              onChange(sanitizeRichHtml(event.currentTarget.innerHTML))
-            }
+            onInput={event => {
+              const html = sanitizeRichHtml(event.currentTarget.innerHTML);
+              setContagem({
+                palavras: event.currentTarget.innerText
+                  .split(/\s+/)
+                  .filter(Boolean).length,
+                caracteres: event.currentTarget.innerText.length,
+              });
+              onChange(html);
+            }}
             onMouseUp={event => {
               saveSelection();
               if (event.target?.closest?.('img')) emitChange();
@@ -549,6 +574,25 @@ const EntidadeRichEditor = ({ value = '', onChange = () => {} }) => {
             }}
           />
         </Box>
+      </Box>
+
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'flex-end',
+          alignItems: 'center',
+          minHeight: 36,
+          px: 1.5,
+          borderTop: '1px solid rgba(255,255,255,0.07)',
+          color: 'var(--text-secondary)',
+          fontSize: '0.78rem',
+        }}
+        aria-live="polite"
+      >
+        <span>
+          Palavras: {contagem.palavras.toLocaleString('pt-BR')} | Caracteres:{' '}
+          {contagem.caracteres.toLocaleString('pt-BR')}
+        </span>
       </Box>
 
       <Dialog
