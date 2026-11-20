@@ -383,6 +383,47 @@ service cloud.firestore {
           (isCampanhaOwner(resource.data.mestreId) && isCampanhaOwner(request.resource.data.mestreId));
         allow delete: if isAdmin() || isCampanhaOwner(resource.data.mestreId);
       }
+
+      // Vínculos entre entidades dentro desta campanha. O documento pai é
+      // consultado apenas para conferir que a campanha pertence ao usuário e
+      // pertence ao mesmo Universo informado no vínculo.
+      match /vinculos/{vinculoId} {
+        allow read: if isAdmin() ||
+          (isMestreDaCampanha(campanhaId) &&
+           resource.data.mestreId == request.auth.uid &&
+           resource.data.campanhaId == campanhaId &&
+           resource.data.universoId == get(/databases/$(database)/documents/rmCampanhas/$(campanhaId)).data.universoId &&
+           canWriteUniverso(resource.data.universoId));
+        allow create: if isAuth() &&
+          isMestreDaCampanha(campanhaId) &&
+          request.resource.data.campanhaId == campanhaId &&
+          request.resource.data.mestreId == request.auth.uid &&
+          request.resource.data.universoId is string &&
+          request.resource.data.universoId == get(/databases/$(database)/documents/rmCampanhas/$(campanhaId)).data.universoId &&
+          canWriteUniverso(request.resource.data.universoId) &&
+          request.resource.data.destinoUniversoId == request.resource.data.universoId &&
+          request.resource.data.origemId is string &&
+          request.resource.data.destinoId is string &&
+          request.resource.data.origemId != request.resource.data.destinoId;
+        allow update: if isAdmin() ||
+          (isMestreDaCampanha(campanhaId) &&
+           resource.data.mestreId == request.auth.uid &&
+           request.resource.data.mestreId == request.auth.uid &&
+           resource.data.campanhaId == campanhaId &&
+           request.resource.data.campanhaId == campanhaId &&
+           resource.data.universoId == request.resource.data.universoId &&
+           resource.data.universoId == get(/databases/$(database)/documents/rmCampanhas/$(campanhaId)).data.universoId &&
+           canWriteUniverso(request.resource.data.universoId) &&
+           request.resource.data.destinoUniversoId == request.resource.data.universoId &&
+           request.resource.data.origemId is string &&
+           request.resource.data.destinoId is string &&
+           request.resource.data.origemId != request.resource.data.destinoId);
+        allow delete: if isAdmin() ||
+          (isMestreDaCampanha(campanhaId) &&
+           resource.data.mestreId == request.auth.uid &&
+           resource.data.campanhaId == campanhaId &&
+           resource.data.universoId == get(/databases/$(database)/documents/rmCampanhas/$(campanhaId)).data.universoId);
+      }
     }
 
     match /rmCenas/{docId} {
@@ -450,6 +491,26 @@ service cloud.firestore {
     }
 
     match /rmTiposEntidade/{docId} {
+      allow read: if isAdmin() ||
+        (isAuth() &&
+          resource.data.mestreId == request.auth.uid &&
+          canWriteUniverso(resource.data.universoId));
+      allow create: if isAuth() &&
+        request.resource.data.mestreId == request.auth.uid &&
+        canWriteUniverso(request.resource.data.universoId);
+      allow update: if isAdmin() ||
+        (isAuth() &&
+          resource.data.mestreId == request.auth.uid &&
+          request.resource.data.mestreId == request.auth.uid &&
+          resource.data.universoId == request.resource.data.universoId &&
+          canWriteUniverso(request.resource.data.universoId));
+      allow delete: if isAdmin() ||
+        (isAuth() &&
+          resource.data.mestreId == request.auth.uid &&
+          canWriteUniverso(resource.data.universoId));
+    }
+
+    match /rmTiposVinculo/{docId} {
       allow read: if isAdmin() ||
         (isAuth() &&
           resource.data.mestreId == request.auth.uid &&
@@ -882,8 +943,7 @@ service cloud.firestore {
     // dos tokens são só do mestre.
     // Combate (Fase 3A, `gridCenas/{cenaId}/combate/atual`): o mestre grava
     // tudo; o jogador só passa a vez do token dele que está jogando. O
-    // `travamento` da cena ('livre' | 'turno' | 'congelado') limita quando o
-    // jogador move.
+    // `travamento` da cena ('livre' | 'turno' | 'congelado') limita quando o jogador move.
     // Mapa (Fase 3B): `camadas/{paredes,nevoa}` (só o mestre grava), `marcadores`
     // (mestre grava; `secreto` só o mestre lê) e `desenhos` (cada um cria os seus).
     // Tokens `oculto` só o mestre lê — a consulta do jogador filtra

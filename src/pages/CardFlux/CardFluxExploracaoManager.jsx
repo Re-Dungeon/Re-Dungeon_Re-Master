@@ -26,7 +26,8 @@ import useAsyncEffect from 'hooks/useAsyncEffect';
 
 const cardSx = {
   p: 2,
-  background: 'linear-gradient(180deg, rgba(20, 24, 30, 0.98), rgba(12,15,20,0.98))',
+  background:
+    'linear-gradient(180deg, rgba(20, 24, 30, 0.98), rgba(12,15,20,0.98))',
   border: '1px solid var(--border-primary)',
   borderRadius: 3,
   boxShadow: '0 18px 32px rgba(0,0,0,0.18)',
@@ -53,7 +54,8 @@ const secondaryButtonSx = {
 
 const dialogSx = {
   '& .MuiDialog-paper': {
-    background: 'linear-gradient(180deg, rgba(18,22,30,0.98), rgba(10,13,20,0.98))',
+    background:
+      'linear-gradient(180deg, rgba(18,22,30,0.98), rgba(10,13,20,0.98))',
     border: '1px solid rgba(196,58,47,0.28)',
     borderRadius: 3,
     boxShadow: '0 16px 44px rgba(0,0,0,0.25)',
@@ -147,9 +149,12 @@ const CardFluxExploracaoManager = () => {
   };
 
   const handleAbrir = item => {
-    navigate(ROUTE_PATHS.CARDFLUX_EXPLORACAO.replace(':exploracaoId', item.id), {
-      state: { exploracao: item },
-    });
+    navigate(
+      ROUTE_PATHS.CARDFLUX_EXPLORACAO.replace(':exploracaoId', item.id),
+      {
+        state: { exploracao: item },
+      },
+    );
   };
 
   const handleOpenRename = item => abrirDialog('rename', item, item.nome);
@@ -191,7 +196,8 @@ const CardFluxExploracaoManager = () => {
       });
       fecharDialog();
     } catch (error) {
-      const mensagem = error?.message || 'Não foi possível renomear a exploração.';
+      const mensagem =
+        error?.message || 'Não foi possível renomear a exploração.';
       setDialog(prev => ({ ...prev, loading: false, error: mensagem }));
       notifyError(mensagem);
     }
@@ -225,8 +231,12 @@ const CardFluxExploracaoManager = () => {
         historico: Array.isArray(snapshot.historico)
           ? cloneSnapshot(snapshot.historico)
           : [],
-        resultados: snapshot.resultados ? cloneSnapshot(snapshot.resultados) : {},
-        quadrantes: snapshot.quadrantes ? cloneSnapshot(snapshot.quadrantes) : [],
+        resultados: snapshot.resultados
+          ? cloneSnapshot(snapshot.resultados)
+          : {},
+        quadrantes: snapshot.quadrantes
+          ? cloneSnapshot(snapshot.quadrantes)
+          : [],
         criadoEm: new Date().toISOString(),
         atualizadoEm: new Date().toISOString(),
       };
@@ -240,7 +250,8 @@ const CardFluxExploracaoManager = () => {
       });
       fecharDialog();
     } catch (error) {
-      const mensagem = error?.message || 'Não foi possível duplicar a exploração.';
+      const mensagem =
+        error?.message || 'Não foi possível duplicar a exploração.';
       setDialog(prev => ({ ...prev, loading: false, error: mensagem }));
       notifyError(mensagem);
     }
@@ -252,7 +263,8 @@ const CardFluxExploracaoManager = () => {
     setDialog(prev => ({ ...prev, loading: true, error: '' }));
 
     try {
-      const proximoStatus = dialog.item.status === 'encerrada' ? 'ativa' : 'encerrada';
+      const proximoStatus =
+        dialog.item.status === 'encerrada' ? 'ativa' : 'encerrada';
       const atualizada = { ...dialog.item, status: proximoStatus };
       await updateRmCardfluxExploracao(dialog.item.id, atualizada);
       setExploracoes(prev =>
@@ -270,7 +282,8 @@ const CardFluxExploracaoManager = () => {
       });
       fecharDialog();
     } catch (error) {
-      const mensagem = error?.message || 'Não foi possível alterar o status da exploração.';
+      const mensagem =
+        error?.message || 'Não foi possível alterar o status da exploração.';
       setDialog(prev => ({ ...prev, loading: false, error: mensagem }));
       notifyError(mensagem);
     }
@@ -283,7 +296,9 @@ const CardFluxExploracaoManager = () => {
 
     try {
       await removeRmCardfluxExploracao(dialog.item.id);
-      setExploracoes(prev => prev.filter(exploracao => exploracao.id !== dialog.item.id));
+      setExploracoes(prev =>
+        prev.filter(exploracao => exploracao.id !== dialog.item.id),
+      );
       setFeedback({
         open: true,
         message: 'Exploração removida com sucesso.',
@@ -291,7 +306,8 @@ const CardFluxExploracaoManager = () => {
       });
       fecharDialog();
     } catch (error) {
-      const mensagem = error?.message || 'Não foi possível excluir a exploração.';
+      const mensagem =
+        error?.message || 'Não foi possível excluir a exploração.';
       setDialog(prev => ({ ...prev, loading: false, error: mensagem }));
       notifyError(mensagem);
     }
@@ -303,15 +319,20 @@ const CardFluxExploracaoManager = () => {
     if (dialog.mode === 'rename') return 'Renomear exploração';
     if (dialog.mode === 'duplicate') return 'Duplicar exploração';
     if (dialog.mode === 'delete') return 'Excluir exploração';
-    if (dialog.mode === 'status' && dialog.item?.status === 'encerrada') return 'Reativar exploração';
+    if (dialog.mode === 'status' && dialog.item?.status === 'encerrada')
+      return 'Reativar exploração';
     return 'Encerrar exploração';
   };
 
   const getDialogDescription = () => {
-    if (dialog.mode === 'rename') return 'Atualize o nome da exploração sem perder seu histórico e estado atual.';
-    if (dialog.mode === 'duplicate') return 'A cópia será gerada como uma exploração independente com o mesmo grid e resultados.';
-    if (dialog.mode === 'delete') return `A exclusão é definitiva e removerá somente esta exploração selecionada.`;
-    if (dialog.mode === 'status' && dialog.item?.status === 'encerrada') return 'A exploração será reativada e o progresso anterior será restaurado.';
+    if (dialog.mode === 'rename')
+      return 'Atualize o nome da exploração sem perder seu histórico e estado atual.';
+    if (dialog.mode === 'duplicate')
+      return 'A cópia será gerada como uma exploração independente com o mesmo grid e resultados.';
+    if (dialog.mode === 'delete')
+      return `A exclusão é definitiva e removerá somente esta exploração selecionada.`;
+    if (dialog.mode === 'status' && dialog.item?.status === 'encerrada')
+      return 'A exploração será reativada e o progresso anterior será restaurado.';
     return 'Encerrar não apaga os dados; o histórico e os quadrantes permanecerão preservados.';
   };
 
@@ -361,7 +382,9 @@ const CardFluxExploracaoManager = () => {
   const isConfirmDisabled = () => {
     if (dialog.loading) return true;
     if (dialog.mode === 'rename') {
-      return !dialog.nome.trim() || dialog.nome.trim() === dialog.item?.nome.trim();
+      return (
+        !dialog.nome.trim() || dialog.nome.trim() === dialog.item?.nome.trim()
+      );
     }
     if (dialog.mode === 'duplicate') {
       return !dialog.nome.trim();
@@ -390,43 +413,113 @@ const CardFluxExploracaoManager = () => {
   return (
     <>
       <Box className="page-container" sx={{ py: 4 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2, mb: 3, flexWrap: 'wrap' }}>
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: 2,
+            mb: 3,
+            flexWrap: 'wrap',
+          }}
+        >
           <Box>
-            <Typography variant="overline" sx={{ color: 'var(--color-accent)', fontWeight: 800, letterSpacing: '0.12em' }}>
+            <Typography
+              variant="overline"
+              sx={{
+                color: 'var(--color-accent)',
+                fontWeight: 800,
+                letterSpacing: '0.12em',
+              }}
+            >
               Gerenciador
             </Typography>
-            <Typography variant="h4" sx={{ color: 'var(--text-primary)', fontWeight: 800 }}>
+            <Typography
+              variant="h4"
+              sx={{ color: 'var(--text-primary)', fontWeight: 800 }}
+            >
               Explorações de CardFlux
             </Typography>
           </Box>
           <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
-            <Button variant="outlined" onClick={handleVoltar} sx={secondaryButtonSx}>
+            <Button
+              variant="outlined"
+              onClick={handleVoltar}
+              sx={secondaryButtonSx}
+            >
               Voltar
             </Button>
-            <Button variant="contained" onClick={handleNova} sx={primaryButtonSx}>
+            <Button
+              variant="contained"
+              onClick={handleNova}
+              sx={primaryButtonSx}
+            >
               Nova exploração
             </Button>
           </Box>
         </Box>
 
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(3, minmax(0,1fr))' }, gap: 2, mb: 3 }}>
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: { xs: '1fr', md: 'repeat(3, minmax(0,1fr))' },
+            gap: 2,
+            mb: 3,
+          }}
+        >
           <Paper sx={cardSx}>
-            <Typography variant="caption" sx={{ color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+            <Typography
+              variant="caption"
+              sx={{
+                color: 'var(--text-secondary)',
+                textTransform: 'uppercase',
+                letterSpacing: '0.08em',
+              }}
+            >
               Total
             </Typography>
-            <Typography variant="h4" sx={{ color: 'var(--text-primary)', fontWeight: 800 }}>{exploracoes.length}</Typography>
+            <Typography
+              variant="h4"
+              sx={{ color: 'var(--text-primary)', fontWeight: 800 }}
+            >
+              {exploracoes.length}
+            </Typography>
           </Paper>
           <Paper sx={cardSx}>
-            <Typography variant="caption" sx={{ color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+            <Typography
+              variant="caption"
+              sx={{
+                color: 'var(--text-secondary)',
+                textTransform: 'uppercase',
+                letterSpacing: '0.08em',
+              }}
+            >
               Ativas
             </Typography>
-            <Typography variant="h4" sx={{ color: 'var(--text-primary)', fontWeight: 800 }}>{totalAtivas}</Typography>
+            <Typography
+              variant="h4"
+              sx={{ color: 'var(--text-primary)', fontWeight: 800 }}
+            >
+              {totalAtivas}
+            </Typography>
           </Paper>
           <Paper sx={cardSx}>
-            <Typography variant="caption" sx={{ color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+            <Typography
+              variant="caption"
+              sx={{
+                color: 'var(--text-secondary)',
+                textTransform: 'uppercase',
+                letterSpacing: '0.08em',
+              }}
+            >
               Campanha
             </Typography>
-            <Typography variant="h5" sx={{ color: 'var(--text-primary)', fontWeight: 700 }}>{campanhaAtiva.nome}</Typography>
+            <Typography
+              variant="h5"
+              sx={{ color: 'var(--text-primary)', fontWeight: 700 }}
+            >
+              {campanhaAtiva.nome}
+            </Typography>
           </Paper>
         </Box>
 
@@ -442,43 +535,87 @@ const CardFluxExploracaoManager = () => {
               const quadrantes = Array.isArray(exploracao.quadrantes)
                 ? exploracao.quadrantes.flat().filter(Boolean)
                 : [];
-              const totalDescobertos = quadrantes.filter(item => item.cartaId || item.resultado).length;
-              const percent = quadrantes.length ? (totalDescobertos / quadrantes.length) * 100 : 0;
+              const totalDescobertos = quadrantes.filter(
+                item => item.cartaId || item.resultado,
+              ).length;
+              const percent = quadrantes.length
+                ? (totalDescobertos / quadrantes.length) * 100
+                : 0;
               const encerrada = exploracao.status === 'encerrada';
 
               return (
                 <Paper key={exploracao.id} sx={cardSx}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      gap: 2,
+                      flexWrap: 'wrap',
+                      alignItems: 'center',
+                    }}
+                  >
                     <Box>
-                      <Typography variant="h6" sx={{ color: 'var(--text-primary)', fontWeight: 800 }}>
+                      <Typography
+                        variant="h6"
+                        sx={{ color: 'var(--text-primary)', fontWeight: 800 }}
+                      >
                         {exploracao.nome}
                       </Typography>
-                      <Typography variant="body2" sx={{ color: 'var(--text-secondary)' }}>
-                        {exploracao.dimensoes?.linhas || 0}x{exploracao.dimensoes?.colunas || 0} · {exploracao.baralhos?.join(', ') || 'Sem baralho'}
+                      <Typography
+                        variant="body2"
+                        sx={{ color: 'var(--text-secondary)' }}
+                      >
+                        {exploracao.dimensoes?.linhas || 0}x
+                        {exploracao.dimensoes?.colunas || 0} ·{' '}
+                        {exploracao.baralhos?.join(', ') || 'Sem baralho'}
                       </Typography>
                     </Box>
                     <Chip
                       label={encerrada ? 'Encerrada' : 'Ativa'}
                       size="small"
                       sx={{
-                        background: encerrada ? 'rgba(255,255,255,0.05)' : 'rgba(196,58,47,0.12)',
+                        background: encerrada
+                          ? 'rgba(255,255,255,0.05)'
+                          : 'rgba(196,58,47,0.12)',
                         border: '1px solid rgba(196,58,47,0.2)',
                         color: 'var(--text-primary)',
                       }}
                     />
                   </Box>
 
-                  <Box sx={{ mt: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-                    <Typography variant="caption" sx={{ color: 'var(--text-secondary)' }}>
+                  <Box
+                    sx={{
+                      mt: 2,
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      gap: 2,
+                      flexWrap: 'wrap',
+                    }}
+                  >
+                    <Typography
+                      variant="caption"
+                      sx={{ color: 'var(--text-secondary)' }}
+                    >
                       Progresso: {Math.round(percent)}%
                     </Typography>
-                    <Typography variant="caption" sx={{ color: 'var(--text-secondary)' }}>
-                      {exploracao.configuracao?.modo || 'predefinida'} · {exploracao.configuracao?.densidade || 0}%
+                    <Typography
+                      variant="caption"
+                      sx={{ color: 'var(--text-secondary)' }}
+                    >
+                      {exploracao.configuracao?.modo || 'predefinida'} ·{' '}
+                      {exploracao.configuracao?.densidade || 0}%
                     </Typography>
                   </Box>
 
-                  <Box sx={{ mt: 2, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                    <Button variant="contained" onClick={() => handleAbrir(exploracao)} sx={primaryButtonSx}>
+                  <Box
+                    sx={{ mt: 2, display: 'flex', gap: 1, flexWrap: 'wrap' }}
+                  >
+                    <Button
+                      variant="contained"
+                      onClick={() => handleAbrir(exploracao)}
+                      sx={primaryButtonSx}
+                    >
                       Continuar
                     </Button>
                     <Button
@@ -508,7 +645,10 @@ const CardFluxExploracaoManager = () => {
                       variant="outlined"
                       color="error"
                       onClick={() => handleOpenDelete(exploracao)}
-                      sx={{ ...secondaryButtonSx, borderColor: 'rgba(255,96,96,0.35)' }}
+                      sx={{
+                        ...secondaryButtonSx,
+                        borderColor: 'rgba(255,96,96,0.35)',
+                      }}
                       disabled={encerrada}
                     >
                       Excluir
@@ -529,13 +669,16 @@ const CardFluxExploracaoManager = () => {
         sx={dialogSx}
         aria-labelledby="cardflux-exploracao-dialog-title"
       >
-        <DialogTitle id="cardflux-exploracao-dialog-title" sx={{ color: 'var(--text-primary)', fontWeight: 800 }}>
+        <DialogTitle
+          id="cardflux-exploracao-dialog-title"
+          sx={{ color: 'var(--text-primary)', fontWeight: 800 }}
+        >
           {getDialogTitle()}
         </DialogTitle>
-        <DialogContent>
-          {renderDialogContent()}
-        </DialogContent>
-        <DialogActions sx={{ px: 3, py: 2, borderTop: '1px solid var(--border-primary)' }}>
+        <DialogContent>{renderDialogContent()}</DialogContent>
+        <DialogActions
+          sx={{ px: 3, py: 2, borderTop: '1px solid var(--border-primary)' }}
+        >
           <Button
             onClick={fecharDialog}
             variant="text"
@@ -559,9 +702,14 @@ const CardFluxExploracaoManager = () => {
         open={feedback.open}
         autoHideDuration={4000}
         onClose={fecharFeedback}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+        sx={{ mt: { xs: 1, sm: 2 }, mr: { xs: 1, sm: 2 } }}
       >
-        <Alert severity={feedback.severity} onClose={fecharFeedback} variant="filled">
+        <Alert
+          severity={feedback.severity}
+          onClose={fecharFeedback}
+          variant="filled"
+        >
           {feedback.message}
         </Alert>
       </Snackbar>

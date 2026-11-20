@@ -34,12 +34,12 @@ const CardFluxExploracaoManager = lazy(
 const CardFluxExploracaoPage = lazy(
   () => import('pages/CardFlux/CardFluxExploracaoPage'),
 );
-const Notas = lazy(() => import('pages/Notas/Notas'));
-const NotaDetalhes = lazy(() => import('pages/Notas/NotaDetalhes'));
-const NovaNota = lazy(() => import('pages/Notas/NovaNota'));
+const Notas = lazy(() => import('pages/Notas/Universo'));
 const Musicas = lazy(() => import('pages/Musicas/Musicas'));
 const Chat = lazy(() => import('pages/Chat/Chat'));
 const Grid = lazy(() => import('pages/Grid/Grid'));
+const EntidadeWiki = lazy(() => import('pages/Notas/EntidadeWikiRedesign'));
+const EntidadeWikiEditor = lazy(() => import('pages/Notas/EntidadeWikiEditorRebuild'));
 
 export const ROUTES = [
   { index: true, element: <Navigate to={ROUTE_PATHS.CAMPANHA} replace /> },
@@ -81,12 +81,16 @@ export const ROUTES = [
     element: <CardFluxExploracaoPage />,
   },
   { path: ROUTE_PATHS.MUSICAS.slice(1), element: <Musicas /> },
+  { path: ROUTE_PATHS.UNIVERSO.slice(1), element: <Notas /> },
   { path: ROUTE_PATHS.NOTAS.slice(1), element: <Notas /> },
-  { path: ROUTE_PATHS.NOTA_DETALHES.slice(1), element: <NotaDetalhes /> },
-  { path: ROUTE_PATHS.NOTA_EDITAR.slice(1), element: <NovaNota /> },
-  { path: ROUTE_PATHS.NOVA_NOTA.slice(1), element: <NovaNota /> },
+  { path: ROUTE_PATHS.NOTA_DETALHES.slice(1), element: <Notas /> },
+  { path: ROUTE_PATHS.NOTA_EDITAR.slice(1), element: <Notas /> },
+  { path: ROUTE_PATHS.NOVA_NOTA.slice(1), element: <Notas /> },
   { path: ROUTE_PATHS.CHAT.slice(1), element: <Chat /> },
   { path: ROUTE_PATHS.GRID.slice(1), element: <Grid /> },
+  { path: ROUTE_PATHS.UNIVERSO_NOVA_ENTIDADE.slice(1), element: <EntidadeWikiEditor /> },
+  { path: ROUTE_PATHS.UNIVERSO_ENTIDADE_EDITAR.slice(1), element: <EntidadeWikiEditor /> },
+  { path: ROUTE_PATHS.UNIVERSO_ENTIDADE.slice(1), element: <EntidadeWiki /> },
   // A tela de Luta foi aposentada (o combate vive no Grid): favoritos antigos
   // de /luta caem no Grid em vez de numa página de erro.
   { path: 'luta', element: <Navigate to={ROUTE_PATHS.GRID} replace /> },

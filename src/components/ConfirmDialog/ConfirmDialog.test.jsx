@@ -66,4 +66,18 @@ describe('ConfirmDialog', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
     expect(onCancelar).toHaveBeenCalledTimes(1);
   });
+
+  it('normaliza uma consequência string sem lançar erro', () => {
+    render(
+      <ConfirmDialog
+        open
+        titulo="Remover vínculo?"
+        consequencias="A ficha vinculada não será excluída."
+        onConfirmar={vi.fn()}
+        onCancelar={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText('A ficha vinculada não será excluída.')).toBeInTheDocument();
+  });
 });

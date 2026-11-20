@@ -103,6 +103,10 @@ import {
   getRmPlaylistsPastasPorMestre,
   getRmPlaylistsPorMestre,
   addRmPlaylist,
+  getRmNota,
+  getRmTiposVinculoPorUniverso,
+  getRmVinculosPorEntidade,
+  addRmVinculo,
 } from './storage';
 
 describe('storage.js — CRUD de rmCampanhas (padrão Firestore repetido em toda entidade rm*)', () => {
@@ -793,6 +797,37 @@ describe('storage.js — personagens (somente leitura) e CRUD de rmCampanhaNpcs/
   });
 });
 
+describe('storage.js — getRmNota', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('retorna a entidade pelo id com a identidade do documento', async () => {
+    getDoc.mockResolvedValue({
+      exists: () => true,
+      id: 'entidade-42',
+      data: () => ({ titulo: 'Aurora', tipo: 'Divindade' }),
+    });
+
+    await expect(getRmNota('entidade-42')).resolves.toEqual({
+      id: 'entidade-42',
+      titulo: 'Aurora',
+      tipo: 'Divindade',
+    });
+  });
+
+  it('retorna null quando o documento não existe', async () => {
+    getDoc.mockResolvedValue({ exists: () => false, id: 'sem-doc' });
+
+    await expect(getRmNota('sem-doc')).resolves.toBeNull();
+  });
+
+  it('não consulta o Firestore sem id', async () => {
+    await expect(getRmNota('')).resolves.toBeNull();
+    expect(getDoc).not.toHaveBeenCalled();
+  });
+});
+
 describe.each([
   {
     colecao: 'rmMapas',
@@ -853,41 +888,32 @@ describe.each([
   { colecao: 'rmMapas', get: getRmMapasPorCampanha },
   { colecao: 'rmMissoes', get: getRmMissoesPorCampanha },
   { colecao: 'rmNotas', get: getRmNotasPorCampanha },
-])(
-  'storage.js — $colecaoPorCampanha filtra por campanhaId/universoId/mestreId via query/where',
-  ({ colecao, get }) => {
-    beforeEach(() => {
-      vi.clearAllMocks();
-    });
+])('storage.js — consultas por campanha e escopo', ({ colecao, get }) => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
-    // As três dimensões precisam estar na query (não só campanhaId): a
-    // regra de segurança lê `universoId`/`mestreId` do documento, e uma
-    // query de "list" só passa nas Firestore Rules se o próprio `where()`
-    // já garantir isso para qualquer documento que a query pudesse
-    // retornar — sem os três filtros, o Firestore nega o pedido inteiro
-    // pra qualquer usuário não-admin.
-    it(`busca a coleção "${colecao}" com where em campanhaId, universoId e mestreId`, async () => {
-      getDocs.mockResolvedValue({ docs: [] });
+  it(`busca a coleção "${colecao}" com o escopo permitido`, async () => {
+    getDocs.mockResolvedValue({ docs: [] });
 
-      await get('c1', 'u1', 'mestre-1');
+    await get('c1', 'u1', 'mestre-1');
 
-      expect(collection).toHaveBeenCalledWith({}, colecao);
-      expect(where).toHaveBeenCalledWith('campanhaId', '==', 'c1');
-      expect(where).toHaveBeenCalledWith('universoId', '==', 'u1');
-      expect(where).toHaveBeenCalledWith('mestreId', '==', 'mestre-1');
+    expect(collection).toHaveBeenCalledWith({}, colecao);
+    expect(where).toHaveBeenCalledWith('mestreId', '==', 'mestre-1');
+
+    if (colecao === 'rmNotas') {
       expect(getDocs).toHaveBeenCalledWith(
         expect.objectContaining({
           __query: { __collection: colecao },
-          constraints: [
-            { __where: ['campanhaId', '==', 'c1'] },
-            { __where: ['universoId', '==', 'u1'] },
-            { __where: ['mestreId', '==', 'mestre-1'] },
-          ],
+          constraints: [{ __where: ['mestreId', '==', 'mestre-1'] }],
         }),
       );
-    });
-  },
-);
+    } else {
+      expect(where).toHaveBeenCalledWith('campanhaId', '==', 'c1');
+      expect(where).toHaveBeenCalledWith('universoId', '==', 'u1');
+    }
+  });
+});
 
 describe('storage.js — cardflux (somente leitura) e CRUD de rmCardfluxEstados', () => {
   beforeEach(() => {
@@ -1443,5 +1469,63 @@ describe('storage.js — getChatMensagensAntes (Carregar anteriores)', () => {
   it('devolve lista vazia quando não há mensagens anteriores', async () => {
     getDocs.mockResolvedValue({ docs: [] });
     expect(await getChatMensagensAntes('camp-1', { seconds: 1 })).toEqual([]);
+  });
+});
+
+describe('storage.js — vínculos', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('busca tipos de vínculo por universo e mestre', async () => {
+    getDocs.mockResolvedValue({ docs: [] });
+    await getRmTiposVinculoPorUniverso('u1', 'm1');
+
+    expect(collection).toHaveBeenCalledWith({}, 'rmTiposVinculo');
+    expect(where).toHaveBeenCalledWith('universoId', '==', 'u1');
+    expect(where).toHaveBeenCalledWith('mestreId', '==', 'm1');
+  });
+
+  it('busca vínculos da entidade com escopo completo', async () => {
+    getDocs.mockResolvedValue({ docs: [] });
+    await getRmVinculosPorEntidade('c1', 'u1', 'm1', 'n1');
+
+    expect(collection).toHaveBeenCalledWith(
+      {},
+      'rmCampanhas',
+      'c1',
+      'vinculos',
+    );
+    expect(where).toHaveBeenCalledWith('campanhaId', '==', 'c1');
+    expect(where).toHaveBeenCalledWith('universoId', '==', 'u1');
+    expect(where).toHaveBeenCalledWith('mestreId', '==', 'm1');
+    expect(where).toHaveBeenCalledWith('origemId', '==', 'n1');
+  });
+
+  it('cria vínculo com escopo e referências consistentes', async () => {
+    addDoc.mockResolvedValue({ id: 'v1' });
+    await addRmVinculo('c1', {
+      campanhaId: 'c1',
+      universoId: 'u1',
+      destinoUniversoId: 'u1',
+      mestreId: 'm1',
+      origemColecao: 'rmNotas',
+      origemId: 'n1',
+      destinoColecao: 'personagens',
+      destinoId: 'p1',
+    });
+
+    expect(addDoc).toHaveBeenCalledWith(
+      expect.objectContaining({ __collection: 'rmCampanhas/c1/vinculos' }),
+      expect.objectContaining({
+        campanhaId: 'c1',
+        universoId: 'u1',
+        destinoUniversoId: 'u1',
+        mestreId: 'm1',
+        origemId: 'n1',
+        destinoId: 'p1',
+        updatedAt: '__serverTimestamp__',
+      }),
+    );
   });
 });

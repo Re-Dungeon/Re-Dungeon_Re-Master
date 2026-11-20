@@ -60,7 +60,8 @@ const PAGE_SX = {
 const PANEL_SX = {
   p: { xs: 2, md: 2.5 },
   mb: 3,
-  background: 'linear-gradient(180deg, rgba(19,22,28,0.98), rgba(14,17,22,0.96))',
+  background:
+    'linear-gradient(180deg, rgba(19,22,28,0.98), rgba(14,17,22,0.96))',
   border: '1px solid rgba(255,255,255,0.08)',
   borderRadius: 3,
   boxShadow: '0 18px 44px rgba(0,0,0,0.26)',
@@ -101,7 +102,8 @@ const getUrlVideoId = url => {
   if (!url) return null;
   try {
     const parsed = new URL(url);
-    if (parsed.hostname.includes('youtu.be')) return parsed.pathname.slice(1).split('/')[0];
+    if (parsed.hostname.includes('youtu.be'))
+      return parsed.pathname.slice(1).split('/')[0];
     const params = new URLSearchParams(parsed.search);
     return params.get('v');
   } catch {
@@ -117,11 +119,20 @@ const getMusicFormState = initialValues => ({
   tags: Array.isArray(initialValues?.tags) ? initialValues.tags.join(', ') : '',
 });
 
-const MusicFormDialog = ({ open, onClose, onSubmit, initialValues, isEditing, pastas = [] }) => {
+const MusicFormDialog = ({
+  open,
+  onClose,
+  onSubmit,
+  initialValues,
+  isEditing,
+  pastas = [],
+}) => {
   const [form, setForm] = useState(() => getMusicFormState(initialValues));
   const [error, setError] = useState('');
 
-  const selectedPasta = form.pastaId ? pastas.find(item => item.id === form.pastaId) || null : null;
+  const selectedPasta = form.pastaId
+    ? pastas.find(item => item.id === form.pastaId) || null
+    : null;
 
   const handleSave = async () => {
     const nome = form.nome.trim();
@@ -152,19 +163,25 @@ const MusicFormDialog = ({ open, onClose, onSubmit, initialValues, isEditing, pa
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>{isEditing ? 'Editar música' : 'Adicionar música'}</DialogTitle>
+      <DialogTitle>
+        {isEditing ? 'Editar música' : 'Adicionar música'}
+      </DialogTitle>
       <DialogContent dividers sx={{ display: 'grid', gap: 2, pt: 2 }}>
         <TextField
           label="Título"
           value={form.nome}
-          onChange={event => setForm(current => ({ ...current, nome: event.target.value }))}
+          onChange={event =>
+            setForm(current => ({ ...current, nome: event.target.value }))
+          }
           fullWidth
         />
         <Autocomplete
           disablePortal
           options={pastas}
           value={selectedPasta}
-          onChange={(_, newValue) => setForm(current => ({ ...current, pastaId: newValue?.id || '' }))}
+          onChange={(_, newValue) =>
+            setForm(current => ({ ...current, pastaId: newValue?.id || '' }))
+          }
           isOptionEqualToValue={(option, value) => option?.id === value?.id}
           getOptionLabel={option => option?.nome || ''}
           clearOnEscape
@@ -178,8 +195,15 @@ const MusicFormDialog = ({ open, onClose, onSubmit, initialValues, isEditing, pa
                 scrollbarWidth: 'thin',
                 scrollbarColor: 'rgba(184, 60, 53, 0.8) rgba(255,255,255,0.04)',
                 '&::-webkit-scrollbar': { width: 8 },
-                '&::-webkit-scrollbar-track': { background: 'rgba(255,255,255,0.04)', borderRadius: 999 },
-                '&::-webkit-scrollbar-thumb': { background: 'linear-gradient(180deg, rgba(184,60,53,0.82), rgba(120,35,35,0.9))', borderRadius: 999 },
+                '&::-webkit-scrollbar-track': {
+                  background: 'rgba(255,255,255,0.04)',
+                  borderRadius: 999,
+                },
+                '&::-webkit-scrollbar-thumb': {
+                  background:
+                    'linear-gradient(180deg, rgba(184,60,53,0.82), rgba(120,35,35,0.9))',
+                  borderRadius: 999,
+                },
               },
             },
           }}
@@ -202,21 +226,31 @@ const MusicFormDialog = ({ open, onClose, onSubmit, initialValues, isEditing, pa
               borderRadius: 2,
               background: 'rgba(255,255,255,0.02)',
             },
-            '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.12)' },
-            '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(184,60,53,0.3)' },
-            '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(184,60,53,0.7)' },
+            '& .MuiOutlinedInput-notchedOutline': {
+              borderColor: 'rgba(255,255,255,0.12)',
+            },
+            '&:hover .MuiOutlinedInput-notchedOutline': {
+              borderColor: 'rgba(184,60,53,0.3)',
+            },
+            '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+              borderColor: 'rgba(184,60,53,0.7)',
+            },
           }}
         />
         <TextField
           label="Link do YouTube"
           value={form.url}
-          onChange={event => setForm(current => ({ ...current, url: event.target.value }))}
+          onChange={event =>
+            setForm(current => ({ ...current, url: event.target.value }))
+          }
           fullWidth
         />
         <TextField
           label="Descrição"
           value={form.descricao}
-          onChange={event => setForm(current => ({ ...current, descricao: event.target.value }))}
+          onChange={event =>
+            setForm(current => ({ ...current, descricao: event.target.value }))
+          }
           multiline
           minRows={3}
           fullWidth
@@ -224,7 +258,9 @@ const MusicFormDialog = ({ open, onClose, onSubmit, initialValues, isEditing, pa
         <TextField
           label="Tags"
           value={form.tags}
-          onChange={event => setForm(current => ({ ...current, tags: event.target.value }))}
+          onChange={event =>
+            setForm(current => ({ ...current, tags: event.target.value }))
+          }
           placeholder="ex.: combate, boss, lore"
           fullWidth
         />
@@ -248,7 +284,13 @@ const PastaDialog = ({ open, onClose, onSubmit, initialValue = '', title }) => {
   const [nome, setNome] = useState(() => initialValue || '');
 
   return (
-    <Dialog key={`pasta-${title}-${initialValue || 'new'}`} open={open} onClose={onClose} maxWidth="xs" fullWidth>
+    <Dialog
+      key={`pasta-${title}-${initialValue || 'new'}`}
+      open={open}
+      onClose={onClose}
+      maxWidth="xs"
+      fullWidth
+    >
       <DialogTitle>{title}</DialogTitle>
       <DialogContent dividers sx={{ pt: 2 }}>
         <TextField
@@ -298,21 +340,40 @@ const PlaylistDialog = ({ open, onClose, onSubmit, initialValues = {} }) => {
         },
       }}
     >
-      <DialogTitle sx={{ borderBottom: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.02)', fontWeight: 700 }}>
+      <DialogTitle
+        sx={{
+          borderBottom: '1px solid rgba(255,255,255,0.06)',
+          background: 'rgba(255,255,255,0.02)',
+          fontWeight: 700,
+        }}
+      >
         {initialValues.id ? 'Editar playlist' : 'Nova playlist'}
       </DialogTitle>
-      <DialogContent dividers sx={{ display: 'grid', gap: 2, pt: 2, background: 'linear-gradient(180deg, rgba(15,18,24,0.98), rgba(10,13,18,0.98))' }}>
+      <DialogContent
+        dividers
+        sx={{
+          display: 'grid',
+          gap: 2,
+          pt: 2,
+          background:
+            'linear-gradient(180deg, rgba(15,18,24,0.98), rgba(10,13,18,0.98))',
+        }}
+      >
         <TextField
           label="Nome da playlist"
           value={form.nome}
-          onChange={event => setForm(current => ({ ...current, nome: event.target.value }))}
+          onChange={event =>
+            setForm(current => ({ ...current, nome: event.target.value }))
+          }
           fullWidth
           sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
         />
         <TextField
           label="Link da imagem"
           value={form.linkImagem}
-          onChange={event => setForm(current => ({ ...current, linkImagem: event.target.value }))}
+          onChange={event =>
+            setForm(current => ({ ...current, linkImagem: event.target.value }))
+          }
           fullWidth
           placeholder="https://.../capa.jpg"
           sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
@@ -320,19 +381,31 @@ const PlaylistDialog = ({ open, onClose, onSubmit, initialValues = {} }) => {
         <TextField
           label="Descrição"
           value={form.descricao}
-          onChange={event => setForm(current => ({ ...current, descricao: event.target.value }))}
+          onChange={event =>
+            setForm(current => ({ ...current, descricao: event.target.value }))
+          }
           multiline
           minRows={3}
           fullWidth
           sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
         />
       </DialogContent>
-      <DialogActions sx={{ px: 3, py: 2, background: 'rgba(255,255,255,0.02)' }}>
-        <Button onClick={onClose} sx={{ color: 'var(--text-secondary)' }}>Cancelar</Button>
+      <DialogActions
+        sx={{ px: 3, py: 2, background: 'rgba(255,255,255,0.02)' }}
+      >
+        <Button onClick={onClose} sx={{ color: 'var(--text-secondary)' }}>
+          Cancelar
+        </Button>
         <Button
           variant="contained"
           disabled={!form.nome.trim()}
-          onClick={() => onSubmit({ ...form, nome: form.nome.trim(), linkImagem: form.linkImagem.trim() })}
+          onClick={() =>
+            onSubmit({
+              ...form,
+              nome: form.nome.trim(),
+              linkImagem: form.linkImagem.trim(),
+            })
+          }
           sx={{ borderRadius: 2, fontWeight: 700 }}
         >
           Salvar
@@ -342,9 +415,17 @@ const PlaylistDialog = ({ open, onClose, onSubmit, initialValues = {} }) => {
   );
 };
 
-export const PlaylistMusicManager = ({ open, onClose, playlist, musicas, onSave }) => {
+export const PlaylistMusicManager = ({
+  open,
+  onClose,
+  playlist,
+  musicas,
+  onSave,
+}) => {
   const [items, setItems] = useState(() =>
-    Array.isArray(playlist?.musicas) ? playlist.musicas.map(item => item.musicaId) : [],
+    Array.isArray(playlist?.musicas)
+      ? playlist.musicas.map(item => item.musicaId)
+      : [],
   );
   const [anchorEl, setAnchorEl] = useState(null);
   const [search, setSearch] = useState('');
@@ -386,15 +467,24 @@ export const PlaylistMusicManager = ({ open, onClose, playlist, musicas, onSave 
     setItems(next);
   };
 
-  const playlistCover = playlist?.linkImagem || (() => {
-    const primeiraMusicaId = Array.isArray(playlist?.musicas) && playlist.musicas.length > 0 ? playlist.musicas[0]?.musicaId : null;
-    if (!primeiraMusicaId) return null;
-    const musica = musicas.find(item => item.id === primeiraMusicaId);
-    return musica ? buildThumbnail(getUrlVideoId(musica.url) || musica.videoId) : null;
-  })();
+  const playlistCover =
+    playlist?.linkImagem ||
+    (() => {
+      const primeiraMusicaId =
+        Array.isArray(playlist?.musicas) && playlist.musicas.length > 0
+          ? playlist.musicas[0]?.musicaId
+          : null;
+      if (!primeiraMusicaId) return null;
+      const musica = musicas.find(item => item.id === primeiraMusicaId);
+      return musica
+        ? buildThumbnail(getUrlVideoId(musica.url) || musica.videoId)
+        : null;
+    })();
 
   const shouldScrollMusicList = items.length > 6;
-  const musicListMaxHeight = shouldScrollMusicList ? 'min(58vh, 500px)' : 'none';
+  const musicListMaxHeight = shouldScrollMusicList
+    ? 'min(58vh, 500px)'
+    : 'none';
 
   return (
     <Dialog
@@ -410,31 +500,98 @@ export const PlaylistMusicManager = ({ open, onClose, playlist, musicas, onSave 
             maxHeight: '90vh',
             borderRadius: 3,
             border: '1px solid rgba(255,255,255,0.08)',
-            background: 'linear-gradient(180deg, rgba(12,15,20,0.98), rgba(10,13,18,0.96))',
+            background:
+              'linear-gradient(180deg, rgba(12,15,20,0.98), rgba(10,13,18,0.96))',
             boxShadow: '0 24px 60px rgba(0,0,0,0.42)',
             overflow: 'hidden',
           },
         },
       }}
     >
-      <DialogTitle sx={{ p: 2.5, pb: 1.5, borderBottom: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.02)' }}>
-        <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 2 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, minWidth: 0 }}>
-            <Box sx={{ width: 42, height: 42, display: 'grid', placeItems: 'center', borderRadius: 2, background: 'linear-gradient(135deg, rgba(184,60,53,0.28), rgba(114,33,33,0.28))', border: '1px solid rgba(184,60,53,0.3)' }}>
-              <LibraryMusicOutlinedIcon sx={{ color: '#f6d5cc', fontSize: 21 }} />
+      <DialogTitle
+        sx={{
+          p: 2.5,
+          pb: 1.5,
+          borderBottom: '1px solid rgba(255,255,255,0.06)',
+          background: 'rgba(255,255,255,0.02)',
+        }}
+      >
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            justifyContent: 'space-between',
+            gap: 2,
+          }}
+        >
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1.5,
+              minWidth: 0,
+            }}
+          >
+            <Box
+              sx={{
+                width: 42,
+                height: 42,
+                display: 'grid',
+                placeItems: 'center',
+                borderRadius: 2,
+                background:
+                  'linear-gradient(135deg, rgba(184,60,53,0.28), rgba(114,33,33,0.28))',
+                border: '1px solid rgba(184,60,53,0.3)',
+              }}
+            >
+              <LibraryMusicOutlinedIcon
+                sx={{ color: '#f6d5cc', fontSize: 21 }}
+              />
             </Box>
             <Box sx={{ minWidth: 0 }}>
-              <Typography variant="h6" sx={{ fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1.2, letterSpacing: '-0.02em' }}>
+              <Typography
+                variant="h6"
+                sx={{
+                  fontWeight: 800,
+                  color: 'var(--text-primary)',
+                  lineHeight: 1.2,
+                  letterSpacing: '-0.02em',
+                }}
+              >
                 {playlist?.nome || 'Playlist'}
               </Typography>
-              <Typography variant="caption" sx={{ color: 'var(--text-secondary)', display: 'block', mt: 0.25 }}>
+              <Typography
+                variant="caption"
+                sx={{
+                  color: 'var(--text-secondary)',
+                  display: 'block',
+                  mt: 0.25,
+                }}
+              >
                 Organize as faixas desta playlist
               </Typography>
             </Box>
           </Box>
 
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexShrink: 0 }}>
-            <Typography variant="caption" sx={{ color: 'var(--text-secondary)', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)', px: 1, py: 0.5, borderRadius: 999 }}>
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1.5,
+              flexShrink: 0,
+            }}
+          >
+            <Typography
+              variant="caption"
+              sx={{
+                color: 'var(--text-secondary)',
+                background: 'rgba(255,255,255,0.04)',
+                border: '1px solid rgba(255,255,255,0.06)',
+                px: 1,
+                py: 0.5,
+                borderRadius: 999,
+              }}
+            >
               {items.length} faixas
             </Typography>
             <IconButton
@@ -454,28 +611,86 @@ export const PlaylistMusicManager = ({ open, onClose, playlist, musicas, onSave 
         </Box>
       </DialogTitle>
 
-      <DialogContent sx={{ p: 0, display: 'flex', flexDirection: 'column', gap: 2, background: 'linear-gradient(180deg, rgba(10,13,19,0.92), rgba(14,17,22,0.96))' }}>
+      <DialogContent
+        sx={{
+          p: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 2,
+          background:
+            'linear-gradient(180deg, rgba(10,13,19,0.92), rgba(14,17,22,0.96))',
+        }}
+      >
         <Box sx={{ px: 2.5, pt: 2.5 }}>
-          <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', p: 1.5, borderRadius: 3, border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', minHeight: 112 }}>
+          <Box
+            sx={{
+              display: 'flex',
+              gap: 2,
+              alignItems: 'center',
+              p: 1.5,
+              borderRadius: 3,
+              border: '1px solid rgba(255,255,255,0.08)',
+              background: 'rgba(255,255,255,0.02)',
+              minHeight: 112,
+            }}
+          >
             {playlistCover ? (
               <CardMedia
                 component="img"
                 image={playlistCover}
                 alt={playlist?.nome || 'Capa da playlist'}
-                sx={{ width: 110, height: 110, borderRadius: 2.5, objectFit: 'cover', border: '1px solid rgba(255,255,255,0.06)' }}
+                sx={{
+                  width: 110,
+                  height: 110,
+                  borderRadius: 2.5,
+                  objectFit: 'cover',
+                  border: '1px solid rgba(255,255,255,0.06)',
+                }}
               />
             ) : (
-              <Box sx={{ width: 110, height: 110, display: 'grid', placeItems: 'center', borderRadius: 2.5, background: 'linear-gradient(135deg, rgba(184,60,53,0.18), rgba(17,19,23,0.9))', border: '1px solid rgba(255,255,255,0.06)', color: 'var(--text-secondary)' }}>
+              <Box
+                sx={{
+                  width: 110,
+                  height: 110,
+                  display: 'grid',
+                  placeItems: 'center',
+                  borderRadius: 2.5,
+                  background:
+                    'linear-gradient(135deg, rgba(184,60,53,0.18), rgba(17,19,23,0.9))',
+                  border: '1px solid rgba(255,255,255,0.06)',
+                  color: 'var(--text-secondary)',
+                }}
+              >
                 <LibraryMusicOutlinedIcon sx={{ fontSize: 32 }} />
               </Box>
             )}
 
-            <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', minWidth: 0, flex: 1 }}>
-              <Typography variant="h5" sx={{ fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1.1, letterSpacing: '-0.03em' }}>
+            <Box
+              sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
+                minWidth: 0,
+                flex: 1,
+              }}
+            >
+              <Typography
+                variant="h5"
+                sx={{
+                  fontWeight: 800,
+                  color: 'var(--text-primary)',
+                  lineHeight: 1.1,
+                  letterSpacing: '-0.03em',
+                }}
+              >
                 {playlist?.nome || 'Playlist'}
               </Typography>
-              <Typography variant="body2" sx={{ color: 'var(--text-secondary)', mt: 0.75 }}>
-                {items.length} faixa{items.length === 1 ? '' : 's'} · {playlist?.descricao || 'Playlist personalizada'}
+              <Typography
+                variant="body2"
+                sx={{ color: 'var(--text-secondary)', mt: 0.75 }}
+              >
+                {items.length} faixa{items.length === 1 ? '' : 's'} ·{' '}
+                {playlist?.descricao || 'Playlist personalizada'}
               </Typography>
             </Box>
           </Box>
@@ -489,11 +704,15 @@ export const PlaylistMusicManager = ({ open, onClose, playlist, musicas, onSave 
               minHeight: 46,
               borderRadius: 2,
               border: '1px solid rgba(184,60,53,0.36)',
-              background: 'linear-gradient(135deg, rgba(184,60,53,0.18), rgba(184,60,53,0.08))',
+              background:
+                'linear-gradient(135deg, rgba(184,60,53,0.18), rgba(184,60,53,0.08))',
               color: '#f9d9d1',
               fontWeight: 700,
               px: 2,
-              '&:hover': { background: 'linear-gradient(135deg, rgba(184,60,53,0.26), rgba(184,60,53,0.12))' },
+              '&:hover': {
+                background:
+                  'linear-gradient(135deg, rgba(184,60,53,0.26), rgba(184,60,53,0.12))',
+              },
             }}
           >
             Adicionar músicas
@@ -517,24 +736,68 @@ export const PlaylistMusicManager = ({ open, onClose, playlist, musicas, onSave 
                   maxHeight: 'min(68vh, 520px)',
                   borderRadius: 3,
                   border: '1px solid rgba(255,255,255,0.08)',
-                  background: 'linear-gradient(180deg, rgba(13,16,21,0.98), rgba(10,12,18,0.96))',
+                  background:
+                    'linear-gradient(180deg, rgba(13,16,21,0.98), rgba(10,12,18,0.96))',
                   boxShadow: '0 28px 60px rgba(0,0,0,0.42)',
                   overflow: 'hidden',
                 },
               },
             }}
           >
-            <Box sx={{ display: 'flex', flexDirection: 'column', height: 'min(68vh, 520px)', maxHeight: 'min(68vh, 520px)' }}>
-              <Box sx={{ px: 2, py: 1.5, borderBottom: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.02)', flexShrink: 0 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
-                  <Typography sx={{ fontWeight: 700, color: 'var(--text-primary)' }}>Adicionar músicas</Typography>
-                  <Typography variant="caption" sx={{ color: 'var(--text-secondary)', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)', px: 1, py: 0.5, borderRadius: 999 }}>
+            <Box
+              sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                height: 'min(68vh, 520px)',
+                maxHeight: 'min(68vh, 520px)',
+              }}
+            >
+              <Box
+                sx={{
+                  px: 2,
+                  py: 1.5,
+                  borderBottom: '1px solid rgba(255,255,255,0.06)',
+                  background: 'rgba(255,255,255,0.02)',
+                  flexShrink: 0,
+                }}
+              >
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 1,
+                  }}
+                >
+                  <Typography
+                    sx={{ fontWeight: 700, color: 'var(--text-primary)' }}
+                  >
+                    Adicionar músicas
+                  </Typography>
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: 'var(--text-secondary)',
+                      background: 'rgba(255,255,255,0.04)',
+                      border: '1px solid rgba(255,255,255,0.06)',
+                      px: 1,
+                      py: 0.5,
+                      borderRadius: 999,
+                    }}
+                  >
                     {availableMusic.length} disponíveis
                   </Typography>
                 </Box>
               </Box>
 
-              <Box sx={{ px: 2, py: 1.25, borderBottom: '1px solid rgba(255,255,255,0.06)', flexShrink: 0 }}>
+              <Box
+                sx={{
+                  px: 2,
+                  py: 1.25,
+                  borderBottom: '1px solid rgba(255,255,255,0.06)',
+                  flexShrink: 0,
+                }}
+              >
                 <TextField
                   value={search}
                   onChange={event => setSearch(event.target.value)}
@@ -545,12 +808,22 @@ export const PlaylistMusicManager = ({ open, onClose, playlist, musicas, onSave 
                     input: {
                       startAdornment: (
                         <InputAdornment position="start">
-                          <SearchOutlinedIcon sx={{ color: 'var(--text-secondary)', fontSize: 18 }} />
+                          <SearchOutlinedIcon
+                            sx={{
+                              color: 'var(--text-secondary)',
+                              fontSize: 18,
+                            }}
+                          />
                         </InputAdornment>
                       ),
                       endAdornment: search ? (
                         <InputAdornment position="end">
-                          <IconButton size="small" onClick={() => setSearch('')} aria-label="Limpar pesquisa" sx={{ color: 'var(--text-secondary)' }}>
+                          <IconButton
+                            size="small"
+                            onClick={() => setSearch('')}
+                            aria-label="Limpar pesquisa"
+                            sx={{ color: 'var(--text-secondary)' }}
+                          >
                             <DeleteOutlineOutlinedIcon fontSize="small" />
                           </IconButton>
                         </InputAdornment>
@@ -562,35 +835,97 @@ export const PlaylistMusicManager = ({ open, onClose, playlist, musicas, onSave 
                       borderRadius: 2,
                       background: 'rgba(255,255,255,0.02)',
                       '& fieldset': { borderColor: 'rgba(255,255,255,0.08)' },
-                      '&:hover fieldset': { borderColor: 'rgba(184,60,53,0.26)' },
-                      '&.Mui-focused fieldset': { borderColor: 'rgba(184,60,53,0.6)' },
+                      '&:hover fieldset': {
+                        borderColor: 'rgba(184,60,53,0.26)',
+                      },
+                      '&.Mui-focused fieldset': {
+                        borderColor: 'rgba(184,60,53,0.6)',
+                      },
                     },
                   }}
                 />
               </Box>
 
-              <Box sx={{ flex: 1, overflowY: 'auto', minHeight: 0, p: 1.25, '&::-webkit-scrollbar': { width: 8 }, '&::-webkit-scrollbar-thumb': { background: 'rgba(255,255,255,0.18)', borderRadius: 999 }, '&::-webkit-scrollbar-track': { background: 'rgba(255,255,255,0.04)' } }}>
+              <Box
+                sx={{
+                  flex: 1,
+                  overflowY: 'auto',
+                  minHeight: 0,
+                  p: 1.25,
+                  '&::-webkit-scrollbar': { width: 8 },
+                  '&::-webkit-scrollbar-thumb': {
+                    background: 'rgba(255,255,255,0.18)',
+                    borderRadius: 999,
+                  },
+                  '&::-webkit-scrollbar-track': {
+                    background: 'rgba(255,255,255,0.04)',
+                  },
+                }}
+              >
                 {!musicas.length ? (
-                  <Box sx={{ border: '1px dashed rgba(255,255,255,0.12)', borderRadius: 2.5, p: 3, textAlign: 'center', color: 'var(--text-secondary)', background: 'rgba(255,255,255,0.02)' }}>
+                  <Box
+                    sx={{
+                      border: '1px dashed rgba(255,255,255,0.12)',
+                      borderRadius: 2.5,
+                      p: 3,
+                      textAlign: 'center',
+                      color: 'var(--text-secondary)',
+                      background: 'rgba(255,255,255,0.02)',
+                    }}
+                  >
                     Não existem músicas disponíveis para adicionar.
                   </Box>
                 ) : availableMusic.length === 0 ? (
-                  <Box sx={{ border: '1px dashed rgba(255,255,255,0.12)', borderRadius: 2.5, p: 3, textAlign: 'center', color: 'var(--text-secondary)', background: 'rgba(255,255,255,0.02)' }}>
+                  <Box
+                    sx={{
+                      border: '1px dashed rgba(255,255,255,0.12)',
+                      borderRadius: 2.5,
+                      p: 3,
+                      textAlign: 'center',
+                      color: 'var(--text-secondary)',
+                      background: 'rgba(255,255,255,0.02)',
+                    }}
+                  >
                     Todas as músicas já estão nesta playlist.
                   </Box>
                 ) : filteredMusic.length === 0 ? (
-                  <Box sx={{ border: '1px dashed rgba(255,255,255,0.12)', borderRadius: 2.5, p: 3, textAlign: 'center', color: 'var(--text-secondary)', background: 'rgba(255,255,255,0.02)' }}>
-                    <Typography sx={{ fontWeight: 700, color: 'var(--text-primary)', mb: 0.5 }}>Nenhuma música encontrada</Typography>
-                    <Typography variant="body2">Tente outro termo na busca.</Typography>
+                  <Box
+                    sx={{
+                      border: '1px dashed rgba(255,255,255,0.12)',
+                      borderRadius: 2.5,
+                      p: 3,
+                      textAlign: 'center',
+                      color: 'var(--text-secondary)',
+                      background: 'rgba(255,255,255,0.02)',
+                    }}
+                  >
+                    <Typography
+                      sx={{
+                        fontWeight: 700,
+                        color: 'var(--text-primary)',
+                        mb: 0.5,
+                      }}
+                    >
+                      Nenhuma música encontrada
+                    </Typography>
+                    <Typography variant="body2">
+                      Tente outro termo na busca.
+                    </Typography>
                   </Box>
                 ) : (
                   <Stack spacing={1}>
                     {filteredMusic.map(musica => {
-                      const musicaCover = buildThumbnail(getUrlVideoId(musica.url) || musica.videoId);
+                      const musicaCover = buildThumbnail(
+                        getUrlVideoId(musica.url) || musica.videoId,
+                      );
                       const infoSecundaria = [
                         musica.descricao,
-                        ...(Array.isArray(musica.tags) ? musica.tags.slice(0, 2) : []),
-                      ].filter(Boolean).join(' • ');
+                        ...(Array.isArray(musica.tags)
+                          ? musica.tags.slice(0, 2)
+                          : []),
+                      ]
+                        .filter(Boolean)
+                        .join(' • ');
 
                       return (
                         <Box
@@ -629,21 +964,57 @@ export const PlaylistMusicManager = ({ open, onClose, playlist, musicas, onSave 
                             component="img"
                             image={musicaCover}
                             alt={musica.nome}
-                            sx={{ width: 54, height: 54, borderRadius: 2, objectFit: 'cover', border: '1px solid rgba(255,255,255,0.06)' }}
+                            sx={{
+                              width: 54,
+                              height: 54,
+                              borderRadius: 2,
+                              objectFit: 'cover',
+                              border: '1px solid rgba(255,255,255,0.06)',
+                            }}
                           />
 
                           <Box sx={{ minWidth: 0, flex: 1 }}>
-                            <Typography sx={{ color: 'var(--text-primary)', fontWeight: 700, lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            <Typography
+                              sx={{
+                                color: 'var(--text-primary)',
+                                fontWeight: 700,
+                                lineHeight: 1.3,
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
                               {musica.nome}
                             </Typography>
                             {infoSecundaria ? (
-                              <Typography variant="caption" sx={{ color: 'var(--text-secondary)', display: 'block', mt: 0.25, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              <Typography
+                                variant="caption"
+                                sx={{
+                                  color: 'var(--text-secondary)',
+                                  display: 'block',
+                                  mt: 0.25,
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap',
+                                }}
+                              >
                                 {infoSecundaria}
                               </Typography>
                             ) : null}
                           </Box>
 
-                          <Box sx={{ display: 'grid', placeItems: 'center', width: 28, height: 28, borderRadius: '50%', background: 'rgba(184,60,53,0.12)', border: '1px solid rgba(184,60,53,0.18)', color: '#f7d2d1' }}>
+                          <Box
+                            sx={{
+                              display: 'grid',
+                              placeItems: 'center',
+                              width: 28,
+                              height: 28,
+                              borderRadius: '50%',
+                              background: 'rgba(184,60,53,0.12)',
+                              border: '1px solid rgba(184,60,53,0.18)',
+                              color: '#f7d2d1',
+                            }}
+                          >
                             <AddOutlinedIcon sx={{ fontSize: 18 }} />
                           </Box>
                         </Box>
@@ -675,19 +1046,30 @@ export const PlaylistMusicManager = ({ open, onClose, playlist, musicas, onSave 
               borderRadius: 999,
             },
             '&::-webkit-scrollbar-thumb': {
-              background: 'linear-gradient(180deg, rgba(184,60,53,0.82), rgba(120,35,35,0.9))',
+              background:
+                'linear-gradient(180deg, rgba(184,60,53,0.82), rgba(120,35,35,0.9))',
               borderRadius: 999,
               border: '1px solid rgba(255,255,255,0.08)',
               transition: 'background 0.2s ease',
               '&:hover': {
-                background: 'linear-gradient(180deg, rgba(184,60,53,0.96), rgba(140,36,36,1))',
+                background:
+                  'linear-gradient(180deg, rgba(184,60,53,0.96), rgba(140,36,36,1))',
               },
             },
           }}
         >
           <Stack spacing={1.25}>
             {items.length === 0 ? (
-              <Box sx={{ border: '1px dashed rgba(255,255,255,0.12)', borderRadius: 3, p: 3, textAlign: 'center', color: 'var(--text-secondary)', background: 'rgba(255,255,255,0.02)' }}>
+              <Box
+                sx={{
+                  border: '1px dashed rgba(255,255,255,0.12)',
+                  borderRadius: 3,
+                  p: 3,
+                  textAlign: 'center',
+                  color: 'var(--text-secondary)',
+                  background: 'rgba(255,255,255,0.02)',
+                }}
+              >
                 Nenhuma música nesta playlist ainda.
               </Box>
             ) : (
@@ -695,7 +1077,9 @@ export const PlaylistMusicManager = ({ open, onClose, playlist, musicas, onSave 
                 const musica = musicas.find(item => item.id === musicaId);
                 if (!musica) return null;
 
-                const musicaCover = buildThumbnail(getUrlVideoId(musica.url) || musica.videoId);
+                const musicaCover = buildThumbnail(
+                  getUrlVideoId(musica.url) || musica.videoId,
+                );
 
                 return (
                   <Box
@@ -716,8 +1100,24 @@ export const PlaylistMusicManager = ({ open, onClose, playlist, musicas, onSave 
                       },
                     }}
                   >
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, minWidth: 0, flex: 1 }}>
-                      <Box sx={{ width: 28, textAlign: 'center', color: 'var(--text-muted)', fontWeight: 700, fontSize: '0.78rem' }}>
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1.25,
+                        minWidth: 0,
+                        flex: 1,
+                      }}
+                    >
+                      <Box
+                        sx={{
+                          width: 28,
+                          textAlign: 'center',
+                          color: 'var(--text-muted)',
+                          fontWeight: 700,
+                          fontSize: '0.78rem',
+                        }}
+                      >
                         {index + 1}
                       </Box>
 
@@ -725,22 +1125,54 @@ export const PlaylistMusicManager = ({ open, onClose, playlist, musicas, onSave 
                         component="img"
                         image={musicaCover}
                         alt={musica.nome}
-                        sx={{ width: 58, height: 58, borderRadius: 2, objectFit: 'cover', border: '1px solid rgba(255,255,255,0.06)' }}
+                        sx={{
+                          width: 58,
+                          height: 58,
+                          borderRadius: 2,
+                          objectFit: 'cover',
+                          border: '1px solid rgba(255,255,255,0.06)',
+                        }}
                       />
 
                       <Box sx={{ minWidth: 0, flex: 1 }}>
-                        <Typography sx={{ color: 'var(--text-primary)', fontWeight: 700, lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <Typography
+                          sx={{
+                            color: 'var(--text-primary)',
+                            fontWeight: 700,
+                            lineHeight: 1.3,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
                           {musica.nome}
                         </Typography>
                         {musica.descricao ? (
-                          <Typography variant="caption" sx={{ color: 'var(--text-secondary)', display: 'block', mt: 0.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <Typography
+                            variant="caption"
+                            sx={{
+                              color: 'var(--text-secondary)',
+                              display: 'block',
+                              mt: 0.3,
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
                             {musica.descricao}
                           </Typography>
                         ) : null}
                       </Box>
                     </Box>
 
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0 }}>
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 0.5,
+                        flexShrink: 0,
+                      }}
+                    >
                       <IconButton
                         size="small"
                         aria-label={`Mover música ${musica.nome} para cima`}
@@ -749,8 +1181,16 @@ export const PlaylistMusicManager = ({ open, onClose, playlist, musicas, onSave 
                         sx={{
                           background: 'rgba(255,255,255,0.04)',
                           border: '1px solid rgba(255,255,255,0.06)',
-                          color: index === 0 ? 'rgba(255,255,255,0.28)' : 'var(--text-secondary)',
-                          '&:hover': { background: index === 0 ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.08)' },
+                          color:
+                            index === 0
+                              ? 'rgba(255,255,255,0.28)'
+                              : 'var(--text-secondary)',
+                          '&:hover': {
+                            background:
+                              index === 0
+                                ? 'rgba(255,255,255,0.02)'
+                                : 'rgba(255,255,255,0.08)',
+                          },
                         }}
                       >
                         <ArrowUpwardOutlinedIcon fontSize="small" />
@@ -764,8 +1204,16 @@ export const PlaylistMusicManager = ({ open, onClose, playlist, musicas, onSave 
                         sx={{
                           background: 'rgba(255,255,255,0.04)',
                           border: '1px solid rgba(255,255,255,0.06)',
-                          color: index === items.length - 1 ? 'rgba(255,255,255,0.28)' : 'var(--text-secondary)',
-                          '&:hover': { background: index === items.length - 1 ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.08)' },
+                          color:
+                            index === items.length - 1
+                              ? 'rgba(255,255,255,0.28)'
+                              : 'var(--text-secondary)',
+                          '&:hover': {
+                            background:
+                              index === items.length - 1
+                                ? 'rgba(255,255,255,0.02)'
+                                : 'rgba(255,255,255,0.08)',
+                          },
                         }}
                       >
                         <ArrowDownwardOutlinedIcon fontSize="small" />
@@ -774,7 +1222,13 @@ export const PlaylistMusicManager = ({ open, onClose, playlist, musicas, onSave 
                       <IconButton
                         size="small"
                         aria-label={`Remover música ${musica.nome} da playlist`}
-                        onClick={() => setItems(current => current.filter((_, itemIndex) => itemIndex !== index))}
+                        onClick={() =>
+                          setItems(current =>
+                            current.filter(
+                              (_, itemIndex) => itemIndex !== index,
+                            ),
+                          )
+                        }
                         sx={{
                           background: 'rgba(244,160,160,0.06)',
                           border: '1px solid rgba(244,160,160,0.14)',
@@ -793,8 +1247,20 @@ export const PlaylistMusicManager = ({ open, onClose, playlist, musicas, onSave 
         </Box>
       </DialogContent>
 
-      <DialogActions sx={{ p: 2.5, pt: 1.5, borderTop: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.02)' }}>
-        <Button onClick={onClose} sx={{ color: 'var(--text-secondary)', borderRadius: 2, px: 2, py: 1 }}>Cancelar</Button>
+      <DialogActions
+        sx={{
+          p: 2.5,
+          pt: 1.5,
+          borderTop: '1px solid rgba(255,255,255,0.06)',
+          background: 'rgba(255,255,255,0.02)',
+        }}
+      >
+        <Button
+          onClick={onClose}
+          sx={{ color: 'var(--text-secondary)', borderRadius: 2, px: 2, py: 1 }}
+        >
+          Cancelar
+        </Button>
         <Button
           variant="contained"
           onClick={() => onSave(items)}
@@ -802,11 +1268,15 @@ export const PlaylistMusicManager = ({ open, onClose, playlist, musicas, onSave 
             borderRadius: 2,
             px: 2.5,
             py: 1,
-            background: 'linear-gradient(135deg, rgba(184,60,53,0.82), rgba(140,36,36,0.88))',
+            background:
+              'linear-gradient(135deg, rgba(184,60,53,0.82), rgba(140,36,36,0.88))',
             color: '#fff',
             fontWeight: 800,
             boxShadow: '0 12px 24px rgba(184,60,53,0.25)',
-            '&:hover': { background: 'linear-gradient(135deg, rgba(184,60,53,0.95), rgba(140,36,36,1))' },
+            '&:hover': {
+              background:
+                'linear-gradient(135deg, rgba(184,60,53,0.95), rgba(140,36,36,1))',
+            },
           }}
         >
           Salvar ordem
@@ -904,13 +1374,40 @@ const Musicas = () => {
   const [playlistSearch, setPlaylistSearch] = useState('');
   const [playlistFilter, setPlaylistFilter] = useState('todas');
   const [activeTab, setActiveTab] = useState('biblioteca');
-  const [musicDialog, setMusicDialog] = useState({ open: false, initialValues: null, editingId: null });
-  const [pastaDialog, setPastaDialog] = useState({ open: false, mode: 'create', value: '', targetId: null });
-  const [playlistDialog, setPlaylistDialog] = useState({ open: false, initialValues: null });
-  const [playlistManager, setPlaylistManager] = useState({ open: false, playlist: null });
-  const [confirmDelete, setConfirmDelete] = useState({ open: false, type: null, item: null });
-  const [contextMenu, setContextMenu] = useState({ open: false, x: 0, y: 0, musicaId: null });
-  const [copyFeedback, setCopyFeedback] = useState({ open: false, message: '' });
+  const [musicDialog, setMusicDialog] = useState({
+    open: false,
+    initialValues: null,
+    editingId: null,
+  });
+  const [pastaDialog, setPastaDialog] = useState({
+    open: false,
+    mode: 'create',
+    value: '',
+    targetId: null,
+  });
+  const [playlistDialog, setPlaylistDialog] = useState({
+    open: false,
+    initialValues: null,
+  });
+  const [playlistManager, setPlaylistManager] = useState({
+    open: false,
+    playlist: null,
+  });
+  const [confirmDelete, setConfirmDelete] = useState({
+    open: false,
+    type: null,
+    item: null,
+  });
+  const [contextMenu, setContextMenu] = useState({
+    open: false,
+    x: 0,
+    y: 0,
+    musicaId: null,
+  });
+  const [copyFeedback, setCopyFeedback] = useState({
+    open: false,
+    message: '',
+  });
 
   const carregarDados = useCallback(async () => {
     if (!userId) {
@@ -963,8 +1460,7 @@ const Musicas = () => {
         musica.descricao?.toLowerCase().includes(termoBusca) ||
         musica.tags?.some(tag => tag.toLowerCase().includes(termoBusca));
       const bateNaPasta =
-        filtroPasta === 'todas' ||
-        musica.pastaId === filtroPasta;
+        filtroPasta === 'todas' || musica.pastaId === filtroPasta;
       return bateNaBusca && bateNaPasta;
     });
   }, [musicas, busca, filtroPasta]);
@@ -977,8 +1473,7 @@ const Musicas = () => {
         playlist.nome?.toLowerCase().includes(termoBusca) ||
         playlist.descricao?.toLowerCase().includes(termoBusca);
       const filtroNoPlaylist =
-        playlistFilter === 'todas' ||
-        playlist.id === playlistFilter;
+        playlistFilter === 'todas' || playlist.id === playlistFilter;
       return buscaNoTexto && filtroNoPlaylist;
     });
   }, [playlists, playlistSearch, playlistFilter]);
@@ -1021,7 +1516,10 @@ const Musicas = () => {
   const handleCopyMusicLink = useCallback(
     async musica => {
       if (!musica?.url) {
-        setCopyFeedback({ open: true, message: 'Link do YouTube não disponível.' });
+        setCopyFeedback({
+          open: true,
+          message: 'Link do YouTube não disponível.',
+        });
         return;
       }
 
@@ -1039,7 +1537,10 @@ const Musicas = () => {
 
         setCopyFeedback({ open: true, message: 'Link do YouTube copiado!' });
       } catch {
-        setCopyFeedback({ open: true, message: 'Não foi possível copiar o link do YouTube.' });
+        setCopyFeedback({
+          open: true,
+          message: 'Não foi possível copiar o link do YouTube.',
+        });
       } finally {
         closeContextMenu();
       }
@@ -1047,20 +1548,23 @@ const Musicas = () => {
     [closeContextMenu],
   );
 
-  const handleMusicContextMenu = useCallback(
-    (event, musica) => {
-      event.preventDefault();
-      if (!musica) return;
+  const handleMusicContextMenu = useCallback((event, musica) => {
+    event.preventDefault();
+    if (!musica) return;
 
-      const menuWidth = 240;
-      const menuHeight = 120;
-      const nextX = Math.min(window.innerWidth - menuWidth - 12, Math.max(12, event.clientX + 8));
-      const nextY = Math.min(window.innerHeight - menuHeight - 12, Math.max(12, event.clientY + 8));
+    const menuWidth = 240;
+    const menuHeight = 120;
+    const nextX = Math.min(
+      window.innerWidth - menuWidth - 12,
+      Math.max(12, event.clientX + 8),
+    );
+    const nextY = Math.min(
+      window.innerHeight - menuHeight - 12,
+      Math.max(12, event.clientY + 8),
+    );
 
-      setContextMenu({ open: true, x: nextX, y: nextY, musicaId: musica.id });
-    },
-    [],
-  );
+    setContextMenu({ open: true, x: nextX, y: nextY, musicaId: musica.id });
+  }, []);
 
   useEffect(() => {
     if (!contextMenu.open) return undefined;
@@ -1111,7 +1615,12 @@ const Musicas = () => {
       } else {
         await addRmMusicaPasta({ nome: valor, mestreId: userId });
       }
-      setPastaDialog({ open: false, mode: 'create', value: '', targetId: null });
+      setPastaDialog({
+        open: false,
+        mode: 'create',
+        value: '',
+        targetId: null,
+      });
       await carregarDados();
     },
     [carregarDados, pastaTargetId, userId],
@@ -1233,7 +1742,8 @@ const Musicas = () => {
     <Box
       sx={{
         ...PAGE_SX,
-        background: 'radial-gradient(circle at top, rgba(160, 30, 30, 0.18), transparent 28%), #070b12',
+        background:
+          'radial-gradient(circle at top, rgba(160, 30, 30, 0.18), transparent 28%), #070b12',
         p: { xs: 2, md: 3 },
         display: 'flex',
         flexDirection: 'column',
@@ -1250,26 +1760,42 @@ const Musicas = () => {
           border: '1px solid rgba(255,255,255,0.08)',
           borderRadius: 3,
           p: { xs: 2, md: 2.5 },
-          background: 'linear-gradient(180deg, rgba(17,21,28,0.94), rgba(10,13,18,0.92))',
+          background:
+            'linear-gradient(180deg, rgba(17,21,28,0.94), rgba(10,13,18,0.92))',
           boxShadow: '0 18px 40px rgba(0,0,0,0.25)',
         }}
       >
         <Box>
-          <Typography sx={{ ...SECTION_TITLE_SX, color: 'var(--color-accent)', mb: 0.75 }}>
+          <Typography
+            sx={{ ...SECTION_TITLE_SX, color: 'var(--color-accent)', mb: 0.75 }}
+          >
             Biblioteca musical
           </Typography>
-          <Typography variant="h3" sx={{ fontWeight: 800, lineHeight: 1.1, color: 'var(--text-primary)', fontSize: { xs: '2rem', md: '2.7rem' } }}>
+          <Typography
+            variant="h3"
+            sx={{
+              fontWeight: 800,
+              lineHeight: 1.1,
+              color: 'var(--text-primary)',
+              fontSize: { xs: '2rem', md: '2.7rem' },
+            }}
+          >
             Biblioteca Musical
           </Typography>
-          <Typography sx={{ mt: 0.75, color: 'var(--text-secondary)', maxWidth: 700 }}>
-            Organize suas faixas, pastas e playlists em um só espaço pessoal de sessão.
+          <Typography
+            sx={{ mt: 0.75, color: 'var(--text-secondary)', maxWidth: 700 }}
+          >
+            Organize suas faixas, pastas e playlists em um só espaço pessoal de
+            sessão.
           </Typography>
         </Box>
 
         <Button
           variant="contained"
           startIcon={<AddOutlinedIcon />}
-          onClick={() => setMusicDialog({ open: true, initialValues: null, editingId: null })}
+          onClick={() =>
+            setMusicDialog({ open: true, initialValues: null, editingId: null })
+          }
           sx={{
             background: 'linear-gradient(135deg, #7d1d20, #b83c35)',
             borderRadius: 2,
@@ -1301,7 +1827,8 @@ const Musicas = () => {
             minWidth: { xs: '100%', lg: 280 },
             border: '1px solid rgba(255,255,255,0.08)',
             borderRadius: 3,
-            background: 'linear-gradient(180deg, rgba(16,18,25,0.96), rgba(11,14,20,0.94))',
+            background:
+              'linear-gradient(180deg, rgba(16,18,25,0.96), rgba(11,14,20,0.94))',
             display: 'flex',
             flexDirection: 'column',
             overflow: 'hidden',
@@ -1312,7 +1839,21 @@ const Musicas = () => {
             <Typography sx={{ ...SECTION_TITLE_SX, mb: 0 }}>Pastas</Typography>
           </Box>
 
-          <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 1.25, minHeight: 0, overflowY: 'auto', '&::-webkit-scrollbar': { width: 8 }, '&::-webkit-scrollbar-thumb': { background: 'rgba(255,255,255,0.14)', borderRadius: 999 } }}>
+          <Box
+            sx={{
+              p: 2,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 1.25,
+              minHeight: 0,
+              overflowY: 'auto',
+              '&::-webkit-scrollbar': { width: 8 },
+              '&::-webkit-scrollbar-thumb': {
+                background: 'rgba(255,255,255,0.14)',
+                borderRadius: 999,
+              },
+            }}
+          >
             <Button
               variant={filtroPasta === 'todas' ? 'contained' : 'outlined'}
               startIcon={<LibraryMusicOutlinedIcon />}
@@ -1323,8 +1864,14 @@ const Musicas = () => {
                 justifyContent: 'flex-start',
                 borderRadius: 2,
                 px: 1.5,
-                background: filtroPasta === 'todas' ? 'linear-gradient(135deg, rgba(184,60,53,0.35), rgba(184,60,53,0.12))' : 'transparent',
-                borderColor: filtroPasta === 'todas' ? 'rgba(184,60,53,0.4)' : 'rgba(255,255,255,0.12)',
+                background:
+                  filtroPasta === 'todas'
+                    ? 'linear-gradient(135deg, rgba(184,60,53,0.35), rgba(184,60,53,0.12))'
+                    : 'transparent',
+                borderColor:
+                  filtroPasta === 'todas'
+                    ? 'rgba(184,60,53,0.4)'
+                    : 'rgba(255,255,255,0.12)',
                 color: 'var(--text-primary)',
                 fontWeight: 700,
               }}
@@ -1335,7 +1882,14 @@ const Musicas = () => {
             <Button
               variant="outlined"
               startIcon={<FolderOutlinedIcon />}
-              onClick={() => setPastaDialog({ open: true, mode: 'create', value: '', targetId: null })}
+              onClick={() =>
+                setPastaDialog({
+                  open: true,
+                  mode: 'create',
+                  value: '',
+                  targetId: null,
+                })
+              }
               sx={{ justifyContent: 'flex-start', borderRadius: 2, px: 1.5 }}
             >
               Nova Pasta
@@ -1359,8 +1913,12 @@ const Musicas = () => {
                       px: 1.25,
                       py: 1,
                       borderRadius: 2,
-                      border: isSelected ? '1px solid rgba(184,60,53,0.45)' : '1px solid rgba(255,255,255,0.06)',
-                      background: isSelected ? 'rgba(184,60,53,0.12)' : 'rgba(255,255,255,0.02)',
+                      border: isSelected
+                        ? '1px solid rgba(184,60,53,0.45)'
+                        : '1px solid rgba(255,255,255,0.06)',
+                      background: isSelected
+                        ? 'rgba(184,60,53,0.12)'
+                        : 'rgba(255,255,255,0.02)',
                     }}
                   >
                     <Button
@@ -1376,19 +1934,56 @@ const Musicas = () => {
                         textTransform: 'none',
                       }}
                     >
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%', minWidth: 0 }}>
-                        <FolderOutlinedIcon sx={{ color: isSelected ? 'var(--color-accent)' : 'var(--text-secondary)', fontSize: '1.1rem' }} />
-                        <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <Box
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 1,
+                          width: '100%',
+                          minWidth: 0,
+                        }}
+                      >
+                        <FolderOutlinedIcon
+                          sx={{
+                            color: isSelected
+                              ? 'var(--color-accent)'
+                              : 'var(--text-secondary)',
+                            fontSize: '1.1rem',
+                          }}
+                        />
+                        <Box
+                          component="span"
+                          sx={{
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
                           {pasta.nome}
                         </Box>
                       </Box>
                     </Button>
 
                     <Box sx={{ display: 'flex', gap: 0.5 }}>
-                      <IconButton aria-label={`Editar pasta ${pasta.nome}`} size="small" onClick={() => setPastaDialog({ open: true, mode: 'rename', value: pasta.nome, targetId: pasta.id })}>
+                      <IconButton
+                        aria-label={`Editar pasta ${pasta.nome}`}
+                        size="small"
+                        onClick={() =>
+                          setPastaDialog({
+                            open: true,
+                            mode: 'rename',
+                            value: pasta.nome,
+                            targetId: pasta.id,
+                          })
+                        }
+                      >
                         <EditOutlinedIcon fontSize="small" />
                       </IconButton>
-                      <IconButton aria-label={`Excluir pasta ${pasta.nome}`} size="small" onClick={() => handleDeletePasta(pasta.id)}>
+                      <IconButton
+                        aria-label={`Excluir pasta ${pasta.nome}`}
+                        size="small"
+                        onClick={() => handleDeletePasta(pasta.id)}
+                      >
                         <DeleteOutlineOutlinedIcon fontSize="small" />
                       </IconButton>
                     </Box>
@@ -1407,22 +2002,45 @@ const Musicas = () => {
             minWidth: 0,
             border: '1px solid rgba(255,255,255,0.08)',
             borderRadius: 3,
-            background: 'linear-gradient(180deg, rgba(15,18,24,0.96), rgba(10,13,19,0.94))',
+            background:
+              'linear-gradient(180deg, rgba(15,18,24,0.96), rgba(10,13,19,0.94))',
             overflow: 'hidden',
           }}
         >
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2, p: 2, borderBottom: '1px solid rgba(255,255,255,0.06)', flexWrap: 'wrap' }}>
-            <Box sx={{ display: 'flex', gap: 1, background: 'rgba(255,255,255,0.03)', borderRadius: 2, p: 0.5 }}>
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              gap: 2,
+              p: 2,
+              borderBottom: '1px solid rgba(255,255,255,0.06)',
+              flexWrap: 'wrap',
+            }}
+          >
+            <Box
+              sx={{
+                display: 'flex',
+                gap: 1,
+                background: 'rgba(255,255,255,0.03)',
+                borderRadius: 2,
+                p: 0.5,
+              }}
+            >
               {tabs.map(tab => (
                 <Button
                   key={tab.id}
                   variant={activeTab === tab.id ? 'contained' : 'text'}
                   onClick={() => setActiveTab(tab.id)}
                   sx={{
-                    color: activeTab === tab.id ? '#fff' : 'var(--text-secondary)',
+                    color:
+                      activeTab === tab.id ? '#fff' : 'var(--text-secondary)',
                     borderRadius: 1.5,
                     fontWeight: 700,
-                    background: activeTab === tab.id ? 'linear-gradient(135deg, rgba(184,60,53,0.44), rgba(184,60,53,0.18))' : 'transparent',
+                    background:
+                      activeTab === tab.id
+                        ? 'linear-gradient(135deg, rgba(184,60,53,0.44), rgba(184,60,53,0.18))'
+                        : 'transparent',
                     minWidth: 0,
                     px: 1.7,
                     py: 0.85,
@@ -1434,7 +2052,16 @@ const Musicas = () => {
             </Box>
 
             {activeTab === 'biblioteca' && (
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flex: 1, maxWidth: { xs: '100%', md: 520 }, ml: 'auto' }}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1.5,
+                  flex: 1,
+                  maxWidth: { xs: '100%', md: 520 },
+                  ml: 'auto',
+                }}
+              >
                 <TextField
                   value={busca}
                   onChange={event => setBusca(event.target.value)}
@@ -1444,7 +2071,9 @@ const Musicas = () => {
                     input: {
                       startAdornment: (
                         <InputAdornment position="start">
-                          <SearchOutlinedIcon sx={{ color: 'var(--text-secondary)' }} />
+                          <SearchOutlinedIcon
+                            sx={{ color: 'var(--text-secondary)' }}
+                          />
                         </InputAdornment>
                       ),
                     },
@@ -1455,7 +2084,13 @@ const Musicas = () => {
                   value={filtroPasta}
                   onChange={event => setFiltroPasta(event.target.value)}
                   displayEmpty
-                  sx={{ minWidth: 180, '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.12)' }, borderRadius: 2 }}
+                  sx={{
+                    minWidth: 180,
+                    '& .MuiOutlinedInput-notchedOutline': {
+                      borderColor: 'rgba(255,255,255,0.12)',
+                    },
+                    borderRadius: 2,
+                  }}
                 >
                   <MenuItem value="todas">Todas as pastas</MenuItem>
                   {pastas.map(pasta => (
@@ -1468,7 +2103,18 @@ const Musicas = () => {
             )}
 
             {activeTab === 'playlists' && (
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flex: 1, maxWidth: { xs: '100%', md: 760 }, ml: 'auto', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1.5,
+                  flex: 1,
+                  maxWidth: { xs: '100%', md: 760 },
+                  ml: 'auto',
+                  justifyContent: 'flex-end',
+                  flexWrap: 'wrap',
+                }}
+              >
                 <TextField
                   value={playlistSearch}
                   onChange={event => setPlaylistSearch(event.target.value)}
@@ -1479,12 +2125,22 @@ const Musicas = () => {
                     input: {
                       startAdornment: (
                         <InputAdornment position="start">
-                          <SearchOutlinedIcon sx={{ color: 'var(--text-secondary)', fontSize: 18 }} />
+                          <SearchOutlinedIcon
+                            sx={{
+                              color: 'var(--text-secondary)',
+                              fontSize: 18,
+                            }}
+                          />
                         </InputAdornment>
                       ),
                       endAdornment: playlistSearch ? (
                         <InputAdornment position="end">
-                          <IconButton size="small" onClick={() => setPlaylistSearch('')} aria-label="Limpar pesquisa de playlists" sx={{ color: 'var(--text-secondary)' }}>
+                          <IconButton
+                            size="small"
+                            onClick={() => setPlaylistSearch('')}
+                            aria-label="Limpar pesquisa de playlists"
+                            sx={{ color: 'var(--text-secondary)' }}
+                          >
                             <DeleteOutlineOutlinedIcon fontSize="small" />
                           </IconButton>
                         </InputAdornment>
@@ -1499,8 +2155,12 @@ const Musicas = () => {
                       borderRadius: 2,
                       background: 'rgba(255,255,255,0.02)',
                       '& fieldset': { borderColor: 'rgba(255,255,255,0.08)' },
-                      '&:hover fieldset': { borderColor: 'rgba(184,60,53,0.26)' },
-                      '&.Mui-focused fieldset': { borderColor: 'rgba(184,60,53,0.6)' },
+                      '&:hover fieldset': {
+                        borderColor: 'rgba(184,60,53,0.26)',
+                      },
+                      '&.Mui-focused fieldset': {
+                        borderColor: 'rgba(184,60,53,0.6)',
+                      },
                     },
                   }}
                 />
@@ -1510,7 +2170,15 @@ const Musicas = () => {
                   onChange={event => setPlaylistFilter(event.target.value)}
                   displayEmpty
                   slotProps={{ input: { 'aria-label': 'Filtrar playlists' } }}
-                  sx={{ minWidth: { xs: '100%', sm: 220 }, maxWidth: 260, '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.12)' }, borderRadius: 2, background: 'rgba(255,255,255,0.02)' }}
+                  sx={{
+                    minWidth: { xs: '100%', sm: 220 },
+                    maxWidth: 260,
+                    '& .MuiOutlinedInput-notchedOutline': {
+                      borderColor: 'rgba(255,255,255,0.12)',
+                    },
+                    borderRadius: 2,
+                    background: 'rgba(255,255,255,0.02)',
+                  }}
                 >
                   <MenuItem value="todas">Todas as playlists</MenuItem>
                   {playlists.map(playlist => (
@@ -1523,13 +2191,16 @@ const Musicas = () => {
                 <Button
                   variant="contained"
                   startIcon={<AddOutlinedIcon />}
-                  onClick={() => setPlaylistDialog({ open: true, initialValues: null })}
+                  onClick={() =>
+                    setPlaylistDialog({ open: true, initialValues: null })
+                  }
                   sx={{
                     borderRadius: 2,
                     minWidth: 176,
                     px: 2,
                     py: 1.1,
-                    background: 'linear-gradient(135deg, #ff9a5c 0%, #f7724f 28%, #b92f2f 100%)',
+                    background:
+                      'linear-gradient(135deg, #ff9a5c 0%, #f7724f 28%, #b92f2f 100%)',
                     color: '#fff8f4',
                     border: '1px solid rgba(255, 168, 122, 0.5)',
                     fontWeight: 800,
@@ -1541,7 +2212,8 @@ const Musicas = () => {
                       mr: 1,
                     },
                     '&:hover': {
-                      background: 'linear-gradient(135deg, #ffad69 0%, #f77a52 28%, #c33a35 100%)',
+                      background:
+                        'linear-gradient(135deg, #ffad69 0%, #f77a52 28%, #c33a35 100%)',
                       boxShadow: '0 18px 34px rgba(185, 47, 47, 0.4)',
                     },
                   }}
@@ -1553,18 +2225,43 @@ const Musicas = () => {
           </Box>
 
           {loading ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', py: 8, flex: 1 }}>
+            <Box
+              sx={{ display: 'flex', justifyContent: 'center', py: 8, flex: 1 }}
+            >
               <CircularProgress sx={{ color: 'var(--color-accent)' }} />
             </Box>
           ) : error ? (
             <Box sx={{ p: 3, flex: 1 }}>
-              <ListLoadError mensagem="Não foi possível carregar a biblioteca." onRetry={carregarDados} />
+              <ListLoadError
+                mensagem="Não foi possível carregar a biblioteca."
+                onRetry={carregarDados}
+              />
             </Box>
           ) : (
-            <Box sx={{ p: 2, overflow: 'auto', minHeight: 0, flex: 1, '&::-webkit-scrollbar': { width: 9, height: 9 }, '&::-webkit-scrollbar-thumb': { background: 'rgba(255,255,255,0.14)', borderRadius: 999 } }}>
+            <Box
+              sx={{
+                p: 2,
+                overflow: 'auto',
+                minHeight: 0,
+                flex: 1,
+                '&::-webkit-scrollbar': { width: 9, height: 9 },
+                '&::-webkit-scrollbar-thumb': {
+                  background: 'rgba(255,255,255,0.14)',
+                  borderRadius: 999,
+                },
+              }}
+            >
               {activeTab === 'biblioteca' ? (
                 musicasFiltradas.length === 0 ? (
-                  <Box sx={{ p: 3, border: '1px dashed rgba(255,255,255,0.12)', borderRadius: 3, textAlign: 'center', color: 'var(--text-secondary)' }}>
+                  <Box
+                    sx={{
+                      p: 3,
+                      border: '1px dashed rgba(255,255,255,0.12)',
+                      borderRadius: 3,
+                      textAlign: 'center',
+                      color: 'var(--text-secondary)',
+                    }}
+                  >
                     Nenhuma música cadastrada para os filtros atuais.
                   </Box>
                 ) : (
@@ -1583,8 +2280,11 @@ const Musicas = () => {
                     }}
                   >
                     {musicasFiltradas.map(musica => {
-                      const pasta = pastas.find(item => item.id === musica.pastaId);
-                      const videoId = getUrlVideoId(musica.url) || musica.videoId;
+                      const pasta = pastas.find(
+                        item => item.id === musica.pastaId,
+                      );
+                      const videoId =
+                        getUrlVideoId(musica.url) || musica.videoId;
                       return (
                         <Card
                           key={musica.id}
@@ -1603,47 +2303,147 @@ const Musicas = () => {
                             flexDirection: 'column',
                           }}
                         >
-                          <Box sx={{ p: 1.5, display: 'flex', flexDirection: 'column', gap: 1.25, height: '100%', minHeight: 0 }}>
+                          <Box
+                            sx={{
+                              p: 1.5,
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: 1.25,
+                              height: '100%',
+                              minHeight: 0,
+                            }}
+                          >
                             <Box sx={{ position: 'relative', width: '100%' }}>
                               <CardMedia
                                 component="img"
                                 image={buildThumbnail(videoId)}
                                 alt={musica.nome}
-                                sx={{ width: '100%', height: { xs: 170, sm: 150, md: 138 }, borderRadius: 2, objectFit: 'cover' }}
+                                sx={{
+                                  width: '100%',
+                                  height: { xs: 170, sm: 150, md: 138 },
+                                  borderRadius: 2,
+                                  objectFit: 'cover',
+                                }}
                               />
-                              <Box sx={{ position: 'absolute', inset: 'auto 10px 10px 10px', display: 'flex', justifyContent: 'flex-end' }}>
-                                <Box sx={{ background: 'rgba(0,0,0,0.55)', color: '#fff', borderRadius: 999, px: 1, py: 0.35, fontSize: '0.72rem' }}>
+                              <Box
+                                sx={{
+                                  position: 'absolute',
+                                  inset: 'auto 10px 10px 10px',
+                                  display: 'flex',
+                                  justifyContent: 'flex-end',
+                                }}
+                              >
+                                <Box
+                                  sx={{
+                                    background: 'rgba(0,0,0,0.55)',
+                                    color: '#fff',
+                                    borderRadius: 999,
+                                    px: 1,
+                                    py: 0.35,
+                                    fontSize: '0.72rem',
+                                  }}
+                                >
                                   YouTube
                                 </Box>
                               </Box>
                             </Box>
 
-                            <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1, minWidth: 0 }}>
-                              <Typography variant="subtitle1" sx={{ fontWeight: 700, lineHeight: 1.25, color: 'var(--text-primary)', flex: 1, minWidth: 0 }}>
+                            <Box
+                              sx={{
+                                display: 'flex',
+                                alignItems: 'flex-start',
+                                justifyContent: 'space-between',
+                                gap: 1,
+                                minWidth: 0,
+                              }}
+                            >
+                              <Typography
+                                variant="subtitle1"
+                                sx={{
+                                  fontWeight: 700,
+                                  lineHeight: 1.25,
+                                  color: 'var(--text-primary)',
+                                  flex: 1,
+                                  minWidth: 0,
+                                }}
+                              >
                                 {musica.nome}
                               </Typography>
-                              <Box sx={{ display: 'flex', gap: 0.5, flexShrink: 0 }}>
-                                <IconButton aria-label={`Editar música ${musica.nome}`} onClick={() => setMusicDialog({ open: true, initialValues: musica, editingId: musica.id })} sx={{ background: 'rgba(255,255,255,0.04)' }} size="small">
+                              <Box
+                                sx={{
+                                  display: 'flex',
+                                  gap: 0.5,
+                                  flexShrink: 0,
+                                }}
+                              >
+                                <IconButton
+                                  aria-label={`Editar música ${musica.nome}`}
+                                  onClick={() =>
+                                    setMusicDialog({
+                                      open: true,
+                                      initialValues: musica,
+                                      editingId: musica.id,
+                                    })
+                                  }
+                                  sx={{ background: 'rgba(255,255,255,0.04)' }}
+                                  size="small"
+                                >
                                   <EditOutlinedIcon fontSize="small" />
                                 </IconButton>
-                                <IconButton aria-label={`Excluir música ${musica.nome}`} onClick={() => handleDeleteMusica(musica.id)} sx={{ background: 'rgba(244,160,160,0.08)', color: '#f8b0b0' }} size="small">
+                                <IconButton
+                                  aria-label={`Excluir música ${musica.nome}`}
+                                  onClick={() => handleDeleteMusica(musica.id)}
+                                  sx={{
+                                    background: 'rgba(244,160,160,0.08)',
+                                    color: '#f8b0b0',
+                                  }}
+                                  size="small"
+                                >
                                   <DeleteOutlineOutlinedIcon fontSize="small" />
                                 </IconButton>
                               </Box>
                             </Box>
 
                             {pasta && (
-                              <Chip label={pasta.nome} size="small" sx={{ alignSelf: 'flex-start', background: 'rgba(255,255,255,0.05)', color: 'var(--text-secondary)' }} />
+                              <Chip
+                                label={pasta.nome}
+                                size="small"
+                                sx={{
+                                  alignSelf: 'flex-start',
+                                  background: 'rgba(255,255,255,0.05)',
+                                  color: 'var(--text-secondary)',
+                                }}
+                              />
                             )}
 
-                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, minHeight: 32 }}>
+                            <Box
+                              sx={{
+                                display: 'flex',
+                                flexWrap: 'wrap',
+                                gap: 0.75,
+                                minHeight: 32,
+                              }}
+                            >
                               {formatarTags(musica.tags).length === 0 ? (
-                                <Typography sx={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>
+                                <Typography
+                                  sx={{
+                                    color: 'var(--text-muted)',
+                                    fontSize: '0.75rem',
+                                  }}
+                                >
                                   Sem tags
                                 </Typography>
                               ) : (
                                 formatarTags(musica.tags).map(tag => (
-                                  <Chip key={`${musica.id}-${tag}`} label={tag} size="small" sx={{ background: 'rgba(184,60,53,0.12)', color: 'var(--text-secondary)' }} />
+                                  <Chip
+                                    key={`${musica.id}-${tag}`}
+                                    label={tag}
+                                    size="small"
+                                    sx={{
+                                      background: 'rgba(184,60,53,0.12)',
+                                      color: 'var(--text-secondary)',
+                                    }}
+                                  />
                                 ))
                               )}
                             </Box>
@@ -1654,21 +2454,60 @@ const Musicas = () => {
                   </Box>
                 )
               ) : playlists.length === 0 ? (
-                <Box sx={{ p: 3, border: '1px dashed rgba(255,255,255,0.12)', borderRadius: 3, textAlign: 'center', color: 'var(--text-secondary)', display: 'grid', gap: 1.5, justifyItems: 'center' }}>
-                  <Typography sx={{ fontWeight: 700, color: 'var(--text-primary)' }}>Você ainda não criou nenhuma playlist.</Typography>
+                <Box
+                  sx={{
+                    p: 3,
+                    border: '1px dashed rgba(255,255,255,0.12)',
+                    borderRadius: 3,
+                    textAlign: 'center',
+                    color: 'var(--text-secondary)',
+                    display: 'grid',
+                    gap: 1.5,
+                    justifyItems: 'center',
+                  }}
+                >
+                  <Typography
+                    sx={{ fontWeight: 700, color: 'var(--text-primary)' }}
+                  >
+                    Você ainda não criou nenhuma playlist.
+                  </Typography>
                   <Button
                     variant="contained"
                     startIcon={<AddOutlinedIcon />}
-                    onClick={() => setPlaylistDialog({ open: true, initialValues: null })}
-                    sx={{ borderRadius: 2, background: 'linear-gradient(135deg, rgba(184,60,53,0.78), rgba(130,30,30,0.9))', fontWeight: 800 }}
+                    onClick={() =>
+                      setPlaylistDialog({ open: true, initialValues: null })
+                    }
+                    sx={{
+                      borderRadius: 2,
+                      background:
+                        'linear-gradient(135deg, rgba(184,60,53,0.78), rgba(130,30,30,0.9))',
+                      fontWeight: 800,
+                    }}
                   >
                     Criar playlist
                   </Button>
                 </Box>
               ) : playlistsFiltradas.length === 0 ? (
-                <Box sx={{ p: 3, border: '1px dashed rgba(255,255,255,0.12)', borderRadius: 3, textAlign: 'center', color: 'var(--text-secondary)', display: 'grid', gap: 1.5, justifyItems: 'center' }}>
-                  <Typography sx={{ fontWeight: 700, color: 'var(--text-primary)' }}>Nenhuma playlist encontrada.</Typography>
-                  <Typography variant="body2">Tente outro termo na busca ou volte para todas as playlists.</Typography>
+                <Box
+                  sx={{
+                    p: 3,
+                    border: '1px dashed rgba(255,255,255,0.12)',
+                    borderRadius: 3,
+                    textAlign: 'center',
+                    color: 'var(--text-secondary)',
+                    display: 'grid',
+                    gap: 1.5,
+                    justifyItems: 'center',
+                  }}
+                >
+                  <Typography
+                    sx={{ fontWeight: 700, color: 'var(--text-primary)' }}
+                  >
+                    Nenhuma playlist encontrada.
+                  </Typography>
+                  <Typography variant="body2">
+                    Tente outro termo na busca ou volte para todas as playlists.
+                  </Typography>
                   <Button
                     variant="text"
                     onClick={() => {
@@ -1696,12 +2535,24 @@ const Musicas = () => {
                   }}
                 >
                   {playlistsFiltradas.map(playlist => {
-                    const capaPlaylist = playlist.linkImagem || (() => {
-                      const primeiraMusicaId = Array.isArray(playlist.musicas) && playlist.musicas.length > 0 ? playlist.musicas[0]?.musicaId : null;
-                      if (!primeiraMusicaId) return null;
-                      const musica = musicas.find(item => item.id === primeiraMusicaId);
-                      return musica ? buildThumbnail(getUrlVideoId(musica.url) || musica.videoId) : null;
-                    })();
+                    const capaPlaylist =
+                      playlist.linkImagem ||
+                      (() => {
+                        const primeiraMusicaId =
+                          Array.isArray(playlist.musicas) &&
+                          playlist.musicas.length > 0
+                            ? playlist.musicas[0]?.musicaId
+                            : null;
+                        if (!primeiraMusicaId) return null;
+                        const musica = musicas.find(
+                          item => item.id === primeiraMusicaId,
+                        );
+                        return musica
+                          ? buildThumbnail(
+                              getUrlVideoId(musica.url) || musica.videoId,
+                            )
+                          : null;
+                      })();
 
                     return (
                       <Card
@@ -1716,53 +2567,178 @@ const Musicas = () => {
                           flexDirection: 'column',
                         }}
                       >
-                        <Box sx={{ p: 1.5, display: 'flex', flexDirection: 'column', gap: 1.2, height: '100%', minHeight: 0 }}>
+                        <Box
+                          sx={{
+                            p: 1.5,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 1.2,
+                            height: '100%',
+                            minHeight: 0,
+                          }}
+                        >
                           <Box sx={{ position: 'relative', width: '100%' }}>
                             {capaPlaylist ? (
                               <Box
                                 component="img"
                                 src={capaPlaylist}
                                 alt={playlist.nome}
-                                sx={{ width: '100%', height: { xs: 170, sm: 150, md: 138 }, borderRadius: 2, objectFit: 'cover', display: 'block', border: '1px solid rgba(255,255,255,0.06)' }}
+                                sx={{
+                                  width: '100%',
+                                  height: { xs: 170, sm: 150, md: 138 },
+                                  borderRadius: 2,
+                                  objectFit: 'cover',
+                                  display: 'block',
+                                  border: '1px solid rgba(255,255,255,0.06)',
+                                }}
                               />
                             ) : (
-                              <Box sx={{ width: '100%', height: { xs: 170, sm: 150, md: 138 }, borderRadius: 2, border: '1px solid rgba(255,255,255,0.06)', background: 'linear-gradient(135deg, rgba(184,60,53,0.22), rgba(17,19,23,0.9))', display: 'grid', placeItems: 'center', color: 'var(--text-secondary)', fontWeight: 700, fontSize: '0.72rem' }}>
+                              <Box
+                                sx={{
+                                  width: '100%',
+                                  height: { xs: 170, sm: 150, md: 138 },
+                                  borderRadius: 2,
+                                  border: '1px solid rgba(255,255,255,0.06)',
+                                  background:
+                                    'linear-gradient(135deg, rgba(184,60,53,0.22), rgba(17,19,23,0.9))',
+                                  display: 'grid',
+                                  placeItems: 'center',
+                                  color: 'var(--text-secondary)',
+                                  fontWeight: 700,
+                                  fontSize: '0.72rem',
+                                }}
+                              >
                                 Sem capa
                               </Box>
                             )}
-                            <Box sx={{ position: 'absolute', inset: 'auto 10px 10px 10px', display: 'flex', justifyContent: 'flex-end' }}>
-                              <Box sx={{ background: 'rgba(0,0,0,0.55)', color: '#fff', borderRadius: 999, px: 1, py: 0.35, fontSize: '0.72rem' }}>
+                            <Box
+                              sx={{
+                                position: 'absolute',
+                                inset: 'auto 10px 10px 10px',
+                                display: 'flex',
+                                justifyContent: 'flex-end',
+                              }}
+                            >
+                              <Box
+                                sx={{
+                                  background: 'rgba(0,0,0,0.55)',
+                                  color: '#fff',
+                                  borderRadius: 999,
+                                  px: 1,
+                                  py: 0.35,
+                                  fontSize: '0.72rem',
+                                }}
+                              >
                                 YouTube
                               </Box>
                             </Box>
                           </Box>
 
-                          <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1, minWidth: 0 }}>
-                            <Typography variant="subtitle1" sx={{ fontWeight: 700, lineHeight: 1.25, color: 'var(--text-primary)', flex: 1, minWidth: 0 }}>
+                          <Box
+                            sx={{
+                              display: 'flex',
+                              alignItems: 'flex-start',
+                              justifyContent: 'space-between',
+                              gap: 1,
+                              minWidth: 0,
+                            }}
+                          >
+                            <Typography
+                              variant="subtitle1"
+                              sx={{
+                                fontWeight: 700,
+                                lineHeight: 1.25,
+                                color: 'var(--text-primary)',
+                                flex: 1,
+                                minWidth: 0,
+                              }}
+                            >
                               {playlist.nome}
                             </Typography>
-                            <Box sx={{ display: 'flex', gap: 0.5, flexShrink: 0 }}>
-                              <IconButton aria-label={`Gerenciar playlist ${playlist.nome}`} size="small" onClick={() => setPlaylistManager({ open: true, playlist })} sx={{ background: 'rgba(255,255,255,0.04)' }}>
+                            <Box
+                              sx={{ display: 'flex', gap: 0.5, flexShrink: 0 }}
+                            >
+                              <IconButton
+                                aria-label={`Gerenciar playlist ${playlist.nome}`}
+                                size="small"
+                                onClick={() =>
+                                  setPlaylistManager({ open: true, playlist })
+                                }
+                                sx={{ background: 'rgba(255,255,255,0.04)' }}
+                              >
                                 <LibraryMusicOutlinedIcon fontSize="small" />
                               </IconButton>
-                              <IconButton aria-label={`Editar playlist ${playlist.nome}`} size="small" onClick={() => setPlaylistDialog({ open: true, initialValues: playlist })} sx={{ background: 'rgba(255,255,255,0.04)' }}>
+                              <IconButton
+                                aria-label={`Editar playlist ${playlist.nome}`}
+                                size="small"
+                                onClick={() =>
+                                  setPlaylistDialog({
+                                    open: true,
+                                    initialValues: playlist,
+                                  })
+                                }
+                                sx={{ background: 'rgba(255,255,255,0.04)' }}
+                              >
                                 <EditOutlinedIcon fontSize="small" />
                               </IconButton>
-                              <IconButton aria-label={`Excluir playlist ${playlist.nome}`} size="small" onClick={() => handleDeletePlaylist(playlist.id)} sx={{ background: 'rgba(244,160,160,0.08)', color: '#f8b0b0' }}>
+                              <IconButton
+                                aria-label={`Excluir playlist ${playlist.nome}`}
+                                size="small"
+                                onClick={() =>
+                                  handleDeletePlaylist(playlist.id)
+                                }
+                                sx={{
+                                  background: 'rgba(244,160,160,0.08)',
+                                  color: '#f8b0b0',
+                                }}
+                              >
                                 <DeleteOutlineOutlinedIcon fontSize="small" />
                               </IconButton>
                             </Box>
                           </Box>
 
                           {playlist.descricao ? (
-                            <Typography sx={{ color: 'var(--text-secondary)', minHeight: 42, lineHeight: 1.5, fontSize: '0.82rem' }}>
+                            <Typography
+                              sx={{
+                                color: 'var(--text-secondary)',
+                                minHeight: 42,
+                                lineHeight: 1.5,
+                                fontSize: '0.82rem',
+                              }}
+                            >
                               {playlist.descricao}
                             </Typography>
                           ) : null}
 
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 'auto', gap: 1 }}>
-                            <Chip label={`${Array.isArray(playlist.musicas) ? playlist.musicas.length : 0} músicas`} size="small" sx={{ background: 'rgba(184,60,53,0.12)', color: 'var(--text-secondary)', border: '1px solid rgba(184,60,53,0.16)' }} />
-                            <Button size="small" onClick={() => setPlaylistManager({ open: true, playlist })} sx={{ color: 'var(--color-accent)', fontWeight: 700, minWidth: 0 }}>
+                          <Box
+                            sx={{
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              mt: 'auto',
+                              gap: 1,
+                            }}
+                          >
+                            <Chip
+                              label={`${Array.isArray(playlist.musicas) ? playlist.musicas.length : 0} músicas`}
+                              size="small"
+                              sx={{
+                                background: 'rgba(184,60,53,0.12)',
+                                color: 'var(--text-secondary)',
+                                border: '1px solid rgba(184,60,53,0.16)',
+                              }}
+                            />
+                            <Button
+                              size="small"
+                              onClick={() =>
+                                setPlaylistManager({ open: true, playlist })
+                              }
+                              sx={{
+                                color: 'var(--color-accent)',
+                                fontWeight: 700,
+                                minWidth: 0,
+                              }}
+                            >
                               Gerenciar
                             </Button>
                           </Box>
@@ -1818,8 +2794,13 @@ const Musicas = () => {
               },
             }}
           >
-            <ContentCopyOutlinedIcon fontSize="small" sx={{ color: 'var(--text-secondary)' }} />
-            <Typography variant="body2" sx={{ fontWeight: 500 }}>Copiar link do YouTube</Typography>
+            <ContentCopyOutlinedIcon
+              fontSize="small"
+              sx={{ color: 'var(--text-secondary)' }}
+            />
+            <Typography variant="body2" sx={{ fontWeight: 500 }}>
+              Copiar link do YouTube
+            </Typography>
           </Box>
         </Box>
       ) : null}
@@ -1828,9 +2809,18 @@ const Musicas = () => {
         open={copyFeedback.open}
         autoHideDuration={2200}
         onClose={() => setCopyFeedback({ open: false, message: '' })}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+        sx={{ mt: { xs: 1, sm: 2 }, mr: { xs: 1, sm: 2 } }}
       >
-        <Alert severity={copyFeedback.message === 'Link do YouTube copiado!' ? 'success' : 'info'} variant="filled" sx={{ width: '100%' }}>
+        <Alert
+          severity={
+            copyFeedback.message === 'Link do YouTube copiado!'
+              ? 'success'
+              : 'info'
+          }
+          variant="filled"
+          sx={{ width: '100%' }}
+        >
           {copyFeedback.message}
         </Alert>
       </Snackbar>
@@ -1841,7 +2831,9 @@ const Musicas = () => {
         isEditing={Boolean(musicDialog.editingId)}
         initialValues={musicDialog.initialValues}
         pastas={pastas}
-        onClose={() => setMusicDialog({ open: false, initialValues: null, editingId: null })}
+        onClose={() =>
+          setMusicDialog({ open: false, initialValues: null, editingId: null })
+        }
         onSubmit={handleSaveMusica}
       />
 
@@ -1850,7 +2842,14 @@ const Musicas = () => {
         open={pastaDialog.open}
         title={pastaDialog.mode === 'rename' ? 'Renomear pasta' : 'Nova pasta'}
         initialValue={pastaDialog.value}
-        onClose={() => setPastaDialog({ open: false, mode: 'create', value: '', targetId: null })}
+        onClose={() =>
+          setPastaDialog({
+            open: false,
+            mode: 'create',
+            value: '',
+            targetId: null,
+          })
+        }
         onSubmit={handleSavePasta}
       />
 
@@ -1867,7 +2866,9 @@ const Musicas = () => {
           'playlist-manager',
           playlistManager.playlist?.id ?? 'new',
           Array.isArray(playlistManager.playlist?.musicas)
-            ? playlistManager.playlist.musicas.map(item => item?.musicaId ?? '').join(',')
+            ? playlistManager.playlist.musicas
+                .map(item => item?.musicaId ?? '')
+                .join(',')
             : 'empty',
           playlistManager.open ? 'open' : 'closed',
         ].join('-')}
@@ -1902,25 +2903,44 @@ const Musicas = () => {
         <DialogContent sx={{ color: 'var(--text-secondary)' }}>
           {confirmDelete.type === 'musica' && (
             <Typography sx={{ color: 'var(--text-secondary)' }}>
-              Deseja remover <strong style={{ color: 'var(--text-primary)' }}>{confirmDelete.item?.nome}</strong> da biblioteca? Esta ação não pode ser desfeita.
+              Deseja remover{' '}
+              <strong style={{ color: 'var(--text-primary)' }}>
+                {confirmDelete.item?.nome}
+              </strong>{' '}
+              da biblioteca? Esta ação não pode ser desfeita.
             </Typography>
           )}
           {confirmDelete.type === 'pasta' && (
             <Typography sx={{ color: 'var(--text-secondary)' }}>
-              Excluir <strong style={{ color: 'var(--text-primary)' }}>{confirmDelete.item?.nome}</strong> também removerá o vínculo das músicas desta pasta.
+              Excluir{' '}
+              <strong style={{ color: 'var(--text-primary)' }}>
+                {confirmDelete.item?.nome}
+              </strong>{' '}
+              também removerá o vínculo das músicas desta pasta.
             </Typography>
           )}
           {confirmDelete.type === 'playlist' && (
             <Typography sx={{ color: 'var(--text-secondary)' }}>
-              Deseja excluir a playlist <strong style={{ color: 'var(--text-primary)' }}>{confirmDelete.item?.nome}</strong>? Esta ação não pode ser desfeita.
+              Deseja excluir a playlist{' '}
+              <strong style={{ color: 'var(--text-primary)' }}>
+                {confirmDelete.item?.nome}
+              </strong>
+              ? Esta ação não pode ser desfeita.
             </Typography>
           )}
         </DialogContent>
         <DialogActions sx={{ px: 3, py: 2 }}>
-          <Button onClick={closeConfirmDelete} sx={{ color: 'var(--text-secondary)' }}>
+          <Button
+            onClick={closeConfirmDelete}
+            sx={{ color: 'var(--text-secondary)' }}
+          >
             Cancelar
           </Button>
-          <Button variant="contained" color="error" onClick={handleConfirmDelete}>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={handleConfirmDelete}
+          >
             Excluir
           </Button>
         </DialogActions>
