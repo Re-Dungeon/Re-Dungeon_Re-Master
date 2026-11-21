@@ -96,6 +96,12 @@ describe('tipos personalizados', () => {
       getEntityTypeOptions([], [{ tipo: 'Divindade' }, { tipo: 'Reino' }]),
     ).toEqual(['Divindade', 'Reino']);
     expect(getEntityTypeOptions([], [])).toEqual([]);
+    expect(
+      getEntityTypeOptions(
+        [],
+        [{ tipo: 'Divindade' }, { tipo: 'Criatura' }, { tipo: 'Criatura' }],
+      ),
+    ).toEqual(['Criatura', 'Divindade']);
     expect(LEGACY_ENTITY_TYPES).toContain('Divindade');
   });
 
