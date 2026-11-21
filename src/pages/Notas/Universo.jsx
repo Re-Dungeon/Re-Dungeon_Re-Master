@@ -17,11 +17,12 @@ import { ROUTE_PATHS } from 'common/constants/routes';
 import useUniversos from 'hooks/useUniversos';
 import { useCampanha } from 'context/CampanhaContext';
 import { useAuth } from 'context/AuthContext';
+import { getRmNotasPorCampanha } from 'service/storage';
 import {
-  getRmNotasPorCampanha,
-  getRmTiposEntidadePorUniverso,
-} from 'service/storage';
-import { normalizarNotaEntidade, normalizeEntityTypeValue } from './notaUtils';
+  getEntityTypeOptions,
+  matchEntityType,
+  normalizarNotaEntidade,
+} from './notaUtils';
 
 const Notas = () => {
   const navigate = useNavigate();
@@ -29,7 +30,6 @@ const Notas = () => {
   const { campanhaAtiva } = useCampanha();
   const { universos, loadingUniversos } = useUniversos();
   const [entidades, setEntidades] = useState([]);
-  const [tipos, setTipos] = useState([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState(null);
   const [pesquisa, setPesquisa] = useState('');
@@ -55,7 +55,6 @@ const Notas = () => {
       if (!mestreId || !universoId || !campanhaId) {
         if (ativo) {
           setEntidades([]);
-          setTipos([]);
           setErro(null);
           setCarregando(false);
         }
@@ -66,10 +65,11 @@ const Notas = () => {
       setErro(null);
 
       try {
-        const [notas, tiposSalvos] = await Promise.all([
-          getRmNotasPorCampanha(campanhaId, universoId, mestreId),
-          getRmTiposEntidadePorUniverso(universoId, mestreId),
-        ]);
+        const notas = await getRmNotasPorCampanha(
+          campanhaId,
+          universoId,
+          mestreId,
+        );
 
         if (!ativo) return;
         setEntidades(
@@ -77,11 +77,9 @@ const Notas = () => {
             .map(normalizarEntidade)
             .filter(Boolean),
         );
-        setTipos(Array.isArray(tiposSalvos) ? tiposSalvos : []);
       } catch (erroCarregamento) {
         if (!ativo) return;
         setEntidades([]);
-        setTipos([]);
         setErro(erroCarregamento);
       } finally {
         if (ativo) setCarregando(false);
@@ -89,27 +87,40 @@ const Notas = () => {
     };
 
     carregarDadosAntigos();
+
+    const recarregarAoVoltar = () => {
+      if (document.visibilityState === 'visible') carregarDadosAntigos();
+    };
+
+    window.addEventListener('focus', recarregarAoVoltar);
+    document.addEventListener('visibilitychange', recarregarAoVoltar);
+
     return () => {
       ativo = false;
+      window.removeEventListener('focus', recarregarAoVoltar);
+      document.removeEventListener('visibilitychange', recarregarAoVoltar);
     };
   }, [campanhaAtiva?.id, campanhaAtiva?.universoId, currentUser?.uid]);
 
   const tiposDisponiveis = useMemo(() => {
-    const nomes = new Set();
-    tipos.forEach(tipo => {
-      const nome = normalizeEntityTypeValue(
-        tipo?.name ?? tipo?.nome ?? tipo?.Nome,
-      );
-      if (nome) nomes.add(nome);
-    });
-    entidades.forEach(entidade => nomes.add(entidade.tipo));
-    return ['Todos', ...[...nomes].sort((a, b) => a.localeCompare(b, 'pt-BR'))];
-  }, [entidades, tipos]);
+    const nomes = getEntityTypeOptions([], entidades);
+    return ['Todos', ...nomes];
+  }, [entidades]);
+
+  const tipoAtivoEfetivo =
+    tipoAtivo === 'Todos' ||
+    entidades.some(entidade => matchEntityType(entidade.tipo, tipoAtivo))
+      ? tipoAtivo
+      : 'Todos';
 
   const entidadesFiltradas = useMemo(() => {
     const termo = pesquisa.trim().toLowerCase();
     return entidades
-      .filter(entidade => tipoAtivo === 'Todos' || entidade.tipo === tipoAtivo)
+      .filter(
+        entidade =>
+          tipoAtivoEfetivo === 'Todos' ||
+          matchEntityType(entidade.tipo, tipoAtivoEfetivo),
+      )
       .filter(entidade => {
         if (!termo) return true;
         const texto =
@@ -117,7 +128,7 @@ const Notas = () => {
         return texto.includes(termo);
       })
       .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
-  }, [entidades, pesquisa, tipoAtivo]);
+  }, [entidades, pesquisa, tipoAtivoEfetivo]);
 
   const nomeUniverso =
     primeiroValorUniverso(universoAtivo, [
@@ -434,14 +445,17 @@ const Notas = () => {
               key={tipo}
               label={tipo}
               onClick={() => setTipoAtivo(tipo)}
-              variant={tipoAtivo === tipo ? 'filled' : 'outlined'}
+              variant={tipoAtivoEfetivo === tipo ? 'filled' : 'outlined'}
               sx={{
                 borderRadius: '999px',
                 background:
-                  tipoAtivo === tipo
+                  tipoAtivoEfetivo === tipo
                     ? 'rgba(177,53,53,0.16)'
                     : 'rgba(255,255,255,0.01)',
-                color: tipoAtivo === tipo ? '#f4dada' : 'var(--text-secondary)',
+                color:
+                  tipoAtivoEfetivo === tipo
+                    ? '#f4dada'
+                    : 'var(--text-secondary)',
                 borderColor: 'rgba(255,255,255,0.1)',
               }}
             />
@@ -525,12 +539,7 @@ const Notas = () => {
               role="button"
               tabIndex={0}
               aria-label={`Abrir entidade ${entidade.nome}`}
-              onDoubleClick={() => navigate(`/universo/${entidade.id}`)}
-              onClick={() => {
-                if (window.matchMedia('(pointer: coarse)').matches) {
-                  navigate(`/universo/${entidade.id}`);
-                }
-              }}
+              onClick={() => navigate(`/universo/${entidade.id}`)}
               onKeyDown={event => {
                 if (event.key === 'Enter' || event.key === ' ') {
                   event.preventDefault();
@@ -644,12 +653,7 @@ const Notas = () => {
               role="button"
               tabIndex={0}
               aria-label={`Abrir entidade ${entidade.nome}`}
-              onDoubleClick={() => navigate(`/universo/${entidade.id}`)}
-              onClick={() => {
-                if (window.matchMedia('(pointer: coarse)').matches) {
-                  navigate(`/universo/${entidade.id}`);
-                }
-              }}
+              onClick={() => navigate(`/universo/${entidade.id}`)}
               onKeyDown={event => {
                 if (event.key === 'Enter' || event.key === ' ') {
                   event.preventDefault();
